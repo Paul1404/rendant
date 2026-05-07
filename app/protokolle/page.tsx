@@ -29,8 +29,15 @@ export default async function ProtokolleListPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-xl font-semibold">Kassenzaehlprotokolle</h1>
+      <div className="flex items-end justify-between flex-wrap gap-3 border-b border-slate-200 pb-4">
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-slate-500">
+            Buchhaltung
+          </p>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">
+            Kassenzählprotokolle
+          </h1>
+        </div>
         <div className="flex gap-2">
           <Link href="/protokolle/export">
             <Button variant="outline" size="sm">
@@ -47,44 +54,51 @@ export default async function ProtokolleListPage({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-sm">
-        <Link
-          href="/protokolle"
-          className={
-            includeStorniert
-              ? "text-neutral-500 hover:underline"
-              : "font-medium underline"
-          }
-        >
-          Aktive
-        </Link>
-        <span className="text-neutral-400">|</span>
-        <Link
-          href="/protokolle?storno=true"
-          className={
-            includeStorniert
-              ? "font-medium underline"
-              : "text-neutral-500 hover:underline"
-          }
-        >
-          Mit stornierten
-        </Link>
+      <div className="flex items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/protokolle"
+            className={
+              includeStorniert
+                ? "text-slate-500 hover:text-slate-900"
+                : "font-medium text-slate-900 underline underline-offset-4"
+            }
+          >
+            Aktive
+          </Link>
+          <span className="h-3 w-px bg-slate-300" aria-hidden />
+          <Link
+            href="/protokolle?storno=true"
+            className={
+              includeStorniert
+                ? "font-medium text-slate-900 underline underline-offset-4"
+                : "text-slate-500 hover:text-slate-900"
+            }
+          >
+            Mit stornierten
+          </Link>
+        </div>
+        {items.length > 0 ? (
+          <span className="tabular-nums text-slate-500">
+            {items.length} {items.length === 1 ? "Eintrag" : "Einträge"}
+          </span>
+        ) : null}
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-md border border-dashed p-8 text-center text-neutral-500">
+        <div className="rounded-md border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
           Noch keine Protokolle erfasst.
         </div>
       ) : (
-        <div className="rounded-md border bg-white overflow-hidden">
+        <div className="rounded-md border border-slate-200 bg-white overflow-hidden">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-slate-50">
               <TableRow>
-                <TableHead>Belegnummer</TableHead>
-                <TableHead>Datum</TableHead>
-                <TableHead>Anlass</TableHead>
-                <TableHead className="text-right">Tageseinnahmen</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider text-slate-500">Belegnummer</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider text-slate-500">Datum</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider text-slate-500">Anlass</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider text-slate-500 text-right">Tageseinnahmen</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider text-slate-500">Status</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>

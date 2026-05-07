@@ -48,7 +48,7 @@ export default async function ProtokollDetailPage({
           <h1 className="text-xl font-semibold font-mono">
             {protokoll.belegnummer}
           </h1>
-          <p className="text-sm text-neutral-600">
+          <p className="text-sm text-slate-600">
             Erstellt am {formatDateTimeDe(protokoll.erstellt_am)}
           </p>
         </div>
@@ -99,8 +99,8 @@ export default async function ProtokollDetailPage({
         <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <KV label="Anlass" value={protokoll.anlass} />
           <KV label="Datum" value={formatDateDe(protokoll.erstellt_am)} />
-          <KV label="Gezaehlt von" value={protokoll.gezaehlt_von} />
-          <KV label="Geprueft von" value={protokoll.geprueft_von} />
+          <KV label="Gezählt von" value={protokoll.gezaehlt_von} />
+          <KV label="Geprüft von" value={protokoll.geprueft_von} />
           {protokoll.bemerkung ? (
             <div className="sm:col-span-2">
               <KV label="Bemerkung" value={protokoll.bemerkung} />
@@ -111,7 +111,7 @@ export default async function ProtokollDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Stueckelung</CardTitle>
+          <CardTitle>Stückelung</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
@@ -146,9 +146,9 @@ export default async function ProtokollDetailPage({
           <Separator className="my-3" />
           <div className="text-sm flex flex-col gap-1">
             <SumRow label="Zwischensumme Scheine" cent={sumScheine} />
-            <SumRow label="Zwischensumme Muenzen" cent={sumMuenzen} />
+            <SumRow label="Zwischensumme Münzen" cent={sumMuenzen} />
             <SumRow
-              label="Gezaehlter Endbestand"
+              label="Gezählter Endbestand"
               cent={protokoll.gezaehlt_cent}
               bold
             />
@@ -166,7 +166,7 @@ export default async function ProtokollDetailPage({
               <TableHeader>
                 <TableRow>
                   <TableHead>Bezeichnung</TableHead>
-                  <TableHead>Empfaenger</TableHead>
+                  <TableHead>Empfänger</TableHead>
                   <TableHead>Beleg-Nr.</TableHead>
                   <TableHead className="text-right">Betrag</TableHead>
                 </TableRow>
@@ -204,7 +204,7 @@ export default async function ProtokollDetailPage({
             cent={protokoll.wechselgeld_cent}
           />
           <SumRow
-            label="Gezaehlter Endbestand"
+            label="Gezählter Endbestand"
             cent={protokoll.gezaehlt_cent}
           />
           <SumRow
@@ -228,7 +228,7 @@ export default async function ProtokollDetailPage({
       {protokoll.pdf_sha256 ? (
         <Card>
           <CardHeader>
-            <CardTitle>Pruefsumme</CardTitle>
+            <CardTitle>Prüfsumme</CardTitle>
           </CardHeader>
           <CardContent className="text-xs space-y-1 font-mono break-all">
             <p>SHA256: {protokoll.pdf_sha256}</p>
@@ -245,7 +245,7 @@ export default async function ProtokollDetailPage({
 function KV({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs text-neutral-500 uppercase tracking-wide">
+      <p className="text-xs text-slate-500 uppercase tracking-wide">
         {label}
       </p>
       <p className="mt-0.5 whitespace-pre-wrap">{value}</p>

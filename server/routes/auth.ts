@@ -20,7 +20,7 @@ authRoutes.post("/login", loginRateLimit, async (c) => {
     body = await c.req.json();
   } catch {
     await recordLoginAttempt(ip, false);
-    return c.json({ error: "Ungueltiger Request" }, 400);
+    return c.json({ error: "Ungültiger Request" }, 400);
   }
   const parsed = LoginSchema.safeParse(body);
   if (!parsed.success) {
