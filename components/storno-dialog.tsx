@@ -81,7 +81,7 @@ export function StornoDialog({ protokollId }: { protokollId: string }) {
             maxLength={500}
             placeholder="z.B. Falsche Anzahl 50 EUR Scheine erfasst"
           />
-          <p className="text-xs text-neutral-500">
+          <p className="text-xs text-slate-500">
             Mindestens 5 Zeichen, maximal 500.
           </p>
         </div>

@@ -48,7 +48,7 @@ export default async function ProtokollDetailPage({
           <h1 className="text-xl font-semibold font-mono">
             {protokoll.belegnummer}
           </h1>
-          <p className="text-sm text-neutral-600">
+          <p className="text-sm text-slate-600">
             Erstellt am {formatDateTimeDe(protokoll.erstellt_am)}
           </p>
         </div>
@@ -245,7 +245,7 @@ export default async function ProtokollDetailPage({
 function KV({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs text-neutral-500 uppercase tracking-wide">
+      <p className="text-xs text-slate-500 uppercase tracking-wide">
         {label}
       </p>
       <p className="mt-0.5 whitespace-pre-wrap">{value}</p>

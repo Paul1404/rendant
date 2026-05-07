@@ -183,7 +183,7 @@ export function ProtokollForm({
               <Input
                 value={belegnummerPreview}
                 readOnly
-                className="font-mono bg-neutral-100"
+                className="font-mono bg-slate-100"
               />
             </div>
             <div className="space-y-2">
@@ -191,7 +191,7 @@ export function ProtokollForm({
               <Input
                 value={formatDateDe(heute)}
                 readOnly
-                className="bg-neutral-100"
+                className="bg-slate-100"
               />
             </div>
           </div>
@@ -283,7 +283,7 @@ export function ProtokollForm({
         </CardHeader>
         <CardContent className="space-y-3">
           {ausgaben.length === 0 ? (
-            <p className="text-sm text-neutral-500">Keine Ausgaben erfasst.</p>
+            <p className="text-sm text-slate-500">Keine Ausgaben erfasst.</p>
           ) : (
             ausgaben.map((a, i) => (
               <div
@@ -435,7 +435,7 @@ function DenominationSection({
               onChange={(e) => setCount(d.key, e.target.value)}
               className="col-span-4 text-right tabular-nums"
             />
-            <span className="col-span-5 text-right font-mono tabular-nums text-neutral-600">
+            <span className="col-span-5 text-right font-mono tabular-nums text-slate-600">
               {formatCent(teil)}
             </span>
           </div>
