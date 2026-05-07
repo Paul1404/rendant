@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SVUFO Kassenzaehlprotokoll",
-  description: "Digitale Kassenzaehlprotokolle des SV 1945 Untereuerheim e.V.",
+  title: "SVUFO Kassenzählprotokoll",
+  description: "Digitale Kassenzählprotokolle des SV 1945 Untereuerheim e.V.",
   icons: {
     icon: [
       { url: "/favicon.svg", type: "image/svg+xml" },

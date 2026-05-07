@@ -35,7 +35,7 @@ export default async function ProtokolleListPage({
             Buchhaltung
           </p>
           <h1 className="text-xl font-semibold tracking-tight text-slate-900">
-            Kassenzaehlprotokolle
+            Kassenzählprotokolle
           </h1>
         </div>
         <div className="flex gap-2">
@@ -80,7 +80,7 @@ export default async function ProtokolleListPage({
         </div>
         {items.length > 0 ? (
           <span className="tabular-nums text-slate-500">
-            {items.length} {items.length === 1 ? "Eintrag" : "Eintraege"}
+            {items.length} {items.length === 1 ? "Eintrag" : "Einträge"}
           </span>
         ) : null}
       </div>

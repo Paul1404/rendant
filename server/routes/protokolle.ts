@@ -48,7 +48,7 @@ protokolleRoutes.get("/export", async (c) => {
     bis: c.req.query("bis"),
   });
   if (!parsed.success) {
-    return c.json({ error: "Ungueltige Parameter" }, 400);
+    return c.json({ error: "Ungültige Parameter" }, 400);
   }
   const csv = await exportCsv(parsed.data.von, parsed.data.bis);
   const filename = `svufo-export-${parsed.data.von}-${parsed.data.bis}.csv`;
@@ -66,7 +66,7 @@ protokolleRoutes.post("/", async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: "Ungueltiger Request" }, 400);
+    return c.json({ error: "Ungültiger Request" }, 400);
   }
   const parsed = CreateProtokollSchema.safeParse(body);
   if (!parsed.success) {
@@ -97,7 +97,7 @@ protokolleRoutes.post("/:id/storno", async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: "Ungueltiger Request" }, 400);
+    return c.json({ error: "Ungültiger Request" }, 400);
   }
   const parsed = StornoSchema.safeParse(body);
   if (!parsed.success) {
@@ -127,7 +127,7 @@ async function streamPdf(
   filename: string,
 ): Promise<Response> {
   if (!key) {
-    return Response.json({ error: "PDF nicht verfuegbar" }, { status: 404 });
+    return Response.json({ error: "PDF nicht verfügbar" }, { status: 404 });
   }
   const buffer = await downloadPdf(key);
   return new Response(new Uint8Array(buffer), {

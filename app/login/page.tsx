@@ -20,7 +20,7 @@ export default async function LoginPage({
             SV
           </span>
           <h1 className="text-xl font-semibold tracking-tight text-slate-900">
-            Kassenzaehlprotokoll
+            Kassenzählprotokoll
           </h1>
           <p className="text-xs uppercase tracking-wider text-slate-500 mt-1">
             {VEREINSNAME}
@@ -28,7 +28,7 @@ export default async function LoginPage({
         </div>
         <LoginForm redirectTo={from && from.startsWith("/") ? from : "/protokolle"} />
         <p className="text-center text-[11px] text-slate-400">
-          Interner Zugang &middot; nur fuer berechtigte Personen
+          Interner Zugang &middot; nur für berechtigte Personen
         </p>
       </div>
     </div>

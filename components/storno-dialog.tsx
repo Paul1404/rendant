@@ -34,7 +34,7 @@ export function StornoDialog({ protokollId }: { protokollId: string }) {
 
   function confirm() {
     if (trimmedLen < STORNO_MIN) {
-      toast.error(`Bitte mindestens ${STORNO_MIN} Zeichen Begruendung angeben`);
+      toast.error(`Bitte mindestens ${STORNO_MIN} Zeichen Begründung angeben`);
       return;
     }
     startTransition(async () => {
@@ -72,14 +72,14 @@ export function StornoDialog({ protokollId }: { protokollId: string }) {
         <AlertDialogHeader>
           <AlertDialogTitle>Beleg stornieren</AlertDialogTitle>
           <AlertDialogDescription>
-            Eine Stornierung kann nicht rueckgaengig gemacht werden. Der Beleg
-            bleibt aus Aufbewahrungsgruenden erhalten und wird als storniert
+            Eine Stornierung kann nicht rückgängig gemacht werden. Der Beleg
+            bleibt aus Aufbewahrungsgründen erhalten und wird als storniert
             markiert. Eine Korrektur erfolgt durch ein neues Protokoll.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label htmlFor="storno_grund">Begruendung</Label>
+            <Label htmlFor="storno_grund">Begründung</Label>
             <span
               className={
                 "text-[11px] tabular-nums " +

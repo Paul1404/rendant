@@ -124,11 +124,11 @@ export function ProtokollForm({
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!anlass.trim() || !gezaehltVon.trim() || !gepruefftVon.trim()) {
-      toast.error("Bitte alle Pflichtfelder ausfuellen");
+      toast.error("Bitte alle Pflichtfelder ausfüllen");
       return;
     }
     if (wechselgeldCent < 0) {
-      toast.error("Wechselgeld ist ungueltig");
+      toast.error("Wechselgeld ist ungültig");
       return;
     }
     const ausgabenPayload: Array<{
@@ -144,7 +144,7 @@ export function ProtokollForm({
       }
       const cent = parseGermanAmount(a.betrag_input);
       if (cent == null || cent < 0) {
-        toast.error("Ausgabe-Betrag ist ungueltig");
+        toast.error("Ausgabe-Betrag ist ungültig");
         return;
       }
       ausgabenPayload.push({
@@ -232,7 +232,7 @@ export function ProtokollForm({
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="gezaehlt_von">Gezaehlt von</Label>
+              <Label htmlFor="gezaehlt_von">Gezählt von</Label>
               <Input
                 id="gezaehlt_von"
                 value={gezaehltVon}
@@ -244,7 +244,7 @@ export function ProtokollForm({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="geprueft_von">Geprueft von</Label>
+              <Label htmlFor="geprueft_von">Geprüft von</Label>
               <Input
                 id="geprueft_von"
                 value={gepruefftVon}
@@ -277,7 +277,7 @@ export function ProtokollForm({
 
       <Card>
         <CardHeader>
-          <CardTitle>Stueckelung</CardTitle>
+          <CardTitle>Stückelung</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
@@ -290,7 +290,7 @@ export function ProtokollForm({
               />
             </div>
             <div>
-              <h3 className="font-medium mb-2">Muenzen</h3>
+              <h3 className="font-medium mb-2">Münzen</h3>
               <DenominationSection
                 kind="muenze"
                 counts={counts}
@@ -300,7 +300,7 @@ export function ProtokollForm({
           </div>
           <Separator className="my-4" />
           <div className="flex justify-between items-center text-sm">
-            <span className="font-medium">Summe gezaehlt</span>
+            <span className="font-medium">Summe gezählt</span>
             <span className="font-mono tabular-nums">
               {formatCent(gezaehltCent)}
             </span>
@@ -313,7 +313,7 @@ export function ProtokollForm({
           <CardTitle>Betriebliche Ausgaben</CardTitle>
           <Button type="button" variant="outline" size="sm" onClick={addAusgabe}>
             <Plus className="mr-2 h-4 w-4" />
-            Ausgabe hinzufuegen
+            Ausgabe hinzufügen
           </Button>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -341,7 +341,7 @@ export function ProtokollForm({
                     />
                   </div>
                   <div className="md:col-span-3 space-y-1">
-                    <Label htmlFor={`emp-${i}`}>Empfaenger</Label>
+                    <Label htmlFor={`emp-${i}`}>Empfänger</Label>
                     <Input
                       id={`emp-${i}`}
                       value={a.empfaenger}
@@ -414,7 +414,7 @@ export function ProtokollForm({
             </div>
           </div>
           <Separator className="my-2" />
-          <SummaryRow label="Gezaehlter Endbestand" cent={gezaehltCent} />
+          <SummaryRow label="Gezählter Endbestand" cent={gezaehltCent} />
           <SummaryRow
             label="Betriebliche Ausgaben"
             cent={ausgabenCent}

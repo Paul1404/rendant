@@ -11,7 +11,7 @@ export default function ExportPage() {
           CSV-Export
         </h1>
         <p className="text-sm text-slate-600 mt-1">
-          Export aller Protokolle eines Zeitraums fuer Steuerberater oder
+          Export aller Protokolle eines Zeitraums für Steuerberater oder
           DATEV. Trenner ist Semikolon, Betraege mit Dezimalkomma.
         </p>
       </div>
