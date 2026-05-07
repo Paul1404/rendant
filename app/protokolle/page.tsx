@@ -12,7 +12,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Download } from "lucide-react";
+import { ArrowUpRight, Plus, Download, Receipt } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -27,103 +29,155 @@ export default async function ProtokolleListPage({
   const includeStorniert = storno === "true";
   const items = await listProtokolle({ includeStorniert });
 
+  const aktiveCount = items.filter((p) => !p.storniert_am).length;
+  const sumAktiv = items
+    .filter((p) => !p.storniert_am)
+    .reduce((s, p) => s + p.tageseinnahmen_cent, 0);
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-end justify-between flex-wrap gap-3 border-b border-slate-200 pb-4">
-        <div>
-          <p className="text-[11px] uppercase tracking-wider text-slate-500">
-            Buchhaltung
-          </p>
-          <h1 className="text-xl font-semibold tracking-tight text-slate-900">
-            Kassenzählprotokolle
-          </h1>
-        </div>
-        <div className="flex gap-2">
-          <Link href="/protokolle/export">
-            <Button variant="outline" size="sm">
-              <Download className="mr-2 h-4 w-4" />
-              Export
-            </Button>
-          </Link>
-          <Link href="/protokolle/neu">
-            <Button size="sm">
-              <Plus className="mr-2 h-4 w-4" />
-              Neues Protokoll
-            </Button>
-          </Link>
-        </div>
+    <div className="space-y-8">
+      <PageHeader
+        eyebrow="Buchhaltung"
+        title="Kassenzählprotokolle"
+        description="Übersicht aller erfassten Kassenzählprotokolle. Für die Erstellung neuer Belege oder den CSV-Export für den Steuerberater."
+        actions={
+          <>
+            <Link href="/protokolle/export">
+              <Button variant="outline" size="sm">
+                <Download className="mr-2 h-4 w-4" />
+                Export
+              </Button>
+            </Link>
+            <Link href="/protokolle/neu">
+              <Button size="sm">
+                <Plus className="mr-2 h-4 w-4" />
+                Neues Protokoll
+              </Button>
+            </Link>
+          </>
+        }
+      />
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatCard
+          label="Aktive Belege"
+          value={String(aktiveCount)}
+          hint={
+            includeStorniert
+              ? `${items.length - aktiveCount} storniert ausgeblendet`
+              : "im aktuellen Filter"
+          }
+        />
+        <StatCard
+          label="Summe Tageseinnahmen"
+          value={formatCent(sumAktiv)}
+          hint="netto, ohne Stornos"
+          mono
+        />
+        <StatCard
+          label="Filter"
+          value={includeStorniert ? "Alle Belege" : "Nur aktive"}
+          hint={
+            includeStorniert
+              ? "inkl. stornierter Belege"
+              : "stornierte ausgeblendet"
+          }
+        />
       </div>
 
       <div className="flex items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/protokolle"
-            className={
-              includeStorniert
-                ? "text-slate-500 hover:text-slate-900"
-                : "font-medium text-slate-900 underline underline-offset-4"
-            }
-          >
+        <div className="inline-flex items-center gap-0 rounded-lg border border-border bg-background/60 p-0.5 shadow-sm">
+          <FilterTab href="/protokolle" active={!includeStorniert}>
             Aktive
-          </Link>
-          <span className="h-3 w-px bg-slate-300" aria-hidden />
-          <Link
-            href="/protokolle?storno=true"
-            className={
-              includeStorniert
-                ? "font-medium text-slate-900 underline underline-offset-4"
-                : "text-slate-500 hover:text-slate-900"
-            }
-          >
+          </FilterTab>
+          <FilterTab href="/protokolle?storno=true" active={includeStorniert}>
             Mit stornierten
-          </Link>
+          </FilterTab>
         </div>
         {items.length > 0 ? (
-          <span className="tabular-nums text-slate-500">
+          <span className="tabular-nums text-muted-foreground">
             {items.length} {items.length === 1 ? "Eintrag" : "Einträge"}
           </span>
         ) : null}
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-md border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
-          Noch keine Protokolle erfasst.
+        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-card/40 px-6 py-16 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Receipt className="h-6 w-6" />
+          </div>
+          <h2 className="text-base font-semibold text-foreground">
+            Noch keine Protokolle
+          </h2>
+          <p className="max-w-sm text-sm text-muted-foreground">
+            Lege das erste Kassenzählprotokoll an, um den Kassenbestand und die
+            Tageseinnahmen zu erfassen.
+          </p>
+          <Link href="/protokolle/neu" className="mt-2">
+            <Button size="sm">
+              <Plus className="mr-2 h-4 w-4" />
+              Neues Protokoll
+            </Button>
+          </Link>
         </div>
       ) : (
-        <div className="rounded-md border border-slate-200 bg-white overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm ring-1 ring-foreground/5">
           <Table>
-            <TableHeader className="bg-slate-50">
-              <TableRow>
-                <TableHead className="text-[11px] uppercase tracking-wider text-slate-500">Belegnummer</TableHead>
-                <TableHead className="text-[11px] uppercase tracking-wider text-slate-500">Datum</TableHead>
-                <TableHead className="text-[11px] uppercase tracking-wider text-slate-500">Anlass</TableHead>
-                <TableHead className="text-[11px] uppercase tracking-wider text-slate-500 text-right">Tageseinnahmen</TableHead>
-                <TableHead className="text-[11px] uppercase tracking-wider text-slate-500">Status</TableHead>
+            <TableHeader className="bg-muted/40">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Belegnummer
+                </TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Datum
+                </TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Anlass
+                </TableHead>
+                <TableHead className="text-right text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Tageseinnahmen
+                </TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Status
+                </TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {items.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-mono">{p.belegnummer}</TableCell>
-                  <TableCell>{formatDateDe(p.erstellt_am)}</TableCell>
-                  <TableCell>{p.anlass}</TableCell>
-                  <TableCell className="text-right tabular-nums">
+                <TableRow
+                  key={p.id}
+                  className="group transition-colors hover:bg-muted/30"
+                >
+                  <TableCell className="font-mono text-sm font-medium">
+                    {p.belegnummer}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {formatDateDe(p.erstellt_am)}
+                  </TableCell>
+                  <TableCell className="max-w-[260px] truncate text-sm">
+                    {p.anlass}
+                  </TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">
                     {formatCent(p.tageseinnahmen_cent)}
                   </TableCell>
                   <TableCell>
                     {p.storniert_am ? (
                       <Badge variant="destructive">storniert</Badge>
                     ) : (
-                      <Badge variant="secondary">aktiv</Badge>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-medium text-success">
+                        <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                        aktiv
+                      </span>
                     )}
                   </TableCell>
                   <TableCell className="text-right">
                     <Link
                       href={`/protokolle/${p.id}`}
-                      className="text-sm underline"
+                      className="inline-flex items-center gap-1 text-sm text-primary opacity-70 transition group-hover:opacity-100 hover:underline"
                     >
                       Anzeigen
+                      <ArrowUpRight className="h-3.5 w-3.5" />
                     </Link>
                   </TableCell>
                 </TableRow>
@@ -133,5 +187,60 @@ export default async function ProtokolleListPage({
         </div>
       )}
     </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  hint,
+  mono,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card/70 p-4 shadow-sm ring-1 ring-foreground/5">
+      <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+        {label}
+      </p>
+      <p
+        className={cn(
+          "mt-1 text-xl font-semibold text-foreground",
+          mono && "font-mono tabular-nums",
+        )}
+      >
+        {value}
+      </p>
+      {hint ? (
+        <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function FilterTab({
+  href,
+  active,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+        active
+          ? "bg-primary/10 text-primary"
+          : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {children}
+    </Link>
   );
 }

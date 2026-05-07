@@ -9,13 +9,15 @@ export default function ProtokolleLayout({
   return (
     <>
       <Header />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
         {children}
       </main>
-      <footer className="border-t border-slate-200 bg-white">
-        <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between text-[11px] text-slate-500">
-          <span>&copy; {new Date().getFullYear()} {VEREINSNAME}</span>
-          <span className="font-mono uppercase tracking-wider">
+      <footer className="mt-auto border-t border-border/70 bg-background/60 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-4 text-[11px] text-muted-foreground sm:px-6">
+          <span>
+            &copy; {new Date().getFullYear()} {VEREINSNAME}
+          </span>
+          <span className="font-mono uppercase tracking-[0.14em]">
             SVUFO &middot; Interne Anwendung
           </span>
         </div>

@@ -9,7 +9,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Plus, Trash2, Save } from "lucide-react";
+import {
+  Banknote,
+  Calculator,
+  Coins,
+  FileText,
+  Loader2,
+  Plus,
+  ReceiptText,
+  Save,
+  Trash2,
+} from "lucide-react";
 import {
   DENOMINATIONS,
   emptyCounts,
@@ -195,7 +205,10 @@ export function ProtokollForm({
     <form className="space-y-6" onSubmit={submit}>
       <Card>
         <CardHeader>
-          <CardTitle>Kopfdaten</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-primary" />
+            Kopfdaten
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -205,7 +218,7 @@ export function ProtokollForm({
                 value={belegnummerPreview}
                 readOnly
                 tabIndex={-1}
-                className="font-mono bg-slate-100"
+                className="font-mono bg-muted/60"
               />
             </div>
             <div className="space-y-2">
@@ -214,7 +227,7 @@ export function ProtokollForm({
                 value={formatDateDe(heute)}
                 readOnly
                 tabIndex={-1}
-                className="bg-slate-100"
+                className="bg-muted/60"
               />
             </div>
           </div>
@@ -259,7 +272,7 @@ export function ProtokollForm({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="bemerkung">Bemerkung</Label>
-              <span className="text-[11px] tabular-nums text-slate-400">
+              <span className="text-[11px] tabular-nums text-muted-foreground">
                 {bemerkung.length} / {BEMERKUNG_MAX}
               </span>
             </div>
@@ -277,12 +290,18 @@ export function ProtokollForm({
 
       <Card>
         <CardHeader>
-          <CardTitle>Stückelung</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Coins className="h-4 w-4 text-primary" />
+            Stückelung
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
+          <div className="grid grid-cols-1 gap-x-10 gap-y-4 md:grid-cols-2">
             <div>
-              <h3 className="font-medium mb-2">Scheine</h3>
+              <h3 className="mb-3 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                <Banknote className="h-3.5 w-3.5" />
+                Scheine
+              </h3>
               <DenominationSection
                 kind="schein"
                 counts={counts}
@@ -290,7 +309,10 @@ export function ProtokollForm({
               />
             </div>
             <div>
-              <h3 className="font-medium mb-2">Münzen</h3>
+              <h3 className="mb-3 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                <Coins className="h-3.5 w-3.5" />
+                Münzen
+              </h3>
               <DenominationSection
                 kind="muenze"
                 counts={counts}
@@ -299,7 +321,7 @@ export function ProtokollForm({
             </div>
           </div>
           <Separator className="my-4" />
-          <div className="flex justify-between items-center text-sm">
+          <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-sm">
             <span className="font-medium">Summe gezählt</span>
             <span className="font-mono tabular-nums">
               {formatCent(gezaehltCent)}
@@ -310,7 +332,10 @@ export function ProtokollForm({
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Betriebliche Ausgaben</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <ReceiptText className="h-4 w-4 text-primary" />
+            Betriebliche Ausgaben
+          </CardTitle>
           <Button type="button" variant="outline" size="sm" onClick={addAusgabe}>
             <Plus className="mr-2 h-4 w-4" />
             Ausgabe hinzufügen
@@ -318,14 +343,16 @@ export function ProtokollForm({
         </CardHeader>
         <CardContent className="space-y-3">
           {ausgaben.length === 0 ? (
-            <p className="text-sm text-slate-500">Keine Ausgaben erfasst.</p>
+            <p className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
+              Keine Ausgaben erfasst.
+            </p>
           ) : (
             ausgaben.map((a, i) => {
               const isLast = i === ausgaben.length - 1;
               return (
                 <div
                   key={i}
-                  className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start border rounded-md p-3"
+                  className="grid grid-cols-1 items-start gap-2 rounded-xl border border-border bg-muted/20 p-3 md:grid-cols-12"
                 >
                   <div className="md:col-span-4 space-y-1">
                     <Label htmlFor={`bez-${i}`}>Bezeichnung</Label>
@@ -396,7 +423,10 @@ export function ProtokollForm({
 
       <Card>
         <CardHeader>
-          <CardTitle>Zusammenfassung</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Calculator className="h-4 w-4 text-primary" />
+            Zusammenfassung
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -429,11 +459,15 @@ export function ProtokollForm({
             cent={wechselgeldCent < 0 ? null : wechselgeldCent}
           />
           <Separator />
-          <SummaryRow
-            label="Tageseinnahmen netto"
-            cent={tageseinnahmenCent}
-            highlight
-          />
+          <div className="flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3 ring-1 ring-primary/20">
+            <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <Banknote className="h-4 w-4 text-primary" />
+              Tageseinnahmen netto
+            </span>
+            <span className="font-mono text-base font-semibold tabular-nums text-primary">
+              {tageseinnahmenCent == null ? "-" : formatCent(tageseinnahmenCent)}
+            </span>
+          </div>
         </CardContent>
       </Card>
 
@@ -497,7 +531,7 @@ function DenominationSection({
             <span
               className={
                 "col-span-5 text-right font-mono tabular-nums " +
-                (isZero ? "text-slate-300" : "text-slate-600")
+                (isZero ? "text-muted-foreground/50" : "text-foreground/80")
               }
             >
               {isZero ? "—" : formatCent(teil)}
