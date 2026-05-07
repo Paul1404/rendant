@@ -54,28 +54,35 @@ export default async function ProtokolleListPage({
         </div>
       </div>
 
-      <div className="flex items-center gap-3 text-xs">
-        <Link
-          href="/protokolle"
-          className={
-            includeStorniert
-              ? "text-slate-500 hover:text-slate-900"
-              : "font-medium text-slate-900 underline underline-offset-4"
-          }
-        >
-          Aktive
-        </Link>
-        <span className="h-3 w-px bg-slate-300" aria-hidden />
-        <Link
-          href="/protokolle?storno=true"
-          className={
-            includeStorniert
-              ? "font-medium text-slate-900 underline underline-offset-4"
-              : "text-slate-500 hover:text-slate-900"
-          }
-        >
-          Mit stornierten
-        </Link>
+      <div className="flex items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/protokolle"
+            className={
+              includeStorniert
+                ? "text-slate-500 hover:text-slate-900"
+                : "font-medium text-slate-900 underline underline-offset-4"
+            }
+          >
+            Aktive
+          </Link>
+          <span className="h-3 w-px bg-slate-300" aria-hidden />
+          <Link
+            href="/protokolle?storno=true"
+            className={
+              includeStorniert
+                ? "font-medium text-slate-900 underline underline-offset-4"
+                : "text-slate-500 hover:text-slate-900"
+            }
+          >
+            Mit stornierten
+          </Link>
+        </div>
+        {items.length > 0 ? (
+          <span className="tabular-nums text-slate-500">
+            {items.length} {items.length === 1 ? "Eintrag" : "Eintraege"}
+          </span>
+        ) : null}
       </div>
 
       {items.length === 0 ? (

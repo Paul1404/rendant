@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Trash2, Save } from "lucide-react";
+import { Loader2, Plus, Trash2, Save } from "lucide-react";
 import {
   DENOMINATIONS,
   emptyCounts,
@@ -38,6 +38,16 @@ function emptyAusgabe(): AusgabeDraft {
   return { bezeichnung: "", empfaenger: "", beleg_nr: "", betrag_input: "" };
 }
 
+const BEMERKUNG_MAX = 2000;
+
+function selectOnFocus(e: React.FocusEvent<HTMLInputElement>) {
+  e.currentTarget.select();
+}
+
+function blurOnWheel(e: React.WheelEvent<HTMLInputElement>) {
+  e.currentTarget.blur();
+}
+
 export function ProtokollForm({
   belegnummerPreview,
 }: {
@@ -55,6 +65,16 @@ export function ProtokollForm({
     formatCentPlain(WECHSELGELD_DEFAULT_CENT),
   );
   const [ausgaben, setAusgaben] = useState<AusgabeDraft[]>([]);
+
+  const lastAusgabeRef = useRef<HTMLInputElement | null>(null);
+  const focusLastAusgabe = useRef(false);
+
+  useEffect(() => {
+    if (focusLastAusgabe.current) {
+      lastAusgabeRef.current?.focus();
+      focusLastAusgabe.current = false;
+    }
+  }, [ausgaben.length]);
 
   const wechselgeldCent = useMemo(
     () => parseGermanAmount(wechselgeldInput) ?? -1,
@@ -94,6 +114,7 @@ export function ProtokollForm({
   }
 
   function addAusgabe() {
+    focusLastAusgabe.current = true;
     setAusgaben((list) => [...list, emptyAusgabe()]);
   }
   function removeAusgabe(idx: number) {
@@ -183,6 +204,7 @@ export function ProtokollForm({
               <Input
                 value={belegnummerPreview}
                 readOnly
+                tabIndex={-1}
                 className="font-mono bg-slate-100"
               />
             </div>
@@ -191,6 +213,7 @@ export function ProtokollForm({
               <Input
                 value={formatDateDe(heute)}
                 readOnly
+                tabIndex={-1}
                 className="bg-slate-100"
               />
             </div>
@@ -202,7 +225,9 @@ export function ProtokollForm({
               value={anlass}
               onChange={(e) => setAnlass(e.target.value)}
               required
+              autoFocus
               maxLength={200}
+              placeholder="z.B. Heimspiel 1. Mannschaft"
             />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -214,6 +239,8 @@ export function ProtokollForm({
                 onChange={(e) => setGezaehltVon(e.target.value)}
                 required
                 maxLength={120}
+                autoComplete="name"
+                placeholder="Vor- und Nachname"
               />
             </div>
             <div className="space-y-2">
@@ -224,17 +251,25 @@ export function ProtokollForm({
                 onChange={(e) => setGepruefftVon(e.target.value)}
                 required
                 maxLength={120}
+                autoComplete="name"
+                placeholder="Vor- und Nachname"
               />
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="bemerkung">Bemerkung</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="bemerkung">Bemerkung</Label>
+              <span className="text-[11px] tabular-nums text-slate-400">
+                {bemerkung.length} / {BEMERKUNG_MAX}
+              </span>
+            </div>
             <Textarea
               id="bemerkung"
               value={bemerkung}
               onChange={(e) => setBemerkung(e.target.value)}
               rows={3}
-              maxLength={2000}
+              maxLength={BEMERKUNG_MAX}
+              placeholder="Optional"
             />
           </div>
         </CardContent>
@@ -285,67 +320,76 @@ export function ProtokollForm({
           {ausgaben.length === 0 ? (
             <p className="text-sm text-slate-500">Keine Ausgaben erfasst.</p>
           ) : (
-            ausgaben.map((a, i) => (
-              <div
-                key={i}
-                className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start border rounded-md p-3"
-              >
-                <div className="md:col-span-4 space-y-1">
-                  <Label htmlFor={`bez-${i}`}>Bezeichnung</Label>
-                  <Input
-                    id={`bez-${i}`}
-                    value={a.bezeichnung}
-                    onChange={(e) =>
-                      updateAusgabe(i, "bezeichnung", e.target.value)
-                    }
-                    required
-                  />
+            ausgaben.map((a, i) => {
+              const isLast = i === ausgaben.length - 1;
+              return (
+                <div
+                  key={i}
+                  className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start border rounded-md p-3"
+                >
+                  <div className="md:col-span-4 space-y-1">
+                    <Label htmlFor={`bez-${i}`}>Bezeichnung</Label>
+                    <Input
+                      id={`bez-${i}`}
+                      ref={isLast ? lastAusgabeRef : undefined}
+                      value={a.bezeichnung}
+                      onChange={(e) =>
+                        updateAusgabe(i, "bezeichnung", e.target.value)
+                      }
+                      required
+                      placeholder="z.B. Pizzakauf"
+                    />
+                  </div>
+                  <div className="md:col-span-3 space-y-1">
+                    <Label htmlFor={`emp-${i}`}>Empfaenger</Label>
+                    <Input
+                      id={`emp-${i}`}
+                      value={a.empfaenger}
+                      onChange={(e) =>
+                        updateAusgabe(i, "empfaenger", e.target.value)
+                      }
+                      placeholder="Optional"
+                    />
+                  </div>
+                  <div className="md:col-span-2 space-y-1">
+                    <Label htmlFor={`bel-${i}`}>Beleg-Nr.</Label>
+                    <Input
+                      id={`bel-${i}`}
+                      value={a.beleg_nr}
+                      onChange={(e) =>
+                        updateAusgabe(i, "beleg_nr", e.target.value)
+                      }
+                      placeholder="Optional"
+                    />
+                  </div>
+                  <div className="md:col-span-2 space-y-1">
+                    <Label htmlFor={`bet-${i}`}>Betrag EUR</Label>
+                    <Input
+                      id={`bet-${i}`}
+                      inputMode="decimal"
+                      placeholder="0,00"
+                      value={a.betrag_input}
+                      onFocus={selectOnFocus}
+                      onChange={(e) =>
+                        updateAusgabe(i, "betrag_input", e.target.value)
+                      }
+                      className="text-right tabular-nums"
+                    />
+                  </div>
+                  <div className="md:col-span-1 flex md:items-end md:justify-end">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Ausgabe entfernen"
+                      onClick={() => removeAusgabe(i)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="md:col-span-3 space-y-1">
-                  <Label htmlFor={`emp-${i}`}>Empfaenger</Label>
-                  <Input
-                    id={`emp-${i}`}
-                    value={a.empfaenger}
-                    onChange={(e) =>
-                      updateAusgabe(i, "empfaenger", e.target.value)
-                    }
-                  />
-                </div>
-                <div className="md:col-span-2 space-y-1">
-                  <Label htmlFor={`bel-${i}`}>Beleg-Nr.</Label>
-                  <Input
-                    id={`bel-${i}`}
-                    value={a.beleg_nr}
-                    onChange={(e) =>
-                      updateAusgabe(i, "beleg_nr", e.target.value)
-                    }
-                  />
-                </div>
-                <div className="md:col-span-2 space-y-1">
-                  <Label htmlFor={`bet-${i}`}>Betrag EUR</Label>
-                  <Input
-                    id={`bet-${i}`}
-                    inputMode="decimal"
-                    placeholder="0,00"
-                    value={a.betrag_input}
-                    onChange={(e) =>
-                      updateAusgabe(i, "betrag_input", e.target.value)
-                    }
-                  />
-                </div>
-                <div className="md:col-span-1 flex md:items-end md:justify-end">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Ausgabe entfernen"
-                    onClick={() => removeAusgabe(i)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </CardContent>
       </Card>
@@ -362,8 +406,10 @@ export function ProtokollForm({
                 id="wechselgeld"
                 inputMode="decimal"
                 value={wechselgeldInput}
+                onFocus={selectOnFocus}
                 onChange={(e) => setWechselgeldInput(e.target.value)}
                 required
+                className="text-right tabular-nums"
               />
             </div>
           </div>
@@ -393,8 +439,17 @@ export function ProtokollForm({
 
       <div className="flex justify-end">
         <Button type="submit" disabled={pending}>
-          <Save className="mr-2 h-4 w-4" />
-          Speichern und PDF erzeugen
+          {pending ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Speichern&hellip;
+            </>
+          ) : (
+            <>
+              <Save className="mr-2 h-4 w-4" />
+              Speichern und PDF erzeugen
+            </>
+          )}
         </Button>
       </div>
     </form>
@@ -415,6 +470,7 @@ function DenominationSection({
       {DENOMINATIONS.filter((d) => d.kind === kind).map((d) => {
         const count = counts[d.key];
         const teil = count * d.cent;
+        const isZero = count === 0;
         return (
           <div
             key={d.key}
@@ -431,12 +487,20 @@ function DenominationSection({
               type="number"
               min={0}
               step={1}
-              value={count}
+              value={isZero ? "" : count}
+              placeholder="0"
               onChange={(e) => setCount(d.key, e.target.value)}
+              onFocus={selectOnFocus}
+              onWheel={blurOnWheel}
               className="col-span-4 text-right tabular-nums"
             />
-            <span className="col-span-5 text-right font-mono tabular-nums text-slate-600">
-              {formatCent(teil)}
+            <span
+              className={
+                "col-span-5 text-right font-mono tabular-nums " +
+                (isZero ? "text-slate-300" : "text-slate-600")
+              }
+            >
+              {isZero ? "—" : formatCent(teil)}
             </span>
           </div>
         );
