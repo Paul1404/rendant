@@ -83,7 +83,7 @@ export function StornoDialog({ protokollId }: { protokollId: string }) {
             <span
               className={
                 "text-[11px] tabular-nums " +
-                (tooShort ? "text-destructive" : "text-slate-400")
+                (tooShort ? "text-destructive" : "text-muted-foreground")
               }
             >
               {trimmedLen} / {STORNO_MAX}
@@ -99,7 +99,7 @@ export function StornoDialog({ protokollId }: { protokollId: string }) {
             maxLength={STORNO_MAX}
             placeholder="z.B. Falsche Anzahl 50 EUR Scheine erfasst"
           />
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted-foreground">
             Mindestens {STORNO_MIN} Zeichen, maximal {STORNO_MAX}.
           </p>
         </div>

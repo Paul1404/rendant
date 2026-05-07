@@ -16,7 +16,19 @@ import {
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { StornoDialog } from "@/components/storno-dialog";
-import { Download } from "lucide-react";
+import {
+  ArrowLeft,
+  Banknote,
+  Calculator,
+  Coins,
+  Download,
+  FileText,
+  Fingerprint,
+  ReceiptText,
+  TriangleAlert,
+} from "lucide-react";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -43,60 +55,92 @@ export default async function ProtokollDetailPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-xl font-semibold font-mono">
-            {protokoll.belegnummer}
-          </h1>
-          <p className="text-sm text-slate-600">
-            Erstellt am {formatDateTimeDe(protokoll.erstellt_am)}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {isStorno ? (
-            <Badge variant="destructive">storniert</Badge>
-          ) : (
-            <Badge variant="secondary">aktiv</Badge>
+      <Link
+        href="/protokolle"
+        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Zurück zur Übersicht
+      </Link>
+
+      <div
+        className={cn(
+          "relative overflow-hidden rounded-2xl border bg-card/60 px-5 py-6 shadow-sm ring-1 ring-foreground/5 sm:px-7 sm:py-7",
+          isStorno ? "border-destructive/30" : "border-border",
+        )}
+      >
+        <div
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full blur-3xl",
+            isStorno ? "bg-destructive/15" : "bg-primary/15",
           )}
-          <a href={`/api/protokolle/${protokoll.id}/pdf`}>
-            <Button variant="outline" size="sm">
-              <Download className="mr-2 h-4 w-4" />
-              PDF
-            </Button>
-          </a>
-          {isStorno && protokoll.storno_pdf_s3_key ? (
-            <a href={`/api/protokolle/${protokoll.id}/storno-pdf`}>
+        />
+        <div className="relative flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-primary">
+              Beleg
+            </p>
+            <h1 className="mt-1 font-mono text-2xl font-semibold tracking-tight text-foreground">
+              {protokoll.belegnummer}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Erstellt am {formatDateTimeDe(protokoll.erstellt_am)}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {isStorno ? (
+              <Badge variant="destructive">storniert</Badge>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-medium text-success">
+                <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                aktiv
+              </span>
+            )}
+            <a href={`/api/protokolle/${protokoll.id}/pdf`}>
               <Button variant="outline" size="sm">
                 <Download className="mr-2 h-4 w-4" />
-                Storno-PDF
+                PDF
               </Button>
             </a>
-          ) : null}
-          {!isStorno ? <StornoDialog protokollId={protokoll.id} /> : null}
+            {isStorno && protokoll.storno_pdf_s3_key ? (
+              <a href={`/api/protokolle/${protokoll.id}/storno-pdf`}>
+                <Button variant="outline" size="sm">
+                  <Download className="mr-2 h-4 w-4" />
+                  Storno-PDF
+                </Button>
+              </a>
+            ) : null}
+            {!isStorno ? <StornoDialog protokollId={protokoll.id} /> : null}
+          </div>
         </div>
       </div>
 
       {isStorno ? (
-        <Card className="border-red-300 bg-red-50">
-          <CardContent className="pt-6 space-y-1">
-            <p className="font-medium text-red-900">
+        <div className="flex gap-3 rounded-xl border border-destructive/40 bg-destructive/5 p-4">
+          <TriangleAlert className="h-5 w-5 shrink-0 text-destructive" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-destructive">
               Storniert am{" "}
               {protokoll.storniert_am
                 ? formatDateTimeDe(protokoll.storniert_am)
                 : ""}
             </p>
-            <p className="text-sm text-red-900">
+            <p className="text-sm text-destructive/90">
               Grund: {protokoll.storno_grund}
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ) : null}
 
       <Card>
         <CardHeader>
-          <CardTitle>Kopfdaten</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-primary" />
+            Kopfdaten
+          </CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+        <CardContent className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
           <KV label="Anlass" value={protokoll.anlass} />
           <KV label="Datum" value={formatDateDe(protokoll.erstellt_am)} />
           <KV label="Gezählt von" value={protokoll.gezaehlt_von} />
@@ -111,40 +155,57 @@ export default async function ProtokollDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Stückelung</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Coins className="h-4 w-4 text-primary" />
+            Stückelung
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Wert</TableHead>
-                <TableHead className="text-right">Anzahl</TableHead>
-                <TableHead className="text-right">Einzelwert</TableHead>
-                <TableHead className="text-right">Teilbetrag</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {DENOMINATIONS.map((d) => {
-                const count = protokoll.counts[d.key];
-                return (
-                  <TableRow key={d.key}>
-                    <TableCell className="font-mono">{d.label}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {count}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatCent(d.cent)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatCent(count * d.cent)}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-          <Separator className="my-3" />
-          <div className="text-sm flex flex-col gap-1">
+          <div className="overflow-hidden rounded-lg border border-border">
+            <Table>
+              <TableHeader className="bg-muted/40">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                    Wert
+                  </TableHead>
+                  <TableHead className="text-right text-[11px] uppercase tracking-wider text-muted-foreground">
+                    Anzahl
+                  </TableHead>
+                  <TableHead className="text-right text-[11px] uppercase tracking-wider text-muted-foreground">
+                    Einzelwert
+                  </TableHead>
+                  <TableHead className="text-right text-[11px] uppercase tracking-wider text-muted-foreground">
+                    Teilbetrag
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {DENOMINATIONS.map((d) => {
+                  const count = protokoll.counts[d.key];
+                  const isZero = count === 0;
+                  return (
+                    <TableRow
+                      key={d.key}
+                      className={isZero ? "text-muted-foreground/70" : ""}
+                    >
+                      <TableCell className="font-mono">{d.label}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {count}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatCent(d.cent)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums">
+                        {isZero ? "—" : formatCent(count * d.cent)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+          <Separator className="my-4" />
+          <div className="flex flex-col gap-1 text-sm">
             <SumRow label="Zwischensumme Scheine" cent={sumScheine} />
             <SumRow label="Zwischensumme Münzen" cent={sumMuenzen} />
             <SumRow
@@ -159,31 +220,48 @@ export default async function ProtokollDetailPage({
       {ausgaben.length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle>Betriebliche Ausgaben</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <ReceiptText className="h-4 w-4 text-primary" />
+              Betriebliche Ausgaben
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Bezeichnung</TableHead>
-                  <TableHead>Empfänger</TableHead>
-                  <TableHead>Beleg-Nr.</TableHead>
-                  <TableHead className="text-right">Betrag</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {ausgaben.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell>{a.bezeichnung}</TableCell>
-                    <TableCell>{a.empfaenger || "-"}</TableCell>
-                    <TableCell>{a.beleg_nr || "-"}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatCent(a.betrag_cent)}
-                    </TableCell>
+            <div className="overflow-hidden rounded-lg border border-border">
+              <Table>
+                <TableHeader className="bg-muted/40">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                      Bezeichnung
+                    </TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                      Empfänger
+                    </TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                      Beleg-Nr.
+                    </TableHead>
+                    <TableHead className="text-right text-[11px] uppercase tracking-wider text-muted-foreground">
+                      Betrag
+                    </TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {ausgaben.map((a) => (
+                    <TableRow key={a.id}>
+                      <TableCell>{a.bezeichnung}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {a.empfaenger || "—"}
+                      </TableCell>
+                      <TableCell className="font-mono text-muted-foreground">
+                        {a.beleg_nr || "—"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums">
+                        {formatCent(a.betrag_cent)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
             <Separator className="my-3" />
             <SumRow
               label="Summe Ausgaben"
@@ -196,17 +274,17 @@ export default async function ProtokollDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Zusammenfassung</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Calculator className="h-4 w-4 text-primary" />
+            Zusammenfassung
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-1 text-sm">
           <SumRow
             label="Anfangsbestand (Wechselgeld)"
             cent={protokoll.wechselgeld_cent}
           />
-          <SumRow
-            label="Gezählter Endbestand"
-            cent={protokoll.gezaehlt_cent}
-          />
+          <SumRow label="Gezählter Endbestand" cent={protokoll.gezaehlt_cent} />
           <SumRow
             label="Betriebliche Ausgaben"
             cent={protokoll.ausgaben_cent}
@@ -216,24 +294,37 @@ export default async function ProtokollDetailPage({
             cent={protokoll.bestand_cent}
             bold
           />
-          <Separator className="my-2" />
-          <SumRow
-            label="Tageseinnahmen netto"
-            cent={protokoll.tageseinnahmen_cent}
-            highlight
-          />
+          <Separator className="my-3" />
+          <div className="flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3 ring-1 ring-primary/20">
+            <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <Banknote className="h-4 w-4 text-primary" />
+              Tageseinnahmen netto
+            </span>
+            <span className="font-mono text-base font-semibold tabular-nums text-primary">
+              {formatCent(protokoll.tageseinnahmen_cent)}
+            </span>
+          </div>
         </CardContent>
       </Card>
 
       {protokoll.pdf_sha256 ? (
         <Card>
           <CardHeader>
-            <CardTitle>Prüfsumme</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Fingerprint className="h-4 w-4 text-primary" />
+              Prüfsumme
+            </CardTitle>
           </CardHeader>
-          <CardContent className="text-xs space-y-1 font-mono break-all">
-            <p>SHA256: {protokoll.pdf_sha256}</p>
+          <CardContent className="space-y-1 break-all font-mono text-xs text-muted-foreground">
+            <p>
+              <span className="mr-1 text-foreground">SHA256:</span>
+              {protokoll.pdf_sha256}
+            </p>
             {protokoll.storno_pdf_sha256 ? (
-              <p>Storno-SHA256: {protokoll.storno_pdf_sha256}</p>
+              <p>
+                <span className="mr-1 text-foreground">Storno-SHA256:</span>
+                {protokoll.storno_pdf_sha256}
+              </p>
             ) : null}
           </CardContent>
         </Card>
@@ -245,10 +336,12 @@ export default async function ProtokollDetailPage({
 function KV({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs text-slate-500 uppercase tracking-wide">
+      <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
         {label}
       </p>
-      <p className="mt-0.5 whitespace-pre-wrap">{value}</p>
+      <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+        {value}
+      </p>
     </div>
   );
 }
@@ -257,26 +350,22 @@ function SumRow({
   label,
   cent,
   bold,
-  highlight,
 }: {
   label: string;
   cent: number;
   bold?: boolean;
-  highlight?: boolean;
 }) {
   return (
     <div
-      className={
-        "flex justify-between items-center " +
-        (highlight
-          ? "text-base font-semibold"
-          : bold
-            ? "font-medium"
-            : "text-sm")
-      }
+      className={cn(
+        "flex items-center justify-between py-1",
+        bold ? "font-medium" : "text-sm text-muted-foreground",
+      )}
     >
       <span>{label}</span>
-      <span className="font-mono tabular-nums">{formatCent(cent)}</span>
+      <span className="font-mono tabular-nums text-foreground">
+        {formatCent(cent)}
+      </span>
     </div>
   );
 }

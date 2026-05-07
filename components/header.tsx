@@ -1,13 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { LogOut, Plus, Download, List } from "lucide-react";
 import { VEREINSNAME } from "@/lib/constants";
+import { Logo } from "@/components/logo";
+import { cn } from "@/lib/utils";
+
+const NAV = [
+  { href: "/protokolle", label: "Protokolle", icon: List, exact: true },
+  { href: "/protokolle/neu", label: "Neu", icon: Plus },
+  { href: "/protokolle/export", label: "Export", icon: Download },
+];
 
 export function Header() {
   const router = useRouter();
+  const pathname = usePathname();
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -16,47 +25,81 @@ export function Header() {
   }
 
   return (
-    <header className="border-b border-slate-200 bg-white">
-      <div className="mx-auto max-w-5xl px-4 py-2.5 flex items-center justify-between gap-4">
-        <Link href="/protokolle" className="flex items-center gap-2.5 group">
-          <span
-            aria-hidden
-            className="inline-flex h-8 w-8 items-center justify-center rounded-sm bg-[oklch(0.305_0.045_255)] text-[0.7rem] font-bold tracking-tight text-white"
-          >
-            SV
-          </span>
-          <span className="flex flex-col">
-            <span className="text-sm font-semibold leading-tight tracking-tight text-slate-900">
+    <header className="sticky top-0 z-30 border-b border-border/70 bg-background/75 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+        <Link
+          href="/protokolle"
+          className="flex items-center gap-3 group rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <Logo size={40} priority />
+          <span className="hidden flex-col leading-tight sm:flex">
+            <span className="text-sm font-semibold tracking-tight text-foreground">
               SVUFO
             </span>
-            <span className="text-[11px] uppercase tracking-wider text-slate-500 leading-tight">
+            <span className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
               {VEREINSNAME}
             </span>
           </span>
         </Link>
+
         <nav className="flex items-center gap-1">
-          <Link href="/protokolle">
-            <Button variant="ghost" size="sm">
-              <List className="mr-2 h-4 w-4" />
-              Liste
-            </Button>
-          </Link>
-          <Link href="/protokolle/neu">
-            <Button variant="ghost" size="sm">
-              <Plus className="mr-2 h-4 w-4" />
-              Neu
-            </Button>
-          </Link>
-          <Link href="/protokolle/export">
-            <Button variant="ghost" size="sm">
-              <Download className="mr-2 h-4 w-4" />
-              Export
-            </Button>
-          </Link>
-          <span className="mx-1 h-5 w-px bg-slate-200" aria-hidden />
-          <Button variant="ghost" size="sm" onClick={logout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Abmelden
+          <div className="hidden items-center gap-0.5 rounded-xl border border-border/70 bg-background/60 p-1 shadow-sm md:flex">
+            {NAV.map(({ href, label, icon: Icon, exact }) => {
+              const active = exact
+                ? pathname === href
+                : pathname.startsWith(href);
+              return (
+                <Link key={href} href={href}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn(
+                      "h-8 rounded-lg px-3",
+                      active
+                        ? "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <Icon className="mr-1.5 h-4 w-4" />
+                    {label}
+                  </Button>
+                </Link>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-1 md:hidden">
+            {NAV.map(({ href, label, icon: Icon, exact }) => {
+              const active = exact
+                ? pathname === href
+                : pathname.startsWith(href);
+              return (
+                <Link key={href} href={href} aria-label={label}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className={cn(
+                      active
+                        ? "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </Button>
+                </Link>
+              );
+            })}
+          </div>
+
+          <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={logout}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <LogOut className="h-4 w-4 sm:mr-1.5" />
+            <span className="hidden sm:inline">Abmelden</span>
           </Button>
         </nav>
       </div>
