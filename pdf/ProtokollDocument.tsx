@@ -169,6 +169,8 @@ export type AusgabePdf = {
 export type ProtokollPdfData = {
   belegnummer: string;
   erstellt_am: Date;
+  kassennummer: string;
+  kassenbezeichnung: string;
   anlass: string;
   gezaehlt_von: string;
   geprueft_von: string;
@@ -248,6 +250,20 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Kopfdaten</Text>
+          {data.kassennummer ? (
+            <View style={styles.kopfdatenRow}>
+              <Text style={styles.kopfdatenLabel}>Kassennummer</Text>
+              <Text style={styles.kopfdatenValue}>{data.kassennummer}</Text>
+            </View>
+          ) : null}
+          {data.kassenbezeichnung ? (
+            <View style={styles.kopfdatenRow}>
+              <Text style={styles.kopfdatenLabel}>Kassenbezeichnung</Text>
+              <Text style={styles.kopfdatenValue}>
+                {data.kassenbezeichnung}
+              </Text>
+            </View>
+          ) : null}
           <View style={styles.kopfdatenRow}>
             <Text style={styles.kopfdatenLabel}>Anlass</Text>
             <Text style={styles.kopfdatenValue}>{data.anlass}</Text>

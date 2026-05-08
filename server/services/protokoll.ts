@@ -24,6 +24,8 @@ export type ProtokollRow = {
   id: string;
   belegnummer: string;
   erstellt_am: Date;
+  kassennummer: string;
+  kassenbezeichnung: string;
   anlass: string;
   gezaehlt_von: string;
   geprueft_von: string;
@@ -53,6 +55,8 @@ function rowToProtokoll(row: Record<string, unknown>): ProtokollRow {
     id: row.id as string,
     belegnummer: row.belegnummer as string,
     erstellt_am: row.erstellt_am as Date,
+    kassennummer: (row.kassennummer as string) ?? "",
+    kassenbezeichnung: (row.kassenbezeichnung as string) ?? "",
     anlass: row.anlass as string,
     gezaehlt_von: row.gezaehlt_von as string,
     geprueft_von: row.geprueft_von as string,
@@ -134,6 +138,8 @@ export async function createProtokoll(
         const belegnummer = await nextBelegnummerInTx(tx, year);
         const insertCols: Record<string, unknown> = {
           belegnummer,
+          kassennummer: input.kassennummer,
+          kassenbezeichnung: input.kassenbezeichnung,
           anlass: input.anlass,
           gezaehlt_von: input.gezaehlt_von,
           geprueft_von: input.geprueft_von,
@@ -172,6 +178,8 @@ export async function createProtokoll(
       const { buffer, hash } = await renderProtokollPdf({
         belegnummer: result.belegnummer,
         erstellt_am: result.erstellt_am,
+        kassennummer: input.kassennummer,
+        kassenbezeichnung: input.kassenbezeichnung,
         anlass: input.anlass,
         gezaehlt_von: input.gezaehlt_von,
         geprueft_von: input.geprueft_von,
@@ -217,6 +225,8 @@ export async function stornoProtokoll(
   const { buffer, hash } = await renderProtokollPdf({
     belegnummer: detail.protokoll.belegnummer,
     erstellt_am: detail.protokoll.erstellt_am,
+    kassennummer: detail.protokoll.kassennummer,
+    kassenbezeichnung: detail.protokoll.kassenbezeichnung,
     anlass: detail.protokoll.anlass,
     gezaehlt_von: detail.protokoll.gezaehlt_von,
     geprueft_von: detail.protokoll.geprueft_von,

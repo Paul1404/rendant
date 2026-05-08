@@ -5,6 +5,8 @@ import { formatDateDe, formatDateTimeDe } from "@/lib/date";
 const HEADERS = [
   "Belegnummer",
   "Datum",
+  "Kassennummer",
+  "Kassenbezeichnung",
   "Anlass",
   "Gezählt von",
   "Geprüft von",
@@ -38,6 +40,8 @@ export async function exportCsv(von: string, bis: string): Promise<string> {
       id: string;
       belegnummer: string;
       erstellt_am: Date;
+      kassennummer: string;
+      kassenbezeichnung: string;
       anlass: string;
       gezaehlt_von: string;
       geprueft_von: string;
@@ -51,7 +55,8 @@ export async function exportCsv(von: string, bis: string): Promise<string> {
       storno_grund: string | null;
     }[]
   >`
-    SELECT id, belegnummer, erstellt_am, anlass, gezaehlt_von, geprueft_von,
+    SELECT id, belegnummer, erstellt_am, kassennummer, kassenbezeichnung,
+           anlass, gezaehlt_von, geprueft_von,
            bemerkung, wechselgeld_cent, gezaehlt_cent, ausgaben_cent,
            bestand_cent, tageseinnahmen_cent, storniert_am, storno_grund
     FROM protokolle
@@ -91,6 +96,8 @@ export async function exportCsv(von: string, bis: string): Promise<string> {
     const cells = [
       r.belegnummer,
       formatDateDe(r.erstellt_am),
+      r.kassennummer,
+      r.kassenbezeichnung,
       r.anlass,
       r.gezaehlt_von,
       r.geprueft_von,

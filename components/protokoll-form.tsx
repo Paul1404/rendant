@@ -106,6 +106,8 @@ export function ProtokollForm({
   const [pending, startTransition] = useTransition();
 
   const [counts, setCounts] = useState<DenominationCounts>(emptyCounts());
+  const [kassennummer, setKassennummer] = useState("");
+  const [kassenbezeichnung, setKassenbezeichnung] = useState("");
   const [anlass, setAnlass] = useState("");
   const [gezaehltVon, setGezaehltVon] = useState("");
   const [gepruefftVon, setGepruefftVon] = useState("");
@@ -182,7 +184,13 @@ export function ProtokollForm({
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!anlass.trim() || !gezaehltVon.trim() || !gepruefftVon.trim()) {
+    if (
+      !kassennummer.trim() ||
+      !kassenbezeichnung.trim() ||
+      !anlass.trim() ||
+      !gezaehltVon.trim() ||
+      !gepruefftVon.trim()
+    ) {
       toast.error("Bitte alle Pflichtfelder ausfüllen");
       return;
     }
@@ -222,6 +230,8 @@ export function ProtokollForm({
     }
 
     const payload: Record<string, unknown> = {
+      kassennummer: kassennummer.trim(),
+      kassenbezeichnung: kassenbezeichnung.trim(),
       anlass: anlass.trim(),
       gezaehlt_von: gezaehltVon.trim(),
       geprueft_von: gepruefftVon.trim(),
@@ -284,6 +294,31 @@ export function ProtokollForm({
                 readOnly
                 tabIndex={-1}
                 className="bg-muted/60"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="kassennummer">Kassennummer</Label>
+              <Input
+                id="kassennummer"
+                value={kassennummer}
+                onChange={(e) => setKassennummer(e.target.value)}
+                required
+                maxLength={50}
+                placeholder="z.B. K-01"
+                className="font-mono"
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="kassenbezeichnung">Kassenbezeichnung</Label>
+              <Input
+                id="kassenbezeichnung"
+                value={kassenbezeichnung}
+                onChange={(e) => setKassenbezeichnung(e.target.value)}
+                required
+                maxLength={120}
+                placeholder="z.B. Sportheim Theke"
               />
             </div>
           </div>

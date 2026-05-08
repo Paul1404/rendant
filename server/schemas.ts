@@ -15,6 +15,8 @@ export const AusgabeSchema = z.object({
 });
 
 export const CreateProtokollSchema = z.object({
+  kassennummer: z.string().min(1).max(50),
+  kassenbezeichnung: z.string().min(1).max(120),
   anlass: z.string().min(1).max(200),
   gezaehlt_von: z.string().min(1).max(120),
   geprueft_von: z.string().min(1).max(120),

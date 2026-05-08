@@ -143,6 +143,19 @@ export default async function ProtokollDetailPage({
           </CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+          {protokoll.kassennummer ? (
+            <KV
+              label="Kassennummer"
+              value={protokoll.kassennummer}
+              mono
+            />
+          ) : null}
+          {protokoll.kassenbezeichnung ? (
+            <KV
+              label="Kassenbezeichnung"
+              value={protokoll.kassenbezeichnung}
+            />
+          ) : null}
           <KV label="Anlass" value={protokoll.anlass} />
           <KV label="Datum" value={formatDateDe(protokoll.erstellt_am)} />
           <KV label="Gezählt von" value={protokoll.gezaehlt_von} />
@@ -377,13 +390,26 @@ function mwstAnteilCent(bruttoCent: number, bp: number): number {
   return bruttoCent - netCent;
 }
 
-function KV({ label, value }: { label: string; value: string }) {
+function KV({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
   return (
     <div>
       <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
         {label}
       </p>
-      <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+      <p
+        className={cn(
+          "mt-1 whitespace-pre-wrap text-sm text-foreground",
+          mono && "font-mono",
+        )}
+      >
         {value}
       </p>
     </div>
