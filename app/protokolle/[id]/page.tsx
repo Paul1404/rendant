@@ -255,7 +255,7 @@ export default async function ProtokollDetailPage({
                       Beleg-Nr.
                     </TableHead>
                     <TableHead className="text-right text-[11px] uppercase tracking-wider text-muted-foreground">
-                      MwSt.
+                      USt.
                     </TableHead>
                     <TableHead className="text-right text-[11px] uppercase tracking-wider text-muted-foreground">
                       Betrag
@@ -264,8 +264,8 @@ export default async function ProtokollDetailPage({
                 </TableHeader>
                 <TableBody>
                   {ausgaben.map((a) => {
-                    const bp = a.mwst_basis_punkte ?? 0;
-                    const mwst = mwstAnteilCent(a.betrag_cent, bp);
+                    const bp = a.ust_basis_punkte ?? 0;
+                    const ust = ustAnteilCent(a.betrag_cent, bp);
                     return (
                       <TableRow key={a.id}>
                         <TableCell>{a.bezeichnung}</TableCell>
@@ -276,10 +276,10 @@ export default async function ProtokollDetailPage({
                           {a.beleg_nr || "—"}
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-muted-foreground">
-                          {bp === 0 ? "—" : formatMwstSatz(bp)}
+                          {bp === 0 ? "—" : formatUstSatz(bp)}
                           {bp > 0 ? (
                             <span className="ml-1 text-[10px] text-muted-foreground/70">
-                              ({formatCent(mwst)})
+                              ({formatCent(ust)})
                             </span>
                           ) : null}
                         </TableCell>
@@ -299,15 +299,15 @@ export default async function ProtokollDetailPage({
               bold
             />
             {(() => {
-              const totalMwst = ausgaben.reduce(
+              const totalUst = ausgaben.reduce(
                 (s, a) =>
-                  s + mwstAnteilCent(a.betrag_cent, a.mwst_basis_punkte ?? 0),
+                  s + ustAnteilCent(a.betrag_cent, a.ust_basis_punkte ?? 0),
                 0,
               );
-              return totalMwst > 0 ? (
+              return totalUst > 0 ? (
                 <SumRow
-                  label="davon MwSt. (rechnerisch)"
-                  cent={totalMwst}
+                  label="davon USt. (rechnerisch)"
+                  cent={totalUst}
                 />
               ) : null;
             })()}
@@ -376,7 +376,7 @@ export default async function ProtokollDetailPage({
   );
 }
 
-function formatMwstSatz(bp: number): string {
+function formatUstSatz(bp: number): string {
   const percent = bp / 100;
   const rounded = Math.round(percent * 10) / 10;
   return Number.isInteger(rounded)
@@ -384,7 +384,7 @@ function formatMwstSatz(bp: number): string {
     : `${rounded.toString().replace(".", ",")} %`;
 }
 
-function mwstAnteilCent(bruttoCent: number, bp: number): number {
+function ustAnteilCent(bruttoCent: number, bp: number): number {
   if (bp <= 0) return 0;
   const netCent = Math.round((bruttoCent * 10000) / (10000 + bp));
   return bruttoCent - netCent;

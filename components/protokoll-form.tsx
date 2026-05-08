@@ -38,18 +38,18 @@ import {
 import { formatDateDe } from "@/lib/date";
 import { cn } from "@/lib/utils";
 
-type MwstMode = "none" | "p7" | "p19" | "custom";
+type UstMode = "none" | "p7" | "p19" | "custom";
 
 type AusgabeDraft = {
   bezeichnung: string;
   empfaenger: string;
   beleg_nr: string;
   betrag_input: string;
-  mwst_mode: MwstMode;
-  mwst_custom_input: string;
+  ust_mode: UstMode;
+  ust_custom_input: string;
 };
 
-const MWST_PRESET_BP: Record<Exclude<MwstMode, "custom">, number> = {
+const UST_PRESET_BP: Record<Exclude<UstMode, "custom">, number> = {
   none: 0,
   p7: 700,
   p19: 1900,
@@ -61,8 +61,8 @@ function emptyAusgabe(): AusgabeDraft {
     empfaenger: "",
     beleg_nr: "",
     betrag_input: "",
-    mwst_mode: "none",
-    mwst_custom_input: "",
+    ust_mode: "none",
+    ust_custom_input: "",
   };
 }
 
@@ -76,12 +76,12 @@ function parseGermanPercent(input: string): number | null {
   return Math.round(num * 100);
 }
 
-function ausgabeMwstBp(a: AusgabeDraft): number | null {
-  if (a.mwst_mode === "custom") return parseGermanPercent(a.mwst_custom_input);
-  return MWST_PRESET_BP[a.mwst_mode];
+function ausgabeUstBp(a: AusgabeDraft): number | null {
+  if (a.ust_mode === "custom") return parseGermanPercent(a.ust_custom_input);
+  return UST_PRESET_BP[a.ust_mode];
 }
 
-function mwstAnteilCent(bruttoCent: number, bp: number): number {
+function ustAnteilCent(bruttoCent: number, bp: number): number {
   if (bp <= 0) return 0;
   const netCent = Math.round((bruttoCent * 10000) / (10000 + bp));
   return bruttoCent - netCent;
@@ -141,13 +141,13 @@ export function ProtokollForm({
     }
     return total;
   }, [ausgaben]);
-  const mwstSummeCent = useMemo(() => {
+  const ustSummeCent = useMemo(() => {
     let total = 0;
     for (const a of ausgaben) {
       const brutto = parseGermanAmount(a.betrag_input);
-      const bp = ausgabeMwstBp(a);
+      const bp = ausgabeUstBp(a);
       if (brutto == null || bp == null) continue;
-      total += mwstAnteilCent(brutto, bp);
+      total += ustAnteilCent(brutto, bp);
     }
     return total;
   }, [ausgaben]);
@@ -203,7 +203,7 @@ export function ProtokollForm({
       empfaenger: string;
       beleg_nr: string;
       betrag_cent: number;
-      mwst_basis_punkte: number;
+      ust_basis_punkte: number;
     }> = [];
     for (const a of ausgaben) {
       if (!a.bezeichnung.trim()) {
@@ -215,9 +215,9 @@ export function ProtokollForm({
         toast.error("Ausgabe-Betrag ist ungültig");
         return;
       }
-      const bp = ausgabeMwstBp(a);
+      const bp = ausgabeUstBp(a);
       if (bp == null) {
-        toast.error("MwSt.-Satz ist ungültig (0–100 %)");
+        toast.error("USt.-Satz ist ungültig (0–100 %)");
         return;
       }
       ausgabenPayload.push({
@@ -225,7 +225,7 @@ export function ProtokollForm({
         empfaenger: a.empfaenger.trim(),
         beleg_nr: a.beleg_nr.trim(),
         betrag_cent: cent,
-        mwst_basis_punkte: bp,
+        ust_basis_punkte: bp,
       });
     }
 
@@ -441,10 +441,10 @@ export function ProtokollForm({
             ausgaben.map((a, i) => {
               const isLast = i === ausgaben.length - 1;
               const brutto = parseGermanAmount(a.betrag_input);
-              const bp = ausgabeMwstBp(a);
-              const mwst =
+              const bp = ausgabeUstBp(a);
+              const ustCent =
                 brutto != null && bp != null
-                  ? mwstAnteilCent(brutto, bp)
+                  ? ustAnteilCent(brutto, bp)
                   : null;
               return (
                 <div
@@ -516,61 +516,61 @@ export function ProtokollForm({
 
                   <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/50 pt-3">
                     <span className="text-xs font-medium text-muted-foreground">
-                      MwSt.
+                      USt.
                     </span>
                     <div className="inline-flex items-center rounded-lg border border-border/70 bg-background/80 p-0.5 shadow-sm">
-                      <MwstChip
-                        active={a.mwst_mode === "none"}
-                        onClick={() => updateAusgabe(i, "mwst_mode", "none")}
+                      <UstChip
+                        active={a.ust_mode === "none"}
+                        onClick={() => updateAusgabe(i, "ust_mode", "none")}
                       >
                         0 %
-                      </MwstChip>
-                      <MwstChip
-                        active={a.mwst_mode === "p7"}
-                        onClick={() => updateAusgabe(i, "mwst_mode", "p7")}
+                      </UstChip>
+                      <UstChip
+                        active={a.ust_mode === "p7"}
+                        onClick={() => updateAusgabe(i, "ust_mode", "p7")}
                       >
                         7 %
-                      </MwstChip>
-                      <MwstChip
-                        active={a.mwst_mode === "p19"}
-                        onClick={() => updateAusgabe(i, "mwst_mode", "p19")}
+                      </UstChip>
+                      <UstChip
+                        active={a.ust_mode === "p19"}
+                        onClick={() => updateAusgabe(i, "ust_mode", "p19")}
                       >
                         19 %
-                      </MwstChip>
-                      <MwstChip
-                        active={a.mwst_mode === "custom"}
-                        onClick={() => updateAusgabe(i, "mwst_mode", "custom")}
+                      </UstChip>
+                      <UstChip
+                        active={a.ust_mode === "custom"}
+                        onClick={() => updateAusgabe(i, "ust_mode", "custom")}
                       >
                         Andere
-                      </MwstChip>
+                      </UstChip>
                     </div>
-                    {a.mwst_mode === "custom" ? (
+                    {a.ust_mode === "custom" ? (
                       <div className="relative">
                         <Input
                           inputMode="decimal"
-                          value={a.mwst_custom_input}
+                          value={a.ust_custom_input}
                           onFocus={selectOnFocus}
                           onChange={(e) =>
                             updateAusgabe(
                               i,
-                              "mwst_custom_input",
+                              "ust_custom_input",
                               e.target.value,
                             )
                           }
                           placeholder="0,0"
                           className="h-8 w-20 pr-7 text-right tabular-nums"
-                          aria-label="MwSt.-Satz in Prozent"
+                          aria-label="USt.-Satz in Prozent"
                         />
                         <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-muted-foreground">
                           %
                         </span>
                       </div>
                     ) : null}
-                    {bp != null && bp > 0 && mwst != null ? (
+                    {bp != null && bp > 0 && ustCent != null ? (
                       <span className="ml-auto text-xs text-muted-foreground">
-                        davon MwSt.{" "}
+                        davon USt.{" "}
                         <span className="font-mono tabular-nums text-foreground">
-                          {formatCent(mwst)}
+                          {formatCent(ustCent)}
                         </span>
                       </span>
                     ) : null}
@@ -579,11 +579,11 @@ export function ProtokollForm({
               );
             })
           )}
-          {ausgaben.length > 0 && mwstSummeCent > 0 ? (
+          {ausgaben.length > 0 && ustSummeCent > 0 ? (
             <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-              <span>Summe MwSt. (rechnerisch)</span>
+              <span>Summe USt. (rechnerisch)</span>
               <span className="font-mono tabular-nums text-foreground">
-                {formatCent(mwstSummeCent)}
+                {formatCent(ustSummeCent)}
               </span>
             </div>
           ) : null}
@@ -659,7 +659,7 @@ export function ProtokollForm({
   );
 }
 
-function MwstChip({
+function UstChip({
   active,
   onClick,
   children,

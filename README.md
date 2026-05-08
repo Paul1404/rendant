@@ -9,7 +9,7 @@ ein PDF-Beleg, der manuell in DATEV Unternehmen Online hochgeladen wird.
 - Login mit Admin-Passwort, JWT in httpOnly Cookie (8 Stunden Gültigkeit)
 - Rate-Limiting auf Login (5 Fehlversuche pro IP / 15 Minuten)
 - Erfassung Kopfdaten, Stückelung (15 Denominationen), betriebliche Ausgaben
-- MwSt.-Satz pro Ausgabe (0 %, 7 %, 19 %, frei wählbar)
+- USt.-Satz pro Ausgabe (0 %, 7 %, 19 %, frei wählbar)
 - Anfangsbestand (Wechselgeld) mit Default 160,00 EUR änderbar
 - Automatische Belegnummer-Vergabe pro Jahr (`SVUFO-2026-0001`)
 - Automatische Berechnung von Gezählt, Bestand, Tageseinnahmen netto

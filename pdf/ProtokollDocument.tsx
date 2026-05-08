@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
   ausgabeBezeichnung: { flex: 3 },
   ausgabeEmpfaenger: { flex: 1.9 },
   ausgabeBeleg: { flex: 1.2 },
-  ausgabeMwst: { flex: 0.9, textAlign: "right" },
+  ausgabeUst: { flex: 0.9, textAlign: "right" },
   ausgabeBetrag: { flex: 1.6, textAlign: "right" },
   summary: {
     marginTop: 18,
@@ -163,7 +163,7 @@ export type AusgabePdf = {
   empfaenger: string;
   beleg_nr: string;
   betrag_cent: number;
-  mwst_basis_punkte: number;
+  ust_basis_punkte: number;
 };
 
 export type ProtokollPdfData = {
@@ -189,7 +189,7 @@ export type ProtokollPdfData = {
   };
 };
 
-function formatMwstSatz(bp: number): string {
+function formatUstSatz(bp: number): string {
   if (bp === 0) return "—";
   const percent = bp / 100;
   const rounded = Math.round(percent * 10) / 10;
@@ -198,7 +198,7 @@ function formatMwstSatz(bp: number): string {
     : `${rounded.toString().replace(".", ",")} %`;
 }
 
-function mwstAnteilCent(bruttoCent: number, bp: number): number {
+function ustAnteilCent(bruttoCent: number, bp: number): number {
   if (bp <= 0) return 0;
   const netCent = Math.round((bruttoCent * 10000) / (10000 + bp));
   return bruttoCent - netCent;
@@ -212,8 +212,8 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
     );
   const sumScheine = sumKind("schein");
   const sumMuenzen = sumKind("muenze");
-  const mwstSummeCent = data.ausgaben.reduce(
-    (s, a) => s + mwstAnteilCent(a.betrag_cent, a.mwst_basis_punkte ?? 0),
+  const ustSummeCent = data.ausgaben.reduce(
+    (s, a) => s + ustAnteilCent(a.betrag_cent, a.ust_basis_punkte ?? 0),
     0,
   );
 
@@ -334,7 +334,7 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
               <Text style={styles.ausgabeBezeichnung}>Bezeichnung</Text>
               <Text style={styles.ausgabeEmpfaenger}>Empfänger</Text>
               <Text style={styles.ausgabeBeleg}>Beleg-Nr.</Text>
-              <Text style={styles.ausgabeMwst}>MwSt.</Text>
+              <Text style={styles.ausgabeUst}>USt.</Text>
               <Text style={styles.ausgabeBetrag}>Betrag</Text>
             </View>
             {data.ausgaben.map((a, i) => (
@@ -344,8 +344,8 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
                   {a.empfaenger || " "}
                 </Text>
                 <Text style={styles.ausgabeBeleg}>{a.beleg_nr || " "}</Text>
-                <Text style={styles.ausgabeMwst}>
-                  {formatMwstSatz(a.mwst_basis_punkte ?? 0)}
+                <Text style={styles.ausgabeUst}>
+                  {formatUstSatz(a.ust_basis_punkte ?? 0)}
                 </Text>
                 <Text style={styles.ausgabeBetrag}>
                   {formatCent(a.betrag_cent)}
@@ -356,21 +356,21 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
               <Text style={styles.ausgabeBezeichnung}>Summe Ausgaben</Text>
               <Text style={styles.ausgabeEmpfaenger}> </Text>
               <Text style={styles.ausgabeBeleg}> </Text>
-              <Text style={styles.ausgabeMwst}> </Text>
+              <Text style={styles.ausgabeUst}> </Text>
               <Text style={styles.ausgabeBetrag}>
                 {formatCent(data.ausgaben_cent)}
               </Text>
             </View>
-            {mwstSummeCent > 0 ? (
+            {ustSummeCent > 0 ? (
               <View style={[styles.ausgabeRow, { borderBottom: "none" }]}>
                 <Text style={styles.ausgabeBezeichnung}>
-                  davon MwSt. (rechnerisch)
+                  davon USt. (rechnerisch)
                 </Text>
                 <Text style={styles.ausgabeEmpfaenger}> </Text>
                 <Text style={styles.ausgabeBeleg}> </Text>
-                <Text style={styles.ausgabeMwst}> </Text>
+                <Text style={styles.ausgabeUst}> </Text>
                 <Text style={styles.ausgabeBetrag}>
-                  {formatCent(mwstSummeCent)}
+                  {formatCent(ustSummeCent)}
                 </Text>
               </View>
             ) : null}

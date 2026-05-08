@@ -29,7 +29,7 @@ export function computeDataHash(
       empfaenger: a.empfaenger,
       beleg_nr: a.beleg_nr,
       betrag_cent: a.betrag_cent,
-      mwst_basis_punkte: a.mwst_basis_punkte ?? 0,
+      ust_basis_punkte: a.ust_basis_punkte ?? 0,
     })),
     storno: storno
       ? { am: storno.am.toISOString(), grund: storno.grund }

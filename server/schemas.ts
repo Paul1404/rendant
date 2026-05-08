@@ -11,7 +11,7 @@ export const AusgabeSchema = z.object({
   empfaenger: z.string().max(200).default(""),
   beleg_nr: z.string().max(100).default(""),
   betrag_cent: z.number().int().min(0),
-  mwst_basis_punkte: z.number().int().min(0).max(10000).default(0),
+  ust_basis_punkte: z.number().int().min(0).max(10000).default(0),
 });
 
 export const CreateProtokollSchema = z.object({

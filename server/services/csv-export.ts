@@ -13,7 +13,7 @@ const HEADERS = [
   "Wechselgeld EUR",
   "Gezählt EUR",
   "Ausgaben EUR",
-  "MwSt EUR",
+  "USt EUR",
   "Bestand EUR",
   "Tageseinnahmen EUR",
   "Status",
@@ -28,7 +28,7 @@ function escapeCsv(value: string): string {
   return needsQuoting ? `"${escaped}"` : escaped;
 }
 
-function mwstAnteilCent(bruttoCent: number, bp: number): number {
+function ustAnteilCent(bruttoCent: number, bp: number): number {
   if (bp <= 0) return 0;
   const netCent = Math.round((bruttoCent * 10000) / (10000 + bp));
   return bruttoCent - netCent;
@@ -71,28 +71,28 @@ export async function exportCsv(von: string, bis: string): Promise<string> {
         {
           protokoll_id: string;
           betrag_cent: number;
-          mwst_basis_punkte: number;
+          ust_basis_punkte: number;
         }[]
       >`
-        SELECT protokoll_id, betrag_cent, mwst_basis_punkte
+        SELECT protokoll_id, betrag_cent, ust_basis_punkte
         FROM ausgaben
         WHERE protokoll_id IN ${sql(ids)}
       `
     : [];
 
-  const mwstByProto = new Map<string, number>();
+  const ustByProto = new Map<string, number>();
   for (const a of ausgabenRows) {
-    const prev = mwstByProto.get(a.protokoll_id) ?? 0;
-    mwstByProto.set(
+    const prev = ustByProto.get(a.protokoll_id) ?? 0;
+    ustByProto.set(
       a.protokoll_id,
-      prev + mwstAnteilCent(Number(a.betrag_cent), Number(a.mwst_basis_punkte)),
+      prev + ustAnteilCent(Number(a.betrag_cent), Number(a.ust_basis_punkte)),
     );
   }
 
   const lines: string[] = [HEADERS.join(";")];
   for (const r of rows) {
     const status = r.storniert_am ? "storniert" : "aktiv";
-    const mwst = mwstByProto.get(r.id) ?? 0;
+    const ust = ustByProto.get(r.id) ?? 0;
     const cells = [
       r.belegnummer,
       formatDateDe(r.erstellt_am),
@@ -104,7 +104,7 @@ export async function exportCsv(von: string, bis: string): Promise<string> {
       formatCentPlain(Number(r.wechselgeld_cent)),
       formatCentPlain(Number(r.gezaehlt_cent)),
       formatCentPlain(Number(r.ausgaben_cent)),
-      formatCentPlain(mwst),
+      formatCentPlain(ust),
       formatCentPlain(Number(r.bestand_cent)),
       formatCentPlain(Number(r.tageseinnahmen_cent)),
       status,
