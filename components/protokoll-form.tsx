@@ -36,16 +36,55 @@ import {
   WECHSELGELD_DEFAULT_CENT,
 } from "@/lib/constants";
 import { formatDateDe } from "@/lib/date";
+import { cn } from "@/lib/utils";
+
+type MwstMode = "none" | "p7" | "p19" | "custom";
 
 type AusgabeDraft = {
   bezeichnung: string;
   empfaenger: string;
   beleg_nr: string;
   betrag_input: string;
+  mwst_mode: MwstMode;
+  mwst_custom_input: string;
+};
+
+const MWST_PRESET_BP: Record<Exclude<MwstMode, "custom">, number> = {
+  none: 0,
+  p7: 700,
+  p19: 1900,
 };
 
 function emptyAusgabe(): AusgabeDraft {
-  return { bezeichnung: "", empfaenger: "", beleg_nr: "", betrag_input: "" };
+  return {
+    bezeichnung: "",
+    empfaenger: "",
+    beleg_nr: "",
+    betrag_input: "",
+    mwst_mode: "none",
+    mwst_custom_input: "",
+  };
+}
+
+function parseGermanPercent(input: string): number | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  const normalized = trimmed.replace(",", ".");
+  if (!/^\d+(\.\d{1,2})?$/.test(normalized)) return null;
+  const num = Number(normalized);
+  if (!Number.isFinite(num) || num < 0 || num > 100) return null;
+  return Math.round(num * 100);
+}
+
+function ausgabeMwstBp(a: AusgabeDraft): number | null {
+  if (a.mwst_mode === "custom") return parseGermanPercent(a.mwst_custom_input);
+  return MWST_PRESET_BP[a.mwst_mode];
+}
+
+function mwstAnteilCent(bruttoCent: number, bp: number): number {
+  if (bp <= 0) return 0;
+  const netCent = Math.round((bruttoCent * 10000) / (10000 + bp));
+  return bruttoCent - netCent;
 }
 
 const BEMERKUNG_MAX = 2000;
@@ -100,6 +139,16 @@ export function ProtokollForm({
     }
     return total;
   }, [ausgaben]);
+  const mwstSummeCent = useMemo(() => {
+    let total = 0;
+    for (const a of ausgaben) {
+      const brutto = parseGermanAmount(a.betrag_input);
+      const bp = ausgabeMwstBp(a);
+      if (brutto == null || bp == null) continue;
+      total += mwstAnteilCent(brutto, bp);
+    }
+    return total;
+  }, [ausgaben]);
   const bestandCent =
     ausgabenCent == null ? null : gezaehltCent + ausgabenCent;
   const tageseinnahmenCent =
@@ -146,6 +195,7 @@ export function ProtokollForm({
       empfaenger: string;
       beleg_nr: string;
       betrag_cent: number;
+      mwst_basis_punkte: number;
     }> = [];
     for (const a of ausgaben) {
       if (!a.bezeichnung.trim()) {
@@ -157,11 +207,17 @@ export function ProtokollForm({
         toast.error("Ausgabe-Betrag ist ungültig");
         return;
       }
+      const bp = ausgabeMwstBp(a);
+      if (bp == null) {
+        toast.error("MwSt.-Satz ist ungültig (0–100 %)");
+        return;
+      }
       ausgabenPayload.push({
         bezeichnung: a.bezeichnung.trim(),
         empfaenger: a.empfaenger.trim(),
         beleg_nr: a.beleg_nr.trim(),
         betrag_cent: cent,
+        mwst_basis_punkte: bp,
       });
     }
 
@@ -349,75 +405,153 @@ export function ProtokollForm({
           ) : (
             ausgaben.map((a, i) => {
               const isLast = i === ausgaben.length - 1;
+              const brutto = parseGermanAmount(a.betrag_input);
+              const bp = ausgabeMwstBp(a);
+              const mwst =
+                brutto != null && bp != null
+                  ? mwstAnteilCent(brutto, bp)
+                  : null;
               return (
                 <div
                   key={i}
-                  className="grid grid-cols-1 items-start gap-2 rounded-xl border border-border bg-muted/20 p-3 md:grid-cols-12"
+                  className="rounded-xl border border-border/70 bg-muted/20 p-3"
                 >
-                  <div className="md:col-span-4 space-y-1">
-                    <Label htmlFor={`bez-${i}`}>Bezeichnung</Label>
-                    <Input
-                      id={`bez-${i}`}
-                      ref={isLast ? lastAusgabeRef : undefined}
-                      value={a.bezeichnung}
-                      onChange={(e) =>
-                        updateAusgabe(i, "bezeichnung", e.target.value)
-                      }
-                      required
-                      placeholder="z.B. Pizzakauf"
-                    />
+                  <div className="grid grid-cols-1 items-start gap-2 md:grid-cols-12">
+                    <div className="md:col-span-4 space-y-1">
+                      <Label htmlFor={`bez-${i}`}>Bezeichnung</Label>
+                      <Input
+                        id={`bez-${i}`}
+                        ref={isLast ? lastAusgabeRef : undefined}
+                        value={a.bezeichnung}
+                        onChange={(e) =>
+                          updateAusgabe(i, "bezeichnung", e.target.value)
+                        }
+                        required
+                        placeholder="z.B. Pizzakauf"
+                      />
+                    </div>
+                    <div className="md:col-span-3 space-y-1">
+                      <Label htmlFor={`emp-${i}`}>Empfänger</Label>
+                      <Input
+                        id={`emp-${i}`}
+                        value={a.empfaenger}
+                        onChange={(e) =>
+                          updateAusgabe(i, "empfaenger", e.target.value)
+                        }
+                        placeholder="Optional"
+                      />
+                    </div>
+                    <div className="md:col-span-2 space-y-1">
+                      <Label htmlFor={`bel-${i}`}>Beleg-Nr.</Label>
+                      <Input
+                        id={`bel-${i}`}
+                        value={a.beleg_nr}
+                        onChange={(e) =>
+                          updateAusgabe(i, "beleg_nr", e.target.value)
+                        }
+                        placeholder="Optional"
+                      />
+                    </div>
+                    <div className="md:col-span-2 space-y-1">
+                      <Label htmlFor={`bet-${i}`}>Betrag EUR</Label>
+                      <Input
+                        id={`bet-${i}`}
+                        inputMode="decimal"
+                        placeholder="0,00"
+                        value={a.betrag_input}
+                        onFocus={selectOnFocus}
+                        onChange={(e) =>
+                          updateAusgabe(i, "betrag_input", e.target.value)
+                        }
+                        className="text-right tabular-nums"
+                      />
+                    </div>
+                    <div className="md:col-span-1 flex md:items-end md:justify-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Ausgabe entfernen"
+                        onClick={() => removeAusgabe(i)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="md:col-span-3 space-y-1">
-                    <Label htmlFor={`emp-${i}`}>Empfänger</Label>
-                    <Input
-                      id={`emp-${i}`}
-                      value={a.empfaenger}
-                      onChange={(e) =>
-                        updateAusgabe(i, "empfaenger", e.target.value)
-                      }
-                      placeholder="Optional"
-                    />
-                  </div>
-                  <div className="md:col-span-2 space-y-1">
-                    <Label htmlFor={`bel-${i}`}>Beleg-Nr.</Label>
-                    <Input
-                      id={`bel-${i}`}
-                      value={a.beleg_nr}
-                      onChange={(e) =>
-                        updateAusgabe(i, "beleg_nr", e.target.value)
-                      }
-                      placeholder="Optional"
-                    />
-                  </div>
-                  <div className="md:col-span-2 space-y-1">
-                    <Label htmlFor={`bet-${i}`}>Betrag EUR</Label>
-                    <Input
-                      id={`bet-${i}`}
-                      inputMode="decimal"
-                      placeholder="0,00"
-                      value={a.betrag_input}
-                      onFocus={selectOnFocus}
-                      onChange={(e) =>
-                        updateAusgabe(i, "betrag_input", e.target.value)
-                      }
-                      className="text-right tabular-nums"
-                    />
-                  </div>
-                  <div className="md:col-span-1 flex md:items-end md:justify-end">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Ausgabe entfernen"
-                      onClick={() => removeAusgabe(i)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/50 pt-3">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      MwSt.
+                    </span>
+                    <div className="inline-flex items-center rounded-lg border border-border/70 bg-background/80 p-0.5 shadow-sm">
+                      <MwstChip
+                        active={a.mwst_mode === "none"}
+                        onClick={() => updateAusgabe(i, "mwst_mode", "none")}
+                      >
+                        0 %
+                      </MwstChip>
+                      <MwstChip
+                        active={a.mwst_mode === "p7"}
+                        onClick={() => updateAusgabe(i, "mwst_mode", "p7")}
+                      >
+                        7 %
+                      </MwstChip>
+                      <MwstChip
+                        active={a.mwst_mode === "p19"}
+                        onClick={() => updateAusgabe(i, "mwst_mode", "p19")}
+                      >
+                        19 %
+                      </MwstChip>
+                      <MwstChip
+                        active={a.mwst_mode === "custom"}
+                        onClick={() => updateAusgabe(i, "mwst_mode", "custom")}
+                      >
+                        Andere
+                      </MwstChip>
+                    </div>
+                    {a.mwst_mode === "custom" ? (
+                      <div className="relative">
+                        <Input
+                          inputMode="decimal"
+                          value={a.mwst_custom_input}
+                          onFocus={selectOnFocus}
+                          onChange={(e) =>
+                            updateAusgabe(
+                              i,
+                              "mwst_custom_input",
+                              e.target.value,
+                            )
+                          }
+                          placeholder="0,0"
+                          className="h-8 w-20 pr-7 text-right tabular-nums"
+                          aria-label="MwSt.-Satz in Prozent"
+                        />
+                        <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-muted-foreground">
+                          %
+                        </span>
+                      </div>
+                    ) : null}
+                    {bp != null && bp > 0 && mwst != null ? (
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        davon MwSt.{" "}
+                        <span className="font-mono tabular-nums text-foreground">
+                          {formatCent(mwst)}
+                        </span>
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               );
             })
           )}
+          {ausgaben.length > 0 && mwstSummeCent > 0 ? (
+            <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              <span>Summe MwSt. (rechnerisch)</span>
+              <span className="font-mono tabular-nums text-foreground">
+                {formatCent(mwstSummeCent)}
+              </span>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -459,7 +593,7 @@ export function ProtokollForm({
             cent={wechselgeldCent < 0 ? null : wechselgeldCent}
           />
           <Separator />
-          <div className="flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3 ring-1 ring-primary/20">
+          <div className="flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3 ring-1 ring-primary/15">
             <span className="flex items-center gap-2 text-sm font-medium text-foreground">
               <Banknote className="h-4 w-4 text-primary" />
               Tageseinnahmen netto
@@ -487,6 +621,31 @@ export function ProtokollForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+function MwstChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+        active
+          ? "bg-primary/10 text-primary"
+          : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 

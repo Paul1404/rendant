@@ -6,11 +6,12 @@ const HEADERS = [
   "Belegnummer",
   "Datum",
   "Anlass",
-  "Gezaehlt von",
-  "Geprueft von",
+  "Gezählt von",
+  "Geprüft von",
   "Wechselgeld EUR",
-  "Gezaehlt EUR",
+  "Gezählt EUR",
   "Ausgaben EUR",
+  "MwSt EUR",
   "Bestand EUR",
   "Tageseinnahmen EUR",
   "Status",
@@ -25,9 +26,16 @@ function escapeCsv(value: string): string {
   return needsQuoting ? `"${escaped}"` : escaped;
 }
 
+function mwstAnteilCent(bruttoCent: number, bp: number): number {
+  if (bp <= 0) return 0;
+  const netCent = Math.round((bruttoCent * 10000) / (10000 + bp));
+  return bruttoCent - netCent;
+}
+
 export async function exportCsv(von: string, bis: string): Promise<string> {
   const rows = await sql<
     {
+      id: string;
       belegnummer: string;
       erstellt_am: Date;
       anlass: string;
@@ -43,7 +51,7 @@ export async function exportCsv(von: string, bis: string): Promise<string> {
       storno_grund: string | null;
     }[]
   >`
-    SELECT belegnummer, erstellt_am, anlass, gezaehlt_von, geprueft_von,
+    SELECT id, belegnummer, erstellt_am, anlass, gezaehlt_von, geprueft_von,
            bemerkung, wechselgeld_cent, gezaehlt_cent, ausgaben_cent,
            bestand_cent, tageseinnahmen_cent, storniert_am, storno_grund
     FROM protokolle
@@ -52,9 +60,34 @@ export async function exportCsv(von: string, bis: string): Promise<string> {
     ORDER BY belegnummer ASC
   `;
 
+  const ids = rows.map((r) => r.id);
+  const ausgabenRows = ids.length
+    ? await sql<
+        {
+          protokoll_id: string;
+          betrag_cent: number;
+          mwst_basis_punkte: number;
+        }[]
+      >`
+        SELECT protokoll_id, betrag_cent, mwst_basis_punkte
+        FROM ausgaben
+        WHERE protokoll_id IN ${sql(ids)}
+      `
+    : [];
+
+  const mwstByProto = new Map<string, number>();
+  for (const a of ausgabenRows) {
+    const prev = mwstByProto.get(a.protokoll_id) ?? 0;
+    mwstByProto.set(
+      a.protokoll_id,
+      prev + mwstAnteilCent(Number(a.betrag_cent), Number(a.mwst_basis_punkte)),
+    );
+  }
+
   const lines: string[] = [HEADERS.join(";")];
   for (const r of rows) {
     const status = r.storniert_am ? "storniert" : "aktiv";
+    const mwst = mwstByProto.get(r.id) ?? 0;
     const cells = [
       r.belegnummer,
       formatDateDe(r.erstellt_am),
@@ -64,6 +97,7 @@ export async function exportCsv(von: string, bis: string): Promise<string> {
       formatCentPlain(Number(r.wechselgeld_cent)),
       formatCentPlain(Number(r.gezaehlt_cent)),
       formatCentPlain(Number(r.ausgaben_cent)),
+      formatCentPlain(mwst),
       formatCentPlain(Number(r.bestand_cent)),
       formatCentPlain(Number(r.tageseinnahmen_cent)),
       status,

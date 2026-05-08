@@ -16,6 +16,7 @@ export type AusgabeRow = {
   empfaenger: string;
   beleg_nr: string;
   betrag_cent: number;
+  mwst_basis_punkte: number;
   reihenfolge: number;
 };
 
@@ -90,7 +91,8 @@ export async function getProtokoll(
   const protoRows = await sql`SELECT * FROM protokolle WHERE id = ${id}`;
   if (protoRows.length === 0) return null;
   const ausgabenRows = await sql<AusgabeRow[]>`
-    SELECT id, bezeichnung, empfaenger, beleg_nr, betrag_cent, reihenfolge
+    SELECT id, bezeichnung, empfaenger, beleg_nr, betrag_cent,
+           mwst_basis_punkte, reihenfolge
     FROM ausgaben
     WHERE protokoll_id = ${id}
     ORDER BY reihenfolge ASC, id ASC
@@ -100,6 +102,7 @@ export async function getProtokoll(
     ausgaben: ausgabenRows.map((a) => ({
       ...a,
       betrag_cent: Number(a.betrag_cent),
+      mwst_basis_punkte: Number(a.mwst_basis_punkte ?? 0),
     })),
   };
 }
@@ -158,6 +161,7 @@ export async function createProtokoll(
             empfaenger: a.empfaenger,
             beleg_nr: a.beleg_nr,
             betrag_cent: a.betrag_cent,
+            mwst_basis_punkte: a.mwst_basis_punkte,
             reihenfolge: i,
           }));
           await tx`INSERT INTO ausgaben ${tx(rows)}`;
