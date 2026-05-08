@@ -126,6 +126,7 @@ export function ProtokollForm({
   const [pending, startTransition] = useTransition();
 
   const [counts, setCounts] = useState<DenominationCounts>(emptyCounts());
+  const [belegnummer, setBelegnummer] = useState(belegnummerPreview);
   const [kassennummer, setKassennummer] = useState("");
   const [kassenbezeichnung, setKassenbezeichnung] = useState("");
   const [anlass, setAnlass] = useState("");
@@ -269,6 +270,7 @@ export function ProtokollForm({
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (
+      !belegnummer.trim() ||
       !kassennummer.trim() ||
       !kassenbezeichnung.trim() ||
       !anlass.trim() ||
@@ -276,6 +278,12 @@ export function ProtokollForm({
       !gepruefftVon.trim()
     ) {
       toast.error("Bitte alle Pflichtfelder ausfüllen");
+      return;
+    }
+    if (!/^[A-Za-z0-9._\-/]+$/.test(belegnummer.trim())) {
+      toast.error(
+        "Belegnummer darf nur Buchstaben, Ziffern und . _ - / enthalten",
+      );
       return;
     }
     if (wechselgeldCent < 0) {
@@ -347,6 +355,7 @@ export function ProtokollForm({
     }
 
     const payload: Record<string, unknown> = {
+      belegnummer: belegnummer.trim(),
       kassennummer: kassennummer.trim(),
       kassenbezeichnung: kassenbezeichnung.trim(),
       anlass: anlass.trim(),
@@ -397,12 +406,14 @@ export function ProtokollForm({
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Belegnummer</Label>
+              <Label htmlFor="belegnummer">Belegnummer</Label>
               <Input
-                value={belegnummerPreview}
-                readOnly
-                tabIndex={-1}
-                className="font-mono bg-muted/60"
+                id="belegnummer"
+                value={belegnummer}
+                onChange={(e) => setBelegnummer(e.target.value)}
+                required
+                maxLength={50}
+                className="font-mono"
               />
             </div>
             <div className="space-y-2">

@@ -527,9 +527,6 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
               }
             />
           </View>
-          <Text style={{ marginTop: 2, fontStyle: "italic" }}>
-            Beleg gemäß GoBD elektronisch erfasst und archiviert. Aufbewahrungsfrist 10 Jahre.
-          </Text>
           <Text style={{ marginTop: 2 }}>SHA256: {data.pdfHash}</Text>
         </View>
       </Page>

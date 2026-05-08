@@ -80,6 +80,10 @@ protokolleRoutes.post("/", async (c) => {
     return c.json(result, 201);
   } catch (e) {
     console.error("createProtokoll Fehler", e);
+    const msg = (e as Error).message;
+    if (msg === "Belegnummer bereits vergeben") {
+      return c.json({ error: msg }, 409);
+    }
     return c.json({ error: "Speichern fehlgeschlagen" }, 500);
   }
 });

@@ -162,14 +162,16 @@ export async function createProtokoll(
   }
 
   const year = new Date().getFullYear();
-  const maxRetries = 3;
+  const customBelegnummer = input.belegnummer?.trim() || null;
+  const maxRetries = customBelegnummer ? 1 : 3;
   let attempt = 0;
 
   while (attempt < maxRetries) {
     attempt++;
     try {
       const result = await sql.begin(async (tx) => {
-        const belegnummer = await nextBelegnummerInTx(tx, year);
+        const belegnummer =
+          customBelegnummer ?? (await nextBelegnummerInTx(tx, year));
         const insertCols: Record<string, unknown> = {
           belegnummer,
           kassennummer: input.kassennummer,
@@ -247,8 +249,11 @@ export async function createProtokoll(
       return { id: result.id, belegnummer: result.belegnummer };
     } catch (e) {
       const code = (e as { code?: string }).code;
-      if (code === "23505" && attempt < maxRetries) {
-        continue;
+      if (code === "23505") {
+        if (customBelegnummer) {
+          throw new Error("Belegnummer bereits vergeben");
+        }
+        if (attempt < maxRetries) continue;
       }
       throw e;
     }

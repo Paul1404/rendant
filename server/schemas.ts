@@ -20,6 +20,13 @@ export const UmsatzUstSplitSchema = z.object({
 });
 
 export const CreateProtokollSchema = z.object({
+  belegnummer: z
+    .string()
+    .trim()
+    .min(1)
+    .max(50)
+    .regex(/^[A-Za-z0-9._\-/]+$/)
+    .optional(),
   kassennummer: z.string().min(1).max(50),
   kassenbezeichnung: z.string().min(1).max(120),
   anlass: z.string().min(1).max(200),
