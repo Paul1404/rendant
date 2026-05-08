@@ -1,22 +1,23 @@
 # SVUFO
 
-Webapp zur digitalen Erfassung von Kassenzaehlprotokollen fuer den
+Webapp zur digitalen Erfassung von Kassenzählprotokollen für den
 **SV 1945 Untereuerheim e.V.** Ersetzt die bisherigen Excel-Listen. Output ist
 ein PDF-Beleg, der manuell in DATEV Unternehmen Online hochgeladen wird.
 
 ## Features
 
-- Login mit Admin-Passwort, JWT in httpOnly Cookie (8 Stunden Gueltigkeit)
+- Login mit Admin-Passwort, JWT in httpOnly Cookie (8 Stunden Gültigkeit)
 - Rate-Limiting auf Login (5 Fehlversuche pro IP / 15 Minuten)
-- Erfassung Kopfdaten, Stueckelung (15 Denominationen), betriebliche Ausgaben
-- Anfangsbestand (Wechselgeld) mit Default 160,00 EUR aenderbar
+- Erfassung Kopfdaten, Stückelung (15 Denominationen), betriebliche Ausgaben
+- USt.-Satz pro Ausgabe (0 %, 7 %, 19 %, frei wählbar)
+- Anfangsbestand (Wechselgeld) mit Default 160,00 EUR änderbar
 - Automatische Belegnummer-Vergabe pro Jahr (`SVUFO-2026-0001`)
-- Automatische Berechnung von Gezaehlt, Bestand, Tageseinnahmen netto
+- Automatische Berechnung von Gezählt, Bestand, Tageseinnahmen netto
 - PDF-Generierung nach jedem Speichern, Upload nach Tigris S3
-- SHA256-Pruefsumme der Daten in DB und auf der Detailseite
-- Storno-Workflow (GoBD-konform): Originalbeleg bleibt unveraenderlich,
-  zusaetzliches Storno-PDF mit Wasserzeichen wird hochgeladen
-- CSV-Export aller Protokolle eines Zeitraums fuer Steuerberater
+- SHA256-Prüfsumme der Daten in DB und auf der Detailseite
+- Storno-Workflow (GoBD-konform): Originalbeleg bleibt unveränderlich,
+  zusätzliches Storno-PDF mit Wasserzeichen wird hochgeladen
+- CSV-Export aller Protokolle eines Zeitraums für Steuerberater
 - Healthcheck `/api/health` mit DB-Ping
 
 ## Stack
@@ -39,7 +40,7 @@ sudo -u postgres psql -c "CREATE DATABASE svufo OWNER svufo;"
 cp .env.example .env.local
 # DATABASE_URL, JWT_SECRET, ADMIN_PASSWORD, S3-Variablen eintragen
 
-# Migrationen ausfuehren
+# Migrationen ausführen
 npm install
 npm run migrate
 
@@ -48,7 +49,7 @@ npm run dev
 # http://localhost:3000
 ```
 
-Fuer einen lokalen S3-kompatiblen Server kann MinIO verwendet werden
+Für einen lokalen S3-kompatiblen Server kann MinIO verwendet werden
 (`minio server /tmp/minio-data`), Bucket per `mc mb local/svufo-test`.
 
 ## Production Build
@@ -67,20 +68,20 @@ docker run --env-file .env -p 3000:3000 svufo
 
 ## Deploy auf Railway
 
-Der Repo wird as-is auf Railway gepusht. Build laeuft ueber den committeten
+Der Repo wird as-is auf Railway gepusht. Build läuft über den committeten
 `Dockerfile` (`railway.json` setzt `builder: DOCKERFILE`).
 
 ### Einmalige Einrichtung
 
-1. **Project anlegen** und das Repo verbinden, Branch waehlen.
-2. **Postgres-Plugin** hinzufuegen. Railway injiziert `DATABASE_URL` automatisch.
-3. **Tigris-Plugin** (S3) hinzufuegen. Railway injiziert
+1. **Project anlegen** und das Repo verbinden, Branch wählen.
+2. **Postgres-Plugin** hinzufügen. Railway injiziert `DATABASE_URL` automatisch.
+3. **Tigris-Plugin** (S3) hinzufügen. Railway injiziert
    `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`,
    `AWS_ENDPOINT_URL_S3` automatisch. Bucket im Tigris-Dashboard manuell
    anlegen, Name in der Variable `S3_BUCKET_NAME` hinterlegen.
 4. **Variablen** im Service-Dashboard setzen:
    - `ADMIN_PASSWORD` (Klartext, wird beim Start gehasht)
-   - `JWT_SECRET` (mind. 32 zufaellige Bytes hex, z.B. `openssl rand -hex 32`)
+   - `JWT_SECRET` (mind. 32 zufällige Bytes hex, z.B. `openssl rand -hex 32`)
    - `S3_BUCKET_NAME`
 5. **Domain** zuweisen (Railway-Subdomain reicht), HTTPS ist automatisch.
 
@@ -89,7 +90,7 @@ Der Repo wird as-is auf Railway gepusht. Build laeuft ueber den committeten
 `railway.json` definiert:
 
 - `builder: DOCKERFILE` mit dem committeten `Dockerfile`
-- `preDeployCommand: ["npm run migrate"]` laeuft VOR dem Container-Start in
+- `preDeployCommand: ["npm run migrate"]` läuft VOR dem Container-Start in
   einem separaten Container-Klon mit denselben Env-Variablen
 - `startCommand: node_modules/.bin/next start -p ${PORT:-3000}`
 - `healthcheckPath: /api/health` mit 60 Sekunden Timeout
@@ -100,10 +101,10 @@ Datenbank erreichbar sind.
 
 ## Wichtig
 
-- `node-pg-migrate`, `pg` und `next` muessen unter `dependencies` (nicht
+- `node-pg-migrate`, `pg` und `next` müssen unter `dependencies` (nicht
   `devDependencies`) stehen, damit `npm prune --omit=dev` sie nicht entfernt
   und der Pre-Deploy-Befehl `npm run migrate` im Image funktioniert.
-- Geldbetraege werden grundsaetzlich als `integer` Cent gespeichert. Konvertierung
+- Geldbeträge werden grundsätzlich als `integer` Cent gespeichert. Konvertierung
   passiert nur am Form-Input und bei der Anzeige.
-- Stornierte Belege werden NICHT geloescht (Aufbewahrungspflicht). Die
-  Belegnummern-Sequenz bleibt lueckenlos.
+- Stornierte Belege werden NICHT gelöscht (Aufbewahrungspflicht). Die
+  Belegnummern-Sequenz bleibt lückenlos.

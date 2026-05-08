@@ -36,16 +36,55 @@ import {
   WECHSELGELD_DEFAULT_CENT,
 } from "@/lib/constants";
 import { formatDateDe } from "@/lib/date";
+import { cn } from "@/lib/utils";
+
+type UstMode = "none" | "p7" | "p19" | "custom";
 
 type AusgabeDraft = {
   bezeichnung: string;
   empfaenger: string;
   beleg_nr: string;
   betrag_input: string;
+  ust_mode: UstMode;
+  ust_custom_input: string;
+};
+
+const UST_PRESET_BP: Record<Exclude<UstMode, "custom">, number> = {
+  none: 0,
+  p7: 700,
+  p19: 1900,
 };
 
 function emptyAusgabe(): AusgabeDraft {
-  return { bezeichnung: "", empfaenger: "", beleg_nr: "", betrag_input: "" };
+  return {
+    bezeichnung: "",
+    empfaenger: "",
+    beleg_nr: "",
+    betrag_input: "",
+    ust_mode: "none",
+    ust_custom_input: "",
+  };
+}
+
+function parseGermanPercent(input: string): number | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  const normalized = trimmed.replace(",", ".");
+  if (!/^\d+(\.\d{1,2})?$/.test(normalized)) return null;
+  const num = Number(normalized);
+  if (!Number.isFinite(num) || num < 0 || num > 100) return null;
+  return Math.round(num * 100);
+}
+
+function ausgabeUstBp(a: AusgabeDraft): number | null {
+  if (a.ust_mode === "custom") return parseGermanPercent(a.ust_custom_input);
+  return UST_PRESET_BP[a.ust_mode];
+}
+
+function ustAnteilCent(bruttoCent: number, bp: number): number {
+  if (bp <= 0) return 0;
+  const netCent = Math.round((bruttoCent * 10000) / (10000 + bp));
+  return bruttoCent - netCent;
 }
 
 const BEMERKUNG_MAX = 2000;
@@ -67,6 +106,8 @@ export function ProtokollForm({
   const [pending, startTransition] = useTransition();
 
   const [counts, setCounts] = useState<DenominationCounts>(emptyCounts());
+  const [kassennummer, setKassennummer] = useState("");
+  const [kassenbezeichnung, setKassenbezeichnung] = useState("");
   const [anlass, setAnlass] = useState("");
   const [gezaehltVon, setGezaehltVon] = useState("");
   const [gepruefftVon, setGepruefftVon] = useState("");
@@ -97,6 +138,16 @@ export function ProtokollForm({
       const v = parseGermanAmount(a.betrag_input);
       if (v == null) return null;
       total += v;
+    }
+    return total;
+  }, [ausgaben]);
+  const ustSummeCent = useMemo(() => {
+    let total = 0;
+    for (const a of ausgaben) {
+      const brutto = parseGermanAmount(a.betrag_input);
+      const bp = ausgabeUstBp(a);
+      if (brutto == null || bp == null) continue;
+      total += ustAnteilCent(brutto, bp);
     }
     return total;
   }, [ausgaben]);
@@ -133,7 +184,13 @@ export function ProtokollForm({
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!anlass.trim() || !gezaehltVon.trim() || !gepruefftVon.trim()) {
+    if (
+      !kassennummer.trim() ||
+      !kassenbezeichnung.trim() ||
+      !anlass.trim() ||
+      !gezaehltVon.trim() ||
+      !gepruefftVon.trim()
+    ) {
       toast.error("Bitte alle Pflichtfelder ausfüllen");
       return;
     }
@@ -146,6 +203,7 @@ export function ProtokollForm({
       empfaenger: string;
       beleg_nr: string;
       betrag_cent: number;
+      ust_basis_punkte: number;
     }> = [];
     for (const a of ausgaben) {
       if (!a.bezeichnung.trim()) {
@@ -157,15 +215,23 @@ export function ProtokollForm({
         toast.error("Ausgabe-Betrag ist ungültig");
         return;
       }
+      const bp = ausgabeUstBp(a);
+      if (bp == null) {
+        toast.error("USt.-Satz ist ungültig (0–100 %)");
+        return;
+      }
       ausgabenPayload.push({
         bezeichnung: a.bezeichnung.trim(),
         empfaenger: a.empfaenger.trim(),
         beleg_nr: a.beleg_nr.trim(),
         betrag_cent: cent,
+        ust_basis_punkte: bp,
       });
     }
 
     const payload: Record<string, unknown> = {
+      kassennummer: kassennummer.trim(),
+      kassenbezeichnung: kassenbezeichnung.trim(),
       anlass: anlass.trim(),
       gezaehlt_von: gezaehltVon.trim(),
       geprueft_von: gepruefftVon.trim(),
@@ -228,6 +294,31 @@ export function ProtokollForm({
                 readOnly
                 tabIndex={-1}
                 className="bg-muted/60"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="kassennummer">Kassennummer</Label>
+              <Input
+                id="kassennummer"
+                value={kassennummer}
+                onChange={(e) => setKassennummer(e.target.value)}
+                required
+                maxLength={50}
+                placeholder="z.B. K-01"
+                className="font-mono"
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="kassenbezeichnung">Kassenbezeichnung</Label>
+              <Input
+                id="kassenbezeichnung"
+                value={kassenbezeichnung}
+                onChange={(e) => setKassenbezeichnung(e.target.value)}
+                required
+                maxLength={120}
+                placeholder="z.B. Sportheim Theke"
               />
             </div>
           </div>
@@ -349,75 +440,153 @@ export function ProtokollForm({
           ) : (
             ausgaben.map((a, i) => {
               const isLast = i === ausgaben.length - 1;
+              const brutto = parseGermanAmount(a.betrag_input);
+              const bp = ausgabeUstBp(a);
+              const ustCent =
+                brutto != null && bp != null
+                  ? ustAnteilCent(brutto, bp)
+                  : null;
               return (
                 <div
                   key={i}
-                  className="grid grid-cols-1 items-start gap-2 rounded-xl border border-border bg-muted/20 p-3 md:grid-cols-12"
+                  className="rounded-xl border border-border/70 bg-muted/20 p-3"
                 >
-                  <div className="md:col-span-4 space-y-1">
-                    <Label htmlFor={`bez-${i}`}>Bezeichnung</Label>
-                    <Input
-                      id={`bez-${i}`}
-                      ref={isLast ? lastAusgabeRef : undefined}
-                      value={a.bezeichnung}
-                      onChange={(e) =>
-                        updateAusgabe(i, "bezeichnung", e.target.value)
-                      }
-                      required
-                      placeholder="z.B. Pizzakauf"
-                    />
+                  <div className="grid grid-cols-1 items-start gap-2 md:grid-cols-12">
+                    <div className="md:col-span-4 space-y-1">
+                      <Label htmlFor={`bez-${i}`}>Bezeichnung</Label>
+                      <Input
+                        id={`bez-${i}`}
+                        ref={isLast ? lastAusgabeRef : undefined}
+                        value={a.bezeichnung}
+                        onChange={(e) =>
+                          updateAusgabe(i, "bezeichnung", e.target.value)
+                        }
+                        required
+                        placeholder="z.B. Pizzakauf"
+                      />
+                    </div>
+                    <div className="md:col-span-3 space-y-1">
+                      <Label htmlFor={`emp-${i}`}>Empfänger</Label>
+                      <Input
+                        id={`emp-${i}`}
+                        value={a.empfaenger}
+                        onChange={(e) =>
+                          updateAusgabe(i, "empfaenger", e.target.value)
+                        }
+                        placeholder="Optional"
+                      />
+                    </div>
+                    <div className="md:col-span-2 space-y-1">
+                      <Label htmlFor={`bel-${i}`}>Beleg-Nr.</Label>
+                      <Input
+                        id={`bel-${i}`}
+                        value={a.beleg_nr}
+                        onChange={(e) =>
+                          updateAusgabe(i, "beleg_nr", e.target.value)
+                        }
+                        placeholder="Optional"
+                      />
+                    </div>
+                    <div className="md:col-span-2 space-y-1">
+                      <Label htmlFor={`bet-${i}`}>Betrag EUR</Label>
+                      <Input
+                        id={`bet-${i}`}
+                        inputMode="decimal"
+                        placeholder="0,00"
+                        value={a.betrag_input}
+                        onFocus={selectOnFocus}
+                        onChange={(e) =>
+                          updateAusgabe(i, "betrag_input", e.target.value)
+                        }
+                        className="text-right tabular-nums"
+                      />
+                    </div>
+                    <div className="md:col-span-1 flex md:items-end md:justify-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Ausgabe entfernen"
+                        onClick={() => removeAusgabe(i)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="md:col-span-3 space-y-1">
-                    <Label htmlFor={`emp-${i}`}>Empfänger</Label>
-                    <Input
-                      id={`emp-${i}`}
-                      value={a.empfaenger}
-                      onChange={(e) =>
-                        updateAusgabe(i, "empfaenger", e.target.value)
-                      }
-                      placeholder="Optional"
-                    />
-                  </div>
-                  <div className="md:col-span-2 space-y-1">
-                    <Label htmlFor={`bel-${i}`}>Beleg-Nr.</Label>
-                    <Input
-                      id={`bel-${i}`}
-                      value={a.beleg_nr}
-                      onChange={(e) =>
-                        updateAusgabe(i, "beleg_nr", e.target.value)
-                      }
-                      placeholder="Optional"
-                    />
-                  </div>
-                  <div className="md:col-span-2 space-y-1">
-                    <Label htmlFor={`bet-${i}`}>Betrag EUR</Label>
-                    <Input
-                      id={`bet-${i}`}
-                      inputMode="decimal"
-                      placeholder="0,00"
-                      value={a.betrag_input}
-                      onFocus={selectOnFocus}
-                      onChange={(e) =>
-                        updateAusgabe(i, "betrag_input", e.target.value)
-                      }
-                      className="text-right tabular-nums"
-                    />
-                  </div>
-                  <div className="md:col-span-1 flex md:items-end md:justify-end">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Ausgabe entfernen"
-                      onClick={() => removeAusgabe(i)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/50 pt-3">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      USt.
+                    </span>
+                    <div className="inline-flex items-center rounded-lg border border-border/70 bg-background/80 p-0.5 shadow-sm">
+                      <UstChip
+                        active={a.ust_mode === "none"}
+                        onClick={() => updateAusgabe(i, "ust_mode", "none")}
+                      >
+                        0 %
+                      </UstChip>
+                      <UstChip
+                        active={a.ust_mode === "p7"}
+                        onClick={() => updateAusgabe(i, "ust_mode", "p7")}
+                      >
+                        7 %
+                      </UstChip>
+                      <UstChip
+                        active={a.ust_mode === "p19"}
+                        onClick={() => updateAusgabe(i, "ust_mode", "p19")}
+                      >
+                        19 %
+                      </UstChip>
+                      <UstChip
+                        active={a.ust_mode === "custom"}
+                        onClick={() => updateAusgabe(i, "ust_mode", "custom")}
+                      >
+                        Andere
+                      </UstChip>
+                    </div>
+                    {a.ust_mode === "custom" ? (
+                      <div className="relative">
+                        <Input
+                          inputMode="decimal"
+                          value={a.ust_custom_input}
+                          onFocus={selectOnFocus}
+                          onChange={(e) =>
+                            updateAusgabe(
+                              i,
+                              "ust_custom_input",
+                              e.target.value,
+                            )
+                          }
+                          placeholder="0,0"
+                          className="h-8 w-20 pr-7 text-right tabular-nums"
+                          aria-label="USt.-Satz in Prozent"
+                        />
+                        <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-muted-foreground">
+                          %
+                        </span>
+                      </div>
+                    ) : null}
+                    {bp != null && bp > 0 && ustCent != null ? (
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        davon USt.{" "}
+                        <span className="font-mono tabular-nums text-foreground">
+                          {formatCent(ustCent)}
+                        </span>
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               );
             })
           )}
+          {ausgaben.length > 0 && ustSummeCent > 0 ? (
+            <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              <span>Summe USt. (rechnerisch)</span>
+              <span className="font-mono tabular-nums text-foreground">
+                {formatCent(ustSummeCent)}
+              </span>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -459,7 +628,7 @@ export function ProtokollForm({
             cent={wechselgeldCent < 0 ? null : wechselgeldCent}
           />
           <Separator />
-          <div className="flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3 ring-1 ring-primary/20">
+          <div className="flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3 ring-1 ring-primary/15">
             <span className="flex items-center gap-2 text-sm font-medium text-foreground">
               <Banknote className="h-4 w-4 text-primary" />
               Tageseinnahmen netto
@@ -487,6 +656,31 @@ export function ProtokollForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+function UstChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+        active
+          ? "bg-primary/10 text-primary"
+          : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 

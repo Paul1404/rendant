@@ -29,6 +29,12 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import {
+  formatUstSatz as formatUstSatzLib,
+  groupByUstRate,
+  hasUstBreakdown,
+  ustAnteilCent,
+} from "@/lib/ust";
 
 export const dynamic = "force-dynamic";
 
@@ -65,23 +71,25 @@ export default async function ProtokollDetailPage({
 
       <div
         className={cn(
-          "relative overflow-hidden rounded-2xl border bg-card/60 px-5 py-6 shadow-sm ring-1 ring-foreground/5 sm:px-7 sm:py-7",
-          isStorno ? "border-destructive/30" : "border-border",
+          "relative overflow-hidden rounded-2xl border bg-card/70 px-5 py-6 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_18px_-8px_rgba(0,0,0,0.06)] ring-1 ring-foreground/[0.03] sm:px-7 sm:py-7",
+          isStorno ? "border-destructive/30" : "border-border/70",
         )}
       >
         <div
           aria-hidden
           className={cn(
-            "pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full blur-3xl",
-            isStorno ? "bg-destructive/15" : "bg-primary/15",
+            "pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full blur-3xl",
+            isStorno
+              ? "bg-gradient-to-br from-destructive/12 to-transparent"
+              : "bg-gradient-to-br from-primary/10 via-primary/5 to-transparent",
           )}
         />
         <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-primary">
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary/90">
               Beleg
             </p>
-            <h1 className="mt-1 font-mono text-2xl font-semibold tracking-tight text-foreground">
+            <h1 className="mt-1.5 font-mono text-2xl font-semibold tracking-tight text-foreground">
               {protokoll.belegnummer}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -141,6 +149,19 @@ export default async function ProtokollDetailPage({
           </CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+          {protokoll.kassennummer ? (
+            <KV
+              label="Kassennummer"
+              value={protokoll.kassennummer}
+              mono
+            />
+          ) : null}
+          {protokoll.kassenbezeichnung ? (
+            <KV
+              label="Kassenbezeichnung"
+              value={protokoll.kassenbezeichnung}
+            />
+          ) : null}
           <KV label="Anlass" value={protokoll.anlass} />
           <KV label="Datum" value={formatDateDe(protokoll.erstellt_am)} />
           <KV label="Gezählt von" value={protokoll.gezaehlt_von} />
@@ -240,25 +261,40 @@ export default async function ProtokollDetailPage({
                       Beleg-Nr.
                     </TableHead>
                     <TableHead className="text-right text-[11px] uppercase tracking-wider text-muted-foreground">
+                      USt.
+                    </TableHead>
+                    <TableHead className="text-right text-[11px] uppercase tracking-wider text-muted-foreground">
                       Betrag
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {ausgaben.map((a) => (
-                    <TableRow key={a.id}>
-                      <TableCell>{a.bezeichnung}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {a.empfaenger || "—"}
-                      </TableCell>
-                      <TableCell className="font-mono text-muted-foreground">
-                        {a.beleg_nr || "—"}
-                      </TableCell>
-                      <TableCell className="text-right font-mono tabular-nums">
-                        {formatCent(a.betrag_cent)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {ausgaben.map((a) => {
+                    const bp = a.ust_basis_punkte ?? 0;
+                    const ust = ustAnteilCent(a.betrag_cent, bp);
+                    return (
+                      <TableRow key={a.id}>
+                        <TableCell>{a.bezeichnung}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {a.empfaenger || "—"}
+                        </TableCell>
+                        <TableCell className="font-mono text-muted-foreground">
+                          {a.beleg_nr || "—"}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">
+                          {bp === 0 ? "—" : formatUstSatzLib(bp)}
+                          {bp > 0 ? (
+                            <span className="ml-1 text-[10px] text-muted-foreground/70">
+                              ({formatCent(ust)})
+                            </span>
+                          ) : null}
+                        </TableCell>
+                        <TableCell className="text-right font-mono tabular-nums">
+                          {formatCent(a.betrag_cent)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -268,6 +304,7 @@ export default async function ProtokollDetailPage({
               cent={protokoll.ausgaben_cent}
               bold
             />
+            <UstBreakdown ausgaben={ausgaben} bruttoCent={protokoll.ausgaben_cent} />
           </CardContent>
         </Card>
       ) : null}
@@ -295,7 +332,7 @@ export default async function ProtokollDetailPage({
             bold
           />
           <Separator className="my-3" />
-          <div className="flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3 ring-1 ring-primary/20">
+          <div className="flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3 ring-1 ring-primary/15">
             <span className="flex items-center gap-2 text-sm font-medium text-foreground">
               <Banknote className="h-4 w-4 text-primary" />
               Tageseinnahmen netto
@@ -333,13 +370,100 @@ export default async function ProtokollDetailPage({
   );
 }
 
-function KV({ label, value }: { label: string; value: string }) {
+function UstBreakdown({
+  ausgaben,
+  bruttoCent,
+}: {
+  ausgaben: Array<{ betrag_cent: number; ust_basis_punkte: number }>;
+  bruttoCent: number;
+}) {
+  const groups = groupByUstRate(ausgaben);
+  if (!hasUstBreakdown(groups)) return null;
+  const totalNetto = groups.reduce((s, g) => s + g.netto_cent, 0);
+  const totalUst = groups.reduce((s, g) => s + g.ust_cent, 0);
+  return (
+    <div className="mt-4">
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        USt.-Aufgliederung
+      </p>
+      <div className="overflow-hidden rounded-lg border border-border">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/40">
+            <tr>
+              <th className="px-3 py-1.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Satz
+              </th>
+              <th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Netto
+              </th>
+              <th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                USt.
+              </th>
+              <th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Brutto
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((g) => (
+              <tr key={g.bp} className="border-t border-border/60">
+                <td className="px-3 py-1.5 tabular-nums text-muted-foreground">
+                  {formatUstSatzLib(g.bp)}
+                </td>
+                <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+                  {formatCent(g.netto_cent)}
+                </td>
+                <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+                  {g.ust_cent === 0 ? (
+                    <span className="text-muted-foreground/50">—</span>
+                  ) : (
+                    formatCent(g.ust_cent)
+                  )}
+                </td>
+                <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+                  {formatCent(g.brutto_cent)}
+                </td>
+              </tr>
+            ))}
+            <tr className="border-t border-foreground/20 font-medium">
+              <td className="px-3 py-1.5">Summe</td>
+              <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+                {formatCent(totalNetto)}
+              </td>
+              <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+                {formatCent(totalUst)}
+              </td>
+              <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+                {formatCent(bruttoCent)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function KV({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
   return (
     <div>
       <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
         {label}
       </p>
-      <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+      <p
+        className={cn(
+          "mt-1 whitespace-pre-wrap text-sm text-foreground",
+          mono && "font-mono",
+        )}
+      >
         {value}
       </p>
     </div>

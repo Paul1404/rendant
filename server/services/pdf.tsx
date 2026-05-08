@@ -10,6 +10,8 @@ export function computeDataHash(
   const canonical = {
     belegnummer: data.belegnummer,
     erstellt_am: data.erstellt_am.toISOString(),
+    kassennummer: data.kassennummer,
+    kassenbezeichnung: data.kassenbezeichnung,
     anlass: data.anlass,
     gezaehlt_von: data.gezaehlt_von,
     geprueft_von: data.geprueft_von,
@@ -27,6 +29,7 @@ export function computeDataHash(
       empfaenger: a.empfaenger,
       beleg_nr: a.beleg_nr,
       betrag_cent: a.betrag_cent,
+      ust_basis_punkte: a.ust_basis_punkte ?? 0,
     })),
     storno: storno
       ? { am: storno.am.toISOString(), grund: storno.grund }

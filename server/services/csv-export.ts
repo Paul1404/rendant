@@ -5,12 +5,15 @@ import { formatDateDe, formatDateTimeDe } from "@/lib/date";
 const HEADERS = [
   "Belegnummer",
   "Datum",
+  "Kassennummer",
+  "Kassenbezeichnung",
   "Anlass",
-  "Gezaehlt von",
-  "Geprueft von",
+  "Gezählt von",
+  "Geprüft von",
   "Wechselgeld EUR",
-  "Gezaehlt EUR",
+  "Gezählt EUR",
   "Ausgaben EUR",
+  "USt EUR",
   "Bestand EUR",
   "Tageseinnahmen EUR",
   "Status",
@@ -25,11 +28,20 @@ function escapeCsv(value: string): string {
   return needsQuoting ? `"${escaped}"` : escaped;
 }
 
+function ustAnteilCent(bruttoCent: number, bp: number): number {
+  if (bp <= 0) return 0;
+  const netCent = Math.round((bruttoCent * 10000) / (10000 + bp));
+  return bruttoCent - netCent;
+}
+
 export async function exportCsv(von: string, bis: string): Promise<string> {
   const rows = await sql<
     {
+      id: string;
       belegnummer: string;
       erstellt_am: Date;
+      kassennummer: string;
+      kassenbezeichnung: string;
       anlass: string;
       gezaehlt_von: string;
       geprueft_von: string;
@@ -43,7 +55,8 @@ export async function exportCsv(von: string, bis: string): Promise<string> {
       storno_grund: string | null;
     }[]
   >`
-    SELECT belegnummer, erstellt_am, anlass, gezaehlt_von, geprueft_von,
+    SELECT id, belegnummer, erstellt_am, kassennummer, kassenbezeichnung,
+           anlass, gezaehlt_von, geprueft_von,
            bemerkung, wechselgeld_cent, gezaehlt_cent, ausgaben_cent,
            bestand_cent, tageseinnahmen_cent, storniert_am, storno_grund
     FROM protokolle
@@ -52,18 +65,46 @@ export async function exportCsv(von: string, bis: string): Promise<string> {
     ORDER BY belegnummer ASC
   `;
 
+  const ids = rows.map((r) => r.id);
+  const ausgabenRows = ids.length
+    ? await sql<
+        {
+          protokoll_id: string;
+          betrag_cent: number;
+          ust_basis_punkte: number;
+        }[]
+      >`
+        SELECT protokoll_id, betrag_cent, ust_basis_punkte
+        FROM ausgaben
+        WHERE protokoll_id IN ${sql(ids)}
+      `
+    : [];
+
+  const ustByProto = new Map<string, number>();
+  for (const a of ausgabenRows) {
+    const prev = ustByProto.get(a.protokoll_id) ?? 0;
+    ustByProto.set(
+      a.protokoll_id,
+      prev + ustAnteilCent(Number(a.betrag_cent), Number(a.ust_basis_punkte)),
+    );
+  }
+
   const lines: string[] = [HEADERS.join(";")];
   for (const r of rows) {
     const status = r.storniert_am ? "storniert" : "aktiv";
+    const ust = ustByProto.get(r.id) ?? 0;
     const cells = [
       r.belegnummer,
       formatDateDe(r.erstellt_am),
+      r.kassennummer,
+      r.kassenbezeichnung,
       r.anlass,
       r.gezaehlt_von,
       r.geprueft_von,
       formatCentPlain(Number(r.wechselgeld_cent)),
       formatCentPlain(Number(r.gezaehlt_cent)),
       formatCentPlain(Number(r.ausgaben_cent)),
+      formatCentPlain(ust),
       formatCentPlain(Number(r.bestand_cent)),
       formatCentPlain(Number(r.tageseinnahmen_cent)),
       status,
