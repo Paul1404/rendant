@@ -6,189 +6,13 @@ import {
   StyleSheet,
   Font,
 } from "@react-pdf/renderer";
-import { DENOMINATIONS } from "@/lib/denominations";
+import { DENOMINATIONS, type Denomination } from "@/lib/denominations";
 import { formatCent } from "@/lib/money";
 import { formatDateDe, formatDateTimeDe } from "@/lib/date";
 import { VEREINSNAME, PROTOKOLL_TITEL } from "@/lib/constants";
-import { groupByUstRate, hasUstBreakdown, ustAnteilCent, formatUstSatz } from "@/lib/ust";
+import { groupByUstRate, hasUstBreakdown, formatUstSatz } from "@/lib/ust";
 
 Font.registerHyphenationCallback((word) => [word]);
-
-const styles = StyleSheet.create({
-  page: {
-    paddingTop: 44,
-    paddingBottom: 60,
-    paddingHorizontal: 50,
-    fontSize: 10,
-    fontFamily: "Helvetica",
-    color: "#1a1a1a",
-    lineHeight: 1.4,
-  },
-  header: {
-    borderBottom: "1pt solid #1a1a1a",
-    paddingBottom: 10,
-    marginBottom: 16,
-  },
-  vereinsname: {
-    fontSize: 9,
-    color: "#666666",
-    letterSpacing: 1.4,
-    textTransform: "uppercase",
-  },
-  titel: {
-    fontSize: 17,
-    fontFamily: "Helvetica-Bold",
-    marginTop: 4,
-    letterSpacing: -0.2,
-  },
-  metaRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 8,
-    fontSize: 9.5,
-    color: "#444444",
-  },
-  section: { marginTop: 16 },
-  sectionTitle: {
-    fontSize: 9,
-    fontFamily: "Helvetica-Bold",
-    marginBottom: 8,
-    color: "#666666",
-    letterSpacing: 1.4,
-    textTransform: "uppercase",
-  },
-  kopfdatenRow: { flexDirection: "row", marginBottom: 4 },
-  kopfdatenLabel: { width: 100, color: "#666666" },
-  kopfdatenValue: { flex: 1 },
-  table: { display: "flex", flexDirection: "column" },
-  tableRow: {
-    flexDirection: "row",
-    borderBottom: "0.5pt solid #e5e5e5",
-    paddingVertical: 4,
-  },
-  tableHeader: {
-    flexDirection: "row",
-    borderBottom: "0.75pt solid #1a1a1a",
-    paddingVertical: 4,
-    fontFamily: "Helvetica-Bold",
-    fontSize: 9,
-    color: "#444444",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  cellLabel: { flex: 2 },
-  cellAnzahl: { flex: 1, textAlign: "right" },
-  cellWert: { flex: 1.4, textAlign: "right" },
-  cellBetrag: { flex: 1.6, textAlign: "right" },
-  subtotalRow: {
-    flexDirection: "row",
-    paddingVertical: 4,
-    borderTop: "0.5pt solid #b3b3b3",
-    fontFamily: "Helvetica-Bold",
-  },
-  totalRow: {
-    flexDirection: "row",
-    paddingVertical: 6,
-    borderTop: "1pt solid #1a1a1a",
-    borderBottom: "1pt solid #1a1a1a",
-    fontFamily: "Helvetica-Bold",
-    marginTop: 4,
-  },
-  ausgabeRow: {
-    flexDirection: "row",
-    borderBottom: "0.5pt solid #e5e5e5",
-    paddingVertical: 4,
-  },
-  ausgabeBezeichnung: { flex: 3 },
-  ausgabeEmpfaenger: { flex: 1.9 },
-  ausgabeBeleg: { flex: 1.2 },
-  ausgabeUst: { flex: 0.9, textAlign: "right" },
-  ausgabeBetrag: { flex: 1.6, textAlign: "right" },
-  ustBreakdown: {
-    marginTop: 10,
-    borderTop: "0.5pt solid #d4d4d4",
-    paddingTop: 8,
-  },
-  ustRow: {
-    flexDirection: "row",
-    paddingVertical: 2.5,
-    fontSize: 9.5,
-  },
-  ustHeader: {
-    flexDirection: "row",
-    paddingVertical: 3,
-    fontFamily: "Helvetica-Bold",
-    fontSize: 9,
-    color: "#444444",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-    borderBottom: "0.5pt solid #d4d4d4",
-  },
-  ustSatz: { flex: 1.2 },
-  ustNetto: { flex: 1.5, textAlign: "right" },
-  ustBetrag: { flex: 1.5, textAlign: "right" },
-  ustBrutto: { flex: 1.5, textAlign: "right" },
-  ustTotal: {
-    flexDirection: "row",
-    paddingVertical: 4,
-    borderTop: "0.5pt solid #999999",
-    fontFamily: "Helvetica-Bold",
-    fontSize: 9.5,
-  },
-  summary: {
-    marginTop: 18,
-    border: "0.75pt solid #d4d4d4",
-    backgroundColor: "#fafafa",
-    padding: 12,
-    borderRadius: 4,
-  },
-  summaryRow: { flexDirection: "row", paddingVertical: 2.5 },
-  summaryLabel: { flex: 2, color: "#444444" },
-  summaryValue: { flex: 1, textAlign: "right" },
-  summaryHighlight: {
-    flexDirection: "row",
-    paddingTop: 8,
-    marginTop: 8,
-    borderTop: "0.75pt solid #1a1a1a",
-    fontFamily: "Helvetica-Bold",
-    fontSize: 12,
-  },
-  footer: {
-    position: "absolute",
-    bottom: 30,
-    left: 50,
-    right: 50,
-    fontSize: 8,
-    color: "#888888",
-    borderTop: "0.5pt solid #d4d4d4",
-    paddingTop: 6,
-  },
-  footerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 2,
-  },
-  watermark: {
-    position: "absolute",
-    top: 280,
-    left: 0,
-    right: 0,
-    textAlign: "center",
-    fontSize: 110,
-    color: "#cc0000",
-    opacity: 0.16,
-    transform: "rotate(-18deg)",
-    fontFamily: "Helvetica-Bold",
-  },
-  stornoNotice: {
-    marginTop: 10,
-    backgroundColor: "#fde2e2",
-    border: "0.75pt solid #cc0000",
-    padding: 10,
-    color: "#990000",
-    borderRadius: 4,
-  },
-});
 
 export type AusgabePdf = {
   bezeichnung: string;
@@ -233,8 +57,293 @@ function formatUstSatzPdf(bp: number): string {
   const percent = bp / 100;
   const rounded = Math.round(percent * 10) / 10;
   return Number.isInteger(rounded)
-    ? `${rounded} %`
-    : `${rounded.toString().replace(".", ",")} %`;
+    ? `${rounded} %`
+    : `${rounded.toString().replace(".", ",")} %`;
+}
+
+function computeScale(
+  data: ProtokollPdfData,
+  showAusgabenUst: boolean,
+  showUmsatzUst: boolean,
+  umsatzGroupCount: number,
+  ausgabenUstGroupCount: number,
+): number {
+  // Estimated content height in pt at scale = 1.0
+  // Calibrated against measured layout: line-height ~14pt, sections ~10pt margin top
+  let height = 0;
+  height += 70; // header (verein + titel + meta + border + margin)
+  if (data.storno) height += 56;
+  height += 80; // kopfdaten section (title + 3-4 rows)
+  height += 175; // stückelung section (title + 2-col block w/ 8 rows + subtotals + total)
+  height += 120; // summary box (5 rows + 1-2 highlights + padding)
+  if (data.ausgaben.length > 0) {
+    height += 32; // section title + table header
+    height += data.ausgaben.length * 14;
+    height += 16; // subtotal row
+    if (showAusgabenUst) {
+      height += 30; // breakdown title + header
+      height += ausgabenUstGroupCount * 13;
+      height += 14; // total row
+    }
+  }
+  if (showUmsatzUst) {
+    height += 32; // section title + table header
+    height += umsatzGroupCount * 13;
+    height += 14; // total row
+  }
+  height += 5 * 8; // section gaps
+
+  // Footer reserves ~50pt; page paddings ~26+48 = 74pt; A4 = 842pt
+  const available = 660;
+  if (height <= available) return 1;
+  return Math.max(0.55, available / height);
+}
+
+function makeStyles(s: number) {
+  const f = (n: number) => n * s;
+  return StyleSheet.create({
+    page: {
+      paddingTop: f(26),
+      paddingBottom: 48,
+      paddingHorizontal: f(36),
+      fontSize: f(9),
+      fontFamily: "Helvetica",
+      color: "#1a1a1a",
+      lineHeight: 1.3,
+    },
+    header: {
+      borderBottom: "0.75pt solid #1a1a1a",
+      paddingBottom: f(6),
+      marginBottom: f(8),
+    },
+    vereinsname: {
+      fontSize: f(8),
+      color: "#666666",
+      letterSpacing: 1.2,
+      textTransform: "uppercase",
+    },
+    titel: {
+      fontSize: f(14),
+      fontFamily: "Helvetica-Bold",
+      marginTop: f(2),
+      letterSpacing: -0.2,
+    },
+    metaRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      marginTop: f(4),
+      fontSize: f(8.5),
+      color: "#444444",
+    },
+    section: { marginTop: f(8) },
+    sectionTitle: {
+      fontSize: f(7.5),
+      fontFamily: "Helvetica-Bold",
+      marginBottom: f(4),
+      color: "#666666",
+      letterSpacing: 1.2,
+      textTransform: "uppercase",
+    },
+    kopfdatenGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+    },
+    kopfdatenCell: {
+      width: "50%",
+      flexDirection: "row",
+      paddingVertical: f(1.5),
+      paddingRight: f(8),
+    },
+    kopfdatenCellFull: {
+      width: "100%",
+      flexDirection: "row",
+      paddingVertical: f(1.5),
+      paddingRight: f(8),
+    },
+    kopfdatenLabel: { width: f(96), color: "#666666", paddingRight: f(6) },
+    kopfdatenValue: { flex: 1 },
+    twoCol: { flexDirection: "row", gap: f(12) },
+    twoColLeft: { flex: 1 },
+    twoColRight: { flex: 1 },
+    stueckRow: {
+      flexDirection: "row",
+      borderBottom: "0.4pt solid #ececec",
+      paddingVertical: f(2),
+    },
+    stueckHeader: {
+      flexDirection: "row",
+      borderBottom: "0.6pt solid #1a1a1a",
+      paddingVertical: f(2.5),
+      fontFamily: "Helvetica-Bold",
+      fontSize: f(7.5),
+      color: "#444444",
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    stueckLabel: { flex: 1.2 },
+    stueckAnzahl: { flex: 1, textAlign: "right" },
+    stueckBetrag: { flex: 1.4, textAlign: "right" },
+    stueckSubtotal: {
+      flexDirection: "row",
+      paddingVertical: f(2.5),
+      borderTop: "0.4pt solid #b3b3b3",
+      fontFamily: "Helvetica-Bold",
+    },
+    stueckTotal: {
+      flexDirection: "row",
+      paddingVertical: f(3),
+      borderTop: "0.75pt solid #1a1a1a",
+      borderBottom: "0.75pt solid #1a1a1a",
+      fontFamily: "Helvetica-Bold",
+      marginTop: f(2),
+    },
+    ausgabeHeader: {
+      flexDirection: "row",
+      borderBottom: "0.6pt solid #1a1a1a",
+      paddingVertical: f(2.5),
+      fontFamily: "Helvetica-Bold",
+      fontSize: f(7.5),
+      color: "#444444",
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    ausgabeRow: {
+      flexDirection: "row",
+      borderBottom: "0.4pt solid #ececec",
+      paddingVertical: f(2),
+    },
+    ausgabeBezeichnung: { flex: 3 },
+    ausgabeEmpfaenger: { flex: 1.9 },
+    ausgabeBeleg: { flex: 1.2 },
+    ausgabeUst: { flex: 0.9, textAlign: "right" },
+    ausgabeBetrag: { flex: 1.6, textAlign: "right" },
+    ausgabeSubtotal: {
+      flexDirection: "row",
+      paddingVertical: f(2.5),
+      borderTop: "0.4pt solid #b3b3b3",
+      fontFamily: "Helvetica-Bold",
+    },
+    ustBreakdown: {
+      marginTop: f(6),
+      borderTop: "0.4pt solid #d4d4d4",
+      paddingTop: f(4),
+    },
+    ustHeader: {
+      flexDirection: "row",
+      paddingVertical: f(2),
+      fontFamily: "Helvetica-Bold",
+      fontSize: f(7.5),
+      color: "#444444",
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+      borderBottom: "0.4pt solid #d4d4d4",
+    },
+    ustRow: {
+      flexDirection: "row",
+      paddingVertical: f(1.8),
+    },
+    ustTotal: {
+      flexDirection: "row",
+      paddingVertical: f(2.5),
+      borderTop: "0.4pt solid #999999",
+      fontFamily: "Helvetica-Bold",
+    },
+    ustSatz: { flex: 1.2 },
+    ustNetto: { flex: 1.5, textAlign: "right" },
+    ustBetrag: { flex: 1.5, textAlign: "right" },
+    ustBrutto: { flex: 1.5, textAlign: "right" },
+    summary: {
+      border: "0.6pt solid #d4d4d4",
+      backgroundColor: "#fafafa",
+      padding: f(8),
+      borderRadius: 3,
+    },
+    summaryRow: { flexDirection: "row", paddingVertical: f(1.5) },
+    summaryLabel: { flex: 2, color: "#444444" },
+    summaryValue: { flex: 1, textAlign: "right" },
+    summaryHighlight: {
+      flexDirection: "row",
+      paddingTop: f(4),
+      marginTop: f(4),
+      borderTop: "0.6pt solid #1a1a1a",
+      fontFamily: "Helvetica-Bold",
+      fontSize: f(10),
+    },
+    footer: {
+      position: "absolute",
+      bottom: 22,
+      left: 36,
+      right: 36,
+      fontSize: 7.5,
+      color: "#888888",
+      borderTop: "0.4pt solid #d4d4d4",
+      paddingTop: 4,
+    },
+    footerRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      marginBottom: 1,
+    },
+    watermark: {
+      position: "absolute",
+      top: 280,
+      left: 0,
+      right: 0,
+      textAlign: "center",
+      fontSize: 110,
+      color: "#cc0000",
+      opacity: 0.16,
+      transform: "rotate(-18deg)",
+      fontFamily: "Helvetica-Bold",
+    },
+    stornoNotice: {
+      marginTop: f(6),
+      backgroundColor: "#fde2e2",
+      border: "0.6pt solid #cc0000",
+      padding: f(6),
+      color: "#990000",
+      borderRadius: 3,
+    },
+  });
+}
+
+function StueckelungColumn({
+  styles,
+  rows,
+  counts,
+  subtotalLabel,
+  subtotalCent,
+}: {
+  styles: ReturnType<typeof makeStyles>;
+  rows: readonly Denomination[];
+  counts: Record<string, number>;
+  subtotalLabel: string;
+  subtotalCent: number;
+}) {
+  return (
+    <View>
+      <View style={styles.stueckHeader}>
+        <Text style={styles.stueckLabel}>Wert</Text>
+        <Text style={styles.stueckAnzahl}>Anzahl</Text>
+        <Text style={styles.stueckBetrag}>Betrag</Text>
+      </View>
+      {rows.map((d) => {
+        const count = counts[d.key] ?? 0;
+        return (
+          <View key={d.key} style={styles.stueckRow}>
+            <Text style={styles.stueckLabel}>{d.label}</Text>
+            <Text style={styles.stueckAnzahl}>{count}</Text>
+            <Text style={styles.stueckBetrag}>{formatCent(count * d.cent)}</Text>
+          </View>
+        );
+      })}
+      <View style={styles.stueckSubtotal}>
+        <Text style={styles.stueckLabel}>{subtotalLabel}</Text>
+        <Text style={styles.stueckAnzahl}> </Text>
+        <Text style={styles.stueckBetrag}>{formatCent(subtotalCent)}</Text>
+      </View>
+    </View>
+  );
 }
 
 export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
@@ -245,6 +354,9 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
     );
   const sumScheine = sumKind("schein");
   const sumMuenzen = sumKind("muenze");
+  const scheine = DENOMINATIONS.filter((d) => d.kind === "schein");
+  const muenzen = DENOMINATIONS.filter((d) => d.kind === "muenze");
+
   const ustGroups = groupByUstRate(data.ausgaben);
   const ustSummeCent = ustGroups.reduce((s, g) => s + g.ust_cent, 0);
   const showUstBreakdown = hasUstBreakdown(ustGroups);
@@ -258,6 +370,15 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
   const umsatzNettoSumme = umsatzGroups.reduce((s, g) => s + g.netto_cent, 0);
   const umsatzBruttoSumme = umsatzGroups.reduce((s, g) => s + g.brutto_cent, 0);
   const showUmsatzBreakdown = data.umsatz_ust.length > 0;
+
+  const scale = computeScale(
+    data,
+    showUstBreakdown,
+    showUmsatzBreakdown,
+    umsatzGroups.length,
+    ustGroups.length,
+  );
+  const styles = makeStyles(scale);
 
   return (
     <Document
@@ -286,87 +407,76 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
               Stornobeleg zu Beleg-Nr. {data.belegnummer} vom{" "}
               {formatDateDe(data.erstellt_am)}
             </Text>
-            <Text>
-              Storniert am: {formatDateTimeDe(data.storno.am)} Uhr
-            </Text>
+            <Text>Storniert am: {formatDateTimeDe(data.storno.am)} Uhr</Text>
             <Text>Grund: {data.storno.grund}</Text>
           </View>
         ) : null}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Kopfdaten</Text>
-          {data.kassennummer ? (
-            <View style={styles.kopfdatenRow}>
-              <Text style={styles.kopfdatenLabel}>Kassennummer</Text>
-              <Text style={styles.kopfdatenValue}>{data.kassennummer}</Text>
+          <View style={styles.kopfdatenGrid}>
+            {data.kassennummer ? (
+              <View style={styles.kopfdatenCell}>
+                <Text style={styles.kopfdatenLabel}>Kassennummer</Text>
+                <Text style={styles.kopfdatenValue}>{data.kassennummer}</Text>
+              </View>
+            ) : null}
+            {data.kassenbezeichnung ? (
+              <View style={styles.kopfdatenCell}>
+                <Text style={styles.kopfdatenLabel}>Kassenbezeichnung</Text>
+                <Text style={styles.kopfdatenValue}>
+                  {data.kassenbezeichnung}
+                </Text>
+              </View>
+            ) : null}
+            <View style={styles.kopfdatenCell}>
+              <Text style={styles.kopfdatenLabel}>Gezählt von</Text>
+              <Text style={styles.kopfdatenValue}>{data.gezaehlt_von}</Text>
             </View>
-          ) : null}
-          {data.kassenbezeichnung ? (
-            <View style={styles.kopfdatenRow}>
-              <Text style={styles.kopfdatenLabel}>Kassenbezeichnung</Text>
-              <Text style={styles.kopfdatenValue}>
-                {data.kassenbezeichnung}
-              </Text>
+            <View style={styles.kopfdatenCell}>
+              <Text style={styles.kopfdatenLabel}>Geprüft von</Text>
+              <Text style={styles.kopfdatenValue}>{data.geprueft_von}</Text>
             </View>
-          ) : null}
-          <View style={styles.kopfdatenRow}>
-            <Text style={styles.kopfdatenLabel}>Anlass</Text>
-            <Text style={styles.kopfdatenValue}>{data.anlass}</Text>
-          </View>
-          <View style={styles.kopfdatenRow}>
-            <Text style={styles.kopfdatenLabel}>Gezählt von</Text>
-            <Text style={styles.kopfdatenValue}>{data.gezaehlt_von}</Text>
-          </View>
-          <View style={styles.kopfdatenRow}>
-            <Text style={styles.kopfdatenLabel}>Geprüft von</Text>
-            <Text style={styles.kopfdatenValue}>{data.geprueft_von}</Text>
-          </View>
-          {data.bemerkung ? (
-            <View style={styles.kopfdatenRow}>
-              <Text style={styles.kopfdatenLabel}>Bemerkung</Text>
-              <Text style={styles.kopfdatenValue}>{data.bemerkung}</Text>
+            <View style={styles.kopfdatenCellFull}>
+              <Text style={styles.kopfdatenLabel}>Anlass</Text>
+              <Text style={styles.kopfdatenValue}>{data.anlass}</Text>
             </View>
-          ) : null}
+            {data.bemerkung ? (
+              <View style={styles.kopfdatenCellFull}>
+                <Text style={styles.kopfdatenLabel}>Bemerkung</Text>
+                <Text style={styles.kopfdatenValue}>{data.bemerkung}</Text>
+              </View>
+            ) : null}
+          </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Stückelung</Text>
-          <View style={styles.tableHeader}>
-            <Text style={styles.cellLabel}>Wert</Text>
-            <Text style={styles.cellAnzahl}>Anzahl</Text>
-            <Text style={styles.cellWert}>Einzelwert</Text>
-            <Text style={styles.cellBetrag}>Teilbetrag</Text>
+          <View style={styles.twoCol}>
+            <View style={styles.twoColLeft}>
+              <StueckelungColumn
+                styles={styles}
+                rows={scheine}
+                counts={data.counts}
+                subtotalLabel="Zwischensumme Scheine"
+                subtotalCent={sumScheine}
+              />
+            </View>
+            <View style={styles.twoColRight}>
+              <StueckelungColumn
+                styles={styles}
+                rows={muenzen}
+                counts={data.counts}
+                subtotalLabel="Zwischensumme Münzen"
+                subtotalCent={sumMuenzen}
+              />
+            </View>
           </View>
-          {DENOMINATIONS.map((d) => {
-            const count = data.counts[d.key] ?? 0;
-            return (
-              <View key={d.key} style={styles.tableRow}>
-                <Text style={styles.cellLabel}>{d.label}</Text>
-                <Text style={styles.cellAnzahl}>{count}</Text>
-                <Text style={styles.cellWert}>{formatCent(d.cent)}</Text>
-                <Text style={styles.cellBetrag}>
-                  {formatCent(count * d.cent)}
-                </Text>
-              </View>
-            );
-          })}
-          <View style={styles.subtotalRow}>
-            <Text style={styles.cellLabel}>Zwischensumme Scheine</Text>
-            <Text style={styles.cellAnzahl}> </Text>
-            <Text style={styles.cellWert}> </Text>
-            <Text style={styles.cellBetrag}>{formatCent(sumScheine)}</Text>
-          </View>
-          <View style={styles.subtotalRow}>
-            <Text style={styles.cellLabel}>Zwischensumme Münzen</Text>
-            <Text style={styles.cellAnzahl}> </Text>
-            <Text style={styles.cellWert}> </Text>
-            <Text style={styles.cellBetrag}>{formatCent(sumMuenzen)}</Text>
-          </View>
-          <View style={styles.totalRow}>
-            <Text style={styles.cellLabel}>Gezählter Endbestand</Text>
-            <Text style={styles.cellAnzahl}> </Text>
-            <Text style={styles.cellWert}> </Text>
-            <Text style={styles.cellBetrag}>
+          <View style={styles.stueckTotal}>
+            <Text style={styles.stueckLabel}>Gezählter Endbestand</Text>
+            <Text style={styles.stueckAnzahl}> </Text>
+            <Text style={styles.stueckAnzahl}> </Text>
+            <Text style={styles.stueckBetrag}>
               {formatCent(data.gezaehlt_cent)}
             </Text>
           </View>
@@ -375,7 +485,7 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
         {data.ausgaben.length > 0 ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Betriebliche Ausgaben</Text>
-            <View style={styles.tableHeader}>
+            <View style={styles.ausgabeHeader}>
               <Text style={styles.ausgabeBezeichnung}>Bezeichnung</Text>
               <Text style={styles.ausgabeEmpfaenger}>Empfänger</Text>
               <Text style={styles.ausgabeBeleg}>Beleg-Nr.</Text>
@@ -397,7 +507,7 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
                 </Text>
               </View>
             ))}
-            <View style={styles.subtotalRow}>
+            <View style={styles.ausgabeSubtotal}>
               <Text style={styles.ausgabeBezeichnung}>Summe Ausgaben</Text>
               <Text style={styles.ausgabeEmpfaenger}> </Text>
               <Text style={styles.ausgabeBeleg}> </Text>
@@ -448,77 +558,81 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
           </View>
         ) : null}
 
-        <View style={styles.summary}>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>
-              Anfangsbestand (Wechselgeld)
-            </Text>
-            <Text style={styles.summaryValue}>
-              {formatCent(data.wechselgeld_cent)}
-            </Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Gezählter Endbestand</Text>
-            <Text style={styles.summaryValue}>
-              {formatCent(data.gezaehlt_cent)}
-            </Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Betriebliche Ausgaben</Text>
-            <Text style={styles.summaryValue}>
-              {formatCent(data.ausgaben_cent)}
-            </Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>
-              Kassenbestand brutto (Gezählt + Ausgaben)
-            </Text>
-            <Text style={styles.summaryValue}>
-              {formatCent(data.bestand_cent)}
-            </Text>
-          </View>
-          {data.kartenzahlung_cent > 0 ? (
+        <View style={styles.section}>
+          <View style={styles.summary}>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Kartenzahlung</Text>
+              <Text style={styles.summaryLabel}>
+                Anfangsbestand (Wechselgeld)
+              </Text>
               <Text style={styles.summaryValue}>
-                {formatCent(data.kartenzahlung_cent)}
+                {formatCent(data.wechselgeld_cent)}
               </Text>
             </View>
-          ) : null}
-          {data.kartenzahlung_cent > 0 ? (
-            <>
-              <View style={styles.summaryHighlight}>
-                <Text style={styles.summaryLabel}>
-                  Tageseinnahmen netto (ohne Kartenzahlung)
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Gezählter Endbestand</Text>
+              <Text style={styles.summaryValue}>
+                {formatCent(data.gezaehlt_cent)}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Betriebliche Ausgaben</Text>
+              <Text style={styles.summaryValue}>
+                {formatCent(data.ausgaben_cent)}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>
+                Kassenbestand brutto (Gezählt + Ausgaben)
+              </Text>
+              <Text style={styles.summaryValue}>
+                {formatCent(data.bestand_cent)}
+              </Text>
+            </View>
+            {data.kartenzahlung_cent > 0 ? (
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Kartenzahlung</Text>
+                <Text style={styles.summaryValue}>
+                  {formatCent(data.kartenzahlung_cent)}
                 </Text>
+              </View>
+            ) : null}
+            {data.kartenzahlung_cent > 0 ? (
+              <>
+                <View style={styles.summaryHighlight}>
+                  <Text style={styles.summaryLabel}>
+                    Tageseinnahmen netto (ohne Kartenzahlung)
+                  </Text>
+                  <Text style={styles.summaryValue}>
+                    {formatCent(data.tageseinnahmen_cent)}
+                  </Text>
+                </View>
+                <View style={styles.summaryHighlight}>
+                  <Text style={styles.summaryLabel}>
+                    Tageseinnahmen netto (mit Kartenzahlung)
+                  </Text>
+                  <Text style={styles.summaryValue}>
+                    {formatCent(
+                      data.tageseinnahmen_cent + data.kartenzahlung_cent,
+                    )}
+                  </Text>
+                </View>
+              </>
+            ) : (
+              <View style={styles.summaryHighlight}>
+                <Text style={styles.summaryLabel}>Tageseinnahmen netto</Text>
                 <Text style={styles.summaryValue}>
                   {formatCent(data.tageseinnahmen_cent)}
                 </Text>
               </View>
-              <View style={styles.summaryHighlight}>
-                <Text style={styles.summaryLabel}>
-                  Tageseinnahmen netto (mit Kartenzahlung)
-                </Text>
-                <Text style={styles.summaryValue}>
-                  {formatCent(
-                    data.tageseinnahmen_cent + data.kartenzahlung_cent,
-                  )}
-                </Text>
-              </View>
-            </>
-          ) : (
-            <View style={styles.summaryHighlight}>
-              <Text style={styles.summaryLabel}>Tageseinnahmen netto</Text>
-              <Text style={styles.summaryValue}>
-                {formatCent(data.tageseinnahmen_cent)}
-              </Text>
-            </View>
-          )}
+            )}
+          </View>
         </View>
 
         {showUmsatzBreakdown ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Umsatz-Aufgliederung nach USt.</Text>
+            <Text style={styles.sectionTitle}>
+              Umsatz-Aufgliederung nach USt.
+            </Text>
             <View style={styles.ustHeader}>
               <Text style={styles.ustSatz}>Satz</Text>
               <Text style={styles.ustNetto}>Netto</Text>
@@ -532,14 +646,20 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
                 <Text style={styles.ustBetrag}>
                   {g.ust_cent === 0 ? "—" : formatCent(g.ust_cent)}
                 </Text>
-                <Text style={styles.ustBrutto}>{formatCent(g.brutto_cent)}</Text>
+                <Text style={styles.ustBrutto}>
+                  {formatCent(g.brutto_cent)}
+                </Text>
               </View>
             ))}
             <View style={styles.ustTotal}>
               <Text style={styles.ustSatz}>Summe</Text>
-              <Text style={styles.ustNetto}>{formatCent(umsatzNettoSumme)}</Text>
+              <Text style={styles.ustNetto}>
+                {formatCent(umsatzNettoSumme)}
+              </Text>
               <Text style={styles.ustBetrag}>{formatCent(umsatzUstSumme)}</Text>
-              <Text style={styles.ustBrutto}>{formatCent(umsatzBruttoSumme)}</Text>
+              <Text style={styles.ustBrutto}>
+                {formatCent(umsatzBruttoSumme)}
+              </Text>
             </View>
           </View>
         ) : null}
@@ -550,16 +670,14 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
             <Text>Beleg: {data.belegnummer}</Text>
           </View>
           <View style={styles.footerRow}>
-            <Text>
-              Erfasst: {formatDateTimeDe(data.erstellt_am)} Uhr
-            </Text>
+            <Text>Erfasst: {formatDateTimeDe(data.erstellt_am)} Uhr</Text>
             <Text
               render={({ pageNumber, totalPages }) =>
                 `Seite ${pageNumber} von ${totalPages}`
               }
             />
           </View>
-          <Text style={{ marginTop: 2 }}>SHA256: {data.pdfHash}</Text>
+          <Text style={{ marginTop: 1 }}>SHA256: {data.pdfHash}</Text>
         </View>
       </Page>
     </Document>

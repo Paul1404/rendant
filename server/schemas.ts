@@ -58,3 +58,18 @@ export const ExportQuerySchema = z.object({
 });
 
 export type ExportQuery = z.infer<typeof ExportQuerySchema>;
+
+export const BelegnummerSettingsSchema = z.object({
+  min_digits: z.number().int().min(1).max(6),
+  prefix: z
+    .string()
+    .trim()
+    .max(20)
+    .regex(/^[A-Za-z0-9_-]*$/, "Nur Buchstaben, Ziffern, Bindestrich, Unterstrich")
+    .default(""),
+  include_year: z.boolean(),
+  year_format: z.enum(["long", "short"]),
+  separator: z.enum(["-", "/", ".", "_"]),
+});
+
+export type BelegnummerSettingsInput = z.infer<typeof BelegnummerSettingsSchema>;
