@@ -29,6 +29,12 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import {
+  formatUstSatz as formatUstSatzLib,
+  groupByUstRate,
+  hasUstBreakdown,
+  ustAnteilCent,
+} from "@/lib/ust";
 
 export const dynamic = "force-dynamic";
 
@@ -276,7 +282,7 @@ export default async function ProtokollDetailPage({
                           {a.beleg_nr || "—"}
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-muted-foreground">
-                          {bp === 0 ? "—" : formatUstSatz(bp)}
+                          {bp === 0 ? "—" : formatUstSatzLib(bp)}
                           {bp > 0 ? (
                             <span className="ml-1 text-[10px] text-muted-foreground/70">
                               ({formatCent(ust)})
@@ -298,19 +304,7 @@ export default async function ProtokollDetailPage({
               cent={protokoll.ausgaben_cent}
               bold
             />
-            {(() => {
-              const totalUst = ausgaben.reduce(
-                (s, a) =>
-                  s + ustAnteilCent(a.betrag_cent, a.ust_basis_punkte ?? 0),
-                0,
-              );
-              return totalUst > 0 ? (
-                <SumRow
-                  label="davon USt. (rechnerisch)"
-                  cent={totalUst}
-                />
-              ) : null;
-            })()}
+            <UstBreakdown ausgaben={ausgaben} bruttoCent={protokoll.ausgaben_cent} />
           </CardContent>
         </Card>
       ) : null}
@@ -376,18 +370,78 @@ export default async function ProtokollDetailPage({
   );
 }
 
-function formatUstSatz(bp: number): string {
-  const percent = bp / 100;
-  const rounded = Math.round(percent * 10) / 10;
-  return Number.isInteger(rounded)
-    ? `${rounded} %`
-    : `${rounded.toString().replace(".", ",")} %`;
-}
-
-function ustAnteilCent(bruttoCent: number, bp: number): number {
-  if (bp <= 0) return 0;
-  const netCent = Math.round((bruttoCent * 10000) / (10000 + bp));
-  return bruttoCent - netCent;
+function UstBreakdown({
+  ausgaben,
+  bruttoCent,
+}: {
+  ausgaben: Array<{ betrag_cent: number; ust_basis_punkte: number }>;
+  bruttoCent: number;
+}) {
+  const groups = groupByUstRate(ausgaben);
+  if (!hasUstBreakdown(groups)) return null;
+  const totalNetto = groups.reduce((s, g) => s + g.netto_cent, 0);
+  const totalUst = groups.reduce((s, g) => s + g.ust_cent, 0);
+  return (
+    <div className="mt-4">
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        USt.-Aufgliederung
+      </p>
+      <div className="overflow-hidden rounded-lg border border-border">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/40">
+            <tr>
+              <th className="px-3 py-1.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Satz
+              </th>
+              <th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Netto
+              </th>
+              <th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                USt.
+              </th>
+              <th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Brutto
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((g) => (
+              <tr key={g.bp} className="border-t border-border/60">
+                <td className="px-3 py-1.5 tabular-nums text-muted-foreground">
+                  {formatUstSatzLib(g.bp)}
+                </td>
+                <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+                  {formatCent(g.netto_cent)}
+                </td>
+                <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+                  {g.ust_cent === 0 ? (
+                    <span className="text-muted-foreground/50">—</span>
+                  ) : (
+                    formatCent(g.ust_cent)
+                  )}
+                </td>
+                <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+                  {formatCent(g.brutto_cent)}
+                </td>
+              </tr>
+            ))}
+            <tr className="border-t border-foreground/20 font-medium">
+              <td className="px-3 py-1.5">Summe</td>
+              <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+                {formatCent(totalNetto)}
+              </td>
+              <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+                {formatCent(totalUst)}
+              </td>
+              <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+                {formatCent(bruttoCent)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 function KV({

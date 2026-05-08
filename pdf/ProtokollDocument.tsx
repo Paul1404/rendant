@@ -10,6 +10,7 @@ import { DENOMINATIONS } from "@/lib/denominations";
 import { formatCent } from "@/lib/money";
 import { formatDateDe, formatDateTimeDe } from "@/lib/date";
 import { VEREINSNAME, PROTOKOLL_TITEL } from "@/lib/constants";
+import { groupByUstRate, hasUstBreakdown, ustAnteilCent, formatUstSatz } from "@/lib/ust";
 
 Font.registerHyphenationCallback((word) => [word]);
 
@@ -103,6 +104,37 @@ const styles = StyleSheet.create({
   ausgabeBeleg: { flex: 1.2 },
   ausgabeUst: { flex: 0.9, textAlign: "right" },
   ausgabeBetrag: { flex: 1.6, textAlign: "right" },
+  ustBreakdown: {
+    marginTop: 10,
+    borderTop: "0.5pt solid #d4d4d4",
+    paddingTop: 8,
+  },
+  ustRow: {
+    flexDirection: "row",
+    paddingVertical: 2.5,
+    fontSize: 9.5,
+  },
+  ustHeader: {
+    flexDirection: "row",
+    paddingVertical: 3,
+    fontFamily: "Helvetica-Bold",
+    fontSize: 9,
+    color: "#444444",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    borderBottom: "0.5pt solid #d4d4d4",
+  },
+  ustSatz: { flex: 1.2 },
+  ustNetto: { flex: 1.5, textAlign: "right" },
+  ustBetrag: { flex: 1.5, textAlign: "right" },
+  ustBrutto: { flex: 1.5, textAlign: "right" },
+  ustTotal: {
+    flexDirection: "row",
+    paddingVertical: 4,
+    borderTop: "0.5pt solid #999999",
+    fontFamily: "Helvetica-Bold",
+    fontSize: 9.5,
+  },
   summary: {
     marginTop: 18,
     border: "0.75pt solid #d4d4d4",
@@ -189,19 +221,13 @@ export type ProtokollPdfData = {
   };
 };
 
-function formatUstSatz(bp: number): string {
+function formatUstSatzPdf(bp: number): string {
   if (bp === 0) return "—";
   const percent = bp / 100;
   const rounded = Math.round(percent * 10) / 10;
   return Number.isInteger(rounded)
     ? `${rounded} %`
     : `${rounded.toString().replace(".", ",")} %`;
-}
-
-function ustAnteilCent(bruttoCent: number, bp: number): number {
-  if (bp <= 0) return 0;
-  const netCent = Math.round((bruttoCent * 10000) / (10000 + bp));
-  return bruttoCent - netCent;
 }
 
 export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
@@ -212,10 +238,9 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
     );
   const sumScheine = sumKind("schein");
   const sumMuenzen = sumKind("muenze");
-  const ustSummeCent = data.ausgaben.reduce(
-    (s, a) => s + ustAnteilCent(a.betrag_cent, a.ust_basis_punkte ?? 0),
-    0,
-  );
+  const ustGroups = groupByUstRate(data.ausgaben);
+  const ustSummeCent = ustGroups.reduce((s, g) => s + g.ust_cent, 0);
+  const showUstBreakdown = hasUstBreakdown(ustGroups);
 
   return (
     <Document
@@ -234,15 +259,18 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
           <Text style={styles.titel}>{PROTOKOLL_TITEL}</Text>
           <View style={styles.metaRow}>
             <Text>Belegnummer: {data.belegnummer}</Text>
-            <Text>Datum: {formatDateDe(data.erstellt_am)}</Text>
+            <Text>Erfasst: {formatDateTimeDe(data.erstellt_am)} Uhr</Text>
           </View>
         </View>
 
         {data.storno ? (
           <View style={styles.stornoNotice}>
+            <Text style={{ fontFamily: "Helvetica-Bold" }}>
+              Stornobeleg zu Beleg-Nr. {data.belegnummer} vom{" "}
+              {formatDateDe(data.erstellt_am)}
+            </Text>
             <Text>
-              Dieser Beleg wurde am {formatDateTimeDe(data.storno.am)}{" "}
-              storniert.
+              Storniert am: {formatDateTimeDe(data.storno.am)} Uhr
             </Text>
             <Text>Grund: {data.storno.grund}</Text>
           </View>
@@ -345,7 +373,7 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
                 </Text>
                 <Text style={styles.ausgabeBeleg}>{a.beleg_nr || " "}</Text>
                 <Text style={styles.ausgabeUst}>
-                  {formatUstSatz(a.ust_basis_punkte ?? 0)}
+                  {formatUstSatzPdf(a.ust_basis_punkte ?? 0)}
                 </Text>
                 <Text style={styles.ausgabeBetrag}>
                   {formatCent(a.betrag_cent)}
@@ -361,17 +389,43 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
                 {formatCent(data.ausgaben_cent)}
               </Text>
             </View>
-            {ustSummeCent > 0 ? (
-              <View style={[styles.ausgabeRow, { borderBottom: "none" }]}>
-                <Text style={styles.ausgabeBezeichnung}>
-                  davon USt. (rechnerisch)
-                </Text>
-                <Text style={styles.ausgabeEmpfaenger}> </Text>
-                <Text style={styles.ausgabeBeleg}> </Text>
-                <Text style={styles.ausgabeUst}> </Text>
-                <Text style={styles.ausgabeBetrag}>
-                  {formatCent(ustSummeCent)}
-                </Text>
+            {showUstBreakdown ? (
+              <View style={styles.ustBreakdown}>
+                <Text style={styles.sectionTitle}>USt.-Aufgliederung</Text>
+                <View style={styles.ustHeader}>
+                  <Text style={styles.ustSatz}>Satz</Text>
+                  <Text style={styles.ustNetto}>Netto</Text>
+                  <Text style={styles.ustBetrag}>USt.</Text>
+                  <Text style={styles.ustBrutto}>Brutto</Text>
+                </View>
+                {ustGroups.map((g) => (
+                  <View key={g.bp} style={styles.ustRow}>
+                    <Text style={styles.ustSatz}>{formatUstSatz(g.bp)}</Text>
+                    <Text style={styles.ustNetto}>
+                      {formatCent(g.netto_cent)}
+                    </Text>
+                    <Text style={styles.ustBetrag}>
+                      {g.ust_cent === 0 ? "—" : formatCent(g.ust_cent)}
+                    </Text>
+                    <Text style={styles.ustBrutto}>
+                      {formatCent(g.brutto_cent)}
+                    </Text>
+                  </View>
+                ))}
+                <View style={styles.ustTotal}>
+                  <Text style={styles.ustSatz}>Summe</Text>
+                  <Text style={styles.ustNetto}>
+                    {formatCent(
+                      ustGroups.reduce((s, g) => s + g.netto_cent, 0),
+                    )}
+                  </Text>
+                  <Text style={styles.ustBetrag}>
+                    {formatCent(ustSummeCent)}
+                  </Text>
+                  <Text style={styles.ustBrutto}>
+                    {formatCent(data.ausgaben_cent)}
+                  </Text>
+                </View>
               </View>
             ) : null}
           </View>
@@ -420,14 +474,19 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
             <Text>Beleg: {data.belegnummer}</Text>
           </View>
           <View style={styles.footerRow}>
-            <Text>Erstellt: {formatDateTimeDe(data.erstellt_am)}</Text>
+            <Text>
+              Erfasst: {formatDateTimeDe(data.erstellt_am)} Uhr
+            </Text>
             <Text
               render={({ pageNumber, totalPages }) =>
                 `Seite ${pageNumber} von ${totalPages}`
               }
             />
           </View>
-          <Text>SHA256: {data.pdfHash}</Text>
+          <Text style={{ marginTop: 2, fontStyle: "italic" }}>
+            Beleg gemäß GoBD elektronisch erfasst und archiviert. Aufbewahrungsfrist 10 Jahre.
+          </Text>
+          <Text style={{ marginTop: 2 }}>SHA256: {data.pdfHash}</Text>
         </View>
       </Page>
     </Document>
