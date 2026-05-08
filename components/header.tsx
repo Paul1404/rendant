@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { LogOut, Plus, Download, List } from "lucide-react";
+import { LogOut, Plus, Download, List, Settings } from "lucide-react";
 import { VEREINSNAME } from "@/lib/constants";
 import { Logo } from "@/components/logo";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,7 @@ const NAV = [
   { href: "/protokolle", label: "Protokolle", icon: List, exact: true },
   { href: "/protokolle/neu", label: "Neu", icon: Plus },
   { href: "/protokolle/export", label: "Export", icon: Download },
+  { href: "/protokolle/einstellungen", label: "Einstellungen", icon: Settings },
 ];
 
 export function Header() {
