@@ -198,6 +198,11 @@ export type AusgabePdf = {
   ust_basis_punkte: number;
 };
 
+export type UmsatzUstPdf = {
+  ust_basis_punkte: number;
+  betrag_cent: number;
+};
+
 export type ProtokollPdfData = {
   belegnummer: string;
   erstellt_am: Date;
@@ -214,6 +219,7 @@ export type ProtokollPdfData = {
   bestand_cent: number;
   tageseinnahmen_cent: number;
   ausgaben: AusgabePdf[];
+  umsatz_ust: UmsatzUstPdf[];
   pdfHash: string;
   storno?: {
     am: Date;
@@ -241,6 +247,16 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
   const ustGroups = groupByUstRate(data.ausgaben);
   const ustSummeCent = ustGroups.reduce((s, g) => s + g.ust_cent, 0);
   const showUstBreakdown = hasUstBreakdown(ustGroups);
+  const umsatzGroups = groupByUstRate(
+    data.umsatz_ust.map((u) => ({
+      betrag_cent: u.betrag_cent,
+      ust_basis_punkte: u.ust_basis_punkte,
+    })),
+  );
+  const umsatzUstSumme = umsatzGroups.reduce((s, g) => s + g.ust_cent, 0);
+  const umsatzNettoSumme = umsatzGroups.reduce((s, g) => s + g.netto_cent, 0);
+  const umsatzBruttoSumme = umsatzGroups.reduce((s, g) => s + g.brutto_cent, 0);
+  const showUmsatzBreakdown = data.umsatz_ust.length > 0;
 
   return (
     <Document
@@ -467,6 +483,34 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
             </Text>
           </View>
         </View>
+
+        {showUmsatzBreakdown ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Umsatz-Aufgliederung nach USt.</Text>
+            <View style={styles.ustHeader}>
+              <Text style={styles.ustSatz}>Satz</Text>
+              <Text style={styles.ustNetto}>Netto</Text>
+              <Text style={styles.ustBetrag}>USt.</Text>
+              <Text style={styles.ustBrutto}>Brutto</Text>
+            </View>
+            {umsatzGroups.map((g) => (
+              <View key={g.bp} style={styles.ustRow}>
+                <Text style={styles.ustSatz}>{formatUstSatz(g.bp)}</Text>
+                <Text style={styles.ustNetto}>{formatCent(g.netto_cent)}</Text>
+                <Text style={styles.ustBetrag}>
+                  {g.ust_cent === 0 ? "—" : formatCent(g.ust_cent)}
+                </Text>
+                <Text style={styles.ustBrutto}>{formatCent(g.brutto_cent)}</Text>
+              </View>
+            ))}
+            <View style={styles.ustTotal}>
+              <Text style={styles.ustSatz}>Summe</Text>
+              <Text style={styles.ustNetto}>{formatCent(umsatzNettoSumme)}</Text>
+              <Text style={styles.ustBetrag}>{formatCent(umsatzUstSumme)}</Text>
+              <Text style={styles.ustBrutto}>{formatCent(umsatzBruttoSumme)}</Text>
+            </View>
+          </View>
+        ) : null}
 
         <View fixed style={styles.footer}>
           <View style={styles.footerRow}>

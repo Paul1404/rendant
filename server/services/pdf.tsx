@@ -31,6 +31,10 @@ export function computeDataHash(
       betrag_cent: a.betrag_cent,
       ust_basis_punkte: a.ust_basis_punkte ?? 0,
     })),
+    umsatz_ust: data.umsatz_ust.map((u) => ({
+      ust_basis_punkte: u.ust_basis_punkte ?? 0,
+      betrag_cent: u.betrag_cent,
+    })),
     storno: storno
       ? { am: storno.am.toISOString(), grund: storno.grund }
       : null,
