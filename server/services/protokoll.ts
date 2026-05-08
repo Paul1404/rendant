@@ -20,6 +20,13 @@ export type AusgabeRow = {
   reihenfolge: number;
 };
 
+export type UmsatzUstRow = {
+  id: string;
+  ust_basis_punkte: number;
+  betrag_cent: number;
+  reihenfolge: number;
+};
+
 export type ProtokollRow = {
   id: string;
   belegnummer: string;
@@ -91,7 +98,14 @@ export async function listProtokolle(opts: {
 
 export async function getProtokoll(
   id: string,
-): Promise<{ protokoll: ProtokollRow; ausgaben: AusgabeRow[] } | null> {
+): Promise<
+  | {
+      protokoll: ProtokollRow;
+      ausgaben: AusgabeRow[];
+      umsatzUst: UmsatzUstRow[];
+    }
+  | null
+> {
   const protoRows = await sql`SELECT * FROM protokolle WHERE id = ${id}`;
   if (protoRows.length === 0) return null;
   const ausgabenRows = await sql<AusgabeRow[]>`
@@ -101,12 +115,23 @@ export async function getProtokoll(
     WHERE protokoll_id = ${id}
     ORDER BY reihenfolge ASC, id ASC
   `;
+  const umsatzRows = await sql<UmsatzUstRow[]>`
+    SELECT id, ust_basis_punkte, betrag_cent, reihenfolge
+    FROM protokoll_umsatz_ust
+    WHERE protokoll_id = ${id}
+    ORDER BY reihenfolge ASC, id ASC
+  `;
   return {
     protokoll: rowToProtokoll(protoRows[0] as Record<string, unknown>),
     ausgaben: ausgabenRows.map((a) => ({
       ...a,
       betrag_cent: Number(a.betrag_cent),
       ust_basis_punkte: Number(a.ust_basis_punkte ?? 0),
+    })),
+    umsatzUst: umsatzRows.map((u) => ({
+      ...u,
+      betrag_cent: Number(u.betrag_cent),
+      ust_basis_punkte: Number(u.ust_basis_punkte ?? 0),
     })),
   };
 }
@@ -126,6 +151,15 @@ export async function createProtokoll(
   const ausgaben_cent = input.ausgaben.reduce((s, a) => s + a.betrag_cent, 0);
   const bestand_cent = gezaehlt_cent + ausgaben_cent;
   const tageseinnahmen_cent = bestand_cent - input.wechselgeld_cent;
+
+  if (input.umsatz_ust.length > 0) {
+    const sum = input.umsatz_ust.reduce((s, u) => s + u.betrag_cent, 0);
+    if (sum !== tageseinnahmen_cent) {
+      throw new Error(
+        "Summe der USt.-Aufteilung des Umsatzes muss den Tageseinnahmen entsprechen",
+      );
+    }
+  }
 
   const year = new Date().getFullYear();
   const maxRetries = 3;
@@ -172,6 +206,15 @@ export async function createProtokoll(
           }));
           await tx`INSERT INTO ausgaben ${tx(rows)}`;
         }
+        if (input.umsatz_ust.length > 0) {
+          const rows = input.umsatz_ust.map((u, i) => ({
+            protokoll_id: proto.id,
+            ust_basis_punkte: u.ust_basis_punkte,
+            betrag_cent: u.betrag_cent,
+            reihenfolge: i,
+          }));
+          await tx`INSERT INTO protokoll_umsatz_ust ${tx(rows)}`;
+        }
         return proto;
       });
 
@@ -191,6 +234,7 @@ export async function createProtokoll(
         bestand_cent,
         tageseinnahmen_cent,
         ausgaben: input.ausgaben,
+        umsatz_ust: input.umsatz_ust,
       });
       const key = pdfKey(result.belegnummer, "");
       await uploadPdf(key, buffer);
@@ -238,6 +282,7 @@ export async function stornoProtokoll(
     bestand_cent: detail.protokoll.bestand_cent,
     tageseinnahmen_cent: detail.protokoll.tageseinnahmen_cent,
     ausgaben: detail.ausgaben,
+    umsatz_ust: detail.umsatzUst,
     storno: { am: stornoAm, grund: input.storno_grund },
   });
   const key = pdfKey(detail.protokoll.belegnummer, "_STORNO");

@@ -48,7 +48,7 @@ export default async function ProtokollDetailPage({
   const { id } = await params;
   const detail = await getProtokoll(id);
   if (!detail) notFound();
-  const { protokoll, ausgaben } = detail;
+  const { protokoll, ausgaben, umsatzUst } = detail;
   const sumScheine = DENOMINATIONS.filter((d) => d.kind === "schein").reduce(
     (s, d) => s + protokoll.counts[d.key] * d.cent,
     0,
@@ -344,6 +344,20 @@ export default async function ProtokollDetailPage({
         </CardContent>
       </Card>
 
+      {umsatzUst.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calculator className="h-4 w-4 text-primary" />
+              Umsatz nach USt.
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <UmsatzUstBreakdown splits={umsatzUst} />
+          </CardContent>
+        </Card>
+      ) : null}
+
       {protokoll.pdf_sha256 ? (
         <Card>
           <CardHeader>
@@ -440,6 +454,73 @@ function UstBreakdown({
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function UmsatzUstBreakdown({
+  splits,
+}: {
+  splits: Array<{ ust_basis_punkte: number; betrag_cent: number }>;
+}) {
+  const groups = groupByUstRate(splits);
+  const totalNetto = groups.reduce((s, g) => s + g.netto_cent, 0);
+  const totalUst = groups.reduce((s, g) => s + g.ust_cent, 0);
+  const totalBrutto = groups.reduce((s, g) => s + g.brutto_cent, 0);
+  return (
+    <div className="overflow-hidden rounded-lg border border-border">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/40">
+          <tr>
+            <th className="px-3 py-1.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Satz
+            </th>
+            <th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Netto
+            </th>
+            <th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              USt.
+            </th>
+            <th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Brutto
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {groups.map((g) => (
+            <tr key={g.bp} className="border-t border-border/60">
+              <td className="px-3 py-1.5 tabular-nums text-muted-foreground">
+                {formatUstSatzLib(g.bp)}
+              </td>
+              <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+                {formatCent(g.netto_cent)}
+              </td>
+              <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+                {g.ust_cent === 0 ? (
+                  <span className="text-muted-foreground/50">—</span>
+                ) : (
+                  formatCent(g.ust_cent)
+                )}
+              </td>
+              <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+                {formatCent(g.brutto_cent)}
+              </td>
+            </tr>
+          ))}
+          <tr className="border-t border-foreground/20 font-medium">
+            <td className="px-3 py-1.5">Summe</td>
+            <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+              {formatCent(totalNetto)}
+            </td>
+            <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+              {formatCent(totalUst)}
+            </td>
+            <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+              {formatCent(totalBrutto)}
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 }

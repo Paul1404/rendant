@@ -15,6 +15,7 @@ import {
   Coins,
   FileText,
   Loader2,
+  Percent,
   Plus,
   ReceiptText,
   Save,
@@ -49,6 +50,12 @@ type AusgabeDraft = {
   ust_custom_input: string;
 };
 
+type UmsatzUstDraft = {
+  betrag_input: string;
+  ust_mode: UstMode;
+  ust_custom_input: string;
+};
+
 const UST_PRESET_BP: Record<Exclude<UstMode, "custom">, number> = {
   none: 0,
   p7: 700,
@@ -64,6 +71,19 @@ function emptyAusgabe(): AusgabeDraft {
     ust_mode: "none",
     ust_custom_input: "",
   };
+}
+
+function emptyUmsatzSplit(mode: UstMode = "none"): UmsatzUstDraft {
+  return {
+    betrag_input: "",
+    ust_mode: mode,
+    ust_custom_input: "",
+  };
+}
+
+function umsatzUstBp(s: UmsatzUstDraft): number | null {
+  if (s.ust_mode === "custom") return parseGermanPercent(s.ust_custom_input);
+  return UST_PRESET_BP[s.ust_mode];
 }
 
 function parseGermanPercent(input: string): number | null {
@@ -116,9 +136,12 @@ export function ProtokollForm({
     formatCentPlain(WECHSELGELD_DEFAULT_CENT),
   );
   const [ausgaben, setAusgaben] = useState<AusgabeDraft[]>([]);
+  const [umsatzSplits, setUmsatzSplits] = useState<UmsatzUstDraft[]>([]);
 
   const lastAusgabeRef = useRef<HTMLInputElement | null>(null);
   const focusLastAusgabe = useRef(false);
+  const lastUmsatzRef = useRef<HTMLInputElement | null>(null);
+  const focusLastUmsatz = useRef(false);
 
   useEffect(() => {
     if (focusLastAusgabe.current) {
@@ -126,6 +149,13 @@ export function ProtokollForm({
       focusLastAusgabe.current = false;
     }
   }, [ausgaben.length]);
+
+  useEffect(() => {
+    if (focusLastUmsatz.current) {
+      lastUmsatzRef.current?.focus();
+      focusLastUmsatz.current = false;
+    }
+  }, [umsatzSplits.length]);
 
   const wechselgeldCent = useMemo(
     () => parseGermanAmount(wechselgeldInput) ?? -1,
@@ -158,6 +188,30 @@ export function ProtokollForm({
       ? null
       : bestandCent - wechselgeldCent;
 
+  const umsatzSplitSummeCent = useMemo(() => {
+    let total = 0;
+    for (const s of umsatzSplits) {
+      const v = parseGermanAmount(s.betrag_input);
+      if (v == null) return null;
+      total += v;
+    }
+    return total;
+  }, [umsatzSplits]);
+  const umsatzDiffCent =
+    umsatzSplitSummeCent == null || tageseinnahmenCent == null
+      ? null
+      : tageseinnahmenCent - umsatzSplitSummeCent;
+  const umsatzUstSummeCent = useMemo(() => {
+    let total = 0;
+    for (const s of umsatzSplits) {
+      const brutto = parseGermanAmount(s.betrag_input);
+      const bp = umsatzUstBp(s);
+      if (brutto == null || bp == null) continue;
+      total += ustAnteilCent(brutto, bp);
+    }
+    return total;
+  }, [umsatzSplits]);
+
   function setCount(key: DenominationKey, raw: string) {
     const num = raw === "" ? 0 : Number(raw);
     if (!Number.isFinite(num) || num < 0 || !Number.isInteger(num)) return;
@@ -180,6 +234,36 @@ export function ProtokollForm({
   }
   function removeAusgabe(idx: number) {
     setAusgaben((list) => list.filter((_, i) => i !== idx));
+  }
+
+  function updateUmsatz<K extends keyof UmsatzUstDraft>(
+    idx: number,
+    key: K,
+    value: UmsatzUstDraft[K],
+  ) {
+    setUmsatzSplits((list) =>
+      list.map((s, i) => (i === idx ? { ...s, [key]: value } : s)),
+    );
+  }
+  function addUmsatzSplit(mode: UstMode = "none") {
+    focusLastUmsatz.current = true;
+    setUmsatzSplits((list) => [...list, emptyUmsatzSplit(mode)]);
+  }
+  function removeUmsatzSplit(idx: number) {
+    setUmsatzSplits((list) => list.filter((_, i) => i !== idx));
+  }
+  function fillRestbetrag(idx: number) {
+    if (tageseinnahmenCent == null) return;
+    let other = 0;
+    for (let i = 0; i < umsatzSplits.length; i++) {
+      if (i === idx) continue;
+      const v = parseGermanAmount(umsatzSplits[i].betrag_input);
+      if (v == null) return;
+      other += v;
+    }
+    const rest = tageseinnahmenCent - other;
+    if (rest < 0) return;
+    updateUmsatz(idx, "betrag_input", formatCentPlain(rest));
   }
 
   function submit(e: React.FormEvent) {
@@ -229,6 +313,39 @@ export function ProtokollForm({
       });
     }
 
+    const umsatzPayload: Array<{
+      ust_basis_punkte: number;
+      betrag_cent: number;
+    }> = [];
+    if (umsatzSplits.length > 0) {
+      if (tageseinnahmenCent == null || tageseinnahmenCent < 0) {
+        toast.error(
+          "Tageseinnahmen müssen gültig sein, bevor Umsatz nach USt. erfasst werden kann",
+        );
+        return;
+      }
+      for (const s of umsatzSplits) {
+        const cent = parseGermanAmount(s.betrag_input);
+        if (cent == null || cent < 0) {
+          toast.error("Umsatz-Betrag ist ungültig");
+          return;
+        }
+        const bp = umsatzUstBp(s);
+        if (bp == null) {
+          toast.error("USt.-Satz im Umsatz ist ungültig (0–100 %)");
+          return;
+        }
+        umsatzPayload.push({ ust_basis_punkte: bp, betrag_cent: cent });
+      }
+      const splitSum = umsatzPayload.reduce((s, u) => s + u.betrag_cent, 0);
+      if (splitSum !== tageseinnahmenCent) {
+        toast.error(
+          `Summe der USt.-Aufteilung (${formatCent(splitSum)}) muss den Tageseinnahmen (${formatCent(tageseinnahmenCent)}) entsprechen`,
+        );
+        return;
+      }
+    }
+
     const payload: Record<string, unknown> = {
       kassennummer: kassennummer.trim(),
       kassenbezeichnung: kassenbezeichnung.trim(),
@@ -238,6 +355,7 @@ export function ProtokollForm({
       bemerkung: bemerkung.trim(),
       wechselgeld_cent: wechselgeldCent,
       ausgaben: ausgabenPayload,
+      umsatz_ust: umsatzPayload,
     };
     for (const d of DENOMINATIONS) payload[d.key] = counts[d.key];
 
@@ -637,6 +755,217 @@ export function ProtokollForm({
               {tageseinnahmenCent == null ? "-" : formatCent(tageseinnahmenCent)}
             </span>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Percent className="h-4 w-4 text-primary" />
+            Umsatz nach USt.
+          </CardTitle>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => addUmsatzSplit("p7")}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              7 %
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => addUmsatzSplit("p19")}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              19 %
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => addUmsatzSplit("none")}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Anteil
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Optional. Tageseinnahmen auf USt.-Sätze aufteilen (z. B. 500&nbsp;EUR
+            zu 7&nbsp;% und 500&nbsp;EUR zu 19&nbsp;%). Die Summe muss den
+            Tageseinnahmen entsprechen.
+          </p>
+          {umsatzSplits.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
+              Keine USt.-Aufteilung erfasst.
+            </p>
+          ) : (
+            umsatzSplits.map((s, i) => {
+              const isLast = i === umsatzSplits.length - 1;
+              const brutto = parseGermanAmount(s.betrag_input);
+              const bp = umsatzUstBp(s);
+              const ustCent =
+                brutto != null && bp != null
+                  ? ustAnteilCent(brutto, bp)
+                  : null;
+              return (
+                <div
+                  key={i}
+                  className="rounded-xl border border-border/70 bg-muted/20 p-3"
+                >
+                  <div className="grid grid-cols-1 items-end gap-2 md:grid-cols-12">
+                    <div className="md:col-span-7 space-y-1">
+                      <Label className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                        USt.-Satz
+                      </Label>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="inline-flex items-center rounded-lg border border-border/70 bg-background/80 p-0.5 shadow-sm">
+                          <UstChip
+                            active={s.ust_mode === "none"}
+                            onClick={() => updateUmsatz(i, "ust_mode", "none")}
+                          >
+                            0 %
+                          </UstChip>
+                          <UstChip
+                            active={s.ust_mode === "p7"}
+                            onClick={() => updateUmsatz(i, "ust_mode", "p7")}
+                          >
+                            7 %
+                          </UstChip>
+                          <UstChip
+                            active={s.ust_mode === "p19"}
+                            onClick={() => updateUmsatz(i, "ust_mode", "p19")}
+                          >
+                            19 %
+                          </UstChip>
+                          <UstChip
+                            active={s.ust_mode === "custom"}
+                            onClick={() =>
+                              updateUmsatz(i, "ust_mode", "custom")
+                            }
+                          >
+                            Andere
+                          </UstChip>
+                        </div>
+                        {s.ust_mode === "custom" ? (
+                          <div className="relative">
+                            <Input
+                              inputMode="decimal"
+                              value={s.ust_custom_input}
+                              onFocus={selectOnFocus}
+                              onChange={(e) =>
+                                updateUmsatz(
+                                  i,
+                                  "ust_custom_input",
+                                  e.target.value,
+                                )
+                              }
+                              placeholder="0,0"
+                              className="h-8 w-20 pr-7 text-right tabular-nums"
+                              aria-label="USt.-Satz in Prozent"
+                            />
+                            <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-muted-foreground">
+                              %
+                            </span>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="md:col-span-3 space-y-1">
+                      <Label htmlFor={`umsatz-bet-${i}`}>Brutto EUR</Label>
+                      <Input
+                        id={`umsatz-bet-${i}`}
+                        ref={isLast ? lastUmsatzRef : undefined}
+                        inputMode="decimal"
+                        placeholder="0,00"
+                        value={s.betrag_input}
+                        onFocus={selectOnFocus}
+                        onChange={(e) =>
+                          updateUmsatz(i, "betrag_input", e.target.value)
+                        }
+                        className="text-right tabular-nums"
+                      />
+                    </div>
+                    <div className="md:col-span-2 flex items-end gap-1 md:justify-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => fillRestbetrag(i)}
+                        disabled={tageseinnahmenCent == null}
+                        title="Restbetrag bis Tageseinnahmen einsetzen"
+                      >
+                        Rest
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label="USt.-Aufteilung entfernen"
+                        onClick={() => removeUmsatzSplit(i)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  {bp != null && bp > 0 && ustCent != null ? (
+                    <div className="mt-2 flex justify-end text-xs text-muted-foreground">
+                      davon USt.&nbsp;
+                      <span className="font-mono tabular-nums text-foreground">
+                        {formatCent(ustCent)}
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })
+          )}
+          {umsatzSplits.length > 0 ? (
+            <div className="space-y-1 rounded-lg bg-muted/40 px-3 py-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Summe Aufteilung</span>
+                <span className="font-mono tabular-nums text-foreground">
+                  {umsatzSplitSummeCent == null
+                    ? "-"
+                    : formatCent(umsatzSplitSummeCent)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Tageseinnahmen</span>
+                <span className="font-mono tabular-nums text-foreground">
+                  {tageseinnahmenCent == null
+                    ? "-"
+                    : formatCent(tageseinnahmenCent)}
+                </span>
+              </div>
+              <div
+                className={cn(
+                  "flex items-center justify-between font-medium",
+                  umsatzDiffCent === 0
+                    ? "text-success"
+                    : "text-destructive",
+                )}
+              >
+                <span>Differenz</span>
+                <span className="font-mono tabular-nums">
+                  {umsatzDiffCent == null ? "-" : formatCent(umsatzDiffCent)}
+                </span>
+              </div>
+              {umsatzUstSummeCent > 0 ? (
+                <div className="flex items-center justify-between border-t border-border/50 pt-1 text-muted-foreground">
+                  <span>Summe USt. (rechnerisch)</span>
+                  <span className="font-mono tabular-nums text-foreground">
+                    {formatCent(umsatzUstSummeCent)}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

@@ -14,6 +14,11 @@ export const AusgabeSchema = z.object({
   ust_basis_punkte: z.number().int().min(0).max(10000).default(0),
 });
 
+export const UmsatzUstSplitSchema = z.object({
+  ust_basis_punkte: z.number().int().min(0).max(10000),
+  betrag_cent: z.number().int().min(0),
+});
+
 export const CreateProtokollSchema = z.object({
   kassennummer: z.string().min(1).max(50),
   kassenbezeichnung: z.string().min(1).max(120),
@@ -24,6 +29,7 @@ export const CreateProtokollSchema = z.object({
   wechselgeld_cent: z.number().int().min(0),
   ...counts,
   ausgaben: z.array(AusgabeSchema).max(100).default([]),
+  umsatz_ust: z.array(UmsatzUstSplitSchema).max(20).default([]),
 });
 
 export type CreateProtokollInput = z.infer<typeof CreateProtokollSchema>;
