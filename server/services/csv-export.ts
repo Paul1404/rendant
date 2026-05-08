@@ -16,6 +16,8 @@ const HEADERS = [
   "USt EUR",
   "Bestand EUR",
   "Tageseinnahmen EUR",
+  "Kartenzahlung EUR",
+  "Tageseinnahmen inkl. Karte EUR",
   "Status",
   "Storniert am",
   "Storno-Grund",
@@ -47,6 +49,7 @@ export async function exportCsv(von: string, bis: string): Promise<string> {
       geprueft_von: string;
       bemerkung: string;
       wechselgeld_cent: number;
+      kartenzahlung_cent: number;
       gezaehlt_cent: number;
       ausgaben_cent: number;
       bestand_cent: number;
@@ -57,7 +60,8 @@ export async function exportCsv(von: string, bis: string): Promise<string> {
   >`
     SELECT id, belegnummer, erstellt_am, kassennummer, kassenbezeichnung,
            anlass, gezaehlt_von, geprueft_von,
-           bemerkung, wechselgeld_cent, gezaehlt_cent, ausgaben_cent,
+           bemerkung, wechselgeld_cent, kartenzahlung_cent,
+           gezaehlt_cent, ausgaben_cent,
            bestand_cent, tageseinnahmen_cent, storniert_am, storno_grund
     FROM protokolle
     WHERE erstellt_am::date >= ${von}::date
@@ -93,6 +97,8 @@ export async function exportCsv(von: string, bis: string): Promise<string> {
   for (const r of rows) {
     const status = r.storniert_am ? "storniert" : "aktiv";
     const ust = ustByProto.get(r.id) ?? 0;
+    const karte = Number(r.kartenzahlung_cent ?? 0);
+    const tageseinnahmen = Number(r.tageseinnahmen_cent);
     const cells = [
       r.belegnummer,
       formatDateDe(r.erstellt_am),
@@ -106,7 +112,9 @@ export async function exportCsv(von: string, bis: string): Promise<string> {
       formatCentPlain(Number(r.ausgaben_cent)),
       formatCentPlain(ust),
       formatCentPlain(Number(r.bestand_cent)),
-      formatCentPlain(Number(r.tageseinnahmen_cent)),
+      formatCentPlain(tageseinnahmen),
+      formatCentPlain(karte),
+      formatCentPlain(tageseinnahmen + karte),
       status,
       r.storniert_am ? formatDateTimeDe(r.storniert_am) : "",
       r.storno_grund ?? "",

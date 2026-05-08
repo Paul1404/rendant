@@ -214,6 +214,7 @@ export type ProtokollPdfData = {
   bemerkung: string;
   counts: Record<string, number>;
   wechselgeld_cent: number;
+  kartenzahlung_cent: number;
   gezaehlt_cent: number;
   ausgaben_cent: number;
   bestand_cent: number;
@@ -476,12 +477,43 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
               {formatCent(data.bestand_cent)}
             </Text>
           </View>
-          <View style={styles.summaryHighlight}>
-            <Text style={styles.summaryLabel}>Tageseinnahmen netto</Text>
-            <Text style={styles.summaryValue}>
-              {formatCent(data.tageseinnahmen_cent)}
-            </Text>
-          </View>
+          {data.kartenzahlung_cent > 0 ? (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Kartenzahlung</Text>
+              <Text style={styles.summaryValue}>
+                {formatCent(data.kartenzahlung_cent)}
+              </Text>
+            </View>
+          ) : null}
+          {data.kartenzahlung_cent > 0 ? (
+            <>
+              <View style={styles.summaryHighlight}>
+                <Text style={styles.summaryLabel}>
+                  Tageseinnahmen netto (ohne Kartenzahlung)
+                </Text>
+                <Text style={styles.summaryValue}>
+                  {formatCent(data.tageseinnahmen_cent)}
+                </Text>
+              </View>
+              <View style={styles.summaryHighlight}>
+                <Text style={styles.summaryLabel}>
+                  Tageseinnahmen netto (mit Kartenzahlung)
+                </Text>
+                <Text style={styles.summaryValue}>
+                  {formatCent(
+                    data.tageseinnahmen_cent + data.kartenzahlung_cent,
+                  )}
+                </Text>
+              </View>
+            </>
+          ) : (
+            <View style={styles.summaryHighlight}>
+              <Text style={styles.summaryLabel}>Tageseinnahmen netto</Text>
+              <Text style={styles.summaryValue}>
+                {formatCent(data.tageseinnahmen_cent)}
+              </Text>
+            </View>
+          )}
         </View>
 
         {showUmsatzBreakdown ? (
@@ -527,9 +559,6 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
               }
             />
           </View>
-          <Text style={{ marginTop: 2, fontStyle: "italic" }}>
-            Beleg gemäß GoBD elektronisch erfasst und archiviert. Aufbewahrungsfrist 10 Jahre.
-          </Text>
           <Text style={{ marginTop: 2 }}>SHA256: {data.pdfHash}</Text>
         </View>
       </Page>

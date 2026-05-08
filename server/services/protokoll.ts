@@ -38,6 +38,7 @@ export type ProtokollRow = {
   geprueft_von: string;
   bemerkung: string;
   wechselgeld_cent: number;
+  kartenzahlung_cent: number;
   gezaehlt_cent: number;
   ausgaben_cent: number;
   bestand_cent: number;
@@ -69,6 +70,7 @@ function rowToProtokoll(row: Record<string, unknown>): ProtokollRow {
     geprueft_von: row.geprueft_von as string,
     bemerkung: row.bemerkung as string,
     wechselgeld_cent: Number(row.wechselgeld_cent),
+    kartenzahlung_cent: Number(row.kartenzahlung_cent ?? 0),
     gezaehlt_cent: Number(row.gezaehlt_cent),
     ausgaben_cent: Number(row.ausgaben_cent),
     bestand_cent: Number(row.bestand_cent),
@@ -151,25 +153,29 @@ export async function createProtokoll(
   const ausgaben_cent = input.ausgaben.reduce((s, a) => s + a.betrag_cent, 0);
   const bestand_cent = gezaehlt_cent + ausgaben_cent;
   const tageseinnahmen_cent = bestand_cent - input.wechselgeld_cent;
+  const tageseinnahmen_gesamt_cent =
+    tageseinnahmen_cent + input.kartenzahlung_cent;
 
   if (input.umsatz_ust.length > 0) {
     const sum = input.umsatz_ust.reduce((s, u) => s + u.betrag_cent, 0);
-    if (sum !== tageseinnahmen_cent) {
+    if (sum !== tageseinnahmen_gesamt_cent) {
       throw new Error(
-        "Summe der USt.-Aufteilung des Umsatzes muss den Tageseinnahmen entsprechen",
+        "Summe der USt.-Aufteilung des Umsatzes muss den Tageseinnahmen (inkl. Kartenzahlung) entsprechen",
       );
     }
   }
 
   const year = new Date().getFullYear();
-  const maxRetries = 3;
+  const customBelegnummer = input.belegnummer?.trim() || null;
+  const maxRetries = customBelegnummer ? 1 : 3;
   let attempt = 0;
 
   while (attempt < maxRetries) {
     attempt++;
     try {
       const result = await sql.begin(async (tx) => {
-        const belegnummer = await nextBelegnummerInTx(tx, year);
+        const belegnummer =
+          customBelegnummer ?? (await nextBelegnummerInTx(tx, year));
         const insertCols: Record<string, unknown> = {
           belegnummer,
           kassennummer: input.kassennummer,
@@ -179,11 +185,15 @@ export async function createProtokoll(
           geprueft_von: input.geprueft_von,
           bemerkung: input.bemerkung,
           wechselgeld_cent: input.wechselgeld_cent,
+          kartenzahlung_cent: input.kartenzahlung_cent,
           gezaehlt_cent,
           ausgaben_cent,
           bestand_cent,
           tageseinnahmen_cent,
         };
+        if (input.erstellt_am) {
+          insertCols.erstellt_am = input.erstellt_am;
+        }
         for (const d of DENOMINATIONS) insertCols[d.key] = counts[d.key];
         const protoRows = await tx`
           INSERT INTO protokolle ${tx(insertCols)}
@@ -229,6 +239,7 @@ export async function createProtokoll(
         bemerkung: input.bemerkung,
         counts,
         wechselgeld_cent: input.wechselgeld_cent,
+        kartenzahlung_cent: input.kartenzahlung_cent,
         gezaehlt_cent,
         ausgaben_cent,
         bestand_cent,
@@ -247,8 +258,11 @@ export async function createProtokoll(
       return { id: result.id, belegnummer: result.belegnummer };
     } catch (e) {
       const code = (e as { code?: string }).code;
-      if (code === "23505" && attempt < maxRetries) {
-        continue;
+      if (code === "23505") {
+        if (customBelegnummer) {
+          throw new Error("Belegnummer bereits vergeben");
+        }
+        if (attempt < maxRetries) continue;
       }
       throw e;
     }
@@ -277,6 +291,7 @@ export async function stornoProtokoll(
     bemerkung: detail.protokoll.bemerkung,
     counts: detail.protokoll.counts,
     wechselgeld_cent: detail.protokoll.wechselgeld_cent,
+    kartenzahlung_cent: detail.protokoll.kartenzahlung_cent,
     gezaehlt_cent: detail.protokoll.gezaehlt_cent,
     ausgaben_cent: detail.protokoll.ausgaben_cent,
     bestand_cent: detail.protokoll.bestand_cent,

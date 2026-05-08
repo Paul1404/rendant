@@ -20,6 +20,13 @@ export const UmsatzUstSplitSchema = z.object({
 });
 
 export const CreateProtokollSchema = z.object({
+  belegnummer: z
+    .string()
+    .trim()
+    .min(1)
+    .max(50)
+    .regex(/^[A-Za-z0-9._\-/]+$/)
+    .optional(),
   kassennummer: z.string().min(1).max(50),
   kassenbezeichnung: z.string().min(1).max(120),
   anlass: z.string().min(1).max(200),
@@ -27,6 +34,11 @@ export const CreateProtokollSchema = z.object({
   geprueft_von: z.string().min(1).max(120),
   bemerkung: z.string().max(2000).default(""),
   wechselgeld_cent: z.number().int().min(0),
+  kartenzahlung_cent: z.number().int().min(0).default(0),
+  erstellt_am: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   ...counts,
   ausgaben: z.array(AusgabeSchema).max(100).default([]),
   umsatz_ust: z.array(UmsatzUstSplitSchema).max(20).default([]),

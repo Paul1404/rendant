@@ -36,7 +36,7 @@ import {
 import {
   WECHSELGELD_DEFAULT_CENT,
 } from "@/lib/constants";
-import { formatDateDe } from "@/lib/date";
+import { todayIsoDate } from "@/lib/date";
 import { cn } from "@/lib/utils";
 
 type UstMode = "none" | "p7" | "p19" | "custom";
@@ -126,6 +126,8 @@ export function ProtokollForm({
   const [pending, startTransition] = useTransition();
 
   const [counts, setCounts] = useState<DenominationCounts>(emptyCounts());
+  const [belegnummer, setBelegnummer] = useState(belegnummerPreview);
+  const [datum, setDatum] = useState<string>(() => todayIsoDate());
   const [kassennummer, setKassennummer] = useState("");
   const [kassenbezeichnung, setKassenbezeichnung] = useState("");
   const [anlass, setAnlass] = useState("");
@@ -135,6 +137,7 @@ export function ProtokollForm({
   const [wechselgeldInput, setWechselgeldInput] = useState(
     formatCentPlain(WECHSELGELD_DEFAULT_CENT),
   );
+  const [kartenzahlungInput, setKartenzahlungInput] = useState("");
   const [ausgaben, setAusgaben] = useState<AusgabeDraft[]>([]);
   const [umsatzSplits, setUmsatzSplits] = useState<UmsatzUstDraft[]>([]);
 
@@ -161,6 +164,12 @@ export function ProtokollForm({
     () => parseGermanAmount(wechselgeldInput) ?? -1,
     [wechselgeldInput],
   );
+  const kartenzahlungCent = useMemo(() => {
+    const trimmed = kartenzahlungInput.trim();
+    if (!trimmed) return 0;
+    const v = parseGermanAmount(trimmed);
+    return v == null ? -1 : v;
+  }, [kartenzahlungInput]);
   const gezaehltCent = useMemo(() => sumGezaehltCent(counts), [counts]);
   const ausgabenCent = useMemo(() => {
     let total = 0;
@@ -187,6 +196,10 @@ export function ProtokollForm({
     bestandCent == null || wechselgeldCent < 0
       ? null
       : bestandCent - wechselgeldCent;
+  const tageseinnahmenGesamtCent =
+    tageseinnahmenCent == null || kartenzahlungCent < 0
+      ? null
+      : tageseinnahmenCent + kartenzahlungCent;
 
   const umsatzSplitSummeCent = useMemo(() => {
     let total = 0;
@@ -198,9 +211,9 @@ export function ProtokollForm({
     return total;
   }, [umsatzSplits]);
   const umsatzDiffCent =
-    umsatzSplitSummeCent == null || tageseinnahmenCent == null
+    umsatzSplitSummeCent == null || tageseinnahmenGesamtCent == null
       ? null
-      : tageseinnahmenCent - umsatzSplitSummeCent;
+      : tageseinnahmenGesamtCent - umsatzSplitSummeCent;
   const umsatzUstSummeCent = useMemo(() => {
     let total = 0;
     for (const s of umsatzSplits) {
@@ -253,7 +266,7 @@ export function ProtokollForm({
     setUmsatzSplits((list) => list.filter((_, i) => i !== idx));
   }
   function fillRestbetrag(idx: number) {
-    if (tageseinnahmenCent == null) return;
+    if (tageseinnahmenGesamtCent == null) return;
     let other = 0;
     for (let i = 0; i < umsatzSplits.length; i++) {
       if (i === idx) continue;
@@ -261,7 +274,7 @@ export function ProtokollForm({
       if (v == null) return;
       other += v;
     }
-    const rest = tageseinnahmenCent - other;
+    const rest = tageseinnahmenGesamtCent - other;
     if (rest < 0) return;
     updateUmsatz(idx, "betrag_input", formatCentPlain(rest));
   }
@@ -269,6 +282,7 @@ export function ProtokollForm({
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (
+      !belegnummer.trim() ||
       !kassennummer.trim() ||
       !kassenbezeichnung.trim() ||
       !anlass.trim() ||
@@ -278,8 +292,22 @@ export function ProtokollForm({
       toast.error("Bitte alle Pflichtfelder ausfüllen");
       return;
     }
+    if (!/^[A-Za-z0-9._\-/]+$/.test(belegnummer.trim())) {
+      toast.error(
+        "Belegnummer darf nur Buchstaben, Ziffern und . _ - / enthalten",
+      );
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(datum)) {
+      toast.error("Datum ist ungültig");
+      return;
+    }
     if (wechselgeldCent < 0) {
       toast.error("Wechselgeld ist ungültig");
+      return;
+    }
+    if (kartenzahlungCent < 0) {
+      toast.error("Kartenzahlung ist ungültig");
       return;
     }
     const ausgabenPayload: Array<{
@@ -318,7 +346,10 @@ export function ProtokollForm({
       betrag_cent: number;
     }> = [];
     if (umsatzSplits.length > 0) {
-      if (tageseinnahmenCent == null || tageseinnahmenCent < 0) {
+      if (
+        tageseinnahmenGesamtCent == null ||
+        tageseinnahmenGesamtCent < 0
+      ) {
         toast.error(
           "Tageseinnahmen müssen gültig sein, bevor Umsatz nach USt. erfasst werden kann",
         );
@@ -338,15 +369,17 @@ export function ProtokollForm({
         umsatzPayload.push({ ust_basis_punkte: bp, betrag_cent: cent });
       }
       const splitSum = umsatzPayload.reduce((s, u) => s + u.betrag_cent, 0);
-      if (splitSum !== tageseinnahmenCent) {
+      if (splitSum !== tageseinnahmenGesamtCent) {
         toast.error(
-          `Summe der USt.-Aufteilung (${formatCent(splitSum)}) muss den Tageseinnahmen (${formatCent(tageseinnahmenCent)}) entsprechen`,
+          `Summe der USt.-Aufteilung (${formatCent(splitSum)}) muss den Tageseinnahmen inkl. Kartenzahlung (${formatCent(tageseinnahmenGesamtCent)}) entsprechen`,
         );
         return;
       }
     }
 
     const payload: Record<string, unknown> = {
+      belegnummer: belegnummer.trim(),
+      erstellt_am: datum,
       kassennummer: kassennummer.trim(),
       kassenbezeichnung: kassenbezeichnung.trim(),
       anlass: anlass.trim(),
@@ -354,6 +387,7 @@ export function ProtokollForm({
       geprueft_von: gepruefftVon.trim(),
       bemerkung: bemerkung.trim(),
       wechselgeld_cent: wechselgeldCent,
+      kartenzahlung_cent: kartenzahlungCent,
       ausgaben: ausgabenPayload,
       umsatz_ust: umsatzPayload,
     };
@@ -383,8 +417,6 @@ export function ProtokollForm({
     });
   }
 
-  const heute = new Date();
-
   return (
     <form className="space-y-6" onSubmit={submit}>
       <Card>
@@ -397,21 +429,24 @@ export function ProtokollForm({
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Belegnummer</Label>
+              <Label htmlFor="belegnummer">Belegnummer</Label>
               <Input
-                value={belegnummerPreview}
-                readOnly
-                tabIndex={-1}
-                className="font-mono bg-muted/60"
+                id="belegnummer"
+                value={belegnummer}
+                onChange={(e) => setBelegnummer(e.target.value)}
+                required
+                maxLength={50}
+                className="font-mono"
               />
             </div>
             <div className="space-y-2">
-              <Label>Datum</Label>
+              <Label htmlFor="datum">Datum</Label>
               <Input
-                value={formatDateDe(heute)}
-                readOnly
-                tabIndex={-1}
-                className="bg-muted/60"
+                id="datum"
+                type="date"
+                value={datum}
+                onChange={(e) => setDatum(e.target.value)}
+                required
               />
             </div>
           </div>
@@ -729,6 +764,18 @@ export function ProtokollForm({
                 className="text-right tabular-nums"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="kartenzahlung">Kartenzahlung EUR</Label>
+              <Input
+                id="kartenzahlung"
+                inputMode="decimal"
+                placeholder="0,00"
+                value={kartenzahlungInput}
+                onFocus={selectOnFocus}
+                onChange={(e) => setKartenzahlungInput(e.target.value)}
+                className="text-right tabular-nums"
+              />
+            </div>
           </div>
           <Separator className="my-2" />
           <SummaryRow label="Gezählter Endbestand" cent={gezaehltCent} />
@@ -745,16 +792,48 @@ export function ProtokollForm({
             label="Anfangsbestand (Wechselgeld)"
             cent={wechselgeldCent < 0 ? null : wechselgeldCent}
           />
+          {kartenzahlungCent > 0 ? (
+            <SummaryRow label="Kartenzahlung" cent={kartenzahlungCent} />
+          ) : null}
           <Separator />
-          <div className="flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3 ring-1 ring-primary/15">
-            <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-              <Banknote className="h-4 w-4 text-primary" />
-              Tageseinnahmen netto
-            </span>
-            <span className="font-mono text-base font-semibold tabular-nums text-primary">
-              {tageseinnahmenCent == null ? "-" : formatCent(tageseinnahmenCent)}
-            </span>
-          </div>
+          {kartenzahlungCent > 0 ? (
+            <>
+              <div className="flex items-center justify-between rounded-xl bg-muted/40 px-4 py-3">
+                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Banknote className="h-4 w-4 text-muted-foreground" />
+                  Tageseinnahmen netto (ohne Kartenzahlung)
+                </span>
+                <span className="font-mono text-base font-semibold tabular-nums text-foreground">
+                  {tageseinnahmenCent == null
+                    ? "-"
+                    : formatCent(tageseinnahmenCent)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3 ring-1 ring-primary/15">
+                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Banknote className="h-4 w-4 text-primary" />
+                  Tageseinnahmen netto (mit Kartenzahlung)
+                </span>
+                <span className="font-mono text-base font-semibold tabular-nums text-primary">
+                  {tageseinnahmenGesamtCent == null
+                    ? "-"
+                    : formatCent(tageseinnahmenGesamtCent)}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3 ring-1 ring-primary/15">
+              <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Banknote className="h-4 w-4 text-primary" />
+                Tageseinnahmen netto
+              </span>
+              <span className="font-mono text-base font-semibold tabular-nums text-primary">
+                {tageseinnahmenCent == null
+                  ? "-"
+                  : formatCent(tageseinnahmenCent)}
+              </span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -897,7 +976,7 @@ export function ProtokollForm({
                         variant="ghost"
                         size="sm"
                         onClick={() => fillRestbetrag(i)}
-                        disabled={tageseinnahmenCent == null}
+                        disabled={tageseinnahmenGesamtCent == null}
                         title="Restbetrag bis Tageseinnahmen einsetzen"
                       >
                         Rest
@@ -936,11 +1015,15 @@ export function ProtokollForm({
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Tageseinnahmen</span>
+                <span className="text-muted-foreground">
+                  {kartenzahlungCent > 0
+                    ? "Tageseinnahmen (inkl. Kartenzahlung)"
+                    : "Tageseinnahmen"}
+                </span>
                 <span className="font-mono tabular-nums text-foreground">
-                  {tageseinnahmenCent == null
+                  {tageseinnahmenGesamtCent == null
                     ? "-"
-                    : formatCent(tageseinnahmenCent)}
+                    : formatCent(tageseinnahmenGesamtCent)}
                 </span>
               </div>
               <div

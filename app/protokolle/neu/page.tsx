@@ -14,11 +14,11 @@ export default async function NewProtokollPage() {
         title="Neues Kassenzählprotokoll"
         description={
           <>
-            Belegnummer{" "}
+            Vorgeschlagene Belegnummer{" "}
             <span className="font-mono font-medium text-foreground">
               {belegnummer}
-            </span>{" "}
-            wird beim Speichern vergeben.
+            </span>
+            . Bei Bedarf anpassbar.
           </>
         }
       />

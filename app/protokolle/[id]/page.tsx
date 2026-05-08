@@ -331,16 +331,48 @@ export default async function ProtokollDetailPage({
             cent={protokoll.bestand_cent}
             bold
           />
+          {protokoll.kartenzahlung_cent > 0 ? (
+            <SumRow
+              label="Kartenzahlung"
+              cent={protokoll.kartenzahlung_cent}
+            />
+          ) : null}
           <Separator className="my-3" />
-          <div className="flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3 ring-1 ring-primary/15">
-            <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-              <Banknote className="h-4 w-4 text-primary" />
-              Tageseinnahmen netto
-            </span>
-            <span className="font-mono text-base font-semibold tabular-nums text-primary">
-              {formatCent(protokoll.tageseinnahmen_cent)}
-            </span>
-          </div>
+          {protokoll.kartenzahlung_cent > 0 ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between rounded-xl bg-muted/40 px-4 py-3">
+                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Banknote className="h-4 w-4 text-muted-foreground" />
+                  Tageseinnahmen netto (ohne Kartenzahlung)
+                </span>
+                <span className="font-mono text-base font-semibold tabular-nums text-foreground">
+                  {formatCent(protokoll.tageseinnahmen_cent)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3 ring-1 ring-primary/15">
+                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Banknote className="h-4 w-4 text-primary" />
+                  Tageseinnahmen netto (mit Kartenzahlung)
+                </span>
+                <span className="font-mono text-base font-semibold tabular-nums text-primary">
+                  {formatCent(
+                    protokoll.tageseinnahmen_cent +
+                      protokoll.kartenzahlung_cent,
+                  )}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3 ring-1 ring-primary/15">
+              <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Banknote className="h-4 w-4 text-primary" />
+                Tageseinnahmen netto
+              </span>
+              <span className="font-mono text-base font-semibold tabular-nums text-primary">
+                {formatCent(protokoll.tageseinnahmen_cent)}
+              </span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
