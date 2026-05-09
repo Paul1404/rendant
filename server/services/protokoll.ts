@@ -323,3 +323,68 @@ export async function deleteAllPdfsForProtokoll(
     await deletePdf(protokoll.storno_pdf_s3_key).catch(() => {});
   }
 }
+
+export async function regenerateProtokollPdf(id: string): Promise<void> {
+  const detail = await getProtokoll(id);
+  if (!detail) throw new Error("Protokoll nicht gefunden");
+  const { protokoll, ausgaben, umsatzUst } = detail;
+
+  const baseData = {
+    belegnummer: protokoll.belegnummer,
+    erstellt_am: protokoll.erstellt_am,
+    kassennummer: protokoll.kassennummer,
+    kassenbezeichnung: protokoll.kassenbezeichnung,
+    anlass: protokoll.anlass,
+    gezaehlt_von: protokoll.gezaehlt_von,
+    geprueft_von: protokoll.geprueft_von,
+    bemerkung: protokoll.bemerkung,
+    counts: protokoll.counts,
+    wechselgeld_cent: protokoll.wechselgeld_cent,
+    kartenzahlung_cent: protokoll.kartenzahlung_cent,
+    gezaehlt_cent: protokoll.gezaehlt_cent,
+    ausgaben_cent: protokoll.ausgaben_cent,
+    bestand_cent: protokoll.bestand_cent,
+    tageseinnahmen_cent: protokoll.tageseinnahmen_cent,
+    ausgaben,
+    umsatz_ust: umsatzUst,
+  };
+
+  const main = await renderProtokollPdf(baseData);
+  const mainKey = pdfKey(protokoll.belegnummer, "");
+  await uploadPdf(mainKey, main.buffer);
+
+  let stornoKey: string | null = null;
+  let stornoHash: string | null = null;
+  if (protokoll.storniert_am) {
+    const storno = await renderProtokollPdf({
+      ...baseData,
+      storno: {
+        am: protokoll.storniert_am,
+        grund: protokoll.storno_grund ?? "",
+      },
+    });
+    stornoKey = pdfKey(protokoll.belegnummer, "_STORNO");
+    stornoHash = storno.hash;
+    await uploadPdf(stornoKey, storno.buffer);
+  }
+
+  await sql`
+    UPDATE protokolle
+    SET pdf_s3_key = ${mainKey},
+        pdf_sha256 = ${main.hash},
+        storno_pdf_s3_key = ${stornoKey ?? protokoll.storno_pdf_s3_key},
+        storno_pdf_sha256 = ${stornoHash ?? protokoll.storno_pdf_sha256}
+    WHERE id = ${id}
+  `;
+
+  if (protokoll.pdf_s3_key && protokoll.pdf_s3_key !== mainKey) {
+    await deletePdf(protokoll.pdf_s3_key).catch(() => {});
+  }
+  if (
+    stornoKey &&
+    protokoll.storno_pdf_s3_key &&
+    protokoll.storno_pdf_s3_key !== stornoKey
+  ) {
+    await deletePdf(protokoll.storno_pdf_s3_key).catch(() => {});
+  }
+}

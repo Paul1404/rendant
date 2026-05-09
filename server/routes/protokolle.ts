@@ -8,6 +8,7 @@ import {
   createProtokoll,
   getProtokoll,
   listProtokolle,
+  regenerateProtokollPdf,
   stornoProtokoll,
 } from "@/server/services/protokoll";
 import { previewNextBelegnummer } from "@/server/services/belegnummer";
@@ -151,6 +152,21 @@ protokolleRoutes.get("/:id/pdf", async (c) => {
   const key = detail.protokoll.pdf_s3_key;
   const filename = key ? key.split("/").pop()! : `${detail.protokoll.belegnummer}.pdf`;
   return streamPdf(key, filename);
+});
+
+protokolleRoutes.post("/:id/regenerate-pdf", async (c) => {
+  const id = c.req.param("id");
+  try {
+    await regenerateProtokollPdf(id);
+    return c.json({ ok: true });
+  } catch (e) {
+    console.error("regenerateProtokollPdf Fehler", e);
+    const msg = (e as Error).message;
+    if (msg === "Protokoll nicht gefunden") {
+      return c.json({ error: msg }, 404);
+    }
+    return c.json({ error: "Neu erzeugen fehlgeschlagen" }, 500);
+  }
 });
 
 protokolleRoutes.get("/:id/storno-pdf", async (c) => {
