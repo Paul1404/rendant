@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { StornoDialog } from "@/components/storno-dialog";
+import { RegeneratePdfButton } from "@/components/regenerate-pdf-button";
 import {
   ArrowLeft,
   Banknote,
@@ -105,6 +106,7 @@ export default async function ProtokollDetailPage({
                 aktiv
               </span>
             )}
+            <RegeneratePdfButton protokollId={protokoll.id} />
             <a href={`/api/protokolle/${protokoll.id}/pdf`}>
               <Button variant="outline" size="sm">
                 <Download className="mr-2 h-4 w-4" />
