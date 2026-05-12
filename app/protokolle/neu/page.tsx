@@ -1,12 +1,16 @@
 import { sql } from "@/lib/db";
 import { previewNextBelegnummer } from "@/server/services/belegnummer";
+import { getUmsatzUstBasisDefault } from "@/server/services/settings";
 import { ProtokollForm } from "@/components/protokoll-form";
 import { PageHeader } from "@/components/page-header";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewProtokollPage() {
-  const belegnummer = await previewNextBelegnummer(sql);
+  const [belegnummer, umsatzUstBasisDefault] = await Promise.all([
+    previewNextBelegnummer(sql),
+    getUmsatzUstBasisDefault(),
+  ]);
   return (
     <div className="space-y-8">
       <PageHeader
@@ -22,7 +26,10 @@ export default async function NewProtokollPage() {
           </>
         }
       />
-      <ProtokollForm belegnummerPreview={belegnummer} />
+      <ProtokollForm
+        belegnummerPreview={belegnummer}
+        umsatzUstBasisDefault={umsatzUstBasisDefault}
+      />
     </div>
   );
 }

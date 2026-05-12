@@ -384,6 +384,13 @@ export default async function ProtokollDetailPage({
             <CardTitle className="flex items-center gap-2">
               <Calculator className="h-4 w-4 text-primary" />
               Umsatz nach USt.
+              {protokoll.kartenzahlung_cent > 0 ? (
+                <span className="text-xs font-normal text-muted-foreground">
+                  {protokoll.umsatz_ust_basis === "pre_card"
+                    ? "(ohne Kartenzahlung)"
+                    : "(inkl. Kartenzahlung)"}
+                </span>
+              ) : null}
             </CardTitle>
           </CardHeader>
           <CardContent>

@@ -19,6 +19,18 @@ export const UmsatzUstSplitSchema = z.object({
   betrag_cent: z.number().int().min(0),
 });
 
+export const UmsatzUstBasisSchema = z.enum(["pre_card", "post_card"]);
+
+export type UmsatzUstBasis = z.infer<typeof UmsatzUstBasisSchema>;
+
+export const UmsatzUstBasisSettingsSchema = z.object({
+  umsatz_ust_basis: UmsatzUstBasisSchema,
+});
+
+export type UmsatzUstBasisSettingsInput = z.infer<
+  typeof UmsatzUstBasisSettingsSchema
+>;
+
 export const CreateProtokollSchema = z.object({
   belegnummer: z
     .string()
@@ -42,6 +54,7 @@ export const CreateProtokollSchema = z.object({
   ...counts,
   ausgaben: z.array(AusgabeSchema).max(100).default([]),
   umsatz_ust: z.array(UmsatzUstSplitSchema).max(20).default([]),
+  umsatz_ust_basis: UmsatzUstBasisSchema.default("post_card"),
 });
 
 export type CreateProtokollInput = z.infer<typeof CreateProtokollSchema>;

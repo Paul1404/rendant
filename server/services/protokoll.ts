@@ -8,6 +8,7 @@ import { uploadPdf, deletePdf } from "@/server/services/s3";
 import type {
   CreateProtokollInput,
   StornoInput,
+  UmsatzUstBasis,
 } from "@/server/schemas";
 
 export type AusgabeRow = {
@@ -43,6 +44,7 @@ export type ProtokollRow = {
   ausgaben_cent: number;
   bestand_cent: number;
   tageseinnahmen_cent: number;
+  umsatz_ust_basis: UmsatzUstBasis;
   pdf_s3_key: string | null;
   pdf_sha256: string | null;
   storniert_am: Date | null;
@@ -75,6 +77,8 @@ function rowToProtokoll(row: Record<string, unknown>): ProtokollRow {
     ausgaben_cent: Number(row.ausgaben_cent),
     bestand_cent: Number(row.bestand_cent),
     tageseinnahmen_cent: Number(row.tageseinnahmen_cent),
+    umsatz_ust_basis:
+      (row.umsatz_ust_basis as string) === "pre_card" ? "pre_card" : "post_card",
     pdf_s3_key: (row.pdf_s3_key as string | null) ?? null,
     pdf_sha256: (row.pdf_sha256 as string | null) ?? null,
     storniert_am: (row.storniert_am as Date | null) ?? null,
@@ -155,12 +159,20 @@ export async function createProtokoll(
   const tageseinnahmen_cent = bestand_cent - input.wechselgeld_cent;
   const tageseinnahmen_gesamt_cent =
     tageseinnahmen_cent + input.kartenzahlung_cent;
+  const umsatz_basis_cent =
+    input.umsatz_ust_basis === "pre_card"
+      ? tageseinnahmen_cent
+      : tageseinnahmen_gesamt_cent;
 
   if (input.umsatz_ust.length > 0) {
     const sum = input.umsatz_ust.reduce((s, u) => s + u.betrag_cent, 0);
-    if (sum !== tageseinnahmen_gesamt_cent) {
+    if (sum !== umsatz_basis_cent) {
+      const basisLabel =
+        input.umsatz_ust_basis === "pre_card"
+          ? "Tageseinnahmen (ohne Kartenzahlung)"
+          : "Tageseinnahmen (inkl. Kartenzahlung)";
       throw new Error(
-        "Summe der USt.-Aufteilung des Umsatzes muss den Tageseinnahmen (inkl. Kartenzahlung) entsprechen",
+        `Summe der USt.-Aufteilung des Umsatzes muss den ${basisLabel} entsprechen`,
       );
     }
   }
@@ -190,6 +202,7 @@ export async function createProtokoll(
           ausgaben_cent,
           bestand_cent,
           tageseinnahmen_cent,
+          umsatz_ust_basis: input.umsatz_ust_basis,
         };
         if (input.erstellt_am) {
           insertCols.erstellt_am = input.erstellt_am;
@@ -246,6 +259,7 @@ export async function createProtokoll(
         tageseinnahmen_cent,
         ausgaben: input.ausgaben,
         umsatz_ust: input.umsatz_ust,
+        umsatz_ust_basis: input.umsatz_ust_basis,
       });
       const key = pdfKey(result.belegnummer, "");
       await uploadPdf(key, buffer);
@@ -298,6 +312,7 @@ export async function stornoProtokoll(
     tageseinnahmen_cent: detail.protokoll.tageseinnahmen_cent,
     ausgaben: detail.ausgaben,
     umsatz_ust: detail.umsatzUst,
+    umsatz_ust_basis: detail.protokoll.umsatz_ust_basis,
     storno: { am: stornoAm, grund: input.storno_grund },
   });
   const key = pdfKey(detail.protokoll.belegnummer, "_STORNO");
@@ -347,6 +362,7 @@ export async function regenerateProtokollPdf(id: string): Promise<void> {
     tageseinnahmen_cent: protokoll.tageseinnahmen_cent,
     ausgaben,
     umsatz_ust: umsatzUst,
+    umsatz_ust_basis: protokoll.umsatz_ust_basis,
   };
 
   const main = await renderProtokollPdf(baseData);

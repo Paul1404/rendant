@@ -27,6 +27,8 @@ export type UmsatzUstPdf = {
   betrag_cent: number;
 };
 
+export type UmsatzUstBasisPdf = "pre_card" | "post_card";
+
 export type ProtokollPdfData = {
   belegnummer: string;
   erstellt_am: Date;
@@ -45,6 +47,7 @@ export type ProtokollPdfData = {
   tageseinnahmen_cent: number;
   ausgaben: AusgabePdf[];
   umsatz_ust: UmsatzUstPdf[];
+  umsatz_ust_basis: UmsatzUstBasisPdf;
   pdfHash: string;
   storno?: {
     am: Date;
@@ -632,6 +635,11 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               Umsatz-Aufgliederung nach USt.
+              {data.kartenzahlung_cent > 0
+                ? data.umsatz_ust_basis === "pre_card"
+                  ? " (ohne Kartenzahlung)"
+                  : " (inkl. Kartenzahlung)"
+                : ""}
             </Text>
             <View style={styles.ustHeader}>
               <Text style={styles.ustSatz}>Satz</Text>

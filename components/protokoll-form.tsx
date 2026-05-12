@@ -40,6 +40,7 @@ import { todayIsoDate } from "@/lib/date";
 import { cn } from "@/lib/utils";
 
 type UstMode = "none" | "p7" | "p19" | "custom";
+type UmsatzUstBasis = "pre_card" | "post_card";
 
 type AusgabeDraft = {
   bezeichnung: string;
@@ -119,8 +120,10 @@ function blurOnWheel(e: React.WheelEvent<HTMLInputElement>) {
 
 export function ProtokollForm({
   belegnummerPreview,
+  umsatzUstBasisDefault,
 }: {
   belegnummerPreview: string;
+  umsatzUstBasisDefault: UmsatzUstBasis;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -140,6 +143,9 @@ export function ProtokollForm({
   const [kartenzahlungInput, setKartenzahlungInput] = useState("");
   const [ausgaben, setAusgaben] = useState<AusgabeDraft[]>([]);
   const [umsatzSplits, setUmsatzSplits] = useState<UmsatzUstDraft[]>([]);
+  const [umsatzUstBasis, setUmsatzUstBasis] = useState<UmsatzUstBasis>(
+    umsatzUstBasisDefault,
+  );
 
   const lastAusgabeRef = useRef<HTMLInputElement | null>(null);
   const focusLastAusgabe = useRef(false);
@@ -201,6 +207,9 @@ export function ProtokollForm({
       ? null
       : tageseinnahmenCent + kartenzahlungCent;
 
+  const umsatzBasisCent =
+    umsatzUstBasis === "pre_card" ? tageseinnahmenCent : tageseinnahmenGesamtCent;
+
   const umsatzSplitSummeCent = useMemo(() => {
     let total = 0;
     for (const s of umsatzSplits) {
@@ -211,9 +220,9 @@ export function ProtokollForm({
     return total;
   }, [umsatzSplits]);
   const umsatzDiffCent =
-    umsatzSplitSummeCent == null || tageseinnahmenGesamtCent == null
+    umsatzSplitSummeCent == null || umsatzBasisCent == null
       ? null
-      : tageseinnahmenGesamtCent - umsatzSplitSummeCent;
+      : umsatzBasisCent - umsatzSplitSummeCent;
   const umsatzUstSummeCent = useMemo(() => {
     let total = 0;
     for (const s of umsatzSplits) {
@@ -266,7 +275,7 @@ export function ProtokollForm({
     setUmsatzSplits((list) => list.filter((_, i) => i !== idx));
   }
   function fillRestbetrag(idx: number) {
-    if (tageseinnahmenGesamtCent == null) return;
+    if (umsatzBasisCent == null) return;
     let other = 0;
     for (let i = 0; i < umsatzSplits.length; i++) {
       if (i === idx) continue;
@@ -274,7 +283,7 @@ export function ProtokollForm({
       if (v == null) return;
       other += v;
     }
-    const rest = tageseinnahmenGesamtCent - other;
+    const rest = umsatzBasisCent - other;
     if (rest < 0) return;
     updateUmsatz(idx, "betrag_input", formatCentPlain(rest));
   }
@@ -346,10 +355,7 @@ export function ProtokollForm({
       betrag_cent: number;
     }> = [];
     if (umsatzSplits.length > 0) {
-      if (
-        tageseinnahmenGesamtCent == null ||
-        tageseinnahmenGesamtCent < 0
-      ) {
+      if (umsatzBasisCent == null || umsatzBasisCent < 0) {
         toast.error(
           "Tageseinnahmen müssen gültig sein, bevor Umsatz nach USt. erfasst werden kann",
         );
@@ -369,9 +375,13 @@ export function ProtokollForm({
         umsatzPayload.push({ ust_basis_punkte: bp, betrag_cent: cent });
       }
       const splitSum = umsatzPayload.reduce((s, u) => s + u.betrag_cent, 0);
-      if (splitSum !== tageseinnahmenGesamtCent) {
+      if (splitSum !== umsatzBasisCent) {
+        const basisLabel =
+          umsatzUstBasis === "pre_card"
+            ? "Tageseinnahmen ohne Kartenzahlung"
+            : "Tageseinnahmen inkl. Kartenzahlung";
         toast.error(
-          `Summe der USt.-Aufteilung (${formatCent(splitSum)}) muss den Tageseinnahmen inkl. Kartenzahlung (${formatCent(tageseinnahmenGesamtCent)}) entsprechen`,
+          `Summe der USt.-Aufteilung (${formatCent(splitSum)}) muss den ${basisLabel} (${formatCent(umsatzBasisCent)}) entsprechen`,
         );
         return;
       }
@@ -390,6 +400,7 @@ export function ProtokollForm({
       kartenzahlung_cent: kartenzahlungCent,
       ausgaben: ausgabenPayload,
       umsatz_ust: umsatzPayload,
+      umsatz_ust_basis: umsatzUstBasis,
     };
     for (const d of DENOMINATIONS) payload[d.key] = counts[d.key];
 
@@ -879,6 +890,33 @@ export function ProtokollForm({
             zu 7&nbsp;% und 500&nbsp;EUR zu 19&nbsp;%). Die Summe muss den
             Tageseinnahmen entsprechen.
           </p>
+          {kartenzahlungCent > 0 ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                Bezugsgröße
+              </span>
+              <div className="inline-flex items-center rounded-lg border border-border/70 bg-background/80 p-0.5 shadow-sm">
+                <UstChip
+                  active={umsatzUstBasis === "post_card"}
+                  onClick={() => setUmsatzUstBasis("post_card")}
+                >
+                  Mit Kartenzahlung
+                </UstChip>
+                <UstChip
+                  active={umsatzUstBasis === "pre_card"}
+                  onClick={() => setUmsatzUstBasis("pre_card")}
+                >
+                  Ohne Kartenzahlung
+                </UstChip>
+              </div>
+              <span className="ml-auto text-[11px] text-muted-foreground">
+                Standard:{" "}
+                {umsatzUstBasisDefault === "post_card"
+                  ? "mit Kartenzahlung"
+                  : "ohne Kartenzahlung"}
+              </span>
+            </div>
+          ) : null}
           {umsatzSplits.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
               Keine USt.-Aufteilung erfasst.
@@ -976,7 +1014,7 @@ export function ProtokollForm({
                         variant="ghost"
                         size="sm"
                         onClick={() => fillRestbetrag(i)}
-                        disabled={tageseinnahmenGesamtCent == null}
+                        disabled={umsatzBasisCent == null}
                         title="Restbetrag bis Tageseinnahmen einsetzen"
                       >
                         Rest
@@ -1017,13 +1055,13 @@ export function ProtokollForm({
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">
                   {kartenzahlungCent > 0
-                    ? "Tageseinnahmen (inkl. Kartenzahlung)"
+                    ? umsatzUstBasis === "pre_card"
+                      ? "Tageseinnahmen (ohne Kartenzahlung)"
+                      : "Tageseinnahmen (inkl. Kartenzahlung)"
                     : "Tageseinnahmen"}
                 </span>
                 <span className="font-mono tabular-nums text-foreground">
-                  {tageseinnahmenGesamtCent == null
-                    ? "-"
-                    : formatCent(tageseinnahmenGesamtCent)}
+                  {umsatzBasisCent == null ? "-" : formatCent(umsatzBasisCent)}
                 </span>
               </div>
               <div
