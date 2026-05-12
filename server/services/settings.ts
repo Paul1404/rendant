@@ -3,6 +3,7 @@ import { sql } from "@/lib/db";
 
 export type YearFormat = "long" | "short";
 export type Separator = "-" | "/" | "." | "_";
+export type UmsatzUstBasis = "pre_card" | "post_card";
 
 export type BelegnummerSettings = {
   min_digits: number;
@@ -20,12 +21,18 @@ export const DEFAULT_BELEGNUMMER_SETTINGS: BelegnummerSettings = {
   separator: "-",
 };
 
+export const DEFAULT_UMSATZ_UST_BASIS: UmsatzUstBasis = "post_card";
+
 type Row = {
   belegnummer_min_digits: number;
   belegnummer_prefix: string;
   belegnummer_include_year: boolean;
   belegnummer_year_format: string;
   belegnummer_separator: string;
+};
+
+type UstBasisRow = {
+  umsatz_ust_basis: string;
 };
 
 function rowToSettings(row: Row): BelegnummerSettings {
@@ -38,6 +45,10 @@ function rowToSettings(row: Row): BelegnummerSettings {
       ? row.belegnummer_separator
       : "-") as Separator),
   };
+}
+
+function normalizeUmsatzUstBasis(value: unknown): UmsatzUstBasis {
+  return value === "pre_card" ? "pre_card" : "post_card";
 }
 
 export async function getBelegnummerSettings(
@@ -73,6 +84,32 @@ export async function updateBelegnummerSettings(
     throw new Error("Einstellungen konnten nicht aktualisiert werden");
   }
   return rowToSettings(rows[0]);
+}
+
+export async function getUmsatzUstBasisDefault(
+  client: Sql | TransactionSql = sql,
+): Promise<UmsatzUstBasis> {
+  const rows = await client<UstBasisRow[]>`
+    SELECT umsatz_ust_basis FROM app_settings WHERE id = 1
+  `;
+  if (rows.length === 0) return DEFAULT_UMSATZ_UST_BASIS;
+  return normalizeUmsatzUstBasis(rows[0].umsatz_ust_basis);
+}
+
+export async function updateUmsatzUstBasisDefault(
+  basis: UmsatzUstBasis,
+): Promise<UmsatzUstBasis> {
+  const rows = await sql<UstBasisRow[]>`
+    UPDATE app_settings
+    SET umsatz_ust_basis = ${basis},
+        updated_at = now()
+    WHERE id = 1
+    RETURNING umsatz_ust_basis
+  `;
+  if (rows.length === 0) {
+    throw new Error("Einstellungen konnten nicht aktualisiert werden");
+  }
+  return normalizeUmsatzUstBasis(rows[0].umsatz_ust_basis);
 }
 
 export function formatBelegnummerWithSettings(
