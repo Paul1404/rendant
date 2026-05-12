@@ -6,8 +6,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Pencil, Plus, Save, Trash2, X, Wallet } from "lucide-react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Loader2, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { formatCent, formatCentPlain } from "@/lib/money";
 import { parseGermanAmount } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -203,11 +203,7 @@ export function CashRegistersForm({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Wallet className="h-4 w-4 text-primary" />
-          Kassen
-        </CardTitle>
+      <CardHeader className="flex flex-row items-center justify-end gap-2 pb-3">
         <Button
           type="button"
           variant="outline"
@@ -220,12 +216,6 @@ export function CashRegistersForm({
         </Button>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="text-xs text-muted-foreground">
-          Vorlagen für Kassennummer, Kassenbezeichnung und Anfangsbestand
-          (Wechselgeld). Beim Erfassen eines Protokolls lassen sich diese
-          Werte mit einem Klick übernehmen.
-        </p>
-
         {registers.length === 0 && !addingDraft ? (
           <p className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
             Noch keine Kasse angelegt.
@@ -339,9 +329,9 @@ function RegisterEditRow({
   }
 
   return (
-    <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
+    <div className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
-        <div className="space-y-1 sm:col-span-3">
+        <div className="space-y-1 sm:col-span-4">
           <Label htmlFor="reg-num">Kassennummer</Label>
           <Input
             id="reg-num"
@@ -369,7 +359,7 @@ function RegisterEditRow({
             placeholder="Sportheim Theke"
           />
         </div>
-        <div className="space-y-1 sm:col-span-2">
+        <div className="space-y-1 sm:col-span-3">
           <Label htmlFor="reg-wg">Wechselgeld</Label>
           <Input
             id="reg-wg"
@@ -384,31 +374,26 @@ function RegisterEditRow({
             className={cn("text-right tabular-nums")}
           />
         </div>
-        <div className="flex items-end justify-end gap-1 sm:col-span-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onCancel}
-            disabled={pending}
-          >
-            <X className="mr-1 h-4 w-4" />
-            Abbrechen
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            onClick={onSave}
-            disabled={pending}
-          >
-            {pending ? (
-              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="mr-1 h-4 w-4" />
-            )}
-            Speichern
-          </Button>
-        </div>
+      </div>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onCancel}
+          disabled={pending}
+        >
+          <X className="mr-1 h-4 w-4" />
+          Abbrechen
+        </Button>
+        <Button type="button" size="sm" onClick={onSave} disabled={pending}>
+          {pending ? (
+            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="mr-1 h-4 w-4" />
+          )}
+          Speichern
+        </Button>
       </div>
     </div>
   );
