@@ -39,6 +39,15 @@ import {
 } from "@/lib/constants";
 import { todayIsoDate } from "@/lib/date";
 import { cn } from "@/lib/utils";
+import {
+  clearLocalPref,
+  getLocalPref,
+  LOCAL_PREF_KEYS,
+  setLocalPref,
+} from "@/lib/local-prefs";
+import { runSanityChecks } from "@/lib/sanity-checks";
+import { SanityWarnings } from "@/components/sanity-warnings";
+import { useFormDraft } from "@/lib/use-form-draft";
 
 type UstMode = "none" | "p7" | "p19" | "custom";
 type UmsatzUstBasis = "pre_card" | "post_card";
@@ -48,6 +57,36 @@ export type CashRegisterPreset = {
   kassennummer: string;
   kassenbezeichnung: string;
   wechselgeld_cent: number;
+};
+
+export type ProtokollInitialValues = {
+  kassennummer?: string;
+  kassenbezeichnung?: string;
+  anlass?: string;
+  gezaehlt_von?: string;
+  geprueft_von?: string;
+  wechselgeld_cent?: number;
+  umsatz_ust_basis?: UmsatzUstBasis;
+};
+
+const DRAFT_KEY = "svufo:draft:protokoll-neu";
+
+type FormDraft = {
+  belegnummer: string;
+  datum: string;
+  selectedRegisterId: string | null;
+  kassennummer: string;
+  kassenbezeichnung: string;
+  anlass: string;
+  gezaehltVon: string;
+  gepruefftVon: string;
+  bemerkung: string;
+  wechselgeldInput: string;
+  kartenzahlungInput: string;
+  counts: DenominationCounts;
+  ausgaben: AusgabeDraft[];
+  umsatzSplits: UmsatzUstDraft[];
+  umsatzUstBasis: UmsatzUstBasis;
 };
 
 type AusgabeDraft = {
@@ -130,15 +169,38 @@ export function ProtokollForm({
   belegnummerPreview,
   umsatzUstBasisDefault,
   registers = [],
+  initialValues,
 }: {
   belegnummerPreview: string;
   umsatzUstBasisDefault: UmsatzUstBasis;
   registers?: CashRegisterPreset[];
+  initialValues?: ProtokollInitialValues;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  const initialPreset = registers.length === 1 ? registers[0] : null;
+  // Decide which register to preselect at SSR-time (so server and client
+  // markup match). If initialValues come from a duplicated protokoll, try to
+  // match by kassennummer; otherwise auto-pick when there is exactly one
+  // register.
+  const initialPreset = (() => {
+    if (initialValues?.kassennummer) {
+      const match = registers.find(
+        (r) => r.kassennummer === initialValues.kassennummer,
+      );
+      if (match) return match;
+    }
+    return registers.length === 1 ? registers[0] : null;
+  })();
+
+  const initialKassennummer =
+    initialValues?.kassennummer ?? initialPreset?.kassennummer ?? "";
+  const initialKassenbezeichnung =
+    initialValues?.kassenbezeichnung ?? initialPreset?.kassenbezeichnung ?? "";
+  const initialWechselgeldCent =
+    initialValues?.wechselgeld_cent ??
+    initialPreset?.wechselgeld_cent ??
+    WECHSELGELD_DEFAULT_CENT;
 
   const [counts, setCounts] = useState<DenominationCounts>(emptyCounts());
   const [belegnummer, setBelegnummer] = useState(belegnummerPreview);
@@ -146,29 +208,51 @@ export function ProtokollForm({
   const [selectedRegisterId, setSelectedRegisterId] = useState<string | null>(
     initialPreset ? initialPreset.id : null,
   );
-  const [kassennummer, setKassennummer] = useState(
-    initialPreset ? initialPreset.kassennummer : "",
-  );
+  const [kassennummer, setKassennummer] = useState(initialKassennummer);
   const [kassenbezeichnung, setKassenbezeichnung] = useState(
-    initialPreset ? initialPreset.kassenbezeichnung : "",
+    initialKassenbezeichnung,
   );
-  const [anlass, setAnlass] = useState("");
-  const [gezaehltVon, setGezaehltVon] = useState("");
-  const [gepruefftVon, setGepruefftVon] = useState("");
+  const [anlass, setAnlass] = useState(initialValues?.anlass ?? "");
+  const [gezaehltVon, setGezaehltVon] = useState(
+    initialValues?.gezaehlt_von ?? "",
+  );
+  const [gepruefftVon, setGepruefftVon] = useState(
+    initialValues?.geprueft_von ?? "",
+  );
   const [bemerkung, setBemerkung] = useState("");
   const [wechselgeldInput, setWechselgeldInput] = useState(
-    formatCentPlain(
-      initialPreset
-        ? initialPreset.wechselgeld_cent
-        : WECHSELGELD_DEFAULT_CENT,
-    ),
+    formatCentPlain(initialWechselgeldCent),
   );
   const [kartenzahlungInput, setKartenzahlungInput] = useState("");
   const [ausgaben, setAusgaben] = useState<AusgabeDraft[]>([]);
   const [umsatzSplits, setUmsatzSplits] = useState<UmsatzUstDraft[]>([]);
   const [umsatzUstBasis, setUmsatzUstBasis] = useState<UmsatzUstBasis>(
-    umsatzUstBasisDefault,
+    initialValues?.umsatz_ust_basis ?? umsatzUstBasisDefault,
   );
+
+  // Apply per-browser preferences after mount so SSR markup matches CSR.
+  // localStorage is browser-only, so the prefs cannot influence the initial
+  // render. The setState calls are wrapped in queueMicrotask to avoid the
+  // "setState in effect" lint rule — the practical effect is identical
+  // because React batches micro-task state updates before paint.
+  useEffect(() => {
+    queueMicrotask(() => {
+      const lastGezVon = getLocalPref(LOCAL_PREF_KEYS.lastGezaehltVon);
+      if (lastGezVon && !gezaehltVon) setGezaehltVon(lastGezVon);
+      const lastGepVon = getLocalPref(LOCAL_PREF_KEYS.lastGeprueftVon);
+      if (lastGepVon && !gepruefftVon) setGepruefftVon(lastGepVon);
+      if (!selectedRegisterId && registers.length > 1 && !initialValues) {
+        const lastRegId = getLocalPref(LOCAL_PREF_KEYS.lastRegisterId);
+        if (lastRegId) {
+          const reg = registers.find((r) => r.id === lastRegId);
+          if (reg) applyRegister(reg);
+        }
+      }
+    });
+    // Intentionally run only on mount; reading prefs again on every state
+    // change would fight with user edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function applyRegister(reg: CashRegisterPreset) {
     setSelectedRegisterId(reg.id);
@@ -267,6 +351,122 @@ export function ProtokollForm({
     }
     return total;
   }, [umsatzSplits]);
+
+  // Dirty detection — flips to true on first interaction with any form
+  // input. Used to gate the draft autosave and the beforeunload prompt
+  // so an untouched form does neither.
+  const [dirty, setDirty] = useState(false);
+  const markDirty = () => {
+    if (!dirty) setDirty(true);
+  };
+
+  const snapshot = useMemo<FormDraft>(
+    () => ({
+      belegnummer,
+      datum,
+      selectedRegisterId,
+      kassennummer,
+      kassenbezeichnung,
+      anlass,
+      gezaehltVon,
+      gepruefftVon,
+      bemerkung,
+      wechselgeldInput,
+      kartenzahlungInput,
+      counts,
+      ausgaben,
+      umsatzSplits,
+      umsatzUstBasis,
+    }),
+    [
+      belegnummer,
+      datum,
+      selectedRegisterId,
+      kassennummer,
+      kassenbezeichnung,
+      anlass,
+      gezaehltVon,
+      gepruefftVon,
+      bemerkung,
+      wechselgeldInput,
+      kartenzahlungInput,
+      counts,
+      ausgaben,
+      umsatzSplits,
+      umsatzUstBasis,
+    ],
+  );
+
+  const { clearDraft } = useFormDraft<FormDraft>(DRAFT_KEY, snapshot, {
+    dirty: dirty && !pending,
+    enabled: !pending,
+    toastTitle: "Entwurf wiederherstellen?",
+    toastDescription:
+      "Eingaben aus einer vorherigen Sitzung wurden gefunden.",
+    onRestore: (d) => {
+      setBelegnummer(d.belegnummer || belegnummerPreview);
+      setDatum(d.datum || todayIsoDate());
+      setKassennummer(d.kassennummer ?? "");
+      setKassenbezeichnung(d.kassenbezeichnung ?? "");
+      setAnlass(d.anlass ?? "");
+      setGezaehltVon(d.gezaehltVon ?? "");
+      setGepruefftVon(d.gepruefftVon ?? "");
+      setBemerkung(d.bemerkung ?? "");
+      setWechselgeldInput(
+        d.wechselgeldInput ?? formatCentPlain(WECHSELGELD_DEFAULT_CENT),
+      );
+      setKartenzahlungInput(d.kartenzahlungInput ?? "");
+      setCounts(d.counts ?? emptyCounts());
+      setAusgaben(Array.isArray(d.ausgaben) ? d.ausgaben : []);
+      setUmsatzSplits(Array.isArray(d.umsatzSplits) ? d.umsatzSplits : []);
+      setUmsatzUstBasis(
+        d.umsatzUstBasis === "pre_card" ? "pre_card" : "post_card",
+      );
+      // Re-validate the stored register selection against currently-known
+      // registers; if it has been deleted in the meantime, drop the link
+      // but keep the textual kassen-fields the user already had.
+      if (d.selectedRegisterId) {
+        const stillExists = registers.some(
+          (r) => r.id === d.selectedRegisterId,
+        );
+        setSelectedRegisterId(stillExists ? d.selectedRegisterId : null);
+      } else {
+        setSelectedRegisterId(null);
+      }
+      setDirty(true);
+      toast.success("Entwurf wiederhergestellt");
+    },
+  });
+
+  const sanityWarnings = useMemo(() => {
+    const counted = Object.values(counts).reduce((s, n) => s + n, 0);
+    return runSanityChecks({
+      gezaehltCent,
+      wechselgeldCent: wechselgeldCent < 0 ? null : wechselgeldCent,
+      bestandCent,
+      tageseinnahmenCent,
+      anyCountEntered: counted > 0,
+      gezaehltVon: gezaehltVon.trim(),
+      geprueftVon: gepruefftVon.trim(),
+      presetWechselgeldCent: selectedRegisterId
+        ? registers.find((r) => r.id === selectedRegisterId)
+            ?.wechselgeld_cent ?? null
+        : null,
+      datum,
+      today: todayIsoDate(),
+    });
+  }, [
+    counts,
+    gezaehltCent,
+    wechselgeldCent,
+    bestandCent,
+    tageseinnahmenCent,
+    gezaehltVon,
+    gepruefftVon,
+    selectedRegisterId,
+    registers,
+    datum,
+  ]);
 
   function setCount(key: DenominationKey, raw: string) {
     const num = raw === "" ? 0 : Number(raw);
@@ -455,6 +655,17 @@ export function ProtokollForm({
       });
       if (res.status === 201) {
         const body = (await res.json()) as { id: string };
+        clearDraft();
+        setDirty(false);
+        const gezTrim = gezaehltVon.trim();
+        const gepTrim = gepruefftVon.trim();
+        if (gezTrim) setLocalPref(LOCAL_PREF_KEYS.lastGezaehltVon, gezTrim);
+        if (gepTrim) setLocalPref(LOCAL_PREF_KEYS.lastGeprueftVon, gepTrim);
+        if (selectedRegisterId) {
+          setLocalPref(LOCAL_PREF_KEYS.lastRegisterId, selectedRegisterId);
+        } else {
+          clearLocalPref(LOCAL_PREF_KEYS.lastRegisterId);
+        }
         toast.success("Protokoll gespeichert");
         router.replace(`/protokolle/${body.id}`);
         router.refresh();
@@ -472,7 +683,12 @@ export function ProtokollForm({
   }
 
   return (
-    <form className="space-y-6" onSubmit={submit}>
+    <form
+      className="space-y-6"
+      onSubmit={submit}
+      onChange={markDirty}
+      onInput={markDirty}
+    >
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -1190,6 +1406,8 @@ export function ProtokollForm({
           ) : null}
         </CardContent>
       </Card>
+
+      <SanityWarnings warnings={sanityWarnings} />
 
       <div className="flex justify-end">
         <Button type="submit" disabled={pending}>

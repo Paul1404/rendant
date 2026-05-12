@@ -22,6 +22,7 @@ import {
   Banknote,
   Calculator,
   Coins,
+  Copy,
   Download,
   FileText,
   Fingerprint,
@@ -107,6 +108,12 @@ export default async function ProtokollDetailPage({
               </span>
             )}
             <RegeneratePdfButton protokollId={protokoll.id} />
+            <Link href={`/protokolle/neu?duplicate=${protokoll.id}`}>
+              <Button variant="outline" size="sm">
+                <Copy className="mr-2 h-4 w-4" />
+                Wie dieses
+              </Button>
+            </Link>
             <a href={`/api/protokolle/${protokoll.id}/pdf`}>
               <Button variant="outline" size="sm">
                 <Download className="mr-2 h-4 w-4" />
