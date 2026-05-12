@@ -22,6 +22,7 @@ import {
   Banknote,
   Calculator,
   Coins,
+  Copy,
   Download,
   FileText,
   Fingerprint,
@@ -107,6 +108,12 @@ export default async function ProtokollDetailPage({
               </span>
             )}
             <RegeneratePdfButton protokollId={protokoll.id} />
+            <Link href={`/protokolle/neu?duplicate=${protokoll.id}`}>
+              <Button variant="outline" size="sm">
+                <Copy className="mr-2 h-4 w-4" />
+                Wie dieses
+              </Button>
+            </Link>
             <a href={`/api/protokolle/${protokoll.id}/pdf`}>
               <Button variant="outline" size="sm">
                 <Download className="mr-2 h-4 w-4" />
@@ -138,6 +145,22 @@ export default async function ProtokollDetailPage({
             </p>
             <p className="text-sm text-destructive/90">
               Grund: {protokoll.storno_grund}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      {!protokoll.pdf_s3_key ? (
+        <div className="flex gap-3 rounded-xl border border-amber-500/40 bg-amber-500/5 p-4">
+          <TriangleAlert className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+              PDF wurde noch nicht erzeugt
+            </p>
+            <p className="text-sm text-amber-700/90 dark:text-amber-300/90">
+              Die Daten sind gespeichert, aber das PDF konnte beim Anlegen
+              nicht erzeugt werden. Über &bdquo;PDF neu erzeugen&ldquo; oben
+              kannst du es jetzt nachholen.
             </p>
           </div>
         </div>

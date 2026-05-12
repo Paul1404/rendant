@@ -182,10 +182,16 @@ export async function createProtokoll(
   const maxRetries = customBelegnummer ? 1 : 3;
   let attempt = 0;
 
+  let createdProto: {
+    id: string;
+    belegnummer: string;
+    erstellt_am: Date;
+  } | null = null;
+
   while (attempt < maxRetries) {
     attempt++;
     try {
-      const result = await sql.begin(async (tx) => {
+      createdProto = await sql.begin(async (tx) => {
         const belegnummer =
           customBelegnummer ?? (await nextBelegnummerInTx(tx, year));
         const insertCols: Record<string, unknown> = {
@@ -240,36 +246,7 @@ export async function createProtokoll(
         }
         return proto;
       });
-
-      const { buffer, hash } = await renderProtokollPdf({
-        belegnummer: result.belegnummer,
-        erstellt_am: result.erstellt_am,
-        kassennummer: input.kassennummer,
-        kassenbezeichnung: input.kassenbezeichnung,
-        anlass: input.anlass,
-        gezaehlt_von: input.gezaehlt_von,
-        geprueft_von: input.geprueft_von,
-        bemerkung: input.bemerkung,
-        counts,
-        wechselgeld_cent: input.wechselgeld_cent,
-        kartenzahlung_cent: input.kartenzahlung_cent,
-        gezaehlt_cent,
-        ausgaben_cent,
-        bestand_cent,
-        tageseinnahmen_cent,
-        ausgaben: input.ausgaben,
-        umsatz_ust: input.umsatz_ust,
-        umsatz_ust_basis: input.umsatz_ust_basis,
-      });
-      const key = pdfKey(result.belegnummer, "");
-      await uploadPdf(key, buffer);
-      await sql`
-        UPDATE protokolle
-        SET pdf_s3_key = ${key}, pdf_sha256 = ${hash}
-        WHERE id = ${result.id}
-      `;
-
-      return { id: result.id, belegnummer: result.belegnummer };
+      break;
     } catch (e) {
       const code = (e as { code?: string }).code;
       if (code === "23505") {
@@ -281,7 +258,52 @@ export async function createProtokoll(
       throw e;
     }
   }
-  throw new Error("Konnte Belegnummer nicht eindeutig vergeben");
+
+  if (!createdProto) {
+    throw new Error("Konnte Belegnummer nicht eindeutig vergeben");
+  }
+
+  // From here on, the protokoll exists in the DB. PDF rendering and S3
+  // upload may fail; if they do we still return success so the user does
+  // not retry and create a duplicate record. The detail page surfaces a
+  // missing PDF and offers a regenerate button.
+  try {
+    const { buffer, hash } = await renderProtokollPdf({
+      belegnummer: createdProto.belegnummer,
+      erstellt_am: createdProto.erstellt_am,
+      kassennummer: input.kassennummer,
+      kassenbezeichnung: input.kassenbezeichnung,
+      anlass: input.anlass,
+      gezaehlt_von: input.gezaehlt_von,
+      geprueft_von: input.geprueft_von,
+      bemerkung: input.bemerkung,
+      counts,
+      wechselgeld_cent: input.wechselgeld_cent,
+      kartenzahlung_cent: input.kartenzahlung_cent,
+      gezaehlt_cent,
+      ausgaben_cent,
+      bestand_cent,
+      tageseinnahmen_cent,
+      ausgaben: input.ausgaben,
+      umsatz_ust: input.umsatz_ust,
+      umsatz_ust_basis: input.umsatz_ust_basis,
+    });
+    const key = pdfKey(createdProto.belegnummer, "");
+    await uploadPdf(key, buffer);
+    await sql`
+      UPDATE protokolle
+      SET pdf_s3_key = ${key}, pdf_sha256 = ${hash}
+      WHERE id = ${createdProto.id}
+    `;
+  } catch (pdfErr) {
+    console.error(
+      "PDF-Erzeugung für Protokoll fehlgeschlagen",
+      createdProto.belegnummer,
+      pdfErr,
+    );
+  }
+
+  return { id: createdProto.id, belegnummer: createdProto.belegnummer };
 }
 
 export async function stornoProtokoll(
