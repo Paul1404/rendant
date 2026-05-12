@@ -1,23 +1,37 @@
 import { PageHeader } from "@/components/page-header";
 import { BelegnummerSettingsForm } from "@/components/belegnummer-settings-form";
+import { CashRegistersForm } from "@/components/cash-registers-form";
 import { UmsatzUstBasisForm } from "@/components/umsatz-ust-basis-form";
 import {
   getBelegnummerSettings,
   getUmsatzUstBasisDefault,
 } from "@/server/services/settings";
+import { listCashRegisters } from "@/server/services/cash-registers";
 import { previewNextBelegnummer } from "@/server/services/belegnummer";
 
 export const dynamic = "force-dynamic";
 
 export default async function EinstellungenPage() {
-  const [settings, preview, umsatzUstBasis] = await Promise.all([
+  const [settings, preview, umsatzUstBasis, registers] = await Promise.all([
     getBelegnummerSettings(),
     previewNextBelegnummer(),
     getUmsatzUstBasisDefault(),
+    listCashRegisters(),
   ]);
 
   return (
     <div className="space-y-10">
+      <section className="space-y-6">
+        <PageHeader
+          eyebrow="Einstellungen"
+          title="Kassen"
+          description="Vorlagen für Kassennummer, Kassenbezeichnung und Anfangsbestand (Wechselgeld). Beim Erfassen eines Protokolls lassen sich diese Werte mit einem Klick übernehmen."
+        />
+        <div className="mx-auto max-w-3xl">
+          <CashRegistersForm initial={registers} />
+        </div>
+      </section>
+
       <section className="space-y-6">
         <PageHeader
           eyebrow="Einstellungen"

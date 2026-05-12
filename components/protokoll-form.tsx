@@ -20,6 +20,7 @@ import {
   ReceiptText,
   Save,
   Trash2,
+  Wallet,
 } from "lucide-react";
 import {
   DENOMINATIONS,
@@ -41,6 +42,13 @@ import { cn } from "@/lib/utils";
 
 type UstMode = "none" | "p7" | "p19" | "custom";
 type UmsatzUstBasis = "pre_card" | "post_card";
+
+export type CashRegisterPreset = {
+  id: string;
+  kassennummer: string;
+  kassenbezeichnung: string;
+  wechselgeld_cent: number;
+};
 
 type AusgabeDraft = {
   bezeichnung: string;
@@ -121,24 +129,39 @@ function blurOnWheel(e: React.WheelEvent<HTMLInputElement>) {
 export function ProtokollForm({
   belegnummerPreview,
   umsatzUstBasisDefault,
+  registers = [],
 }: {
   belegnummerPreview: string;
   umsatzUstBasisDefault: UmsatzUstBasis;
+  registers?: CashRegisterPreset[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
+  const initialPreset = registers.length === 1 ? registers[0] : null;
+
   const [counts, setCounts] = useState<DenominationCounts>(emptyCounts());
   const [belegnummer, setBelegnummer] = useState(belegnummerPreview);
   const [datum, setDatum] = useState<string>(() => todayIsoDate());
-  const [kassennummer, setKassennummer] = useState("");
-  const [kassenbezeichnung, setKassenbezeichnung] = useState("");
+  const [selectedRegisterId, setSelectedRegisterId] = useState<string | null>(
+    initialPreset ? initialPreset.id : null,
+  );
+  const [kassennummer, setKassennummer] = useState(
+    initialPreset ? initialPreset.kassennummer : "",
+  );
+  const [kassenbezeichnung, setKassenbezeichnung] = useState(
+    initialPreset ? initialPreset.kassenbezeichnung : "",
+  );
   const [anlass, setAnlass] = useState("");
   const [gezaehltVon, setGezaehltVon] = useState("");
   const [gepruefftVon, setGepruefftVon] = useState("");
   const [bemerkung, setBemerkung] = useState("");
   const [wechselgeldInput, setWechselgeldInput] = useState(
-    formatCentPlain(WECHSELGELD_DEFAULT_CENT),
+    formatCentPlain(
+      initialPreset
+        ? initialPreset.wechselgeld_cent
+        : WECHSELGELD_DEFAULT_CENT,
+    ),
   );
   const [kartenzahlungInput, setKartenzahlungInput] = useState("");
   const [ausgaben, setAusgaben] = useState<AusgabeDraft[]>([]);
@@ -146,6 +169,17 @@ export function ProtokollForm({
   const [umsatzUstBasis, setUmsatzUstBasis] = useState<UmsatzUstBasis>(
     umsatzUstBasisDefault,
   );
+
+  function applyRegister(reg: CashRegisterPreset) {
+    setSelectedRegisterId(reg.id);
+    setKassennummer(reg.kassennummer);
+    setKassenbezeichnung(reg.kassenbezeichnung);
+    setWechselgeldInput(formatCentPlain(reg.wechselgeld_cent));
+  }
+
+  function clearRegister() {
+    setSelectedRegisterId(null);
+  }
 
   const lastAusgabeRef = useRef<HTMLInputElement | null>(null);
   const focusLastAusgabe = useRef(false);
@@ -290,6 +324,7 @@ export function ProtokollForm({
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (pending) return;
     if (
       !belegnummer.trim() ||
       !kassennummer.trim() ||
@@ -387,8 +422,8 @@ export function ProtokollForm({
       }
     }
 
+    const trimmedBelegnummer = belegnummer.trim();
     const payload: Record<string, unknown> = {
-      belegnummer: belegnummer.trim(),
       erstellt_am: datum,
       kassennummer: kassennummer.trim(),
       kassenbezeichnung: kassenbezeichnung.trim(),
@@ -402,6 +437,14 @@ export function ProtokollForm({
       umsatz_ust: umsatzPayload,
       umsatz_ust_basis: umsatzUstBasis,
     };
+    // Only send belegnummer as a user-chosen override when the user
+    // actually edited the prefilled preview. Otherwise the server is left
+    // to allocate a fresh sequence inside the insert transaction, which
+    // avoids 409 conflicts when two staff create protokolle in parallel
+    // after both seeing the same preview value.
+    if (trimmedBelegnummer && trimmedBelegnummer !== belegnummerPreview) {
+      payload.belegnummer = trimmedBelegnummer;
+    }
     for (const d of DENOMINATIONS) payload[d.key] = counts[d.key];
 
     startTransition(async () => {
@@ -461,13 +504,65 @@ export function ProtokollForm({
               />
             </div>
           </div>
+          {registers.length > 0 ? (
+            <div className="space-y-2">
+              <Label className="inline-flex items-center gap-1.5">
+                <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
+                Kasse wählen
+              </Label>
+              <div className="flex flex-wrap gap-2">
+                {registers.map((r) => {
+                  const active = selectedRegisterId === r.id;
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => applyRegister(r)}
+                      className={cn(
+                        "rounded-lg border px-3 py-1.5 text-left text-xs transition-colors",
+                        active
+                          ? "border-primary/60 bg-primary/10 text-foreground ring-1 ring-primary/30"
+                          : "border-border bg-card/40 text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                      )}
+                    >
+                      <span className="block font-mono text-[12px] font-medium text-foreground">
+                        {r.kassennummer}
+                      </span>
+                      <span className="block text-[11px]">
+                        {r.kassenbezeichnung}
+                      </span>
+                      <span className="block text-[10px] text-muted-foreground">
+                        Wechselgeld {formatCent(r.wechselgeld_cent)}
+                      </span>
+                    </button>
+                  );
+                })}
+                {selectedRegisterId ? (
+                  <button
+                    type="button"
+                    onClick={clearRegister}
+                    className="rounded-lg border border-dashed border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Auswahl aufheben
+                  </button>
+                ) : null}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Wählt eine Kasse aus, übernimmt Kassennummer,
+                Kassenbezeichnung und Wechselgeld.
+              </p>
+            </div>
+          ) : null}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="kassennummer">Kassennummer</Label>
               <Input
                 id="kassennummer"
                 value={kassennummer}
-                onChange={(e) => setKassennummer(e.target.value)}
+                onChange={(e) => {
+                  setKassennummer(e.target.value);
+                  setSelectedRegisterId(null);
+                }}
                 required
                 maxLength={50}
                 placeholder="z.B. K-01"
@@ -479,7 +574,10 @@ export function ProtokollForm({
               <Input
                 id="kassenbezeichnung"
                 value={kassenbezeichnung}
-                onChange={(e) => setKassenbezeichnung(e.target.value)}
+                onChange={(e) => {
+                  setKassenbezeichnung(e.target.value);
+                  setSelectedRegisterId(null);
+                }}
                 required
                 maxLength={120}
                 placeholder="z.B. Sportheim Theke"
@@ -770,7 +868,10 @@ export function ProtokollForm({
                 inputMode="decimal"
                 value={wechselgeldInput}
                 onFocus={selectOnFocus}
-                onChange={(e) => setWechselgeldInput(e.target.value)}
+                onChange={(e) => {
+                  setWechselgeldInput(e.target.value);
+                  setSelectedRegisterId(null);
+                }}
                 required
                 className="text-right tabular-nums"
               />

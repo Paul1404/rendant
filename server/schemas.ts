@@ -72,6 +72,22 @@ export const ExportQuerySchema = z.object({
 
 export type ExportQuery = z.infer<typeof ExportQuerySchema>;
 
+export const CashRegisterSchema = z.object({
+  kassennummer: z
+    .string()
+    .trim()
+    .min(1)
+    .max(50)
+    .regex(
+      /^[A-Za-z0-9._\-/]+$/,
+      "Nur Buchstaben, Ziffern und . _ - / erlaubt",
+    ),
+  kassenbezeichnung: z.string().trim().min(1).max(120),
+  wechselgeld_cent: z.number().int().min(0).max(1_000_000_00),
+});
+
+export type CashRegisterInput = z.infer<typeof CashRegisterSchema>;
+
 export const BelegnummerSettingsSchema = z.object({
   min_digits: z.number().int().min(1).max(6),
   prefix: z
