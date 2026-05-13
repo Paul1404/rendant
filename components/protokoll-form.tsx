@@ -624,7 +624,7 @@ export function ProtokollForm({
 
     const trimmedBelegnummer = belegnummer.trim();
     const payload: Record<string, unknown> = {
-      erstellt_am: datum,
+      anlass_datum: datum,
       kassennummer: kassennummer.trim(),
       kassenbezeichnung: kassenbezeichnung.trim(),
       anlass: anlass.trim(),

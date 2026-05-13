@@ -32,6 +32,7 @@ export type UmsatzUstBasisPdf = "pre_card" | "post_card";
 export type ProtokollPdfData = {
   belegnummer: string;
   erstellt_am: Date;
+  anlass_datum: Date;
   kassennummer: string;
   kassenbezeichnung: string;
   anlass: string;
@@ -408,7 +409,7 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
           <View style={styles.stornoNotice}>
             <Text style={{ fontFamily: "Helvetica-Bold" }}>
               Stornobeleg zu Beleg-Nr. {data.belegnummer} vom{" "}
-              {formatDateDe(data.erstellt_am)}
+              {formatDateDe(data.anlass_datum)}
             </Text>
             <Text>Storniert am: {formatDateTimeDe(data.storno.am)} Uhr</Text>
             <Text>Grund: {data.storno.grund}</Text>
@@ -439,6 +440,12 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
             <View style={styles.kopfdatenCell}>
               <Text style={styles.kopfdatenLabel}>Geprüft von</Text>
               <Text style={styles.kopfdatenValue}>{data.geprueft_von}</Text>
+            </View>
+            <View style={styles.kopfdatenCell}>
+              <Text style={styles.kopfdatenLabel}>Datum</Text>
+              <Text style={styles.kopfdatenValue}>
+                {formatDateDe(data.anlass_datum)}
+              </Text>
             </View>
             <View style={styles.kopfdatenCellFull}>
               <Text style={styles.kopfdatenLabel}>Anlass</Text>

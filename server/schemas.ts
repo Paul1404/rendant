@@ -47,10 +47,7 @@ export const CreateProtokollSchema = z.object({
   bemerkung: z.string().max(2000).default(""),
   wechselgeld_cent: z.number().int().min(0),
   kartenzahlung_cent: z.number().int().min(0).default(0),
-  erstellt_am: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
+  anlass_datum: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   ...counts,
   ausgaben: z.array(AusgabeSchema).max(100).default([]),
   umsatz_ust: z.array(UmsatzUstSplitSchema).max(20).default([]),

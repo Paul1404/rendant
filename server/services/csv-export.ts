@@ -41,7 +41,7 @@ export async function exportCsv(von: string, bis: string): Promise<string> {
     {
       id: string;
       belegnummer: string;
-      erstellt_am: Date;
+      anlass_datum: Date;
       kassennummer: string;
       kassenbezeichnung: string;
       anlass: string;
@@ -58,14 +58,14 @@ export async function exportCsv(von: string, bis: string): Promise<string> {
       storno_grund: string | null;
     }[]
   >`
-    SELECT id, belegnummer, erstellt_am, kassennummer, kassenbezeichnung,
+    SELECT id, belegnummer, anlass_datum, kassennummer, kassenbezeichnung,
            anlass, gezaehlt_von, geprueft_von,
            bemerkung, wechselgeld_cent, kartenzahlung_cent,
            gezaehlt_cent, ausgaben_cent,
            bestand_cent, tageseinnahmen_cent, storniert_am, storno_grund
     FROM protokolle
-    WHERE erstellt_am::date >= ${von}::date
-      AND erstellt_am::date <= ${bis}::date
+    WHERE anlass_datum >= ${von}::date
+      AND anlass_datum <= ${bis}::date
     ORDER BY belegnummer ASC
   `;
 
@@ -101,7 +101,7 @@ export async function exportCsv(von: string, bis: string): Promise<string> {
     const tageseinnahmen = Number(r.tageseinnahmen_cent);
     const cells = [
       r.belegnummer,
-      formatDateDe(r.erstellt_am),
+      formatDateDe(r.anlass_datum),
       r.kassennummer,
       r.kassenbezeichnung,
       r.anlass,

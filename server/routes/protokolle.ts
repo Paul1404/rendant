@@ -29,6 +29,7 @@ protokolleRoutes.get("/", async (c) => {
       id: p.id,
       belegnummer: p.belegnummer,
       erstellt_am: p.erstellt_am,
+      anlass_datum: p.anlass_datum,
       anlass: p.anlass,
       tageseinnahmen_cent: p.tageseinnahmen_cent,
       gezaehlt_cent: p.gezaehlt_cent,

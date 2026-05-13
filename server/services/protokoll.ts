@@ -32,6 +32,7 @@ export type ProtokollRow = {
   id: string;
   belegnummer: string;
   erstellt_am: Date;
+  anlass_datum: Date;
   kassennummer: string;
   kassenbezeichnung: string;
   anlass: string;
@@ -65,6 +66,7 @@ function rowToProtokoll(row: Record<string, unknown>): ProtokollRow {
     id: row.id as string,
     belegnummer: row.belegnummer as string,
     erstellt_am: row.erstellt_am as Date,
+    anlass_datum: row.anlass_datum as Date,
     kassennummer: (row.kassennummer as string) ?? "",
     kassenbezeichnung: (row.kassenbezeichnung as string) ?? "",
     anlass: row.anlass as string,
@@ -97,8 +99,8 @@ export async function listProtokolle(opts: {
   includeStorniert: boolean;
 }): Promise<ProtokollRow[]> {
   const rows = opts.includeStorniert
-    ? await sql`SELECT * FROM protokolle ORDER BY erstellt_am DESC`
-    : await sql`SELECT * FROM protokolle WHERE storniert_am IS NULL ORDER BY erstellt_am DESC`;
+    ? await sql`SELECT * FROM protokolle ORDER BY anlass_datum DESC, erstellt_am DESC`
+    : await sql`SELECT * FROM protokolle WHERE storniert_am IS NULL ORDER BY anlass_datum DESC, erstellt_am DESC`;
   return rows.map(rowToProtokoll);
 }
 
@@ -186,6 +188,7 @@ export async function createProtokoll(
     id: string;
     belegnummer: string;
     erstellt_am: Date;
+    anlass_datum: Date;
   } | null = null;
 
   while (attempt < maxRetries) {
@@ -196,6 +199,7 @@ export async function createProtokoll(
           customBelegnummer ?? (await nextBelegnummerInTx(tx, year));
         const insertCols: Record<string, unknown> = {
           belegnummer,
+          anlass_datum: input.anlass_datum,
           kassennummer: input.kassennummer,
           kassenbezeichnung: input.kassenbezeichnung,
           anlass: input.anlass,
@@ -210,18 +214,16 @@ export async function createProtokoll(
           tageseinnahmen_cent,
           umsatz_ust_basis: input.umsatz_ust_basis,
         };
-        if (input.erstellt_am) {
-          insertCols.erstellt_am = input.erstellt_am;
-        }
         for (const d of DENOMINATIONS) insertCols[d.key] = counts[d.key];
         const protoRows = await tx`
           INSERT INTO protokolle ${tx(insertCols)}
-          RETURNING id, belegnummer, erstellt_am
+          RETURNING id, belegnummer, erstellt_am, anlass_datum
         `;
         const proto = protoRows[0] as {
           id: string;
           belegnummer: string;
           erstellt_am: Date;
+          anlass_datum: Date;
         };
         if (input.ausgaben.length > 0) {
           const rows = input.ausgaben.map((a, i) => ({
@@ -271,6 +273,7 @@ export async function createProtokoll(
     const { buffer, hash } = await renderProtokollPdf({
       belegnummer: createdProto.belegnummer,
       erstellt_am: createdProto.erstellt_am,
+      anlass_datum: createdProto.anlass_datum,
       kassennummer: input.kassennummer,
       kassenbezeichnung: input.kassenbezeichnung,
       anlass: input.anlass,
@@ -319,6 +322,7 @@ export async function stornoProtokoll(
   const { buffer, hash } = await renderProtokollPdf({
     belegnummer: detail.protokoll.belegnummer,
     erstellt_am: detail.protokoll.erstellt_am,
+    anlass_datum: detail.protokoll.anlass_datum,
     kassennummer: detail.protokoll.kassennummer,
     kassenbezeichnung: detail.protokoll.kassenbezeichnung,
     anlass: detail.protokoll.anlass,
@@ -369,6 +373,7 @@ export async function regenerateProtokollPdf(id: string): Promise<void> {
   const baseData = {
     belegnummer: protokoll.belegnummer,
     erstellt_am: protokoll.erstellt_am,
+    anlass_datum: protokoll.anlass_datum,
     kassennummer: protokoll.kassennummer,
     kassenbezeichnung: protokoll.kassenbezeichnung,
     anlass: protokoll.anlass,
