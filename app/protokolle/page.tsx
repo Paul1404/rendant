@@ -153,7 +153,7 @@ export default async function ProtokolleListPage({
                     {p.belegnummer}
                   </TableCell>
                   <TableCell className="text-sm">
-                    {formatDateDe(p.erstellt_am)}
+                    {formatDateDe(p.anlass_datum)}
                   </TableCell>
                   <TableCell className="max-w-[260px] truncate text-sm">
                     {p.anlass}

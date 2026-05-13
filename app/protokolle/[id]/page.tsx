@@ -188,7 +188,7 @@ export default async function ProtokollDetailPage({
             />
           ) : null}
           <KV label="Anlass" value={protokoll.anlass} />
-          <KV label="Datum" value={formatDateDe(protokoll.erstellt_am)} />
+          <KV label="Datum" value={formatDateDe(protokoll.anlass_datum)} />
           <KV label="Gezählt von" value={protokoll.gezaehlt_von} />
           <KV label="Geprüft von" value={protokoll.geprueft_von} />
           {protokoll.bemerkung ? (

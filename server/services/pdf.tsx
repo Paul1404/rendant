@@ -10,6 +10,7 @@ export function computeDataHash(
   const canonical = {
     belegnummer: data.belegnummer,
     erstellt_am: data.erstellt_am.toISOString(),
+    anlass_datum: data.anlass_datum.toISOString().slice(0, 10),
     kassennummer: data.kassennummer,
     kassenbezeichnung: data.kassenbezeichnung,
     anlass: data.anlass,
