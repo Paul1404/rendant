@@ -1,36 +1,49 @@
 import Link from "next/link";
 import { listProtokolle } from "@/server/services/protokoll";
-import { formatDateDe } from "@/lib/date";
-import { formatCent } from "@/lib/money";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { ArrowUpRight, Plus, Download, Receipt } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Download, Plus, Receipt, SearchX } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
+import { DashboardStatsRow } from "@/components/dashboard-stats";
+import { DashboardToolbar } from "@/components/dashboard-toolbar";
+import { ProtokollList } from "@/components/protokoll-list";
+import { formatCent } from "@/lib/money";
+import {
+  computeDashboardStats,
+  filterByRange,
+  filterBySearch,
+  parseTimeRange,
+} from "@/lib/dashboard-stats";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = Promise<{ storno?: string }>;
+type SearchParams = Promise<{
+  storno?: string;
+  q?: string;
+  range?: string;
+}>;
 
 export default async function ProtokolleListPage({
   searchParams,
 }: {
   searchParams: SearchParams;
 }) {
-  const { storno } = await searchParams;
+  const { storno, q, range } = await searchParams;
   const includeStorniert = storno === "true";
-  const items = await listProtokolle({ includeStorniert });
+  const timeRange = parseTimeRange(range);
+  const query = (q ?? "").trim();
 
-  const aktiveCount = items.filter((p) => !p.storniert_am).length;
-  const sumAktiv = items
+  const all = await listProtokolle({ includeStorniert: true });
+  const stats = computeDashboardStats(all);
+
+  const visibleScope = includeStorniert
+    ? all
+    : all.filter((p) => !p.storniert_am);
+  const ranged = filterByRange(visibleScope, timeRange);
+  const items = filterBySearch(ranged, query);
+
+  const hasAnyData = all.length > 0;
+  const hasFilters = !!query || timeRange !== "all" || includeStorniert;
+  const visibleSumCent = items
     .filter((p) => !p.storniert_am)
     .reduce((s, p) => s + p.tageseinnahmen_cent, 0);
 
@@ -39,7 +52,7 @@ export default async function ProtokolleListPage({
       <PageHeader
         eyebrow="Buchhaltung"
         title="Kassenzählprotokolle"
-        description="Übersicht aller erfassten Kassenzählprotokolle. Für die Erstellung neuer Belege oder den CSV-Export für den Steuerberater."
+        description="Übersicht der erfassten Belege. Neue Protokolle anlegen oder CSV für den Steuerberater exportieren."
         actions={
           <>
             <Link href="/protokolle/export">
@@ -58,189 +71,95 @@ export default async function ProtokolleListPage({
         }
       />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatCard
-          label="Aktive Belege"
-          value={String(aktiveCount)}
-          hint={
-            includeStorniert
-              ? `${items.length - aktiveCount} storniert ausgeblendet`
-              : "im aktuellen Filter"
-          }
-        />
-        <StatCard
-          label="Summe Tageseinnahmen"
-          value={formatCent(sumAktiv)}
-          hint="netto, ohne Stornos"
-          mono
-        />
-        <StatCard
-          label="Filter"
-          value={includeStorniert ? "Alle Belege" : "Nur aktive"}
-          hint={
-            includeStorniert
-              ? "inkl. stornierter Belege"
-              : "stornierte ausgeblendet"
-          }
-        />
-      </div>
+      {hasAnyData ? <DashboardStatsRow stats={stats} /> : null}
 
-      <div className="flex items-center justify-between gap-3 text-xs">
-        <div className="inline-flex items-center gap-0 rounded-lg border border-border bg-background/60 p-0.5 shadow-sm">
-          <FilterTab href="/protokolle" active={!includeStorniert}>
-            Aktive
-          </FilterTab>
-          <FilterTab href="/protokolle?storno=true" active={includeStorniert}>
-            Mit stornierten
-          </FilterTab>
-        </div>
-        {items.length > 0 ? (
-          <span className="tabular-nums text-muted-foreground">
-            {items.length} {items.length === 1 ? "Eintrag" : "Einträge"}
-          </span>
-        ) : null}
-      </div>
+      {hasAnyData ? (
+        <div className="space-y-4">
+          <DashboardToolbar
+            initialQuery={query}
+            initialRange={timeRange}
+            includeStorniert={includeStorniert}
+          />
 
-      {items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-card/40 px-6 py-16 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <Receipt className="h-6 w-6" />
+          <div className="flex items-center justify-between gap-3 px-1 text-xs text-muted-foreground">
+            <span>
+              {items.length === 0
+                ? "Keine Treffer"
+                : `${items.length} ${items.length === 1 ? "Eintrag" : "Einträge"}`}
+              {items.length > 0 ? (
+                <>
+                  <span className="mx-1.5 text-muted-foreground/40">·</span>
+                  <span className="font-mono tabular-nums">
+                    Summe aktiv: {formatCent(visibleSumCent)}
+                  </span>
+                </>
+              ) : null}
+            </span>
+            {hasFilters ? (
+              <Link
+                href="/protokolle"
+                className="text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Filter zurücksetzen
+              </Link>
+            ) : null}
           </div>
-          <h2 className="text-base font-semibold text-foreground">
-            Noch keine Protokolle
-          </h2>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            Lege das erste Kassenzählprotokoll an, um den Kassenbestand und die
-            Tageseinnahmen zu erfassen.
-          </p>
-          <Link href="/protokolle/neu" className="mt-2">
-            <Button size="sm">
-              <Plus className="mr-2 h-4 w-4" />
-              Neues Protokoll
-            </Button>
-          </Link>
+
+          {items.length === 0 ? (
+            <NoResults hasFilters={hasFilters} />
+          ) : (
+            <ProtokollList items={items} />
+          )}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm ring-1 ring-foreground/5">
-          <Table>
-            <TableHeader className="bg-muted/40">
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                  Belegnummer
-                </TableHead>
-                <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                  Datum
-                </TableHead>
-                <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                  Anlass
-                </TableHead>
-                <TableHead className="text-right text-[11px] uppercase tracking-wider text-muted-foreground">
-                  Tageseinnahmen
-                </TableHead>
-                <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                  Status
-                </TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((p) => (
-                <TableRow
-                  key={p.id}
-                  className="group transition-colors hover:bg-muted/30"
-                >
-                  <TableCell className="font-mono text-sm font-medium">
-                    {p.belegnummer}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {formatDateDe(p.anlass_datum)}
-                  </TableCell>
-                  <TableCell className="max-w-[260px] truncate text-sm">
-                    {p.anlass}
-                  </TableCell>
-                  <TableCell className="text-right font-mono tabular-nums">
-                    {formatCent(p.tageseinnahmen_cent)}
-                  </TableCell>
-                  <TableCell>
-                    {p.storniert_am ? (
-                      <Badge variant="destructive">storniert</Badge>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-medium text-success">
-                        <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                        aktiv
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Link
-                      href={`/protokolle/${p.id}`}
-                      className="inline-flex items-center gap-1 text-sm text-primary opacity-70 transition group-hover:opacity-100 hover:underline"
-                    >
-                      Anzeigen
-                      <ArrowUpRight className="h-3.5 w-3.5" />
-                    </Link>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <EmptyState />
       )}
     </div>
   );
 }
 
-function StatCard({
-  label,
-  value,
-  hint,
-  mono,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-  mono?: boolean;
-}) {
+function EmptyState() {
   return (
-    <div className="rounded-2xl border border-border bg-card/70 p-4 shadow-sm ring-1 ring-foreground/5">
-      <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-        {label}
+    <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-card/40 px-6 py-16 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <Receipt className="h-6 w-6" />
+      </div>
+      <h2 className="text-base font-semibold text-foreground">
+        Noch keine Protokolle
+      </h2>
+      <p className="max-w-sm text-sm text-muted-foreground">
+        Lege das erste Kassenzählprotokoll an, um Kassenbestand und
+        Tageseinnahmen zu erfassen.
       </p>
-      <p
-        className={cn(
-          "mt-1 text-xl font-semibold text-foreground",
-          mono && "font-mono tabular-nums",
-        )}
-      >
-        {value}
+      <Link href="/protokolle/neu" className="mt-2">
+        <Button size="sm">
+          <Plus className="mr-2 h-4 w-4" />
+          Neues Protokoll
+        </Button>
+      </Link>
+    </div>
+  );
+}
+
+function NoResults({ hasFilters }: { hasFilters: boolean }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-card/40 px-6 py-12 text-center">
+      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        <SearchX className="h-5 w-5" />
+      </div>
+      <h3 className="text-sm font-semibold text-foreground">Keine Treffer</h3>
+      <p className="max-w-sm text-xs text-muted-foreground">
+        {hasFilters
+          ? "Mit den aktuellen Filtern wurden keine Belege gefunden."
+          : "Es sind keine Belege vorhanden."}
       </p>
-      {hint ? (
-        <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
+      {hasFilters ? (
+        <Link href="/protokolle" className="mt-1">
+          <Button variant="outline" size="sm">
+            Filter zurücksetzen
+          </Button>
+        </Link>
       ) : null}
     </div>
-  );
-}
-
-function FilterTab({
-  href,
-  active,
-  children,
-}: {
-  href: string;
-  active: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-        active
-          ? "bg-primary/10 text-primary"
-          : "text-muted-foreground hover:text-foreground",
-      )}
-    >
-      {children}
-    </Link>
   );
 }
