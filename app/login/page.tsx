@@ -1,6 +1,5 @@
-import Image from "next/image";
 import { LoginForm } from "@/components/login-form";
-import { VEREINSNAME } from "@/lib/constants";
+import { VEREINSNAME, LOGO_URL } from "@/lib/branding";
 import { ShieldCheck } from "lucide-react";
 
 type SearchParams = Promise<{ from?: string }>;
@@ -20,12 +19,14 @@ export default async function LoginPage({
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center text-center">
           <div className="mb-5 inline-flex h-20 w-20 items-center justify-center rounded-2xl bg-white p-2 shadow-lg shadow-primary/10 ring-1 ring-foreground/10">
-            <Image
-              src="/logo-svu.png"
-              alt="SV 1945 Untereuerheim e.V. Wappen"
+            {/* Plain img so an arbitrary external LOGO_URL works without
+                next/image remote-host config. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={LOGO_URL}
+              alt=""
               width={128}
               height={128}
-              priority
               className="h-full w-auto object-contain"
             />
           </div>

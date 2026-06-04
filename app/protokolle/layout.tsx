@@ -1,5 +1,5 @@
 import { Header } from "@/components/header";
-import { VEREINSNAME } from "@/lib/constants";
+import { VEREINSNAME, LOGO_URL } from "@/lib/branding";
 
 export default function ProtokolleLayout({
   children,
@@ -8,7 +8,7 @@ export default function ProtokolleLayout({
 }) {
   return (
     <>
-      <Header />
+      <Header vereinsname={VEREINSNAME} logoUrl={LOGO_URL} />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
         {children}
       </main>

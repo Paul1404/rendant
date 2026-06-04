@@ -1,13 +1,18 @@
-import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 type LogoProps = {
+  src?: string;
   size?: number;
   className?: string;
   priority?: boolean;
 };
 
-export function Logo({ size = 40, className, priority = false }: LogoProps) {
+export function Logo({
+  src = "/logo.svg",
+  size = 40,
+  className,
+  priority = false,
+}: LogoProps) {
   return (
     <span
       className={cn(
@@ -17,12 +22,15 @@ export function Logo({ size = 40, className, priority = false }: LogoProps) {
       style={{ width: size, height: size }}
       aria-hidden="true"
     >
-      <Image
-        src="/logo-svu.png"
+      {/* Plain img so an arbitrary external LOGO_URL works without next/image
+          remote-host config. The logo is small and decorative. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
         alt=""
         width={size * 2}
         height={size * 2}
-        priority={priority}
+        loading={priority ? "eager" : "lazy"}
         className="h-full w-auto object-contain"
       />
     </span>

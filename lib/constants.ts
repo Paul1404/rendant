@@ -1,4 +1,3 @@
-export const VEREINSNAME = "SV 1945 Untereuerheim e.V.";
 export const PROTOKOLL_TITEL = "Kassenzählprotokoll";
 
 export const WECHSELGELD_DEFAULT_CENT = 16000;

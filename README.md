@@ -1,8 +1,9 @@
 # SVUFO
 
-Webapp zur digitalen Erfassung von Kassenzählprotokollen für den
-**SV 1945 Untereuerheim e.V.** Ersetzt die bisherigen Excel-Listen. Output ist
-ein PDF-Beleg, der manuell in DATEV Unternehmen Online hochgeladen wird.
+Webapp zur digitalen Erfassung von Kassenzählprotokollen für einen Verein.
+Ersetzt die bisherige Excel-Liste. Output ist ein PDF-Beleg, der manuell in
+DATEV Unternehmen Online hochgeladen wird. Vereinsname und Logo sind über
+Umgebungsvariablen konfigurierbar, siehe Abschnitt Branding.
 
 ## Features
 
@@ -74,6 +75,22 @@ npm run dev
 Für einen lokalen S3-kompatiblen Server kann MinIO verwendet werden
 (`minio server /tmp/minio-data`), Bucket per `mc mb local/svufo-test`.
 
+## Branding
+
+Vereinsname und Logo sind nicht im Code verdrahtet, sondern werden zur
+Laufzeit aus Umgebungsvariablen gelesen. Ohne sie läuft die App mit einem
+neutralen Namen und Logo.
+
+- `VEREINSNAME` setzt den angezeigten Namen in Kopf, Login, Footer und PDF.
+  Default ist `Verein`.
+- `LOGO_URL` setzt das Logo. Default ist `/logo.svg`, ein neutrales Logo aus
+  `public/`. Für ein eigenes Logo eine öffentlich erreichbare Bild-URL
+  hinterlegen (z.B. ein Objekt im eigenen Tigris-Bucket oder auf der
+  Vereinswebsite). Ein lokaler Pfad funktioniert ebenfalls, muss dann aber in
+  `PUBLIC_PATHS` in `proxy.ts` ergänzt werden, damit er vor dem Login lädt.
+
+Beide Werte wirken sofort nach einem Neustart, ein Rebuild ist nicht nötig.
+
 ## Production Build
 
 ```bash
@@ -105,6 +122,8 @@ Der Repo wird as-is auf Railway gepusht. Build läuft über den committeten
    - `ADMIN_PASSWORD` (Klartext, wird beim Start gehasht)
    - `JWT_SECRET` (mind. 32 zufällige Bytes hex, z.B. `openssl rand -hex 32`)
    - `S3_BUCKET_NAME`
+   - `VEREINSNAME` (Anzeigename des Vereins, siehe Branding)
+   - `LOGO_URL` (optional, eigenes Logo, siehe Branding)
 5. **Domain** zuweisen (Railway-Subdomain reicht), HTTPS ist automatisch.
 
 ### Deploy-Ablauf

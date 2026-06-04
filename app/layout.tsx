@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { VEREINSNAME } from "@/lib/branding";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,15 +14,15 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "SVUFO Kassenzählprotokoll",
-  description: "Digitale Kassenzählprotokolle des SV 1945 Untereuerheim e.V.",
-  icons: {
-    icon: [
-      { url: "/favicon.svg", type: "image/svg+xml" },
-    ],
-  },
-};
+export function generateMetadata(): Metadata {
+  return {
+    title: "SVUFO Kassenzählprotokoll",
+    description: `Digitale Kassenzählprotokolle für ${VEREINSNAME}`,
+    icons: {
+      icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    },
+  };
+}
 
 export default function RootLayout({
   children,
