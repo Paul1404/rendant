@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useRef, useState, useTransition } from "react";
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -31,9 +31,14 @@ export function DashboardToolbar({
   const [, startTransition] = useTransition();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
+  // Lokalen Suchtext zuruecksetzen, wenn sich der Wert aus der URL aendert
+  // (z.B. nach Navigation). Anpassung waehrend des Renders statt im Effect,
+  // siehe https://react.dev/learn/you-might-not-need-an-effect
+  const [prevInitialQuery, setPrevInitialQuery] = useState(initialQuery);
+  if (initialQuery !== prevInitialQuery) {
+    setPrevInitialQuery(initialQuery);
     setQuery(initialQuery);
-  }, [initialQuery]);
+  }
 
   const pushParams = useCallback(
     (next: { q?: string; range?: TimeRange; storno?: boolean }) => {

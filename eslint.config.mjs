@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // node-pg-migrate Skripte, kein Teil der App-Lint-Flaeche.
+    "migrations/**",
   ]),
 ]);
 
