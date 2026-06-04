@@ -6,8 +6,15 @@ export function clientIp(c: {
 }): string {
   const xff = c.req.header("x-forwarded-for");
   if (xff) {
-    const first = xff.split(",")[0]?.trim();
-    if (first) return first;
+    // Die letzte Adresse in der Kette wird vom vertrauenswuerdigen Proxy
+    // (Railway) angehaengt. Der erste Eintrag ist client-kontrolliert und
+    // damit faelschbar, deshalb nehmen wir den letzten.
+    const parts = xff
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    const last = parts[parts.length - 1];
+    if (last) return last;
   }
   return (
     c.req.header("x-real-ip") ?? c.req.header("cf-connecting-ip") ?? "unknown"
