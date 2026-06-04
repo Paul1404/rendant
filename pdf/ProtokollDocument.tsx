@@ -9,7 +9,8 @@ import {
 import { DENOMINATIONS, type Denomination } from "@/lib/denominations";
 import { formatCent } from "@/lib/money";
 import { formatDateDe, formatDateTimeDe } from "@/lib/date";
-import { VEREINSNAME, PROTOKOLL_TITEL } from "@/lib/constants";
+import { PROTOKOLL_TITEL } from "@/lib/constants";
+import { VEREINSNAME } from "@/lib/branding";
 import { groupByUstRate, hasUstBreakdown, formatUstSatz } from "@/lib/ust";
 
 Font.registerHyphenationCallback((word) => [word]);

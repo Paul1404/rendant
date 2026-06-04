@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { COOKIE_NAME } from "@/lib/constants";
 
-const PUBLIC_PATHS = new Set(["/login", "/logo-svu.png"]);
+const PUBLIC_PATHS = new Set(["/login", "/logo.svg"]);
 const PUBLIC_PREFIXES = ["/api/auth/", "/api/health", "/_next/", "/favicon"];
 
 let cachedSecret: Uint8Array | null = null;

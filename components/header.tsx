@@ -4,9 +4,13 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { LogOut, Plus, Download, List, Settings } from "lucide-react";
-import { VEREINSNAME } from "@/lib/constants";
 import { Logo } from "@/components/logo";
 import { cn } from "@/lib/utils";
+
+type HeaderProps = {
+  vereinsname: string;
+  logoUrl: string;
+};
 
 const NAV = [
   { href: "/protokolle", label: "Protokolle", icon: List, exact: true },
@@ -15,7 +19,7 @@ const NAV = [
   { href: "/protokolle/einstellungen", label: "Einstellungen", icon: Settings },
 ];
 
-export function Header() {
+export function Header({ vereinsname, logoUrl }: HeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -32,13 +36,13 @@ export function Header() {
           href="/protokolle"
           className="flex items-center gap-3 group rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
-          <Logo size={40} priority />
+          <Logo size={40} priority src={logoUrl} />
           <span className="hidden flex-col leading-tight sm:flex">
             <span className="text-sm font-semibold tracking-tight text-foreground">
               SVUFO
             </span>
             <span className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-              {VEREINSNAME}
+              {vereinsname}
             </span>
           </span>
         </Link>
