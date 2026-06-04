@@ -7,7 +7,8 @@ ein PDF-Beleg, der manuell in DATEV Unternehmen Online hochgeladen wird.
 ## Features
 
 - Login mit Admin-Passwort, JWT in httpOnly Cookie (8 Stunden Gültigkeit)
-- Rate-Limiting auf Login (5 Fehlversuche pro IP / 15 Minuten)
+- Rate-Limiting auf Login (5 Fehlversuche pro IP / 15 Minuten, plus globaler
+  Backstop gegen gefaelschte IPs)
 - Erfassung Kopfdaten, Stückelung (15 Denominationen), betriebliche Ausgaben
 - USt.-Satz pro Ausgabe (0 %, 7 %, 19 %, frei wählbar)
 - Anfangsbestand (Wechselgeld) mit Default 160,00 EUR änderbar
@@ -29,11 +30,32 @@ ein PDF-Beleg, der manuell in DATEV Unternehmen Online hochgeladen wird.
 - `@react-pdf/renderer` fuer PDFs, `@aws-sdk/client-s3` fuer Tigris
 - Tailwind v4, shadcn/ui, lucide-react, sonner
 
+## Sicherheitsmodell
+
+Die App ist als internes Werkzeug fuer eine einzelne Vertrauensperson gebaut.
+Wer das hier forkt, sollte das wissen:
+
+- Es gibt genau ein gemeinsames Admin-Passwort (`ADMIN_PASSWORD`). Keine
+  Einzelkonten, keine Rollen, kein Audit-Trail pro Benutzer.
+- Die Sitzung laeuft ueber ein JWT in einem httpOnly-Cookie mit 8 Stunden
+  Gueltigkeit. Ein Logout loescht das Cookie, invalidiert das Token aber nicht
+  serverseitig (kein Token-Blacklisting).
+- Brute-Force-Schutz: maximal 5 Fehlversuche pro IP in 15 Minuten plus ein
+  globaler Backstop ueber alle IPs. Der Backstop greift auch dann, wenn ein
+  Angreifer den `X-Forwarded-For`-Header faelscht.
+- Die Client-IP wird aus dem letzten Eintrag von `X-Forwarded-For` gelesen.
+  Das ist korrekt hinter genau einem vertrauenswuerdigen Proxy (Railway). Bei
+  einem anderen Deployment-Aufbau muss diese Logik angepasst werden.
+- `/api/health` ist ohne Login erreichbar und meldet die DB-Erreichbarkeit.
+
+Fuer den Einsatz als Vereinswerkzeug hinter HTTPS ist das ausreichend. Fuer
+einen breiteren oder oeffentlicheren Einsatz braucht es echte Benutzerkonten.
+
 ## Lokale Entwicklung
 
 ```bash
-# Postgres starten (Beispiel)
-sudo -u postgres psql -c "CREATE USER svufo WITH PASSWORD 'svufo' SUPERUSER;"
+# Postgres anlegen (nur lokal, Wegwerf-Zugangsdaten)
+sudo -u postgres psql -c "CREATE USER svufo WITH PASSWORD 'svufo';"
 sudo -u postgres psql -c "CREATE DATABASE svufo OWNER svufo;"
 
 # Env anlegen
