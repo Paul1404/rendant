@@ -2,8 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { COOKIE_NAME } from "@/lib/constants";
 
-const PUBLIC_PATHS = new Set(["/login", "/logo.svg"]);
-const PUBLIC_PREFIXES = ["/api/auth/", "/api/health", "/_next/", "/favicon"];
+const PUBLIC_PATHS = new Set([
+  "/login",
+  "/logo.svg",
+  "/manifest.webmanifest",
+  "/apple-touch-icon.png",
+]);
+const PUBLIC_PREFIXES = [
+  "/api/auth/",
+  "/api/health",
+  "/_next/",
+  "/favicon",
+  "/icon-",
+];
 
 let cachedSecret: Uint8Array | null = null;
 function secret(): Uint8Array {

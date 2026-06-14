@@ -5,7 +5,8 @@
       <stop offset="1" stop-color="#a3121b"/>
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="14" fill="url(#tile)"/>
+  <!-- Full-bleed background for app/maskable icons (the OS applies its own mask). -->
+  <rect width="64" height="64" fill="url(#tile)"/>
   <!-- Kassenbeleg: receipt slip with a torn bottom edge -->
   <path d="M24 13 H40 Q43 13 43 16
            V46 L40 49 L37 46 L34 49 L31 46 L28 49 L25 46 L21 49

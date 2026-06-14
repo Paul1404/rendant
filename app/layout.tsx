@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { VEREINSNAME } from "@/lib/branding";
@@ -18,11 +18,22 @@ export function generateMetadata(): Metadata {
   return {
     title: "SVUFO Kassenzählprotokoll",
     description: `Digitale Kassenzählprotokolle für ${VEREINSNAME}`,
+    manifest: "/manifest.webmanifest",
     icons: {
-      icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+      icon: [
+        { url: "/favicon.svg", type: "image/svg+xml" },
+        { url: "/favicon-32.png", type: "image/png", sizes: "32x32" },
+        { url: "/favicon-16.png", type: "image/png", sizes: "16x16" },
+        { url: "/favicon.ico", sizes: "16x16 32x32 48x48" },
+      ],
+      apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
     },
   };
 }
+
+export const viewport: Viewport = {
+  themeColor: "#b3121c",
+};
 
 export default function RootLayout({
   children,
