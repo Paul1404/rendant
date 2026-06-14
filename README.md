@@ -91,6 +91,15 @@ neutralen Namen und Logo.
 
 Beide Werte wirken sofort nach einem Neustart, ein Rebuild ist nicht nötig.
 
+Das App-Logo (Kassenbeleg mit Euro) liegt als `public/logo.svg`. Die SVG ist
+die Quelle für alle Favicon- und App-Icon-Varianten (`favicon.ico`,
+`favicon-16.png`, `favicon-32.png`, `apple-touch-icon.png`, `icon-192.png`,
+`icon-512.png`). Nach einer Änderung der SVG die Rastervarianten neu erzeugen:
+
+```
+npm run icons
+```
+
 ## Production Build
 
 ```bash
