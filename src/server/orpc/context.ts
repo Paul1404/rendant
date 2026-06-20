@@ -1,0 +1,38 @@
+import { auth } from "@/server/auth";
+import type { ORPCContext } from "./base";
+
+export function clientIpFromHeaders(headers: Headers): string {
+	const xff = headers.get("x-forwarded-for");
+	if (xff) {
+		// The last address is appended by the trusted proxy (Railway). The first
+		// entry is client-controlled and therefore spoofable, so we take the last.
+		const parts = xff
+			.split(",")
+			.map((p) => p.trim())
+			.filter(Boolean);
+		const last = parts[parts.length - 1];
+		if (last) return last;
+	}
+	return (
+		headers.get("x-real-ip") ?? headers.get("cf-connecting-ip") ?? "unknown"
+	);
+}
+
+export async function createORPCContext(
+	request: Request,
+): Promise<ORPCContext> {
+	const session = await auth.api.getSession({ headers: request.headers });
+	const user = session?.user
+		? {
+				id: session.user.id,
+				email: session.user.email,
+				name: session.user.name,
+				role: (session.user as { role?: string }).role ?? "user",
+			}
+		: null;
+	return {
+		user,
+		headers: request.headers,
+		clientIp: clientIpFromHeaders(request.headers),
+	};
+}

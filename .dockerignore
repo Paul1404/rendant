@@ -1,9 +1,11 @@
 node_modules
-.next
+.output
+dist
 .git
 .env
 .env.*
 !.env.example
+.db-backup
 README.md
 *.log
 .DS_Store
@@ -11,3 +13,4 @@ README.md
 .idea
 coverage
 test-results
+tests
