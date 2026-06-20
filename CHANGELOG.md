@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.3.0 — 2026-06-20
+
+- Umsatzdiagramm umschaltbar zwischen Tag, Woche und Monat (Standard: Tag), für
+  einen lebendigeren Verlauf mit den Spitzen einzelner Veranstaltungstage.
+
 ## 1.2.1 — 2026-06-20
 
 - Release-Notes ("Was ist neu") jetzt auf Deutsch.
