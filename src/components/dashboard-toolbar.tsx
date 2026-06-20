@@ -107,7 +107,7 @@ export function DashboardToolbar({
 			</div>
 
 			<div className="flex flex-wrap items-center gap-2">
-				<fieldset className="inline-flex items-center rounded-lg border border-border bg-background/60 p-0.5 shadow-sm">
+				<fieldset className="inline-flex items-center rounded-lg border border-border/60 bg-background/60 p-0.5 shadow-sm">
 					<legend className="sr-only">Zeitraum</legend>
 					{RANGES.map((r) => {
 						const active = initialRange === r.value;
@@ -130,7 +130,7 @@ export function DashboardToolbar({
 					})}
 				</fieldset>
 
-				<label className="inline-flex cursor-pointer select-none items-center gap-2 rounded-lg border border-border bg-background/60 px-2.5 py-1.5 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:text-foreground">
+				<label className="inline-flex cursor-pointer select-none items-center gap-2 rounded-lg border border-border/60 bg-background/60 px-2.5 py-1.5 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:text-foreground">
 					<input
 						type="checkbox"
 						checked={includeStorniert}

@@ -54,11 +54,9 @@ function LoginPage() {
 					</p>
 				</div>
 
-				<div className="mt-8 overflow-hidden rounded-2xl border border-border/70 bg-card/80 shadow-xl shadow-foreground/[0.06] backdrop-blur">
+				<div className="mt-8 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm backdrop-blur">
 					<div className="h-1 w-full bg-gradient-to-r from-primary/60 via-primary to-primary/60" />
-					<div className="p-1">
-						<LoginForm redirectTo={redirectTo} />
-					</div>
+					<LoginForm redirectTo={redirectTo} />
 				</div>
 
 				<div className="mt-7 flex justify-center">

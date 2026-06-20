@@ -131,7 +131,7 @@ export function UserManagement({
 						onSubmit={createInvite}
 						className="grid grid-cols-1 gap-3 sm:grid-cols-12"
 					>
-						<div className="space-y-1 sm:col-span-6">
+						<div className="space-y-1.5 sm:col-span-6">
 							<Label htmlFor="invite-email">E-Mail</Label>
 							<Input
 								id="invite-email"
@@ -142,7 +142,7 @@ export function UserManagement({
 								required
 							/>
 						</div>
-						<div className="space-y-1 sm:col-span-3">
+						<div className="space-y-1.5 sm:col-span-3">
 							<Label htmlFor="invite-role">Rolle</Label>
 							<Select
 								value={role}
@@ -170,7 +170,7 @@ export function UserManagement({
 					</form>
 
 					{lastLink ? (
-						<div className="flex flex-col gap-2 rounded-lg border border-primary/30 bg-primary/5 p-2 sm:flex-row sm:items-center">
+						<div className="flex flex-col gap-2 rounded-xl border border-primary/30 bg-primary/[0.05] p-3 sm:flex-row sm:items-center">
 							<code className="min-w-0 flex-1 select-all break-all font-mono text-xs text-foreground">
 								{lastLink}
 							</code>
@@ -207,7 +207,7 @@ export function UserManagement({
 						{pendingInvites.map((i) => (
 							<div
 								key={i.id}
-								className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-card/40 p-3"
+								className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3"
 							>
 								<div className="min-w-0">
 									<p className="truncate text-sm font-medium text-foreground">
@@ -242,7 +242,7 @@ export function UserManagement({
 					{users.map((u) => (
 						<div
 							key={u.id}
-							className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-card/40 p-3"
+							className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3"
 						>
 							<div className="min-w-0">
 								<p className="truncate text-sm font-medium text-foreground">

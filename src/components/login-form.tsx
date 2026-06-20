@@ -32,7 +32,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
 	}
 
 	return (
-		<div className="rounded-xl bg-background/60 p-6">
+		<div className="p-6">
 			<form className="space-y-4" onSubmit={submit}>
 				<div className="space-y-2">
 					<Label htmlFor="email">E-Mail</Label>

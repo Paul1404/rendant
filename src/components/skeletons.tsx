@@ -6,7 +6,7 @@ export function Skeleton({ className }: { className?: string }) {
 
 function HeaderBlock() {
 	return (
-		<div className="relative overflow-hidden rounded-2xl border border-border/70 bg-card/70 px-5 py-6 ring-1 ring-foreground/[0.03] sm:px-7 sm:py-7">
+		<div className="relative overflow-hidden rounded-2xl border border-border/60 bg-card px-5 py-6 shadow-sm sm:px-7 sm:py-7">
 			<div className="flex flex-wrap items-end justify-between gap-4">
 				<div className="space-y-3">
 					<Skeleton className="h-3 w-24 bg-muted/40" />
@@ -24,7 +24,7 @@ function HeaderBlock() {
 
 function CardBlock({ rows = 4 }: { rows?: number }) {
 	return (
-		<div className="rounded-xl border border-border/70 bg-card/40 p-5">
+		<div className="rounded-2xl border border-border/60 bg-card p-5 shadow-sm">
 			<Skeleton className="mb-5 h-5 w-40" />
 			<div className="space-y-3">
 				{Array.from({ length: rows }, (_, i) => `row-${i}`).map((key) => (
@@ -73,7 +73,7 @@ export function NeuSkeleton() {
 	return (
 		<div className="space-y-8">
 			<HeaderBlock />
-			<div className="rounded-xl border border-border/70 bg-card/40 p-5">
+			<div className="rounded-2xl border border-border/60 bg-card p-5 shadow-sm">
 				<Skeleton className="mb-5 h-5 w-48" />
 				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 					{Array.from({ length: 6 }, (_, i) => `field-${i}`).map((key) => (

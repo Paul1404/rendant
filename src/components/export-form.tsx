@@ -1,10 +1,18 @@
 import { Braces, Download, FileText, Percent } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldLabel } from "@/components/ui/section";
 import { todayIsoDate } from "@/lib/date";
+import { cn } from "@/lib/utils";
 
 const TODAY = todayIsoDate();
 
@@ -98,6 +106,11 @@ export function ExportForm() {
 
 	const invalidRange = !von || !bis || von > bis;
 
+	const activePreset = PRESETS.findIndex((p) => {
+		const r = p.range();
+		return r.von === von && r.bis === bis;
+	});
+
 	function applyPreset(idx: number) {
 		const r = PRESETS[idx].range();
 		setVon(r.von);
@@ -111,24 +124,28 @@ export function ExportForm() {
 	}
 
 	return (
-		<div className="space-y-6">
-			<Card>
-				<CardHeader>
-					<CardTitle className="text-base">Zeitraum</CardTitle>
-				</CardHeader>
-				<CardContent className="space-y-4">
-					<div className="flex flex-wrap gap-2">
-						{PRESETS.map((p, i) => (
-							<Button
-								key={p.label}
-								type="button"
-								variant="outline"
-								size="sm"
-								onClick={() => applyPreset(i)}
-							>
-								{p.label}
-							</Button>
-						))}
+		<div className="space-y-8">
+			<Card variant="quiet">
+				<CardContent className="space-y-5 py-1">
+					<div className="space-y-2">
+						<FieldLabel>Schnellauswahl</FieldLabel>
+						<div className="flex flex-wrap gap-2">
+							{PRESETS.map((p, i) => {
+								const active = activePreset === i;
+								return (
+									<Button
+										key={p.label}
+										type="button"
+										variant={active ? "default" : "outline"}
+										size="sm"
+										aria-pressed={active}
+										onClick={() => applyPreset(i)}
+									>
+										{p.label}
+									</Button>
+								);
+							})}
+						</div>
 					</div>
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 						<div className="space-y-2">
@@ -155,15 +172,16 @@ export function ExportForm() {
 							/>
 						</div>
 					</div>
-					{invalidRange ? (
-						<p className="text-xs text-destructive">
-							&laquo;Bis&raquo; muss nach &laquo;Von&raquo; liegen.
-						</p>
-					) : (
-						<p className="text-xs text-muted-foreground">
-							Der Zeitraum gilt für alle Downloads.
-						</p>
-					)}
+					<p
+						className={cn(
+							"text-xs",
+							invalidRange ? "text-destructive" : "text-muted-foreground",
+						)}
+					>
+						{invalidRange
+							? "«Bis» muss nach «Von» liegen."
+							: "Der Zeitraum gilt für alle Downloads."}
+					</p>
 				</CardContent>
 			</Card>
 
@@ -173,15 +191,15 @@ export function ExportForm() {
 					return (
 						<Card key={ex.id} className="flex flex-col">
 							<CardHeader>
-								<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-									<Icon className="h-5 w-5" />
-								</div>
-								<CardTitle className="text-base">{ex.title}</CardTitle>
+								<CardTitle className="flex items-center gap-2.5">
+									<span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+										<Icon className="h-[18px] w-[18px]" />
+									</span>
+									{ex.title}
+								</CardTitle>
+								<CardDescription>{ex.description}</CardDescription>
 							</CardHeader>
-							<CardContent className="flex flex-1 flex-col justify-between gap-4">
-								<p className="text-sm text-muted-foreground">
-									{ex.description}
-								</p>
+							<CardContent className="mt-auto pt-2">
 								<Button
 									type="button"
 									className="w-full"

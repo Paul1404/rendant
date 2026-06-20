@@ -3,7 +3,13 @@ import { Loader2, Save } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
 import { orpcClient } from "@/lib/orpc";
 import { orpcMessage } from "@/lib/orpc-error";
 import { cn } from "@/lib/utils";
@@ -52,15 +58,15 @@ export function UmsatzUstBasisForm({ initial }: { initial: UmsatzUstBasis }) {
 
 	return (
 		<Card>
-			<CardHeader className="pb-3">
+			<CardHeader className="pb-2">
 				<CardTitle className="text-base">Bezugsgröße</CardTitle>
-			</CardHeader>
-			<CardContent className="space-y-4">
-				<p className="text-xs text-muted-foreground">
+				<CardDescription>
 					Standard für neue Protokolle. Pro Protokoll kann beim Erfassen
 					umgestellt werden.
-				</p>
-				<div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+				</CardDescription>
+			</CardHeader>
+			<CardContent className="space-y-5">
+				<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
 					{OPTIONS.map((o) => {
 						const active = value === o.id;
 						return (
@@ -70,16 +76,26 @@ export function UmsatzUstBasisForm({ initial }: { initial: UmsatzUstBasis }) {
 								aria-pressed={active}
 								onClick={() => setValue(o.id)}
 								className={cn(
-									"flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors",
+									"flex flex-col items-start gap-1.5 rounded-xl border p-4 text-left transition-colors",
 									active
-										? "border-primary/60 bg-primary/5 ring-1 ring-primary/30"
-										: "border-border bg-card/40 hover:border-primary/40 hover:bg-card",
+										? "border-primary/40 bg-primary/10 text-primary ring-1 ring-primary/20"
+										: "border-border/60 bg-card hover:border-primary/40 hover:bg-muted/40",
 								)}
 							>
-								<span className="text-sm font-medium text-foreground">
+								<span
+									className={cn(
+										"text-sm font-medium",
+										active ? "text-primary" : "text-foreground",
+									)}
+								>
 									{o.label}
 								</span>
-								<span className="text-[11px] text-muted-foreground">
+								<span
+									className={cn(
+										"text-[11px] leading-relaxed",
+										active ? "text-primary/80" : "text-muted-foreground",
+									)}
+								>
 									{o.hint}
 								</span>
 							</button>

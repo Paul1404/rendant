@@ -17,9 +17,10 @@ import { toast } from "sonner";
 import { SanityWarnings } from "@/components/sanity-warnings";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DataRow } from "@/components/ui/data-row";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
+import { Money } from "@/components/ui/money";
 import { Textarea } from "@/components/ui/textarea";
 import { WECHSELGELD_DEFAULT_CENT } from "@/lib/constants";
 import { todayIsoDate } from "@/lib/date";
@@ -686,611 +687,340 @@ export function ProtokollForm({
 	}
 
 	return (
-		<form
-			className="space-y-6"
-			onSubmit={submit}
-			onChange={markDirty}
-			onInput={markDirty}
-		>
-			<Card>
-				<CardHeader>
-					<CardTitle className="flex items-center gap-2">
-						<FileText className="h-4 w-4 text-primary" />
-						Kopfdaten
-					</CardTitle>
-				</CardHeader>
-				<CardContent className="space-y-4">
-					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-						<div className="space-y-2">
-							<Label htmlFor="belegnummer">Belegnummer</Label>
-							<Input
-								id="belegnummer"
-								value={belegnummer}
-								onChange={(e) => setBelegnummer(e.target.value)}
-								required
-								maxLength={50}
-								className="font-mono"
-							/>
-						</div>
-						<div className="space-y-2">
-							<Label htmlFor="datum">Datum</Label>
-							<Input
-								id="datum"
-								type="date"
-								value={datum}
-								onChange={(e) => setDatum(e.target.value)}
-								required
-							/>
-						</div>
-					</div>
-					{registers.length > 0 ? (
-						<div className="space-y-2">
-							<Label className="inline-flex items-center gap-1.5">
-								<Wallet className="h-3.5 w-3.5 text-muted-foreground" />
-								Kasse wählen
-							</Label>
-							<div className="flex flex-wrap gap-2">
-								{registers.map((r) => {
-									const active = selectedRegisterId === r.id;
-									return (
-										<button
-											key={r.id}
-											type="button"
-											onClick={() => applyRegister(r)}
-											className={cn(
-												"rounded-lg border px-3 py-1.5 text-left text-xs transition-colors",
-												active
-													? "border-primary/60 bg-primary/10 text-foreground ring-1 ring-primary/30"
-													: "border-border bg-card/40 text-muted-foreground hover:border-primary/40 hover:text-foreground",
-											)}
-										>
-											<span className="block font-mono text-[12px] font-medium text-foreground">
-												{r.kassennummer}
-											</span>
-											<span className="block text-[11px]">
-												{r.kassenbezeichnung}
-											</span>
-											<span className="block text-[10px] text-muted-foreground">
-												Wechselgeld {formatCent(r.wechselgeld_cent)}
-											</span>
-										</button>
-									);
-								})}
-								{selectedRegisterId ? (
-									<button
-										type="button"
-										onClick={clearRegister}
-										className="rounded-lg border border-dashed border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
-									>
-										Auswahl aufheben
-									</button>
-								) : null}
-							</div>
-							<p className="text-[11px] text-muted-foreground">
-								Wählt eine Kasse aus, übernimmt Kassennummer, Kassenbezeichnung
-								und Wechselgeld.
-							</p>
-						</div>
-					) : null}
-					<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-						<div className="space-y-2">
-							<Label htmlFor="kassennummer">Kassennummer</Label>
-							<Input
-								id="kassennummer"
-								value={kassennummer}
-								onChange={(e) => {
-									setKassennummer(e.target.value);
-									setSelectedRegisterId(null);
-								}}
-								required
-								maxLength={50}
-								placeholder="z.B. K-01"
-								className="font-mono"
-							/>
-						</div>
-						<div className="space-y-2 sm:col-span-2">
-							<Label htmlFor="kassenbezeichnung">Kassenbezeichnung</Label>
-							<Input
-								id="kassenbezeichnung"
-								value={kassenbezeichnung}
-								onChange={(e) => {
-									setKassenbezeichnung(e.target.value);
-									setSelectedRegisterId(null);
-								}}
-								required
-								maxLength={120}
-								placeholder="z.B. Sportheim Theke"
-							/>
-						</div>
-					</div>
-					<div className="space-y-2">
-						<Label htmlFor="anlass">Anlass</Label>
-						<Input
-							id="anlass"
-							value={anlass}
-							onChange={(e) => setAnlass(e.target.value)}
-							required
-							autoFocus
-							maxLength={200}
-							placeholder="z.B. Heimspiel 1. Mannschaft"
-						/>
-					</div>
-					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-						<div className="space-y-2">
-							<Label htmlFor="gezaehlt_von">Gezählt von</Label>
-							<Input
-								id="gezaehlt_von"
-								value={gezaehltVon}
-								onChange={(e) => setGezaehltVon(e.target.value)}
-								required
-								maxLength={120}
-								autoComplete="name"
-								placeholder="Vor- und Nachname"
-							/>
-						</div>
-						<div className="space-y-2">
-							<Label htmlFor="geprueft_von">Geprüft von</Label>
-							<Input
-								id="geprueft_von"
-								value={gepruefftVon}
-								onChange={(e) => setGepruefftVon(e.target.value)}
-								required
-								maxLength={120}
-								autoComplete="name"
-								placeholder="Vor- und Nachname"
-							/>
-						</div>
-					</div>
-					<div className="space-y-2">
-						<div className="flex items-center justify-between">
-							<Label htmlFor="bemerkung">Bemerkung</Label>
-							<span className="text-[11px] tabular-nums text-muted-foreground">
-								{bemerkung.length} / {BEMERKUNG_MAX}
-							</span>
-						</div>
-						<Textarea
-							id="bemerkung"
-							value={bemerkung}
-							onChange={(e) => setBemerkung(e.target.value)}
-							rows={3}
-							maxLength={BEMERKUNG_MAX}
-							placeholder="Optional"
-						/>
-					</div>
-				</CardContent>
-			</Card>
-
-			<Card>
-				<CardHeader>
-					<CardTitle className="flex items-center gap-2">
-						<Coins className="h-4 w-4 text-primary" />
-						Stückelung
-					</CardTitle>
-				</CardHeader>
-				<CardContent>
-					<div className="grid grid-cols-1 gap-x-10 gap-y-4 md:grid-cols-2">
-						<div>
-							<h3 className="mb-3 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-								<Banknote className="h-3.5 w-3.5" />
-								Scheine
-							</h3>
-							<DenominationSection
-								kind="schein"
-								counts={counts}
-								setCount={setCount}
-							/>
-						</div>
-						<div>
-							<h3 className="mb-3 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-								<Coins className="h-3.5 w-3.5" />
-								Münzen
-							</h3>
-							<DenominationSection
-								kind="muenze"
-								counts={counts}
-								setCount={setCount}
-							/>
-						</div>
-					</div>
-					<Separator className="my-4" />
-					<div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-sm">
-						<span className="font-medium">Summe gezählt</span>
-						<span className="font-mono tabular-nums">
-							{formatCent(gezaehltCent)}
-						</span>
-					</div>
-				</CardContent>
-			</Card>
-
-			<Card>
-				<CardHeader className="flex flex-row items-center justify-between">
-					<CardTitle className="flex items-center gap-2">
-						<ReceiptText className="h-4 w-4 text-primary" />
-						Betriebliche Ausgaben
-					</CardTitle>
-					<Button
-						type="button"
-						variant="outline"
-						size="sm"
-						onClick={addAusgabe}
-					>
-						<Plus className="mr-2 h-4 w-4" />
-						Ausgabe hinzufügen
-					</Button>
-				</CardHeader>
-				<CardContent className="space-y-3">
-					{ausgaben.length === 0 ? (
-						<p className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
-							Keine Ausgaben erfasst.
-						</p>
-					) : (
-						ausgaben.map((a, i) => {
-							const isLast = i === ausgaben.length - 1;
-							const brutto = parseGermanAmount(a.betrag_input);
-							const bp = ausgabeUstBp(a);
-							const ustCent =
-								brutto != null && bp != null ? ustAnteilCent(brutto, bp) : null;
-							return (
-								<div
-									key={a.id}
-									className="rounded-xl border border-border/70 bg-muted/20 p-3"
-								>
-									<div className="grid grid-cols-1 items-start gap-2 md:grid-cols-12">
-										<div className="md:col-span-4 space-y-1">
-											<Label htmlFor={`bez-${i}`}>Bezeichnung</Label>
-											<Input
-												id={`bez-${i}`}
-												ref={isLast ? lastAusgabeRef : undefined}
-												value={a.bezeichnung}
-												onChange={(e) =>
-													updateAusgabe(i, "bezeichnung", e.target.value)
-												}
-												required
-												placeholder="z.B. Pizzakauf"
-											/>
-										</div>
-										<div className="md:col-span-3 space-y-1">
-											<Label htmlFor={`emp-${i}`}>Empfänger</Label>
-											<Input
-												id={`emp-${i}`}
-												value={a.empfaenger}
-												onChange={(e) =>
-													updateAusgabe(i, "empfaenger", e.target.value)
-												}
-												placeholder="Optional"
-											/>
-										</div>
-										<div className="md:col-span-2 space-y-1">
-											<Label htmlFor={`bel-${i}`}>Beleg-Nr.</Label>
-											<Input
-												id={`bel-${i}`}
-												value={a.beleg_nr}
-												onChange={(e) =>
-													updateAusgabe(i, "beleg_nr", e.target.value)
-												}
-												placeholder="Optional"
-											/>
-										</div>
-										<div className="md:col-span-2 space-y-1">
-											<Label htmlFor={`bet-${i}`}>Betrag EUR</Label>
-											<Input
-												id={`bet-${i}`}
-												inputMode="decimal"
-												placeholder="0,00"
-												value={a.betrag_input}
-												onFocus={selectOnFocus}
-												onChange={(e) =>
-													updateAusgabe(i, "betrag_input", e.target.value)
-												}
-												className="text-right tabular-nums"
-											/>
-										</div>
-										<div className="md:col-span-1 flex md:items-end md:justify-end">
-											<Button
-												type="button"
-												variant="ghost"
-												size="icon"
-												aria-label="Ausgabe entfernen"
-												onClick={() => removeAusgabe(i)}
-											>
-												<Trash2 className="h-4 w-4" />
-											</Button>
-										</div>
-									</div>
-
-									<div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/50 pt-3">
-										<span className="text-xs font-medium text-muted-foreground">
-											USt.
-										</span>
-										<div className="inline-flex items-center rounded-lg border border-border/70 bg-background/80 p-0.5 shadow-sm">
-											<UstChip
-												active={a.ust_mode === "none"}
-												onClick={() => updateAusgabe(i, "ust_mode", "none")}
-											>
-												0 %
-											</UstChip>
-											<UstChip
-												active={a.ust_mode === "p7"}
-												onClick={() => updateAusgabe(i, "ust_mode", "p7")}
-											>
-												7 %
-											</UstChip>
-											<UstChip
-												active={a.ust_mode === "p19"}
-												onClick={() => updateAusgabe(i, "ust_mode", "p19")}
-											>
-												19 %
-											</UstChip>
-											<UstChip
-												active={a.ust_mode === "custom"}
-												onClick={() => updateAusgabe(i, "ust_mode", "custom")}
-											>
-												Andere
-											</UstChip>
-										</div>
-										{a.ust_mode === "custom" ? (
-											<div className="relative">
-												<Input
-													inputMode="decimal"
-													value={a.ust_custom_input}
-													onFocus={selectOnFocus}
-													onChange={(e) =>
-														updateAusgabe(i, "ust_custom_input", e.target.value)
-													}
-													placeholder="0,0"
-													className="h-8 w-20 pr-7 text-right tabular-nums"
-													aria-label="USt.-Satz in Prozent"
-													aria-invalid={
-														a.ust_custom_input.trim() !== "" && bp == null
-													}
-												/>
-												<span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-muted-foreground">
-													%
-												</span>
-											</div>
-										) : null}
-										{bp != null && bp > 0 && ustCent != null ? (
-											<span className="ml-auto text-xs text-muted-foreground">
-												davon USt.{" "}
-												<span className="font-mono tabular-nums text-foreground">
-													{formatCent(ustCent)}
-												</span>
-											</span>
-										) : null}
-									</div>
+		<form onSubmit={submit} onChange={markDirty} onInput={markDirty}>
+			<div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
+				<div className="space-y-8">
+					<Card>
+						<CardHeader>
+							<CardTitle className="flex items-center gap-2">
+								<FileText className="h-4 w-4 text-primary" />
+								Kopfdaten
+							</CardTitle>
+						</CardHeader>
+						<CardContent className="space-y-4">
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+								<div className="space-y-2">
+									<Label htmlFor="belegnummer">Belegnummer</Label>
+									<Input
+										id="belegnummer"
+										value={belegnummer}
+										onChange={(e) => setBelegnummer(e.target.value)}
+										required
+										maxLength={50}
+										className="font-mono"
+									/>
 								</div>
-							);
-						})
-					)}
-					{ausgaben.length > 0 && ustSummeCent > 0 ? (
-						<div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-							<span>Summe USt. (rechnerisch)</span>
-							<span className="font-mono tabular-nums text-foreground">
-								{formatCent(ustSummeCent)}
-							</span>
-						</div>
-					) : null}
-				</CardContent>
-			</Card>
+								<div className="space-y-2">
+									<Label htmlFor="datum">Datum</Label>
+									<Input
+										id="datum"
+										type="date"
+										value={datum}
+										onChange={(e) => setDatum(e.target.value)}
+										required
+									/>
+								</div>
+							</div>
+							{registers.length > 0 ? (
+								<div className="space-y-2">
+									<Label className="inline-flex items-center gap-1.5">
+										<Wallet className="h-3.5 w-3.5 text-muted-foreground" />
+										Kasse wählen
+									</Label>
+									<div className="flex flex-wrap gap-2">
+										{registers.map((r) => {
+											const active = selectedRegisterId === r.id;
+											return (
+												<button
+													key={r.id}
+													type="button"
+													onClick={() => applyRegister(r)}
+													className={cn(
+														"rounded-lg border px-3 py-1.5 text-left text-xs transition-colors",
+														active
+															? "border-primary/60 bg-primary/10 text-foreground ring-1 ring-primary/30"
+															: "border-border bg-card/40 text-muted-foreground hover:border-primary/40 hover:text-foreground",
+													)}
+												>
+													<span className="block font-mono text-[12px] font-medium text-foreground">
+														{r.kassennummer}
+													</span>
+													<span className="block text-[11px]">
+														{r.kassenbezeichnung}
+													</span>
+													<span className="block text-[10px] text-muted-foreground">
+														Wechselgeld {formatCent(r.wechselgeld_cent)}
+													</span>
+												</button>
+											);
+										})}
+										{selectedRegisterId ? (
+											<button
+												type="button"
+												onClick={clearRegister}
+												className="rounded-lg border border-dashed border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+											>
+												Auswahl aufheben
+											</button>
+										) : null}
+									</div>
+									<p className="text-[11px] text-muted-foreground">
+										Wählt eine Kasse aus, übernimmt Kassennummer,
+										Kassenbezeichnung und Wechselgeld.
+									</p>
+								</div>
+							) : null}
+							<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+								<div className="space-y-2">
+									<Label htmlFor="kassennummer">Kassennummer</Label>
+									<Input
+										id="kassennummer"
+										value={kassennummer}
+										onChange={(e) => {
+											setKassennummer(e.target.value);
+											setSelectedRegisterId(null);
+										}}
+										required
+										maxLength={50}
+										placeholder="z.B. K-01"
+										className="font-mono"
+									/>
+								</div>
+								<div className="space-y-2 sm:col-span-2">
+									<Label htmlFor="kassenbezeichnung">Kassenbezeichnung</Label>
+									<Input
+										id="kassenbezeichnung"
+										value={kassenbezeichnung}
+										onChange={(e) => {
+											setKassenbezeichnung(e.target.value);
+											setSelectedRegisterId(null);
+										}}
+										required
+										maxLength={120}
+										placeholder="z.B. Sportheim Theke"
+									/>
+								</div>
+							</div>
+							<div className="space-y-2">
+								<Label htmlFor="anlass">Anlass</Label>
+								<Input
+									id="anlass"
+									value={anlass}
+									onChange={(e) => setAnlass(e.target.value)}
+									required
+									autoFocus
+									maxLength={200}
+									placeholder="z.B. Heimspiel 1. Mannschaft"
+								/>
+							</div>
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+								<div className="space-y-2">
+									<Label htmlFor="gezaehlt_von">Gezählt von</Label>
+									<Input
+										id="gezaehlt_von"
+										value={gezaehltVon}
+										onChange={(e) => setGezaehltVon(e.target.value)}
+										required
+										maxLength={120}
+										autoComplete="name"
+										placeholder="Vor- und Nachname"
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label htmlFor="geprueft_von">Geprüft von</Label>
+									<Input
+										id="geprueft_von"
+										value={gepruefftVon}
+										onChange={(e) => setGepruefftVon(e.target.value)}
+										required
+										maxLength={120}
+										autoComplete="name"
+										placeholder="Vor- und Nachname"
+									/>
+								</div>
+							</div>
+						</CardContent>
+					</Card>
 
-			<Card>
-				<CardHeader>
-					<CardTitle className="flex items-center gap-2">
-						<Calculator className="h-4 w-4 text-primary" />
-						Zusammenfassung
-					</CardTitle>
-				</CardHeader>
-				<CardContent className="space-y-2">
-					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-						<div className="space-y-2">
-							<Label htmlFor="wechselgeld">
-								Anfangsbestand (Wechselgeld) EUR
-							</Label>
-							<Input
-								id="wechselgeld"
-								inputMode="decimal"
-								value={wechselgeldInput}
-								onFocus={selectOnFocus}
-								onChange={(e) => {
-									setWechselgeldInput(e.target.value);
-									setSelectedRegisterId(null);
-								}}
-								required
-								className="text-right tabular-nums"
-							/>
-						</div>
-						<div className="space-y-2">
-							<Label htmlFor="kartenzahlung">Kartenzahlung EUR</Label>
-							<Input
-								id="kartenzahlung"
-								inputMode="decimal"
-								placeholder="0,00"
-								value={kartenzahlungInput}
-								onFocus={selectOnFocus}
-								onChange={(e) => setKartenzahlungInput(e.target.value)}
-								className="text-right tabular-nums"
-							/>
-						</div>
-					</div>
-					<Separator className="my-2" />
-					<SummaryRow label="Gezählter Endbestand" cent={gezaehltCent} />
-					<SummaryRow label="Betriebliche Ausgaben" cent={ausgabenCent} />
-					<SummaryRow label="Kassenbestand brutto" cent={bestandCent} bold />
-					<SummaryRow
-						label="Anfangsbestand (Wechselgeld)"
-						cent={wechselgeldCent < 0 ? null : wechselgeldCent}
-					/>
-					{kartenzahlungCent > 0 ? (
-						<SummaryRow label="Kartenzahlung" cent={kartenzahlungCent} />
-					) : null}
-					<Separator />
-					{kartenzahlungCent > 0 ? (
-						<>
-							<div className="flex items-center justify-between rounded-xl bg-muted/40 px-4 py-3">
-								<span className="flex items-center gap-2 text-sm font-medium text-foreground">
-									<Banknote className="h-4 w-4 text-muted-foreground" />
-									Tageseinnahmen netto (ohne Kartenzahlung)
-								</span>
-								<span className="font-mono text-base font-semibold tabular-nums text-foreground">
-									{tageseinnahmenCent == null
-										? "-"
-										: formatCent(tageseinnahmenCent)}
-								</span>
+					<Card>
+						<CardHeader>
+							<CardTitle className="flex items-center gap-2">
+								<Coins className="h-4 w-4 text-primary" />
+								Stückelung
+							</CardTitle>
+						</CardHeader>
+						<CardContent>
+							<div className="grid grid-cols-1 gap-x-10 gap-y-6 md:grid-cols-2">
+								<div>
+									<h3 className="mb-3 inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+										<Banknote className="h-3.5 w-3.5" />
+										Scheine
+									</h3>
+									<DenominationSection
+										kind="schein"
+										counts={counts}
+										setCount={setCount}
+									/>
+								</div>
+								<div>
+									<h3 className="mb-3 inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+										<Coins className="h-3.5 w-3.5" />
+										Münzen
+									</h3>
+									<DenominationSection
+										kind="muenze"
+										counts={counts}
+										setCount={setCount}
+									/>
+								</div>
 							</div>
-							<div className="flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3 ring-1 ring-primary/15">
-								<span className="flex items-center gap-2 text-sm font-medium text-foreground">
-									<Banknote className="h-4 w-4 text-primary" />
-									Tageseinnahmen netto (mit Kartenzahlung)
+							<div className="mt-4 flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
+								<span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+									Summe gezählt
 								</span>
-								<span className="font-mono text-base font-semibold tabular-nums text-primary">
-									{tageseinnahmenGesamtCent == null
-										? "-"
-										: formatCent(tageseinnahmenGesamtCent)}
-								</span>
+								<Money cent={gezaehltCent} emphasis />
 							</div>
-						</>
-					) : (
-						<div className="flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3 ring-1 ring-primary/15">
-							<span className="flex items-center gap-2 text-sm font-medium text-foreground">
-								<Banknote className="h-4 w-4 text-primary" />
-								Tageseinnahmen netto
-							</span>
-							<span className="font-mono text-base font-semibold tabular-nums text-primary">
-								{tageseinnahmenCent == null
-									? "-"
-									: formatCent(tageseinnahmenCent)}
-							</span>
-						</div>
-					)}
-				</CardContent>
-			</Card>
+						</CardContent>
+					</Card>
 
-			<Card>
-				<CardHeader className="flex flex-row items-center justify-between">
-					<CardTitle className="flex items-center gap-2">
-						<Percent className="h-4 w-4 text-primary" />
-						Umsatz nach USt.
-					</CardTitle>
-					<div className="flex flex-wrap gap-2">
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							onClick={() => addUmsatzSplit("p7")}
-						>
-							<Plus className="mr-2 h-4 w-4" />7 %
-						</Button>
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							onClick={() => addUmsatzSplit("p19")}
-						>
-							<Plus className="mr-2 h-4 w-4" />
-							19 %
-						</Button>
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							onClick={() => addUmsatzSplit("none")}
-						>
-							<Plus className="mr-2 h-4 w-4" />
-							Anteil
-						</Button>
-					</div>
-				</CardHeader>
-				<CardContent className="space-y-3">
-					<p className="text-xs text-muted-foreground">
-						Optional. Tageseinnahmen auf USt.-Sätze aufteilen (z. B.
-						500&nbsp;EUR zu 7&nbsp;% und 500&nbsp;EUR zu 19&nbsp;%). Die Summe
-						muss den Tageseinnahmen entsprechen.
-					</p>
-					{kartenzahlungCent > 0 ? (
-						<div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
-							<span className="text-xs font-medium text-muted-foreground">
-								Bezugsgröße
-							</span>
-							<div className="inline-flex items-center rounded-lg border border-border/70 bg-background/80 p-0.5 shadow-sm">
-								<UstChip
-									active={umsatzUstBasis === "post_card"}
-									onClick={() => setUmsatzUstBasis("post_card")}
-								>
-									Mit Kartenzahlung
-								</UstChip>
-								<UstChip
-									active={umsatzUstBasis === "pre_card"}
-									onClick={() => setUmsatzUstBasis("pre_card")}
-								>
-									Ohne Kartenzahlung
-								</UstChip>
-							</div>
-							<span className="ml-auto text-[11px] text-muted-foreground">
-								Standard:{" "}
-								{umsatzUstBasisDefault === "post_card"
-									? "mit Kartenzahlung"
-									: "ohne Kartenzahlung"}
-							</span>
-						</div>
-					) : null}
-					{umsatzSplits.length === 0 ? (
-						<p className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
-							Keine USt.-Aufteilung erfasst.
-						</p>
-					) : (
-						umsatzSplits.map((s, i) => {
-							const isLast = i === umsatzSplits.length - 1;
-							const brutto = parseGermanAmount(s.betrag_input);
-							const bp = umsatzUstBp(s);
-							const ustCent =
-								brutto != null && bp != null ? ustAnteilCent(brutto, bp) : null;
-							return (
-								<div
-									key={s.id}
-									className="rounded-xl border border-border/70 bg-muted/20 p-3"
-								>
-									<div className="grid grid-cols-1 items-end gap-2 md:grid-cols-12">
-										<div className="md:col-span-7 space-y-1">
-											<Label className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-												USt.-Satz
-											</Label>
-											<div className="flex flex-wrap items-center gap-2">
+					<Card>
+						<CardHeader className="flex flex-row items-center justify-between">
+							<CardTitle className="flex items-center gap-2">
+								<ReceiptText className="h-4 w-4 text-primary" />
+								Betriebliche Ausgaben
+							</CardTitle>
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								onClick={addAusgabe}
+							>
+								<Plus className="mr-2 h-4 w-4" />
+								Ausgabe hinzufügen
+							</Button>
+						</CardHeader>
+						<CardContent className="space-y-3">
+							{ausgaben.length === 0 ? (
+								<p className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
+									Keine Ausgaben erfasst.
+								</p>
+							) : (
+								ausgaben.map((a, i) => {
+									const isLast = i === ausgaben.length - 1;
+									const brutto = parseGermanAmount(a.betrag_input);
+									const bp = ausgabeUstBp(a);
+									const ustCent =
+										brutto != null && bp != null
+											? ustAnteilCent(brutto, bp)
+											: null;
+									return (
+										<div
+											key={a.id}
+											className="rounded-xl border border-border/70 bg-muted/20 p-3"
+										>
+											<div className="grid grid-cols-1 items-start gap-2 md:grid-cols-12">
+												<div className="md:col-span-4 space-y-1">
+													<Label htmlFor={`bez-${i}`}>Bezeichnung</Label>
+													<Input
+														id={`bez-${i}`}
+														ref={isLast ? lastAusgabeRef : undefined}
+														value={a.bezeichnung}
+														onChange={(e) =>
+															updateAusgabe(i, "bezeichnung", e.target.value)
+														}
+														required
+														placeholder="z.B. Pizzakauf"
+													/>
+												</div>
+												<div className="md:col-span-3 space-y-1">
+													<Label htmlFor={`emp-${i}`}>Empfänger</Label>
+													<Input
+														id={`emp-${i}`}
+														value={a.empfaenger}
+														onChange={(e) =>
+															updateAusgabe(i, "empfaenger", e.target.value)
+														}
+														placeholder="Optional"
+													/>
+												</div>
+												<div className="md:col-span-2 space-y-1">
+													<Label htmlFor={`bel-${i}`}>Beleg-Nr.</Label>
+													<Input
+														id={`bel-${i}`}
+														value={a.beleg_nr}
+														onChange={(e) =>
+															updateAusgabe(i, "beleg_nr", e.target.value)
+														}
+														placeholder="Optional"
+													/>
+												</div>
+												<div className="md:col-span-2 space-y-1">
+													<Label htmlFor={`bet-${i}`}>Betrag EUR</Label>
+													<Input
+														id={`bet-${i}`}
+														inputMode="decimal"
+														placeholder="0,00"
+														value={a.betrag_input}
+														onFocus={selectOnFocus}
+														onChange={(e) =>
+															updateAusgabe(i, "betrag_input", e.target.value)
+														}
+														className="text-right tabular-nums"
+													/>
+												</div>
+												<div className="md:col-span-1 flex md:items-end md:justify-end">
+													<Button
+														type="button"
+														variant="ghost"
+														size="icon"
+														aria-label="Ausgabe entfernen"
+														onClick={() => removeAusgabe(i)}
+													>
+														<Trash2 className="h-4 w-4" />
+													</Button>
+												</div>
+											</div>
+
+											<div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/50 pt-3">
+												<span className="text-xs font-medium text-muted-foreground">
+													USt.
+												</span>
 												<div className="inline-flex items-center rounded-lg border border-border/70 bg-background/80 p-0.5 shadow-sm">
 													<UstChip
-														active={s.ust_mode === "none"}
-														onClick={() => updateUmsatz(i, "ust_mode", "none")}
+														active={a.ust_mode === "none"}
+														onClick={() => updateAusgabe(i, "ust_mode", "none")}
 													>
 														0 %
 													</UstChip>
 													<UstChip
-														active={s.ust_mode === "p7"}
-														onClick={() => updateUmsatz(i, "ust_mode", "p7")}
+														active={a.ust_mode === "p7"}
+														onClick={() => updateAusgabe(i, "ust_mode", "p7")}
 													>
 														7 %
 													</UstChip>
 													<UstChip
-														active={s.ust_mode === "p19"}
-														onClick={() => updateUmsatz(i, "ust_mode", "p19")}
+														active={a.ust_mode === "p19"}
+														onClick={() => updateAusgabe(i, "ust_mode", "p19")}
 													>
 														19 %
 													</UstChip>
 													<UstChip
-														active={s.ust_mode === "custom"}
+														active={a.ust_mode === "custom"}
 														onClick={() =>
-															updateUmsatz(i, "ust_mode", "custom")
+															updateAusgabe(i, "ust_mode", "custom")
 														}
 													>
 														Andere
 													</UstChip>
 												</div>
-												{s.ust_mode === "custom" ? (
+												{a.ust_mode === "custom" ? (
 													<div className="relative">
 														<Input
 															inputMode="decimal"
-															value={s.ust_custom_input}
+															value={a.ust_custom_input}
 															onFocus={selectOnFocus}
 															onChange={(e) =>
-																updateUmsatz(
+																updateAusgabe(
 																	i,
 																	"ust_custom_input",
 																	e.target.value,
@@ -1300,7 +1030,7 @@ export function ProtokollForm({
 															className="h-8 w-20 pr-7 text-right tabular-nums"
 															aria-label="USt.-Satz in Prozent"
 															aria-invalid={
-																s.ust_custom_input.trim() !== "" && bp == null
+																a.ust_custom_input.trim() !== "" && bp == null
 															}
 														/>
 														<span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-muted-foreground">
@@ -1308,123 +1038,449 @@ export function ProtokollForm({
 														</span>
 													</div>
 												) : null}
+												{bp != null && bp > 0 && ustCent != null ? (
+													<span className="ml-auto text-xs text-muted-foreground">
+														davon USt.{" "}
+														<Money cent={ustCent} className="text-xs" />
+													</span>
+												) : null}
 											</div>
 										</div>
-										<div className="md:col-span-3 space-y-1">
-											<Label htmlFor={`umsatz-bet-${i}`}>Brutto EUR</Label>
-											<Input
-												id={`umsatz-bet-${i}`}
-												ref={isLast ? lastUmsatzRef : undefined}
-												inputMode="decimal"
-												placeholder="0,00"
-												value={s.betrag_input}
-												onFocus={selectOnFocus}
-												onChange={(e) =>
-													updateUmsatz(i, "betrag_input", e.target.value)
-												}
-												className="text-right tabular-nums"
-											/>
-										</div>
-										<div className="md:col-span-2 flex items-end gap-1 md:justify-end">
-											<Button
-												type="button"
-												variant="ghost"
-												size="sm"
-												onClick={() => fillRestbetrag(i)}
-												disabled={umsatzBasisCent == null}
-												title="Restbetrag bis Tageseinnahmen einsetzen"
-											>
-												Rest
-											</Button>
-											<Button
-												type="button"
-												variant="ghost"
-												size="icon"
-												aria-label="USt.-Aufteilung entfernen"
-												onClick={() => removeUmsatzSplit(i)}
-											>
-												<Trash2 className="h-4 w-4" />
-											</Button>
-										</div>
-									</div>
-									{bp != null && bp > 0 && ustCent != null ? (
-										<div className="mt-2 flex justify-end text-xs text-muted-foreground">
-											davon USt.&nbsp;
-											<span className="font-mono tabular-nums text-foreground">
-												{formatCent(ustCent)}
-											</span>
-										</div>
-									) : null}
-								</div>
-							);
-						})
-					)}
-					{umsatzSplits.length > 0 ? (
-						<div className="space-y-1 rounded-lg bg-muted/40 px-3 py-2 text-xs">
-							<div className="flex items-center justify-between">
-								<span className="text-muted-foreground">Summe Aufteilung</span>
-								<span className="font-mono tabular-nums text-foreground">
-									{umsatzSplitSummeCent == null
-										? "-"
-										: formatCent(umsatzSplitSummeCent)}
-								</span>
-							</div>
-							<div className="flex items-center justify-between">
-								<span className="text-muted-foreground">
-									{kartenzahlungCent > 0
-										? umsatzUstBasis === "pre_card"
-											? "Tageseinnahmen (ohne Kartenzahlung)"
-											: "Tageseinnahmen (inkl. Kartenzahlung)"
-										: "Tageseinnahmen"}
-								</span>
-								<span className="font-mono tabular-nums text-foreground">
-									{umsatzBasisCent == null ? "-" : formatCent(umsatzBasisCent)}
-								</span>
-							</div>
-							<div
-								className={cn(
-									"flex items-center justify-between font-medium",
-									umsatzDiffCent == null
-										? "text-muted-foreground"
-										: umsatzDiffCent === 0
-											? "text-success"
-											: "text-destructive",
-								)}
-							>
-								<span>Differenz</span>
-								<span className="font-mono tabular-nums">
-									{umsatzDiffCent == null ? "-" : formatCent(umsatzDiffCent)}
-								</span>
-							</div>
-							{umsatzUstSummeCent > 0 ? (
-								<div className="flex items-center justify-between border-t border-border/50 pt-1 text-muted-foreground">
+									);
+								})
+							)}
+							{ausgaben.length > 0 && ustSummeCent > 0 ? (
+								<div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
 									<span>Summe USt. (rechnerisch)</span>
-									<span className="font-mono tabular-nums text-foreground">
-										{formatCent(umsatzUstSummeCent)}
+									<Money cent={ustSummeCent} className="text-xs" />
+								</div>
+							) : null}
+						</CardContent>
+					</Card>
+
+					<Card>
+						<CardHeader>
+							<CardTitle className="flex items-center gap-2">
+								<Wallet className="h-4 w-4 text-primary" />
+								Bargeld und Kartenzahlung
+							</CardTitle>
+						</CardHeader>
+						<CardContent>
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+								<div className="space-y-2">
+									<Label htmlFor="wechselgeld">
+										Anfangsbestand (Wechselgeld) EUR
+									</Label>
+									<Input
+										id="wechselgeld"
+										inputMode="decimal"
+										value={wechselgeldInput}
+										onFocus={selectOnFocus}
+										onChange={(e) => {
+											setWechselgeldInput(e.target.value);
+											setSelectedRegisterId(null);
+										}}
+										required
+										className="text-right tabular-nums"
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label htmlFor="kartenzahlung">Kartenzahlung EUR</Label>
+									<Input
+										id="kartenzahlung"
+										inputMode="decimal"
+										placeholder="0,00"
+										value={kartenzahlungInput}
+										onFocus={selectOnFocus}
+										onChange={(e) => setKartenzahlungInput(e.target.value)}
+										className="text-right tabular-nums"
+									/>
+								</div>
+							</div>
+						</CardContent>
+					</Card>
+
+					<Card>
+						<CardHeader className="flex flex-row items-center justify-between">
+							<CardTitle className="flex items-center gap-2">
+								<Percent className="h-4 w-4 text-primary" />
+								Umsatz nach USt.
+							</CardTitle>
+							<div className="flex flex-wrap gap-2">
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									onClick={() => addUmsatzSplit("p7")}
+								>
+									<Plus className="mr-2 h-4 w-4" />7 %
+								</Button>
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									onClick={() => addUmsatzSplit("p19")}
+								>
+									<Plus className="mr-2 h-4 w-4" />
+									19 %
+								</Button>
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									onClick={() => addUmsatzSplit("none")}
+								>
+									<Plus className="mr-2 h-4 w-4" />
+									Anteil
+								</Button>
+							</div>
+						</CardHeader>
+						<CardContent className="space-y-3">
+							<p className="text-xs text-muted-foreground">
+								Optional. Tageseinnahmen auf USt.-Sätze aufteilen (z. B.
+								500&nbsp;EUR zu 7&nbsp;% und 500&nbsp;EUR zu 19&nbsp;%). Die
+								Summe muss den Tageseinnahmen entsprechen.
+							</p>
+							{kartenzahlungCent > 0 ? (
+								<div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
+									<span className="text-xs font-medium text-muted-foreground">
+										Bezugsgröße
+									</span>
+									<div className="inline-flex items-center rounded-lg border border-border/70 bg-background/80 p-0.5 shadow-sm">
+										<UstChip
+											active={umsatzUstBasis === "post_card"}
+											onClick={() => setUmsatzUstBasis("post_card")}
+										>
+											Mit Kartenzahlung
+										</UstChip>
+										<UstChip
+											active={umsatzUstBasis === "pre_card"}
+											onClick={() => setUmsatzUstBasis("pre_card")}
+										>
+											Ohne Kartenzahlung
+										</UstChip>
+									</div>
+									<span className="ml-auto text-[11px] text-muted-foreground">
+										Standard:{" "}
+										{umsatzUstBasisDefault === "post_card"
+											? "mit Kartenzahlung"
+											: "ohne Kartenzahlung"}
 									</span>
 								</div>
 							) : null}
-						</div>
-					) : null}
-				</CardContent>
-			</Card>
+							{umsatzSplits.length === 0 ? (
+								<p className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
+									Keine USt.-Aufteilung erfasst.
+								</p>
+							) : (
+								umsatzSplits.map((s, i) => {
+									const isLast = i === umsatzSplits.length - 1;
+									const brutto = parseGermanAmount(s.betrag_input);
+									const bp = umsatzUstBp(s);
+									const ustCent =
+										brutto != null && bp != null
+											? ustAnteilCent(brutto, bp)
+											: null;
+									return (
+										<div
+											key={s.id}
+											className="rounded-xl border border-border/70 bg-muted/20 p-3"
+										>
+											<div className="grid grid-cols-1 items-end gap-2 md:grid-cols-12">
+												<div className="md:col-span-7 space-y-1">
+													<Label className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+														USt.-Satz
+													</Label>
+													<div className="flex flex-wrap items-center gap-2">
+														<div className="inline-flex items-center rounded-lg border border-border/70 bg-background/80 p-0.5 shadow-sm">
+															<UstChip
+																active={s.ust_mode === "none"}
+																onClick={() =>
+																	updateUmsatz(i, "ust_mode", "none")
+																}
+															>
+																0 %
+															</UstChip>
+															<UstChip
+																active={s.ust_mode === "p7"}
+																onClick={() =>
+																	updateUmsatz(i, "ust_mode", "p7")
+																}
+															>
+																7 %
+															</UstChip>
+															<UstChip
+																active={s.ust_mode === "p19"}
+																onClick={() =>
+																	updateUmsatz(i, "ust_mode", "p19")
+																}
+															>
+																19 %
+															</UstChip>
+															<UstChip
+																active={s.ust_mode === "custom"}
+																onClick={() =>
+																	updateUmsatz(i, "ust_mode", "custom")
+																}
+															>
+																Andere
+															</UstChip>
+														</div>
+														{s.ust_mode === "custom" ? (
+															<div className="relative">
+																<Input
+																	inputMode="decimal"
+																	value={s.ust_custom_input}
+																	onFocus={selectOnFocus}
+																	onChange={(e) =>
+																		updateUmsatz(
+																			i,
+																			"ust_custom_input",
+																			e.target.value,
+																		)
+																	}
+																	placeholder="0,0"
+																	className="h-8 w-20 pr-7 text-right tabular-nums"
+																	aria-label="USt.-Satz in Prozent"
+																	aria-invalid={
+																		s.ust_custom_input.trim() !== "" &&
+																		bp == null
+																	}
+																/>
+																<span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-muted-foreground">
+																	%
+																</span>
+															</div>
+														) : null}
+													</div>
+												</div>
+												<div className="md:col-span-3 space-y-1">
+													<Label htmlFor={`umsatz-bet-${i}`}>Brutto EUR</Label>
+													<Input
+														id={`umsatz-bet-${i}`}
+														ref={isLast ? lastUmsatzRef : undefined}
+														inputMode="decimal"
+														placeholder="0,00"
+														value={s.betrag_input}
+														onFocus={selectOnFocus}
+														onChange={(e) =>
+															updateUmsatz(i, "betrag_input", e.target.value)
+														}
+														className="text-right tabular-nums"
+													/>
+												</div>
+												<div className="md:col-span-2 flex items-end gap-1 md:justify-end">
+													<Button
+														type="button"
+														variant="ghost"
+														size="sm"
+														onClick={() => fillRestbetrag(i)}
+														disabled={umsatzBasisCent == null}
+														title="Restbetrag bis Tageseinnahmen einsetzen"
+													>
+														Rest
+													</Button>
+													<Button
+														type="button"
+														variant="ghost"
+														size="icon"
+														aria-label="USt.-Aufteilung entfernen"
+														onClick={() => removeUmsatzSplit(i)}
+													>
+														<Trash2 className="h-4 w-4" />
+													</Button>
+												</div>
+											</div>
+											{bp != null && bp > 0 && ustCent != null ? (
+												<div className="mt-2 flex justify-end gap-1 text-xs text-muted-foreground">
+													davon USt.
+													<Money cent={ustCent} className="text-xs" />
+												</div>
+											) : null}
+										</div>
+									);
+								})
+							)}
+							{umsatzSplits.length > 0 ? (
+								<div className="space-y-1 rounded-lg bg-muted/40 px-3 py-2 text-xs">
+									<div className="flex items-center justify-between">
+										<span className="text-muted-foreground">
+											Summe Aufteilung
+										</span>
+										{umsatzSplitSummeCent == null ? (
+											<span className="font-mono tabular-nums text-foreground">
+												-
+											</span>
+										) : (
+											<Money cent={umsatzSplitSummeCent} className="text-xs" />
+										)}
+									</div>
+									<div className="flex items-center justify-between">
+										<span className="text-muted-foreground">
+											{kartenzahlungCent > 0
+												? umsatzUstBasis === "pre_card"
+													? "Tageseinnahmen (ohne Kartenzahlung)"
+													: "Tageseinnahmen (inkl. Kartenzahlung)"
+												: "Tageseinnahmen"}
+										</span>
+										{umsatzBasisCent == null ? (
+											<span className="font-mono tabular-nums text-foreground">
+												-
+											</span>
+										) : (
+											<Money cent={umsatzBasisCent} className="text-xs" />
+										)}
+									</div>
+									<div
+										className={cn(
+											"flex items-center justify-between font-medium",
+											umsatzDiffCent == null
+												? "text-muted-foreground"
+												: umsatzDiffCent === 0
+													? "text-success"
+													: "text-destructive",
+										)}
+									>
+										<span>Differenz</span>
+										{umsatzDiffCent == null ? (
+											<span className="font-mono tabular-nums">-</span>
+										) : (
+											<Money
+												cent={umsatzDiffCent}
+												tone={umsatzDiffCent === 0 ? "positive" : "negative"}
+												className="text-xs"
+											/>
+										)}
+									</div>
+									{umsatzUstSummeCent > 0 ? (
+										<div className="flex items-center justify-between border-t border-border/50 pt-1 text-muted-foreground">
+											<span>Summe USt. (rechnerisch)</span>
+											<Money cent={umsatzUstSummeCent} className="text-xs" />
+										</div>
+									) : null}
+								</div>
+							) : null}
+						</CardContent>
+					</Card>
 
-			<SanityWarnings warnings={sanityWarnings} />
+					<Card>
+						<CardHeader>
+							<CardTitle className="flex items-center gap-2">
+								<FileText className="h-4 w-4 text-primary" />
+								Bemerkung
+							</CardTitle>
+						</CardHeader>
+						<CardContent>
+							<div className="space-y-2">
+								<div className="flex items-center justify-end">
+									<span className="text-[11px] tabular-nums text-muted-foreground">
+										{bemerkung.length} / {BEMERKUNG_MAX}
+									</span>
+								</div>
+								<Textarea
+									id="bemerkung"
+									value={bemerkung}
+									onChange={(e) => setBemerkung(e.target.value)}
+									rows={3}
+									maxLength={BEMERKUNG_MAX}
+									placeholder="Optional"
+								/>
+							</div>
+						</CardContent>
+					</Card>
 
-			<div className="flex justify-end">
-				<Button type="submit" disabled={pending}>
-					{pending ? (
-						<>
-							<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-							Speichern&hellip;
-						</>
-					) : (
-						<>
-							<Save className="mr-2 h-4 w-4" />
-							Speichern und PDF erzeugen
-						</>
-					)}
-				</Button>
+					<SanityWarnings warnings={sanityWarnings} />
+				</div>
+
+				<div className="space-y-6 lg:sticky lg:top-20 lg:self-start">
+					<Card variant="hero">
+						<CardHeader>
+							<CardTitle className="flex items-center gap-2">
+								<Calculator className="h-4 w-4 text-primary" />
+								Zusammenfassung
+							</CardTitle>
+						</CardHeader>
+						<CardContent>
+							<DataRow label="Gezählter Endbestand">
+								<Money cent={gezaehltCent} />
+							</DataRow>
+							<DataRow label="Betriebliche Ausgaben">
+								{ausgabenCent == null ? "-" : <Money cent={ausgabenCent} />}
+							</DataRow>
+							<DataRow label="Kassenbestand brutto" emphasis>
+								{bestandCent == null ? (
+									"-"
+								) : (
+									<Money cent={bestandCent} emphasis />
+								)}
+							</DataRow>
+							<DataRow label="Anfangsbestand (Wechselgeld)">
+								{wechselgeldCent < 0 ? "-" : <Money cent={wechselgeldCent} />}
+							</DataRow>
+							{kartenzahlungCent > 0 ? (
+								<DataRow label="Kartenzahlung">
+									<Money cent={kartenzahlungCent} />
+								</DataRow>
+							) : null}
+							{kartenzahlungCent > 0 ? (
+								<>
+									<DataRow label="Tageseinnahmen netto (ohne Karte)" divider>
+										{tageseinnahmenCent == null ? (
+											"-"
+										) : (
+											<Money cent={tageseinnahmenCent} />
+										)}
+									</DataRow>
+									<DataRow label="Tageseinnahmen netto (mit Karte)" emphasis>
+										{tageseinnahmenGesamtCent == null ? (
+											"-"
+										) : (
+											<Money
+												cent={tageseinnahmenGesamtCent}
+												tone="primary"
+												emphasis
+												className="text-base"
+											/>
+										)}
+									</DataRow>
+								</>
+							) : (
+								<DataRow label="Tageseinnahmen netto" emphasis divider>
+									{tageseinnahmenCent == null ? (
+										"-"
+									) : (
+										<Money
+											cent={tageseinnahmenCent}
+											tone="primary"
+											emphasis
+											className="text-base"
+										/>
+									)}
+								</DataRow>
+							)}
+						</CardContent>
+					</Card>
+
+					<div className="flex justify-end">
+						<Button
+							type="submit"
+							disabled={pending}
+							className="w-full lg:w-auto"
+						>
+							{pending ? (
+								<>
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									Speichern&hellip;
+								</>
+							) : (
+								<>
+									<Save className="mr-2 h-4 w-4" />
+									Speichern und PDF erzeugen
+								</>
+							)}
+						</Button>
+					</div>
+				</div>
 			</div>
 		</form>
 	);
@@ -1465,7 +1521,7 @@ function DenominationSection({
 	setCount: (key: DenominationKey, raw: string) => void;
 }) {
 	return (
-		<div className="space-y-1">
+		<div className="space-y-1.5">
 			{DENOMINATIONS.filter((d) => d.kind === kind).map((d) => {
 				const count = counts[d.key];
 				const teil = count * d.cent;
@@ -1475,7 +1531,10 @@ function DenominationSection({
 						key={d.key}
 						className="grid grid-cols-12 items-center gap-2 text-sm"
 					>
-						<Label htmlFor={d.key} className="col-span-3 text-right font-mono">
+						<Label
+							htmlFor={d.key}
+							className="col-span-3 justify-end text-right font-mono tabular-nums text-muted-foreground"
+						>
 							{d.label}
 						</Label>
 						<Input
@@ -1490,43 +1549,18 @@ function DenominationSection({
 							onWheel={blurOnWheel}
 							className="col-span-4 text-right tabular-nums"
 						/>
-						<span
-							className={
-								"col-span-5 text-right font-mono tabular-nums " +
-								(isZero ? "text-muted-foreground/50" : "text-foreground/80")
-							}
-						>
-							{isZero ? "-" : formatCent(teil)}
-						</span>
+						<div className="col-span-5 text-right">
+							{isZero ? (
+								<span className="font-mono tabular-nums text-muted-foreground/40">
+									-
+								</span>
+							) : (
+								<Money cent={teil} className="text-foreground/80" />
+							)}
+						</div>
 					</div>
 				);
 			})}
-		</div>
-	);
-}
-
-function SummaryRow({
-	label,
-	cent,
-	bold,
-	highlight,
-}: {
-	label: string;
-	cent: number | null;
-	bold?: boolean;
-	highlight?: boolean;
-}) {
-	const display = cent == null ? "-" : formatCent(cent);
-	return (
-		<div
-			className={
-				"flex justify-between items-center py-1 " +
-				(highlight ? "text-base font-semibold" : "text-sm") +
-				(bold ? " font-medium" : "")
-			}
-		>
-			<span>{label}</span>
-			<span className="font-mono tabular-nums">{display}</span>
 		</div>
 	);
 }

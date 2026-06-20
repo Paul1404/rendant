@@ -15,6 +15,8 @@ import { BarList } from "@/components/charts/bar-list";
 import { RevenueAreaChart } from "@/components/charts/revenue-area-chart";
 import { SplitBar } from "@/components/charts/split-bar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Money } from "@/components/ui/money";
+import { FieldLabel } from "@/components/ui/section";
 import {
 	computeSeries,
 	type FinanceContext,
@@ -63,13 +65,13 @@ export function FinanceOverview({
 	const hasTrend = series.some((p) => p.total > 0);
 
 	return (
-		<div className="space-y-5">
+		<div className="space-y-8">
 			<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
 				<KpiCard
 					icon={TrendingUp}
 					variant="hero"
 					label={`Umsatz · ${rangeLabel}`}
-					value={formatCent(period.revenueTotal)}
+					cent={period.revenueTotal}
 					hint={
 						rangeLabel === "Dieser Monat" ? (
 							<MomDelta
@@ -85,24 +87,20 @@ export function FinanceOverview({
 				<KpiCard
 					icon={ReceiptText}
 					label="Ausgaben"
-					value={formatCent(period.expenses)}
+					cent={period.expenses}
 					hint={`${period.count} ${period.count === 1 ? "Beleg" : "Belege"}`}
 				/>
 				<KpiCard
 					icon={Scale}
 					label="Netto-Ergebnis"
-					value={formatCent(period.net)}
+					cent={period.net}
 					tone={period.net < 0 ? "negative" : "default"}
 					hint="Umsatz abzüglich Ausgaben"
 				/>
 				<KpiCard
 					icon={Sparkles}
 					label="Ø je Beleg"
-					value={
-						period.avgPerProtokoll > 0
-							? formatCent(period.avgPerProtokoll)
-							: formatCent(0)
-					}
+					cent={period.avgPerProtokoll > 0 ? period.avgPerProtokoll : 0}
 					hint={recencyHint(context.lastEntryDays)}
 				/>
 			</div>
@@ -111,15 +109,13 @@ export function FinanceOverview({
 				<Card>
 					<CardHeader className="pb-2">
 						<div className="flex flex-wrap items-start justify-between gap-3">
-							<div>
-								<CardTitle className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-									{TREND_TITLE[granularity]}
-								</CardTitle>
-								<p className="mt-0.5 text-sm text-muted-foreground">
+							<div className="space-y-1">
+								<FieldLabel>{TREND_TITLE[granularity]}</FieldLabel>
+								<p className="text-sm text-muted-foreground">
 									{TREND_SUBTITLE[granularity]}
 								</p>
 							</div>
-							<fieldset className="inline-flex items-center rounded-lg border border-border bg-background/60 p-0.5 shadow-sm">
+							<fieldset className="inline-flex items-center rounded-lg border border-border/60 bg-background/60 p-0.5 shadow-sm">
 								<legend className="sr-only">Zeitliche Auflösung</legend>
 								{GRANULARITIES.map((g) => {
 									const active = granularity === g;
@@ -159,10 +155,8 @@ export function FinanceOverview({
 						</CardTitle>
 					</CardHeader>
 					<CardContent className="space-y-5">
-						<div>
-							<p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-								Bar gegen Karte
-							</p>
+						<div className="space-y-2">
+							<FieldLabel>Bar gegen Karte</FieldLabel>
 							<SplitBar
 								segments={[
 									{
@@ -174,10 +168,8 @@ export function FinanceOverview({
 								]}
 							/>
 						</div>
-						<div>
-							<p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-								Top Anlässe
-							</p>
+						<div className="space-y-2">
+							<FieldLabel>Top Anlässe</FieldLabel>
 							<BarList
 								items={period.topAnlass.map((a) => ({
 									label: a.anlass,
@@ -221,10 +213,8 @@ function VatCard({ vatRange }: { vatRange: { von: string; bis: string } }) {
 				) : hasData ? (
 					<>
 						{revenue.length > 0 ? (
-							<div>
-								<p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-									USt. auf Umsatz
-								</p>
+							<div className="space-y-2">
+								<FieldLabel>USt. auf Umsatz</FieldLabel>
 								<BarList
 									items={revenue.map((g) => ({
 										label: formatUstSatz(g.bp),
@@ -266,14 +256,7 @@ function SummaryRow({
 			<span className={cn(bold ? "font-medium" : "text-muted-foreground")}>
 				{label}
 			</span>
-			<span
-				className={cn(
-					"font-mono tabular-nums",
-					bold ? "font-semibold text-foreground" : "text-foreground",
-				)}
-			>
-				{formatCent(value)}
-			</span>
+			<Money cent={value} emphasis={bold} />
 		</div>
 	);
 }
@@ -281,78 +264,53 @@ function SummaryRow({
 function KpiCard({
 	icon: Icon,
 	label,
-	value,
+	cent,
 	hint,
 	tone = "default",
 	variant = "default",
 }: {
 	icon: React.ComponentType<{ className?: string }>;
 	label: string;
-	value: string;
+	cent: number;
 	hint?: React.ReactNode;
 	tone?: "default" | "negative";
 	variant?: "default" | "hero";
 }) {
 	const hero = variant === "hero";
+	const valueTone =
+		tone === "negative" ? "negative" : hero ? "primary" : "default";
 	return (
-		<div
-			className={cn(
-				"lift group relative overflow-hidden rounded-2xl border p-4 shadow-sm ring-1 hover:shadow-md",
-				hero
-					? "border-primary/25 bg-primary/[0.06] ring-primary/10 hover:border-primary/40"
-					: "border-border bg-card/70 ring-foreground/5 hover:border-border/100 hover:bg-card",
-			)}
-		>
-			<div className="flex items-center justify-between gap-2">
-				<p
+		<Card variant={hero ? "hero" : "default"} className="lift gap-0 py-4">
+			<CardContent>
+				<div className="flex items-center justify-between gap-2">
+					<FieldLabel className={cn("truncate", hero && "text-primary/80")}>
+						{label}
+					</FieldLabel>
+					<span
+						className={cn(
+							"inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
+							hero
+								? "bg-primary/15 text-primary"
+								: "bg-primary/8 text-primary/80",
+						)}
+					>
+						<Icon className="h-3.5 w-3.5" />
+					</span>
+				</div>
+				<Money
+					cent={cent}
+					tone={valueTone}
+					emphasis
 					className={cn(
-						"truncate text-[11px] font-medium uppercase tracking-[0.14em]",
-						hero ? "text-primary/80" : "text-muted-foreground",
+						"mt-2 block tracking-tight",
+						hero ? "text-2xl sm:text-[1.7rem]" : "text-lg sm:text-[1.35rem]",
 					)}
-				>
-					{label}
-				</p>
-				<span
-					className={cn(
-						"inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
-						hero
-							? "bg-primary/15 text-primary"
-							: "bg-primary/8 text-primary/80",
-					)}
-				>
-					<Icon className="h-3.5 w-3.5" />
-				</span>
-			</div>
-			<p
-				className={cn(
-					"mt-2 font-mono font-semibold tabular-nums tracking-tight",
-					hero ? "text-2xl sm:text-[1.7rem]" : "text-lg sm:text-[1.35rem]",
-					tone === "negative"
-						? "text-destructive"
-						: hero
-							? "text-primary"
-							: "text-foreground",
-				)}
-			>
-				{renderKpiValue(value)}
-			</p>
-			{hint ? (
-				<div className="mt-1 text-xs text-muted-foreground">{hint}</div>
-			) : null}
-		</div>
-	);
-}
-
-// Keep the numeric amount on one line so it never breaks mid-number on narrow
-// cards; only the trailing currency suffix may wrap to a second line.
-function renderKpiValue(value: string): React.ReactNode {
-	const match = value.match(/^(.*?)(\s+EUR)$/);
-	if (!match) return value;
-	return (
-		<>
-			<span className="whitespace-nowrap">{match[1]}</span>
-			<span className="whitespace-nowrap"> EUR</span>
-		</>
+				/>
+				{hint ? (
+					<div className="mt-1 text-xs text-muted-foreground">{hint}</div>
+				) : null}
+			</CardContent>
+		</Card>
 	);
 }
 

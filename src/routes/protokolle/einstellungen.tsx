@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Hash, Receipt, Users, Wallet } from "lucide-react";
 import { BelegnummerSettingsForm } from "@/components/belegnummer-settings-form";
 import { CashRegistersForm } from "@/components/cash-registers-form";
 import { PageHeader } from "@/components/page-header";
 import { SettingsSkeleton } from "@/components/skeletons";
+import { SectionHeading } from "@/components/ui/section";
 import { UmsatzUstBasisForm } from "@/components/umsatz-ust-basis-form";
 import { UserManagement } from "@/components/user-management";
 import { orpcClient } from "@/lib/orpc";
@@ -31,23 +33,6 @@ export const Route = createFileRoute("/protokolle/einstellungen")({
 	component: EinstellungenPage,
 });
 
-function SectionHeading({
-	title,
-	description,
-}: {
-	title: string;
-	description: React.ReactNode;
-}) {
-	return (
-		<div className="mx-auto max-w-3xl">
-			<h2 className="text-lg font-semibold tracking-tight text-foreground">
-				{title}
-			</h2>
-			<p className="mt-1 text-sm text-muted-foreground">{description}</p>
-		</div>
-	);
-}
-
 function EinstellungenPage() {
 	const { settings, preview, umsatzUstBasis, registers, admin } =
 		Route.useLoaderData();
@@ -60,45 +45,41 @@ function EinstellungenPage() {
 				description="Vorlagen und Standardwerte für die Kassenzählprotokolle: Kassen, Belegnummer-Format und USt.-Aufteilung."
 			/>
 
-			<section className="space-y-4">
+			<section className="mx-auto max-w-3xl space-y-4">
 				<SectionHeading
+					icon={Wallet}
 					title="Kassen"
 					description="Vorlagen für Kassennummer, Kassenbezeichnung und Anfangsbestand (Wechselgeld). Beim Erfassen eines Protokolls lassen sich diese Werte mit einem Klick übernehmen."
 				/>
-				<div className="mx-auto max-w-3xl">
-					<CashRegistersForm initial={registers} />
-				</div>
+				<CashRegistersForm initial={registers} />
 			</section>
 
-			<section className="space-y-4">
+			<section className="mx-auto max-w-3xl space-y-4">
 				<SectionHeading
+					icon={Hash}
 					title="Belegnummer-Format"
 					description="Aussehen der Belegnummer für neue Protokolle. Wir empfehlen, das Format während eines Geschäftsjahres nicht mehr zu ändern. Das Finanzamt verlangt sonst eine Begründung für einen Formatwechsel mitten im Jahr."
 				/>
-				<div className="mx-auto max-w-3xl">
-					<BelegnummerSettingsForm initial={settings} serverPreview={preview} />
-				</div>
+				<BelegnummerSettingsForm initial={settings} serverPreview={preview} />
 			</section>
 
-			<section className="space-y-4">
+			<section className="mx-auto max-w-3xl space-y-4">
 				<SectionHeading
+					icon={Receipt}
 					title="USt.-Aufteilung"
 					description="Standard, ob die Aufteilung des Umsatzes nach USt.-Sätzen auf die Tageseinnahmen vor oder nach Kartenzahlung bezogen wird."
 				/>
-				<div className="mx-auto max-w-3xl">
-					<UmsatzUstBasisForm initial={umsatzUstBasis} />
-				</div>
+				<UmsatzUstBasisForm initial={umsatzUstBasis} />
 			</section>
 
 			{admin ? (
-				<section className="space-y-4">
+				<section className="mx-auto max-w-3xl space-y-4">
 					<SectionHeading
+						icon={Users}
 						title="Benutzer & Einladungen"
 						description="Lade weitere Personen ein und verwalte bestehende Konten. Nur für Admins sichtbar."
 					/>
-					<div className="mx-auto max-w-3xl">
-						<UserManagement users={admin.users} invites={admin.invites} />
-					</div>
+					<UserManagement users={admin.users} invites={admin.invites} />
 				</section>
 			) : null}
 		</div>
