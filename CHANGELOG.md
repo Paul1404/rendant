@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.4.1 — 2026-06-20
+
+- Klarere visuelle Hierarchie: Der Seitentitel ist jetzt eine ruhige Kopfzeile
+  statt einer Karte, die Leitkennzahl (Umsatz) ist auf dem Dashboard
+  hervorgehoben, und das Kartenlayout tritt ruhiger in den Hintergrund.
+
 ## 1.4.0 — 2026-06-20
 
 - Umschalter für das Erscheinungsbild (System, Hell, Dunkel) im Kopfbereich.
