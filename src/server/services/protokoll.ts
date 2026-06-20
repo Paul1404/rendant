@@ -1,7 +1,7 @@
 import { asc, desc, eq, isNull } from "drizzle-orm";
 import { getBranding } from "@/lib/branding";
 import { S3_PREFIX } from "@/lib/constants";
-import { formatFilenameStamp } from "@/lib/date";
+import { currentYearBerlin, formatFilenameStamp } from "@/lib/date";
 import { DENOMINATIONS, type DenominationCounts } from "@/lib/denominations";
 import type {
 	AusgabeRow,
@@ -12,6 +12,7 @@ import type {
 import type { CreateProtokollInput, StornoInput } from "@/lib/schemas";
 import { db } from "@/server/db";
 import { ausgaben, protokolle, protokollUmsatzUst } from "@/server/db/schema";
+import { logger } from "@/server/logger";
 import { nextBelegnummerInTx } from "@/server/services/belegnummer";
 import { renderProtokollPdf } from "@/server/services/pdf";
 import { deletePdf, uploadPdf } from "@/server/services/s3";
@@ -162,7 +163,7 @@ export async function createProtokoll(
 		}
 	}
 
-	const year = new Date().getFullYear();
+	const year = currentYearBerlin();
 	const customBelegnummer = input.belegnummer?.trim() || null;
 	const maxRetries = customBelegnummer ? 1 : 3;
 	let attempt = 0;
@@ -274,11 +275,10 @@ export async function createProtokoll(
 			.set({ pdf_s3_key: key, pdf_sha256: hash })
 			.where(eq(protokolle.id, created.id));
 	} catch (pdfErr) {
-		console.error(
-			"PDF-Erzeugung für Protokoll fehlgeschlagen",
-			created.belegnummer,
-			pdfErr,
-		);
+		logger.error("PDF-Erzeugung fehlgeschlagen", {
+			belegnummer: created.belegnummer,
+			err: pdfErr,
+		});
 	}
 
 	return { id: created.id, belegnummer: created.belegnummer };

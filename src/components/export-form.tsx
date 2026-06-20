@@ -1,17 +1,20 @@
-import { Download } from "lucide-react";
+import { Braces, Download, FileText, Percent } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { todayIsoDate } from "@/lib/date";
 
-function isoDate(d: Date) {
+const TODAY = todayIsoDate();
+
+function isoFromParts(year: number, monthIndex: number, day: number) {
 	const pad = (n: number) => String(n).padStart(2, "0");
-	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+	return `${year}-${pad(monthIndex + 1)}-${pad(day)}`;
 }
 
-const NOW = new Date();
-const TODAY = isoDate(NOW);
+const NOW = new Date(`${TODAY}T00:00:00`);
+const CURRENT_YEAR = NOW.getFullYear();
 
 const PRESETS: ReadonlyArray<{
 	label: string;
@@ -19,22 +22,19 @@ const PRESETS: ReadonlyArray<{
 }> = [
 	{
 		label: "Aktuelles Jahr",
-		range: () => ({
-			von: isoDate(new Date(NOW.getFullYear(), 0, 1)),
-			bis: TODAY,
-		}),
+		range: () => ({ von: isoFromParts(CURRENT_YEAR, 0, 1), bis: TODAY }),
 	},
 	{
 		label: "Letztes Jahr",
 		range: () => ({
-			von: isoDate(new Date(NOW.getFullYear() - 1, 0, 1)),
-			bis: isoDate(new Date(NOW.getFullYear() - 1, 11, 31)),
+			von: isoFromParts(CURRENT_YEAR - 1, 0, 1),
+			bis: isoFromParts(CURRENT_YEAR - 1, 11, 31),
 		}),
 	},
 	{
 		label: "Aktueller Monat",
 		range: () => ({
-			von: isoDate(new Date(NOW.getFullYear(), NOW.getMonth(), 1)),
+			von: isoFromParts(CURRENT_YEAR, NOW.getMonth(), 1),
 			bis: TODAY,
 		}),
 	},
@@ -43,17 +43,60 @@ const PRESETS: ReadonlyArray<{
 		range: () => {
 			const start = new Date(NOW);
 			start.setDate(start.getDate() - 29);
-			return { von: isoDate(start), bis: TODAY };
+			return {
+				von: isoFromParts(
+					start.getFullYear(),
+					start.getMonth(),
+					start.getDate(),
+				),
+				bis: TODAY,
+			};
 		},
 	},
 ];
 
+const EXPORTS: ReadonlyArray<{
+	id: string;
+	title: string;
+	description: string;
+	path: string;
+	icon: typeof FileText;
+	button: string;
+}> = [
+	{
+		id: "csv",
+		title: "Protokolle (CSV)",
+		description:
+			"Alle Belege des Zeitraums als CSV mit Semikolon und Dezimalkomma. Passend für Steuerberater und DATEV.",
+		path: "/api/export",
+		icon: FileText,
+		button: "CSV herunterladen",
+	},
+	{
+		id: "ust",
+		title: "USt-Auswertung (CSV)",
+		description:
+			"Umsatzsteuer und Vorsteuer nach Satz aufgeschlüsselt, inklusive Zahllast.",
+		path: "/api/export/ust",
+		icon: Percent,
+		button: "Auswertung herunterladen",
+	},
+	{
+		id: "json",
+		title: "Backup (JSON)",
+		description:
+			"Vollständige Sicherung aller Protokolle inklusive Ausgaben und USt-Aufteilung.",
+		path: "/api/export/json",
+		icon: Braces,
+		button: "Backup herunterladen",
+	},
+];
+
 export function ExportForm() {
-	const startOfYear = new Date(NOW.getFullYear(), 0, 1);
-	const [von, setVon] = useState(isoDate(startOfYear));
+	const [von, setVon] = useState(isoFromParts(CURRENT_YEAR, 0, 1));
 	const [bis, setBis] = useState(TODAY);
 
-	const invalidRange = von > bis;
+	const invalidRange = !von || !bis || von > bis;
 
 	function applyPreset(idx: number) {
 		const r = PRESETS[idx].range();
@@ -61,17 +104,19 @@ export function ExportForm() {
 		setBis(r.bis);
 	}
 
-	function submit(e: React.FormEvent) {
-		e.preventDefault();
-		if (!von || !bis || invalidRange) return;
-		const url = `/api/export?von=${encodeURIComponent(von)}&bis=${encodeURIComponent(bis)}`;
+	function download(path: string) {
+		if (invalidRange) return;
+		const url = `${path}?von=${encodeURIComponent(von)}&bis=${encodeURIComponent(bis)}`;
 		window.location.href = url;
 	}
 
 	return (
-		<Card>
-			<CardContent className="pt-6">
-				<form className="space-y-4" onSubmit={submit}>
+		<div className="space-y-6">
+			<Card>
+				<CardHeader>
+					<CardTitle className="text-base">Zeitraum</CardTitle>
+				</CardHeader>
+				<CardContent className="space-y-4">
 					<div className="flex flex-wrap gap-2">
 						{PRESETS.map((p, i) => (
 							<Button
@@ -114,13 +159,43 @@ export function ExportForm() {
 						<p className="text-xs text-destructive">
 							&laquo;Bis&raquo; muss nach &laquo;Von&raquo; liegen.
 						</p>
-					) : null}
-					<Button type="submit" disabled={invalidRange}>
-						<Download className="mr-2 h-4 w-4" />
-						CSV herunterladen
-					</Button>
-				</form>
-			</CardContent>
-		</Card>
+					) : (
+						<p className="text-xs text-muted-foreground">
+							Der Zeitraum gilt für alle Downloads.
+						</p>
+					)}
+				</CardContent>
+			</Card>
+
+			<div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+				{EXPORTS.map((ex) => {
+					const Icon = ex.icon;
+					return (
+						<Card key={ex.id} className="flex flex-col">
+							<CardHeader>
+								<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+									<Icon className="h-5 w-5" />
+								</div>
+								<CardTitle className="text-base">{ex.title}</CardTitle>
+							</CardHeader>
+							<CardContent className="flex flex-1 flex-col justify-between gap-4">
+								<p className="text-sm text-muted-foreground">
+									{ex.description}
+								</p>
+								<Button
+									type="button"
+									className="w-full"
+									disabled={invalidRange}
+									onClick={() => download(ex.path)}
+								>
+									<Download className="mr-2 h-4 w-4" />
+									{ex.button}
+								</Button>
+							</CardContent>
+						</Card>
+					);
+				})}
+			</div>
+		</div>
 	);
 }
