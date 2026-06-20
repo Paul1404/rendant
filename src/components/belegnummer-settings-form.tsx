@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldLabel } from "@/components/ui/section";
 import {
 	Select,
 	SelectContent,
@@ -192,21 +193,36 @@ export function BelegnummerSettingsForm({
 								aria-pressed={active}
 								onClick={() => applyPreset(p)}
 								className={cn(
-									"group flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors",
+									"group flex flex-col items-start gap-1.5 rounded-xl border p-3 text-left transition-colors",
 									active
-										? "border-primary/60 bg-primary/5 ring-1 ring-primary/30"
-										: "border-border bg-card/40 hover:border-primary/40 hover:bg-card",
+										? "border-primary/40 bg-primary/10 ring-1 ring-primary/20"
+										: "border-border/60 bg-card hover:border-primary/40 hover:bg-muted/40",
 								)}
 							>
-								<div className="flex w-full items-center justify-between">
-									<span className="text-sm font-medium text-foreground">
+								<div className="flex w-full items-center justify-between gap-2">
+									<span
+										className={cn(
+											"text-sm font-medium",
+											active ? "text-primary" : "text-foreground",
+										)}
+									>
 										{p.label}
 									</span>
-									<span className="font-mono text-xs text-muted-foreground">
+									<span
+										className={cn(
+											"font-mono text-xs tabular-nums",
+											active ? "text-primary" : "text-muted-foreground",
+										)}
+									>
 										{example}
 									</span>
 								</div>
-								<span className="text-[11px] text-muted-foreground">
+								<span
+									className={cn(
+										"text-[11px]",
+										active ? "text-primary/80" : "text-muted-foreground",
+									)}
+								>
 									{p.hint}
 								</span>
 							</button>
@@ -283,7 +299,7 @@ export function BelegnummerSettingsForm({
 
 						<div className="space-y-2">
 							<Label>Jahr</Label>
-							<div className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-1.5">
+							<div className="flex h-9 items-center gap-2 rounded-lg border border-border/60 bg-background px-3">
 								<input
 									id="include_year"
 									type="checkbox"
@@ -328,23 +344,21 @@ export function BelegnummerSettingsForm({
 					<CardTitle className="text-base">Vorschau</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-4">
-					<div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
-						<p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-							Nächste Belegnummer
-						</p>
-						<p className="mt-0.5 font-mono text-2xl font-semibold tracking-tight text-foreground">
-							{previewNext}
-						</p>
-						<p className="mt-1 text-xs text-muted-foreground">
-							Aktuell gespeichert:{" "}
-							<span className="font-mono">{savedPreview}</span>
-						</p>
-					</div>
-					<div>
-						<p className="mb-2 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-							Beispiele
-						</p>
-						<div className="flex flex-wrap gap-2 font-mono text-sm">
+					<Card variant="hero" size="sm">
+						<CardContent className="space-y-1">
+							<FieldLabel>Nächste Belegnummer</FieldLabel>
+							<p className="font-mono text-2xl font-semibold tracking-tight tabular-nums text-foreground">
+								{previewNext}
+							</p>
+							<p className="text-xs text-muted-foreground">
+								Aktuell gespeichert:{" "}
+								<span className="font-mono tabular-nums">{savedPreview}</span>
+							</p>
+						</CardContent>
+					</Card>
+					<div className="space-y-2">
+						<FieldLabel>Beispiele</FieldLabel>
+						<div className="flex flex-wrap gap-2 font-mono text-sm tabular-nums">
 							{previewExamples.map((ex, i) => (
 								<span
 									key={i}

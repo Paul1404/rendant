@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatCent, formatCentPlain, parseGermanAmount } from "@/lib/money";
+import { Money } from "@/components/ui/money";
+import { formatCentPlain, parseGermanAmount } from "@/lib/money";
 import { orpcClient } from "@/lib/orpc";
 import { orpcMessage } from "@/lib/orpc-error";
-import { cn } from "@/lib/utils";
 
 export type CashRegister = {
 	id: string;
@@ -191,7 +191,7 @@ export function CashRegistersForm({ initial }: { initial: CashRegister[] }) {
 			</CardHeader>
 			<CardContent className="space-y-3">
 				{registers.length === 0 && !addingDraft ? (
-					<p className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
+					<p className="rounded-xl border border-dashed border-border/60 bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground">
 						Noch keine Kasse angelegt.
 					</p>
 				) : null}
@@ -216,9 +216,9 @@ export function CashRegistersForm({ initial }: { initial: CashRegister[] }) {
 						return (
 							<div
 								key={r.id}
-								className="flex flex-col gap-2 rounded-xl border border-border/70 bg-card/40 p-3 sm:flex-row sm:items-center"
+								className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card p-3 sm:flex-row sm:items-center"
 							>
-								<div className="min-w-0 flex-1 space-y-0.5">
+								<div className="min-w-0 flex-1 space-y-1">
 									<div className="flex flex-wrap items-baseline gap-x-2">
 										<span className="font-mono text-sm font-semibold text-foreground">
 											{r.kassennummer}
@@ -227,8 +227,9 @@ export function CashRegistersForm({ initial }: { initial: CashRegister[] }) {
 											{r.kassenbezeichnung}
 										</span>
 									</div>
-									<p className="text-[11px] text-muted-foreground">
-										Wechselgeld {formatCent(r.wechselgeld_cent)}
+									<p className="flex items-baseline gap-1.5 text-xs text-muted-foreground">
+										Wechselgeld
+										<Money cent={r.wechselgeld_cent} className="text-xs" />
 									</p>
 								</div>
 								<div className="flex items-center justify-end gap-1">
@@ -310,72 +311,74 @@ function RegisterEditRow({
 	}
 
 	return (
-		<div className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
-			<div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
-				<div className="space-y-1 sm:col-span-4">
-					<Label htmlFor={numId}>Kassennummer</Label>
-					<Input
-						id={numId}
-						ref={inputRef}
-						value={draft.kassennummer}
-						onChange={(e) =>
-							setDraft({ ...draft, kassennummer: e.target.value })
-						}
-						onKeyDown={onKeyDown}
-						maxLength={50}
-						placeholder="K-01"
-						className="font-mono"
-					/>
+		<Card variant="quiet" size="sm" className="ring-1 ring-primary/20">
+			<CardContent className="space-y-4">
+				<div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
+					<div className="space-y-1.5 sm:col-span-4">
+						<Label htmlFor={numId}>Kassennummer</Label>
+						<Input
+							id={numId}
+							ref={inputRef}
+							value={draft.kassennummer}
+							onChange={(e) =>
+								setDraft({ ...draft, kassennummer: e.target.value })
+							}
+							onKeyDown={onKeyDown}
+							maxLength={50}
+							placeholder="K-01"
+							className="font-mono"
+						/>
+					</div>
+					<div className="space-y-1.5 sm:col-span-5">
+						<Label htmlFor={bezId}>Kassenbezeichnung</Label>
+						<Input
+							id={bezId}
+							value={draft.kassenbezeichnung}
+							onChange={(e) =>
+								setDraft({ ...draft, kassenbezeichnung: e.target.value })
+							}
+							onKeyDown={onKeyDown}
+							maxLength={120}
+							placeholder="Sportheim Theke"
+						/>
+					</div>
+					<div className="space-y-1.5 sm:col-span-3">
+						<Label htmlFor={wgId}>Wechselgeld</Label>
+						<Input
+							id={wgId}
+							inputMode="decimal"
+							value={draft.wechselgeld_input}
+							onChange={(e) =>
+								setDraft({ ...draft, wechselgeld_input: e.target.value })
+							}
+							onKeyDown={onKeyDown}
+							onFocus={(e) => e.currentTarget.select()}
+							aria-invalid={wechselgeldInvalid}
+							className="text-right tabular-nums"
+						/>
+					</div>
 				</div>
-				<div className="space-y-1 sm:col-span-5">
-					<Label htmlFor={bezId}>Kassenbezeichnung</Label>
-					<Input
-						id={bezId}
-						value={draft.kassenbezeichnung}
-						onChange={(e) =>
-							setDraft({ ...draft, kassenbezeichnung: e.target.value })
-						}
-						onKeyDown={onKeyDown}
-						maxLength={120}
-						placeholder="Sportheim Theke"
-					/>
+				<div className="flex flex-wrap items-center justify-end gap-2">
+					<Button
+						type="button"
+						variant="ghost"
+						size="sm"
+						onClick={onCancel}
+						disabled={pending}
+					>
+						<X className="mr-1 h-4 w-4" />
+						Abbrechen
+					</Button>
+					<Button type="button" size="sm" onClick={onSave} disabled={pending}>
+						{pending ? (
+							<Loader2 className="mr-1 h-4 w-4 animate-spin" />
+						) : (
+							<Save className="mr-1 h-4 w-4" />
+						)}
+						Speichern
+					</Button>
 				</div>
-				<div className="space-y-1 sm:col-span-3">
-					<Label htmlFor={wgId}>Wechselgeld</Label>
-					<Input
-						id={wgId}
-						inputMode="decimal"
-						value={draft.wechselgeld_input}
-						onChange={(e) =>
-							setDraft({ ...draft, wechselgeld_input: e.target.value })
-						}
-						onKeyDown={onKeyDown}
-						onFocus={(e) => e.currentTarget.select()}
-						aria-invalid={wechselgeldInvalid}
-						className={cn("text-right tabular-nums")}
-					/>
-				</div>
-			</div>
-			<div className="flex flex-wrap items-center justify-end gap-2">
-				<Button
-					type="button"
-					variant="ghost"
-					size="sm"
-					onClick={onCancel}
-					disabled={pending}
-				>
-					<X className="mr-1 h-4 w-4" />
-					Abbrechen
-				</Button>
-				<Button type="button" size="sm" onClick={onSave} disabled={pending}>
-					{pending ? (
-						<Loader2 className="mr-1 h-4 w-4 animate-spin" />
-					) : (
-						<Save className="mr-1 h-4 w-4" />
-					)}
-					Speichern
-				</Button>
-			</div>
-		</div>
+			</CardContent>
+		</Card>
 	);
 }

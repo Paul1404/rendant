@@ -3,6 +3,7 @@ import { Loader2, UserPlus } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
@@ -28,14 +29,16 @@ function InvitePage() {
 	if (!invite.valid) {
 		return (
 			<Shell logoUrl={branding.logoUrl} vereinsname={branding.vereinsname}>
-				<div className="rounded-2xl border border-destructive/30 bg-card/80 p-6 text-center">
-					<p className="text-sm font-medium text-destructive">
-						Diese Einladung ist ungültig oder abgelaufen.
-					</p>
-					<p className="mt-1 text-sm text-muted-foreground">
-						Bitte den Administrator um eine neue Einladung bitten.
-					</p>
-				</div>
+				<Card className="border-destructive/30">
+					<CardContent className="space-y-1 py-2 text-center">
+						<p className="text-sm font-medium text-destructive">
+							Diese Einladung ist ungültig oder abgelaufen.
+						</p>
+						<p className="text-sm text-muted-foreground">
+							Bitte den Administrator um eine neue Einladung bitten.
+						</p>
+					</CardContent>
+				</Card>
 			</Shell>
 		);
 	}
@@ -65,53 +68,55 @@ function InvitePage() {
 
 	return (
 		<Shell logoUrl={branding.logoUrl} vereinsname={branding.vereinsname}>
-			<div className="rounded-2xl border border-border/70 bg-card/80 p-6 shadow-xl shadow-foreground/5 backdrop-blur">
-				<p className="mb-4 text-sm text-muted-foreground">
-					Konto anlegen für{" "}
-					<span className="font-medium text-foreground">{invite.email}</span>
-				</p>
-				<form className="space-y-4" onSubmit={submit}>
-					<div className="space-y-2">
-						<Label htmlFor="name">Name</Label>
-						<Input
-							id="name"
-							value={name}
-							onChange={(e) => setName(e.target.value)}
-							required
-							className="h-10"
-						/>
-					</div>
-					<div className="space-y-2">
-						<Label htmlFor="password">Passwort</Label>
-						<Input
-							id="password"
-							type="password"
-							autoComplete="new-password"
-							value={password}
-							onChange={(e) => setPassword(e.target.value)}
-							required
-							minLength={8}
-							className="h-10"
-						/>
-						<p className="text-[11px] text-muted-foreground">
-							Mindestens 8 Zeichen.
-						</p>
-					</div>
-					<Button
-						type="submit"
-						size="lg"
-						className="h-10 w-full"
-						disabled={pending || !name.trim() || password.length < 8}
-					>
-						{pending ? (
-							<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-						) : (
-							<UserPlus className="mr-2 h-4 w-4" />
-						)}
-						Konto anlegen
-					</Button>
-				</form>
-			</div>
+			<Card>
+				<CardContent className="space-y-4">
+					<p className="text-sm text-muted-foreground">
+						Konto anlegen für{" "}
+						<span className="font-medium text-foreground">{invite.email}</span>
+					</p>
+					<form className="space-y-4" onSubmit={submit}>
+						<div className="space-y-2">
+							<Label htmlFor="name">Name</Label>
+							<Input
+								id="name"
+								value={name}
+								onChange={(e) => setName(e.target.value)}
+								required
+								className="h-10"
+							/>
+						</div>
+						<div className="space-y-2">
+							<Label htmlFor="password">Passwort</Label>
+							<Input
+								id="password"
+								type="password"
+								autoComplete="new-password"
+								value={password}
+								onChange={(e) => setPassword(e.target.value)}
+								required
+								minLength={8}
+								className="h-10"
+							/>
+							<p className="text-[11px] text-muted-foreground">
+								Mindestens 8 Zeichen.
+							</p>
+						</div>
+						<Button
+							type="submit"
+							size="lg"
+							className="h-10 w-full"
+							disabled={pending || !name.trim() || password.length < 8}
+						>
+							{pending ? (
+								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+							) : (
+								<UserPlus className="mr-2 h-4 w-4" />
+							)}
+							Konto anlegen
+						</Button>
+					</form>
+				</CardContent>
+			</Card>
 		</Shell>
 	);
 }

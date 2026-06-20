@@ -18,6 +18,9 @@ import { StornoDialog } from "@/components/storno-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DataField, DataRow } from "@/components/ui/data-row";
+import { Money } from "@/components/ui/money";
+import { FieldLabel } from "@/components/ui/section";
 import { Separator } from "@/components/ui/separator";
 import {
 	Table,
@@ -29,7 +32,6 @@ import {
 } from "@/components/ui/table";
 import { formatDateDe, formatDateTimeDe } from "@/lib/date";
 import { DENOMINATIONS } from "@/lib/denominations";
-import { formatCent } from "@/lib/money";
 import { orpcClient } from "@/lib/orpc";
 import {
 	formatUstSatz as formatUstSatzLib,
@@ -92,7 +94,7 @@ function ProtokollDetailPage() {
 	const isStorno = !!protokoll.storniert_am;
 
 	return (
-		<div className="space-y-6">
+		<div className="space-y-8">
 			<Link
 				to="/protokolle"
 				className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
@@ -118,9 +120,7 @@ function ProtokollDetailPage() {
 				/>
 				<div className="relative flex flex-wrap items-start justify-between gap-4">
 					<div>
-						<p className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary/90">
-							Beleg
-						</p>
+						<FieldLabel className="text-primary/90">Beleg</FieldLabel>
 						<h1 className="mt-1.5 font-mono text-2xl font-semibold tracking-tight text-foreground">
 							{protokoll.belegnummer}
 						</h1>
@@ -164,7 +164,7 @@ function ProtokollDetailPage() {
 			</div>
 
 			{isStorno ? (
-				<div className="flex gap-3 rounded-xl border border-destructive/40 bg-destructive/5 p-4">
+				<div className="flex gap-3 rounded-2xl border border-destructive/40 bg-destructive/5 p-4">
 					<TriangleAlert className="h-5 w-5 shrink-0 text-destructive" />
 					<div className="space-y-1">
 						<p className="text-sm font-medium text-destructive">
@@ -181,7 +181,7 @@ function ProtokollDetailPage() {
 			) : null}
 
 			{!protokoll.pdf_s3_key ? (
-				<div className="flex gap-3 rounded-xl border border-amber-500/40 bg-amber-500/5 p-4">
+				<div className="flex gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/5 p-4">
 					<TriangleAlert className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
 					<div className="space-y-1">
 						<p className="text-sm font-medium text-amber-700 dark:text-amber-300">
@@ -203,21 +203,33 @@ function ProtokollDetailPage() {
 						Kopfdaten
 					</CardTitle>
 				</CardHeader>
-				<CardContent className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+				<CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 					{protokoll.kassennummer ? (
-						<KV label="Kassennummer" value={protokoll.kassennummer} mono />
+						<DataField
+							label="Kassennummer"
+							value={protokoll.kassennummer}
+							mono
+						/>
 					) : null}
 					{protokoll.kassenbezeichnung ? (
-						<KV label="Kassenbezeichnung" value={protokoll.kassenbezeichnung} />
+						<DataField
+							label="Kassenbezeichnung"
+							value={protokoll.kassenbezeichnung}
+						/>
 					) : null}
-					<KV label="Anlass" value={protokoll.anlass} />
-					<KV label="Datum" value={formatDateDe(protokoll.anlass_datum)} />
-					<KV label="Gezählt von" value={protokoll.gezaehlt_von} />
-					<KV label="Geprüft von" value={protokoll.geprueft_von} />
+					<DataField label="Anlass" value={protokoll.anlass} />
+					<DataField
+						label="Datum"
+						value={formatDateDe(protokoll.anlass_datum)}
+					/>
+					<DataField label="Gezählt von" value={protokoll.gezaehlt_von} />
+					<DataField label="Geprüft von" value={protokoll.geprueft_von} />
 					{protokoll.bemerkung ? (
-						<div className="sm:col-span-2">
-							<KV label="Bemerkung" value={protokoll.bemerkung} />
-						</div>
+						<DataField
+							className="sm:col-span-2"
+							label="Bemerkung"
+							value={protokoll.bemerkung}
+						/>
 					) : null}
 				</CardContent>
 			</Card>
@@ -230,20 +242,20 @@ function ProtokollDetailPage() {
 					</CardTitle>
 				</CardHeader>
 				<CardContent>
-					<div className="overflow-x-auto rounded-lg border border-border">
+					<div className="overflow-x-auto rounded-lg border border-border/60">
 						<Table>
 							<TableHeader className="bg-muted/40">
 								<TableRow className="hover:bg-transparent">
-									<TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">
+									<TableHead className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
 										Wert
 									</TableHead>
-									<TableHead className="text-right text-[11px] uppercase tracking-wider text-muted-foreground">
+									<TableHead className="text-right text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
 										Anzahl
 									</TableHead>
-									<TableHead className="text-right text-[11px] uppercase tracking-wider text-muted-foreground">
+									<TableHead className="text-right text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
 										Einzelwert
 									</TableHead>
-									<TableHead className="text-right text-[11px] uppercase tracking-wider text-muted-foreground">
+									<TableHead className="text-right text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
 										Teilbetrag
 									</TableHead>
 								</TableRow>
@@ -261,11 +273,15 @@ function ProtokollDetailPage() {
 											<TableCell className="text-right tabular-nums">
 												{count}
 											</TableCell>
-											<TableCell className="text-right tabular-nums">
-												{formatCent(d.cent)}
+											<TableCell className="text-right">
+												<Money cent={d.cent} tone="muted" />
 											</TableCell>
-											<TableCell className="text-right font-mono tabular-nums">
-												{isZero ? "—" : formatCent(count * d.cent)}
+											<TableCell className="text-right">
+												{isZero ? (
+													<span className="text-muted-foreground/50">—</span>
+												) : (
+													<Money cent={count * d.cent} />
+												)}
 											</TableCell>
 										</TableRow>
 									);
@@ -274,14 +290,16 @@ function ProtokollDetailPage() {
 						</Table>
 					</div>
 					<Separator className="my-4" />
-					<div className="flex flex-col gap-1 text-sm">
-						<SumRow label="Zwischensumme Scheine" cent={sumScheine} />
-						<SumRow label="Zwischensumme Münzen" cent={sumMuenzen} />
-						<SumRow
-							label="Gezählter Endbestand"
-							cent={protokoll.gezaehlt_cent}
-							bold
-						/>
+					<div className="flex flex-col">
+						<DataRow label="Zwischensumme Scheine">
+							<Money cent={sumScheine} />
+						</DataRow>
+						<DataRow label="Zwischensumme Münzen">
+							<Money cent={sumMuenzen} />
+						</DataRow>
+						<DataRow label="Gezählter Endbestand" emphasis divider>
+							<Money cent={protokoll.gezaehlt_cent} emphasis />
+						</DataRow>
 					</div>
 				</CardContent>
 			</Card>
@@ -295,23 +313,23 @@ function ProtokollDetailPage() {
 						</CardTitle>
 					</CardHeader>
 					<CardContent>
-						<div className="overflow-x-auto rounded-lg border border-border">
+						<div className="overflow-x-auto rounded-lg border border-border/60">
 							<Table>
 								<TableHeader className="bg-muted/40">
 									<TableRow className="hover:bg-transparent">
-										<TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">
+										<TableHead className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
 											Bezeichnung
 										</TableHead>
-										<TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">
+										<TableHead className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
 											Empfänger
 										</TableHead>
-										<TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">
+										<TableHead className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
 											Beleg-Nr.
 										</TableHead>
-										<TableHead className="text-right text-[11px] uppercase tracking-wider text-muted-foreground">
+										<TableHead className="text-right text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
 											USt.
 										</TableHead>
-										<TableHead className="text-right text-[11px] uppercase tracking-wider text-muted-foreground">
+										<TableHead className="text-right text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
 											Betrag
 										</TableHead>
 									</TableRow>
@@ -333,12 +351,12 @@ function ProtokollDetailPage() {
 													{bp === 0 ? "—" : formatUstSatzLib(bp)}
 													{bp > 0 ? (
 														<span className="ml-1 text-[10px] text-muted-foreground/70">
-															({formatCent(ust)})
+															(<Money cent={ust} tone="muted" />)
 														</span>
 													) : null}
 												</TableCell>
-												<TableCell className="text-right font-mono tabular-nums">
-													{formatCent(a.betrag_cent)}
+												<TableCell className="text-right">
+													<Money cent={a.betrag_cent} />
 												</TableCell>
 											</TableRow>
 										);
@@ -347,11 +365,9 @@ function ProtokollDetailPage() {
 							</Table>
 						</div>
 						<Separator className="my-3" />
-						<SumRow
-							label="Summe Ausgaben"
-							cent={protokoll.ausgaben_cent}
-							bold
-						/>
+						<DataRow label="Summe Ausgaben" emphasis>
+							<Money cent={protokoll.ausgaben_cent} emphasis />
+						</DataRow>
 						<UstBreakdown
 							ausgaben={ausgaben}
 							bruttoCent={protokoll.ausgaben_cent}
@@ -367,58 +383,63 @@ function ProtokollDetailPage() {
 						Zusammenfassung
 					</CardTitle>
 				</CardHeader>
-				<CardContent className="space-y-1 text-sm">
-					<SumRow
-						label="Anfangsbestand (Wechselgeld)"
-						cent={protokoll.wechselgeld_cent}
-					/>
-					<SumRow label="Gezählter Endbestand" cent={protokoll.gezaehlt_cent} />
-					<SumRow
-						label="Betriebliche Ausgaben"
-						cent={protokoll.ausgaben_cent}
-					/>
-					<SumRow
-						label="Kassenbestand brutto"
-						cent={protokoll.bestand_cent}
-						bold
-					/>
-					{protokoll.kartenzahlung_cent > 0 ? (
-						<SumRow label="Kartenzahlung" cent={protokoll.kartenzahlung_cent} />
-					) : null}
-					<Separator className="my-3" />
+				<CardContent className="space-y-4">
+					<div className="flex flex-col">
+						<DataRow label="Anfangsbestand (Wechselgeld)">
+							<Money cent={protokoll.wechselgeld_cent} tone="muted" />
+						</DataRow>
+						<DataRow label="Gezählter Endbestand">
+							<Money cent={protokoll.gezaehlt_cent} tone="muted" />
+						</DataRow>
+						<DataRow label="Betriebliche Ausgaben">
+							<Money cent={protokoll.ausgaben_cent} tone="muted" />
+						</DataRow>
+						<DataRow label="Kassenbestand brutto" emphasis divider>
+							<Money cent={protokoll.bestand_cent} emphasis />
+						</DataRow>
+						{protokoll.kartenzahlung_cent > 0 ? (
+							<DataRow label="Kartenzahlung">
+								<Money cent={protokoll.kartenzahlung_cent} tone="muted" />
+							</DataRow>
+						) : null}
+					</div>
+
 					{protokoll.kartenzahlung_cent > 0 ? (
 						<div className="space-y-2">
-							<div className="flex items-center justify-between rounded-xl bg-muted/40 px-4 py-3">
+							<div className="flex items-center justify-between gap-4 rounded-2xl border border-border/60 bg-muted/40 px-4 py-3">
 								<span className="flex items-center gap-2 text-sm font-medium text-foreground">
 									<Banknote className="h-4 w-4 text-muted-foreground" />
 									Tageseinnahmen netto (ohne Kartenzahlung)
 								</span>
-								<span className="font-mono text-base font-semibold tabular-nums text-foreground">
-									{formatCent(protokoll.tageseinnahmen_cent)}
-								</span>
+								<Money cent={protokoll.tageseinnahmen_cent} emphasis />
 							</div>
-							<div className="flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3 ring-1 ring-primary/15">
+							<div className="flex items-center justify-between gap-4 rounded-2xl border border-primary/25 bg-primary/[0.05] px-4 py-4">
 								<span className="flex items-center gap-2 text-sm font-medium text-foreground">
 									<Banknote className="h-4 w-4 text-primary" />
 									Tageseinnahmen netto (mit Kartenzahlung)
 								</span>
-								<span className="font-mono text-base font-semibold tabular-nums text-primary">
-									{formatCent(
-										protokoll.tageseinnahmen_cent +
-											protokoll.kartenzahlung_cent,
-									)}
-								</span>
+								<Money
+									cent={
+										protokoll.tageseinnahmen_cent + protokoll.kartenzahlung_cent
+									}
+									tone="primary"
+									emphasis
+									className="text-base"
+								/>
 							</div>
 						</div>
 					) : (
-						<div className="flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3 ring-1 ring-primary/15">
+						<div className="flex items-center justify-between gap-4 rounded-2xl border border-primary/25 bg-primary/[0.05] px-4 py-4">
 							<span className="flex items-center gap-2 text-sm font-medium text-foreground">
 								<Banknote className="h-4 w-4 text-primary" />
 								Tageseinnahmen netto
 							</span>
-							<span className="font-mono text-base font-semibold tabular-nums text-primary">
-								{formatCent(protokoll.tageseinnahmen_cent)}
-							</span>
+							<Money
+								cent={protokoll.tageseinnahmen_cent}
+								tone="primary"
+								emphasis
+								className="text-base"
+							/>
 						</div>
 					)}
 				</CardContent>
@@ -484,23 +505,21 @@ function UstBreakdown({
 	const totalUst = groups.reduce((s, g) => s + g.ust_cent, 0);
 	return (
 		<div className="mt-4">
-			<p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-				USt.-Aufgliederung
-			</p>
-			<div className="overflow-x-auto rounded-lg border border-border">
+			<FieldLabel className="mb-2">USt.-Aufgliederung</FieldLabel>
+			<div className="overflow-x-auto rounded-lg border border-border/60">
 				<table className="w-full text-sm">
 					<thead className="bg-muted/40">
 						<tr>
-							<th className="px-3 py-1.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+							<th className="px-3 py-1.5 text-left text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
 								Satz
 							</th>
-							<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+							<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
 								Netto
 							</th>
-							<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+							<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
 								USt.
 							</th>
-							<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+							<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
 								Brutto
 							</th>
 						</tr>
@@ -511,31 +530,31 @@ function UstBreakdown({
 								<td className="px-3 py-1.5 tabular-nums text-muted-foreground">
 									{formatUstSatzLib(g.bp)}
 								</td>
-								<td className="px-3 py-1.5 text-right font-mono tabular-nums">
-									{formatCent(g.netto_cent)}
+								<td className="px-3 py-1.5 text-right">
+									<Money cent={g.netto_cent} />
 								</td>
-								<td className="px-3 py-1.5 text-right font-mono tabular-nums">
+								<td className="px-3 py-1.5 text-right">
 									{g.ust_cent === 0 ? (
 										<span className="text-muted-foreground/50">—</span>
 									) : (
-										formatCent(g.ust_cent)
+										<Money cent={g.ust_cent} />
 									)}
 								</td>
-								<td className="px-3 py-1.5 text-right font-mono tabular-nums">
-									{formatCent(g.brutto_cent)}
+								<td className="px-3 py-1.5 text-right">
+									<Money cent={g.brutto_cent} />
 								</td>
 							</tr>
 						))}
 						<tr className="border-t border-foreground/20 font-medium">
 							<td className="px-3 py-1.5">Summe</td>
-							<td className="px-3 py-1.5 text-right font-mono tabular-nums">
-								{formatCent(totalNetto)}
+							<td className="px-3 py-1.5 text-right">
+								<Money cent={totalNetto} emphasis />
 							</td>
-							<td className="px-3 py-1.5 text-right font-mono tabular-nums">
-								{formatCent(totalUst)}
+							<td className="px-3 py-1.5 text-right">
+								<Money cent={totalUst} emphasis />
 							</td>
-							<td className="px-3 py-1.5 text-right font-mono tabular-nums">
-								{formatCent(bruttoCent)}
+							<td className="px-3 py-1.5 text-right">
+								<Money cent={bruttoCent} emphasis />
 							</td>
 						</tr>
 					</tbody>
@@ -555,20 +574,20 @@ function UmsatzUstBreakdown({
 	const totalUst = groups.reduce((s, g) => s + g.ust_cent, 0);
 	const totalBrutto = groups.reduce((s, g) => s + g.brutto_cent, 0);
 	return (
-		<div className="overflow-x-auto rounded-lg border border-border">
+		<div className="overflow-x-auto rounded-lg border border-border/60">
 			<table className="w-full text-sm">
 				<thead className="bg-muted/40">
 					<tr>
-						<th className="px-3 py-1.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+						<th className="px-3 py-1.5 text-left text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
 							Satz
 						</th>
-						<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+						<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
 							Netto
 						</th>
-						<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+						<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
 							USt.
 						</th>
-						<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+						<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
 							Brutto
 						</th>
 					</tr>
@@ -579,85 +598,35 @@ function UmsatzUstBreakdown({
 							<td className="px-3 py-1.5 tabular-nums text-muted-foreground">
 								{formatUstSatzLib(g.bp)}
 							</td>
-							<td className="px-3 py-1.5 text-right font-mono tabular-nums">
-								{formatCent(g.netto_cent)}
+							<td className="px-3 py-1.5 text-right">
+								<Money cent={g.netto_cent} />
 							</td>
-							<td className="px-3 py-1.5 text-right font-mono tabular-nums">
+							<td className="px-3 py-1.5 text-right">
 								{g.ust_cent === 0 ? (
 									<span className="text-muted-foreground/50">—</span>
 								) : (
-									formatCent(g.ust_cent)
+									<Money cent={g.ust_cent} />
 								)}
 							</td>
-							<td className="px-3 py-1.5 text-right font-mono tabular-nums">
-								{formatCent(g.brutto_cent)}
+							<td className="px-3 py-1.5 text-right">
+								<Money cent={g.brutto_cent} />
 							</td>
 						</tr>
 					))}
 					<tr className="border-t border-foreground/20 font-medium">
 						<td className="px-3 py-1.5">Summe</td>
-						<td className="px-3 py-1.5 text-right font-mono tabular-nums">
-							{formatCent(totalNetto)}
+						<td className="px-3 py-1.5 text-right">
+							<Money cent={totalNetto} emphasis />
 						</td>
-						<td className="px-3 py-1.5 text-right font-mono tabular-nums">
-							{formatCent(totalUst)}
+						<td className="px-3 py-1.5 text-right">
+							<Money cent={totalUst} emphasis />
 						</td>
-						<td className="px-3 py-1.5 text-right font-mono tabular-nums">
-							{formatCent(totalBrutto)}
+						<td className="px-3 py-1.5 text-right">
+							<Money cent={totalBrutto} emphasis />
 						</td>
 					</tr>
 				</tbody>
 			</table>
-		</div>
-	);
-}
-
-function KV({
-	label,
-	value,
-	mono,
-}: {
-	label: string;
-	value: string;
-	mono?: boolean;
-}) {
-	return (
-		<div>
-			<p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-				{label}
-			</p>
-			<p
-				className={cn(
-					"mt-1 whitespace-pre-wrap text-sm text-foreground",
-					mono && "font-mono",
-				)}
-			>
-				{value}
-			</p>
-		</div>
-	);
-}
-
-function SumRow({
-	label,
-	cent,
-	bold,
-}: {
-	label: string;
-	cent: number;
-	bold?: boolean;
-}) {
-	return (
-		<div
-			className={cn(
-				"flex items-center justify-between py-1",
-				bold ? "font-medium" : "text-sm text-muted-foreground",
-			)}
-		>
-			<span>{label}</span>
-			<span className="font-mono tabular-nums text-foreground">
-				{formatCent(cent)}
-			</span>
 		</div>
 	);
 }

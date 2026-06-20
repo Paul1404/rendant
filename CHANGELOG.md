@@ -3,6 +3,18 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.5.0 — 2026-06-20
+
+- Gestalterische Generalüberholung mit einem durchgängigen Design-System:
+  einheitliche Karten, klare visuelle Hierarchie und konsistente Abstände,
+  Typografie und Betonung auf allen Seiten.
+- Dashboard mit hervorgehobener Leitkennzahl; Detailseite, Listen und
+  Einstellungen in einheitlicher Optik.
+- Neues Protokoll: zweispaltiges Layout mit mitlaufender Zusammenfassung
+  (Endbestand, Ausgaben, Tageseinnahmen) und klar gegliederten Abschnitten.
+- Einheitliche Geldbeträge, Beschriftungen und Abschnittsüberschriften in der
+  ganzen App.
+
 ## 1.4.1 — 2026-06-20
 
 - Klarere visuelle Hierarchie: Der Seitentitel ist jetzt eine ruhige Kopfzeile

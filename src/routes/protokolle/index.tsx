@@ -6,6 +6,7 @@ import { DashboardToolbar } from "@/components/dashboard-toolbar";
 import { PageHeader } from "@/components/page-header";
 import { ProtokollList } from "@/components/protokoll-list";
 import { Button } from "@/components/ui/button";
+import { Money } from "@/components/ui/money";
 import {
 	filterByRange,
 	filterBySearch,
@@ -18,7 +19,6 @@ import {
 	RANGE_LABELS,
 	rangeToDates,
 } from "@/lib/finance";
-import { formatCent } from "@/lib/money";
 import { orpc } from "@/lib/orpc";
 
 type ProtokolleSearch = {
@@ -116,8 +116,9 @@ function ProtokolleListPage() {
 							{items.length > 0 ? (
 								<>
 									<span className="mx-1.5 text-muted-foreground/40">·</span>
-									<span className="font-mono tabular-nums">
-										Summe aktiv: {formatCent(visibleSumCent)}
+									<span className="tabular-nums">
+										Summe aktiv:{" "}
+										<Money cent={visibleSumCent} className="text-xs" />
 									</span>
 								</>
 							) : null}
