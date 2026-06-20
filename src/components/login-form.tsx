@@ -64,8 +64,8 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
 							aria-label={
 								showPassword ? "Passwort verbergen" : "Passwort anzeigen"
 							}
-							tabIndex={-1}
-							className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground transition-colors hover:text-foreground"
+							aria-pressed={showPassword}
+							className="absolute inset-y-0 right-0 flex items-center rounded-r-md px-3 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
 						>
 							{showPassword ? (
 								<EyeOff className="h-4 w-4" />

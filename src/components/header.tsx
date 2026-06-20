@@ -65,7 +65,11 @@ export function Header({ vereinsname, logoUrl }: HeaderProps) {
 								? pathname === href
 								: pathname.startsWith(href);
 							return (
-								<Link key={href} to={href}>
+								<Link
+									key={href}
+									to={href}
+									aria-current={active ? "page" : undefined}
+								>
 									<Button
 										variant="ghost"
 										size="sm"
@@ -90,7 +94,12 @@ export function Header({ vereinsname, logoUrl }: HeaderProps) {
 								? pathname === href
 								: pathname.startsWith(href);
 							return (
-								<Link key={href} to={href} aria-label={label}>
+								<Link
+									key={href}
+									to={href}
+									aria-label={label}
+									aria-current={active ? "page" : undefined}
+								>
 									<Button
 										variant="ghost"
 										size="icon-sm"

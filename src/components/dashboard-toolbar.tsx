@@ -1,6 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { Search, X } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import type { TimeRange } from "@/lib/dashboard-stats";
 import { cn } from "@/lib/utils";
@@ -26,6 +26,13 @@ export function DashboardToolbar({
 	const navigate = useNavigate({ from: "/protokolle/" });
 	const [query, setQuery] = useState(initialQuery);
 	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	// Clear any pending debounced navigation when the toolbar unmounts.
+	useEffect(() => {
+		return () => {
+			if (debounceRef.current) clearTimeout(debounceRef.current);
+		};
+	}, []);
 
 	// Reset the local search text when the URL value changes (e.g. after a
 	// reset). Adjust during render rather than in an effect.
@@ -100,20 +107,15 @@ export function DashboardToolbar({
 			</div>
 
 			<div className="flex flex-wrap items-center gap-2">
-				<div
-					// biome-ignore lint/a11y/useSemanticElements: segmented control pattern
-					role="tablist"
-					aria-label="Zeitraum"
-					className="inline-flex items-center rounded-lg border border-border bg-background/60 p-0.5 shadow-sm"
-				>
+				<fieldset className="inline-flex items-center rounded-lg border border-border bg-background/60 p-0.5 shadow-sm">
+					<legend className="sr-only">Zeitraum</legend>
 					{RANGES.map((r) => {
 						const active = initialRange === r.value;
 						return (
 							<button
 								key={r.value}
 								type="button"
-								role="tab"
-								aria-selected={active}
+								aria-pressed={active}
 								onClick={() => pushParams({ range: r.value })}
 								className={cn(
 									"rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
@@ -126,7 +128,7 @@ export function DashboardToolbar({
 							</button>
 						);
 					})}
-				</div>
+				</fieldset>
 
 				<label className="inline-flex cursor-pointer select-none items-center gap-2 rounded-lg border border-border bg-background/60 px-2.5 py-1.5 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:text-foreground">
 					<input

@@ -3,6 +3,19 @@
 All notable changes to this project. Newest first. The version here matches
 `package.json` and the version chip in the app.
 
+## 1.1.1 — 2026-06-20
+
+- Fixed a crash when copying an invite link over HTTP (clipboard unavailable);
+  the link is now always selectable as a fallback.
+- New-protokoll form: stable row identity for Ausgaben and USt rows so deleting
+  a middle row no longer mis-associates inputs.
+- Dashboard: KPI amounts no longer wrap mid-number on small screens; the
+  month-over-month delta only shows for the current-month view.
+- Detail and list tables scroll horizontally on mobile instead of clipping.
+- Accessibility: keyboard-reachable password toggle, aria-current nav,
+  aria-pressed toggles, stable form field ids; error details hidden in
+  production. Removed dead code.
+
 ## 1.1.0 — 2026-06-20
 
 - Finance dashboard: period KPIs (Umsatz, Ausgaben, Netto-Ergebnis, Ø je Beleg),

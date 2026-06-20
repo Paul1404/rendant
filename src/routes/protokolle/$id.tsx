@@ -187,8 +187,8 @@ function ProtokollDetailPage() {
 						</p>
 						<p className="text-sm text-amber-700/90 dark:text-amber-300/90">
 							Die Daten sind gespeichert, aber das PDF konnte beim Anlegen nicht
-							erzeugt werden. Über &bdquo;PDF neu erzeugen&ldquo; oben kannst du
-							es jetzt nachholen.
+							erzeugt werden. Mit dem Aktualisieren-Symbol oben kannst du es
+							jetzt nachholen.
 						</p>
 					</div>
 				</div>
@@ -228,7 +228,7 @@ function ProtokollDetailPage() {
 					</CardTitle>
 				</CardHeader>
 				<CardContent>
-					<div className="overflow-hidden rounded-lg border border-border">
+					<div className="overflow-x-auto rounded-lg border border-border">
 						<Table>
 							<TableHeader className="bg-muted/40">
 								<TableRow className="hover:bg-transparent">
@@ -293,7 +293,7 @@ function ProtokollDetailPage() {
 						</CardTitle>
 					</CardHeader>
 					<CardContent>
-						<div className="overflow-hidden rounded-lg border border-border">
+						<div className="overflow-x-auto rounded-lg border border-border">
 							<Table>
 								<TableHeader className="bg-muted/40">
 									<TableRow className="hover:bg-transparent">
@@ -485,7 +485,7 @@ function UstBreakdown({
 			<p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
 				USt.-Aufgliederung
 			</p>
-			<div className="overflow-hidden rounded-lg border border-border">
+			<div className="overflow-x-auto rounded-lg border border-border">
 				<table className="w-full text-sm">
 					<thead className="bg-muted/40">
 						<tr>
@@ -553,7 +553,7 @@ function UmsatzUstBreakdown({
 	const totalUst = groups.reduce((s, g) => s + g.ust_cent, 0);
 	const totalBrutto = groups.reduce((s, g) => s + g.brutto_cent, 0);
 	return (
-		<div className="overflow-hidden rounded-lg border border-border">
+		<div className="overflow-x-auto rounded-lg border border-border">
 			<table className="w-full text-sm">
 				<thead className="bg-muted/40">
 					<tr>

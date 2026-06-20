@@ -84,6 +84,7 @@ type FormDraft = {
 };
 
 type AusgabeDraft = {
+	id: string;
 	bezeichnung: string;
 	empfaenger: string;
 	beleg_nr: string;
@@ -93,10 +94,17 @@ type AusgabeDraft = {
 };
 
 type UmsatzUstDraft = {
+	id: string;
 	betrag_input: string;
 	ust_mode: UstMode;
 	ust_custom_input: string;
 };
+
+let rowIdCounter = 0;
+function nextRowId(): string {
+	rowIdCounter += 1;
+	return `row-${rowIdCounter}`;
+}
 
 const UST_PRESET_BP: Record<Exclude<UstMode, "custom">, number> = {
 	none: 0,
@@ -106,6 +114,7 @@ const UST_PRESET_BP: Record<Exclude<UstMode, "custom">, number> = {
 
 function emptyAusgabe(): AusgabeDraft {
 	return {
+		id: nextRowId(),
 		bezeichnung: "",
 		empfaenger: "",
 		beleg_nr: "",
@@ -117,6 +126,7 @@ function emptyAusgabe(): AusgabeDraft {
 
 function emptyUmsatzSplit(mode: UstMode = "none"): UmsatzUstDraft {
 	return {
+		id: nextRowId(),
 		betrag_input: "",
 		ust_mode: mode,
 		ust_custom_input: "",
@@ -411,8 +421,16 @@ export function ProtokollForm({
 			);
 			setKartenzahlungInput(d.kartenzahlungInput ?? "");
 			setCounts(d.counts ?? emptyCounts());
-			setAusgaben(Array.isArray(d.ausgaben) ? d.ausgaben : []);
-			setUmsatzSplits(Array.isArray(d.umsatzSplits) ? d.umsatzSplits : []);
+			setAusgaben(
+				Array.isArray(d.ausgaben)
+					? d.ausgaben.map((a) => ({ ...a, id: nextRowId() }))
+					: [],
+			);
+			setUmsatzSplits(
+				Array.isArray(d.umsatzSplits)
+					? d.umsatzSplits.map((s) => ({ ...s, id: nextRowId() }))
+					: [],
+			);
 			setUmsatzUstBasis(
 				d.umsatzUstBasis === "pre_card" ? "pre_card" : "post_card",
 			);
@@ -914,7 +932,7 @@ export function ProtokollForm({
 								brutto != null && bp != null ? ustAnteilCent(brutto, bp) : null;
 							return (
 								<div
-									key={i}
+									key={a.id}
 									className="rounded-xl border border-border/70 bg-muted/20 p-3"
 								>
 									<div className="grid grid-cols-1 items-start gap-2 md:grid-cols-12">
@@ -1022,6 +1040,9 @@ export function ProtokollForm({
 													placeholder="0,0"
 													className="h-8 w-20 pr-7 text-right tabular-nums"
 													aria-label="USt.-Satz in Prozent"
+													aria-invalid={
+														a.ust_custom_input.trim() !== "" && bp == null
+													}
 												/>
 												<span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-muted-foreground">
 													%
@@ -1225,7 +1246,7 @@ export function ProtokollForm({
 								brutto != null && bp != null ? ustAnteilCent(brutto, bp) : null;
 							return (
 								<div
-									key={i}
+									key={s.id}
 									className="rounded-xl border border-border/70 bg-muted/20 p-3"
 								>
 									<div className="grid grid-cols-1 items-end gap-2 md:grid-cols-12">
@@ -1278,6 +1299,9 @@ export function ProtokollForm({
 															placeholder="0,0"
 															className="h-8 w-20 pr-7 text-right tabular-nums"
 															aria-label="USt.-Satz in Prozent"
+															aria-invalid={
+																s.ust_custom_input.trim() !== "" && bp == null
+															}
 														/>
 														<span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-muted-foreground">
 															%
@@ -1360,7 +1384,11 @@ export function ProtokollForm({
 							<div
 								className={cn(
 									"flex items-center justify-between font-medium",
-									umsatzDiffCent === 0 ? "text-success" : "text-destructive",
+									umsatzDiffCent == null
+										? "text-muted-foreground"
+										: umsatzDiffCent === 0
+											? "text-success"
+											: "text-destructive",
 								)}
 							>
 								<span>Differenz</span>
@@ -1468,7 +1496,7 @@ function DenominationSection({
 								(isZero ? "text-muted-foreground/50" : "text-foreground/80")
 							}
 						>
-							{isZero ? "—" : formatCent(teil)}
+							{isZero ? "-" : formatCent(teil)}
 						</span>
 					</div>
 				);
