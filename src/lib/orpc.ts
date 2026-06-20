@@ -3,20 +3,20 @@ import { RPCLink } from "@orpc/client/fetch";
 import type { RouterClient } from "@orpc/server";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { createIsomorphicFn } from "@tanstack/react-start";
-import { getRequest, getRequestHeaders } from "@tanstack/react-start/server";
+import { getRequestHeaders } from "@tanstack/react-start/server";
 import type { AppRouter } from "@/server/orpc/router";
 
 // Isomorphic oRPC client. In the browser it calls the relative /api/rpc
 // endpoint (cookies sent automatically). During SSR it calls the same handler
-// over an absolute URL and forwards the session cookie from the incoming
+// over loopback (NOT the public origin -- that would round-trip through the
+// platform proxy and fail) and forwards the session cookie from the incoming
 // request. The server-only branches (and their imports) are stripped from the
 // client bundle by the TanStack Start compiler.
 
 const resolveUrl = createIsomorphicFn()
 	.server(() => {
-		const req = getRequest();
-		const origin = req ? new URL(req.url).origin : "http://localhost:3000";
-		return `${origin}/api/rpc`;
+		const port = process.env.PORT ?? "3000";
+		return `http://127.0.0.1:${port}/api/rpc`;
 	})
 	.client(() => "/api/rpc");
 
