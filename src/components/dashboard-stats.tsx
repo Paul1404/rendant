@@ -63,10 +63,11 @@ export function FinanceOverview({
 	const hasTrend = series.some((p) => p.total > 0);
 
 	return (
-		<div className="space-y-4">
+		<div className="space-y-5">
 			<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
 				<KpiCard
 					icon={TrendingUp}
+					variant="hero"
 					label={`Umsatz · ${rangeLabel}`}
 					value={formatCent(period.revenueTotal)}
 					hint={
@@ -283,27 +284,54 @@ function KpiCard({
 	value,
 	hint,
 	tone = "default",
+	variant = "default",
 }: {
 	icon: React.ComponentType<{ className?: string }>;
 	label: string;
 	value: string;
 	hint?: React.ReactNode;
 	tone?: "default" | "negative";
+	variant?: "default" | "hero";
 }) {
+	const hero = variant === "hero";
 	return (
-		<div className="lift group relative overflow-hidden rounded-2xl border border-border bg-card/70 p-4 shadow-sm ring-1 ring-foreground/5 hover:border-border/100 hover:bg-card hover:shadow-md">
+		<div
+			className={cn(
+				"lift group relative overflow-hidden rounded-2xl border p-4 shadow-sm ring-1 hover:shadow-md",
+				hero
+					? "border-primary/25 bg-primary/[0.06] ring-primary/10 hover:border-primary/40"
+					: "border-border bg-card/70 ring-foreground/5 hover:border-border/100 hover:bg-card",
+			)}
+		>
 			<div className="flex items-center justify-between gap-2">
-				<p className="truncate text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+				<p
+					className={cn(
+						"truncate text-[11px] font-medium uppercase tracking-[0.14em]",
+						hero ? "text-primary/80" : "text-muted-foreground",
+					)}
+				>
 					{label}
 				</p>
-				<span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/8 text-primary/80">
+				<span
+					className={cn(
+						"inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
+						hero
+							? "bg-primary/15 text-primary"
+							: "bg-primary/8 text-primary/80",
+					)}
+				>
 					<Icon className="h-3.5 w-3.5" />
 				</span>
 			</div>
 			<p
 				className={cn(
-					"mt-2 font-mono text-lg font-semibold tabular-nums tracking-tight sm:text-[1.35rem]",
-					tone === "negative" ? "text-destructive" : "text-foreground",
+					"mt-2 font-mono font-semibold tabular-nums tracking-tight",
+					hero ? "text-2xl sm:text-[1.7rem]" : "text-lg sm:text-[1.35rem]",
+					tone === "negative"
+						? "text-destructive"
+						: hero
+							? "text-primary"
+							: "text-foreground",
 				)}
 			>
 				{renderKpiValue(value)}
