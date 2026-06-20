@@ -1,57 +1,63 @@
 # Changelog
 
-All notable changes to this project. Newest first. The version here matches
-`package.json` and the version chip in the app.
+Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
+hier entspricht `package.json` und der Versionsmarke in der App.
+
+## 1.2.1 — 2026-06-20
+
+- Release-Notes ("Was ist neu") jetzt auf Deutsch.
 
 ## 1.2.0 — 2026-06-20
 
-- Export moved off the dashboard into a dedicated "Export & Auswertungen" page
-  with three downloads over a shared date range: Protokolle (CSV), USt-Auswertung
+- Export auf eine eigene Seite "Export & Auswertungen" verschoben, mit drei
+  Downloads über einen gemeinsamen Zeitraum: Protokolle (CSV), USt-Auswertung
   (CSV) und Backup (JSON).
-- All dates and timestamps are now pinned to Europe/Berlin (server runs in UTC),
-  so erstellt/storniert times and the belegnummer year are always correct.
-- Structured server logging with levels and redaction; errors are logged once via
-  an oRPC middleware instead of scattered console calls.
-- Revenue chart now fills the full width of its card.
-- Removed unused environment variables (JWT_SECRET, APP_URL).
+- Alle Datumsangaben und Zeitstempel laufen jetzt fest in der Zeitzone
+  Europe/Berlin (der Server läuft in UTC), damit Erfasst- und Storniert-Zeiten
+  sowie das Belegnummern-Jahr immer stimmen.
+- Strukturiertes Server-Logging mit Stufen und Schwärzung sensibler Werte;
+  Fehler werden zentral über eine oRPC-Middleware geloggt.
+- Umsatzdiagramm füllt jetzt die volle Breite der Kachel.
+- Nicht mehr benötigte Umgebungsvariablen entfernt (JWT_SECRET, APP_URL).
 
 ## 1.1.1 — 2026-06-20
 
-- Fixed a crash when copying an invite link over HTTP (clipboard unavailable);
-  the link is now always selectable as a fallback.
-- New-protokoll form: stable row identity for Ausgaben and USt rows so deleting
-  a middle row no longer mis-associates inputs.
-- Dashboard: KPI amounts no longer wrap mid-number on small screens; the
-  month-over-month delta only shows for the current-month view.
-- Detail and list tables scroll horizontally on mobile instead of clipping.
-- Accessibility: keyboard-reachable password toggle, aria-current nav,
-  aria-pressed toggles, stable form field ids; error details hidden in
-  production. Removed dead code.
+- Absturz beim Kopieren des Einladungslinks über HTTP behoben (Zwischenablage
+  nicht verfügbar); der Link lässt sich jetzt immer markieren.
+- Neues-Protokoll-Formular: stabile Zeilen-IDs für Ausgaben und USt-Zeilen,
+  damit das Löschen einer mittleren Zeile keine Eingaben mehr vertauscht.
+- Dashboard: Kennzahlen brechen auf kleinen Bildschirmen nicht mehr mitten in
+  der Zahl um; die Veränderung zum Vormonat erscheint nur in der Monatsansicht.
+- Detail- und Listentabellen scrollen auf dem Smartphone seitlich, statt
+  abgeschnitten zu werden.
+- Barrierefreiheit: per Tastatur erreichbarer Passwort-Umschalter, aktive
+  Navigation mit aria-current, stabile Formularfeld-IDs; Fehlerdetails außerhalb
+  der Entwicklung ausgeblendet. Toten Code entfernt.
 
 ## 1.1.0 — 2026-06-20
 
-- Finance dashboard: period KPIs (Umsatz, Ausgaben, Netto-Ergebnis, Ø je Beleg),
-  a 12-month revenue trend chart, an Umsatzsteuer breakdown (USt. auf Umsatz,
-  Vorsteuer, Zahllast), a Bar-gegen-Karte split and Top-Anlässe ranking. The
-  period selector now drives the whole overview.
-- Version chip opens a "Was ist neu" window with the in-app release notes.
-- Per-page browser titles, a 404 page and a global error boundary.
+- Finanz-Dashboard: Kennzahlen je Zeitraum (Umsatz, Ausgaben, Netto-Ergebnis,
+  Ø je Beleg), ein Umsatzverlauf über 12 Monate, eine Umsatzsteuer-Aufstellung
+  (USt. auf Umsatz, Vorsteuer, Zahllast), die Aufteilung Bar gegen Karte und ein
+  Ranking der häufigsten Anlässe. Der Zeitraumfilter steuert die ganze Übersicht.
+- Die Versionsmarke öffnet ein Fenster "Was ist neu" mit den internen
+  Release-Notes.
+- Eigene Seitentitel im Browser, eine 404-Seite und eine globale Fehlerseite.
 
 ## 1.0.1 — 2026-06-20
 
-- Fixed `"/api/rpc" cannot be parsed as a URL` on client-side navigation
-  (Einstellungen, new protokoll, and other oRPC calls): the browser oRPC client
-  now uses an absolute URL, since RPCLink requires one.
+- Fehler "/api/rpc kann nicht als URL verarbeitet werden" bei der
+  clientseitigen Navigation behoben (Einstellungen, neues Protokoll und weitere
+  Aufrufe): Der Browser-Client nutzt jetzt eine absolute URL, da RPCLink diese
+  voraussetzt.
 
 ## 1.0.0 — 2026-06-20
 
-First release on the TanStack Start stack.
-
-- Rebuilt the app from Next.js to TanStack Start + oRPC + better-auth +
-  Drizzle + Valibot, on the Bun runtime with Biome.
-- Auth is now email and password (better-auth) with an admin-driven invite
-  flow; open registration is disabled.
-- Migrated the database to Drizzle and re-imported the existing protokolle.
-- Design refresh: reworked login screen, refined cards and global polish.
-- Removed filler copy and stray dashes from the UI.
-- Added a version chip (footer and login) backed by `package.json`.
+- App von Next.js auf TanStack Start + oRPC + better-auth + Drizzle + Valibot
+  umgestellt, auf der Bun-Laufzeit mit Biome.
+- Anmeldung jetzt mit E-Mail und Passwort (better-auth) samt
+  Einladungsfunktion durch Admins; die offene Registrierung ist deaktiviert.
+- Datenbank auf Drizzle migriert und die bestehenden Protokolle übernommen.
+- Designauffrischung: überarbeiteter Login, verfeinerte Karten und Feinschliff.
+- Fülltexte und überflüssige Gedankenstriche aus der Oberfläche entfernt.
+- Versionsmarke in Fußzeile und Login auf Basis von `package.json` ergänzt.
