@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { currentYearBerlin } from "@/lib/date";
 import { type DbOrTx, db } from "@/server/db";
 import { protokolle } from "@/server/db/schema";
 import {
@@ -39,7 +40,7 @@ export function formatBelegnummer(
 }
 
 export async function previewNextBelegnummer(
-	year = new Date().getFullYear(),
+	year = currentYearBerlin(),
 ): Promise<string> {
 	const [settings, maxSeq] = await Promise.all([
 		getBelegnummerSettings(),

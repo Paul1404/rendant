@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { auth } from "../auth";
+import { logger } from "../logger";
 import { user as userTable } from "./auth-schema";
 import { db, pool } from "./index";
 import { appSettings } from "./schema";
@@ -21,8 +22,8 @@ async function ensureAdminUser(): Promise<void> {
 	const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
 	const password = process.env.ADMIN_PASSWORD;
 	if (!email || !password) {
-		console.warn(
-			"[migrate] ADMIN_EMAIL/ADMIN_PASSWORD nicht gesetzt, Admin-Seed uebersprungen",
+		logger.warn(
+			"ADMIN_EMAIL/ADMIN_PASSWORD nicht gesetzt, Admin-Seed uebersprungen",
 		);
 		return;
 	}
@@ -33,7 +34,7 @@ async function ensureAdminUser(): Promise<void> {
 		.where(eq(userTable.email, email))
 		.limit(1);
 	if (existing.length > 0) {
-		console.info("[migrate] Admin existiert bereits, Seed uebersprungen");
+		logger.info("Admin existiert bereits, Seed uebersprungen");
 		return;
 	}
 
@@ -51,21 +52,21 @@ async function ensureAdminUser(): Promise<void> {
 		accountId: created.id,
 		password: hash,
 	});
-	console.info(`[migrate] Admin angelegt: ${email}`);
+	logger.info("Admin angelegt", { email });
 }
 
 async function main(): Promise<void> {
-	console.info("[migrate] Migrationen werden angewendet...");
+	logger.info("Migrationen werden angewendet");
 	await migrate(db, { migrationsFolder: "./drizzle" });
-	console.info("[migrate] Migrationen ok");
+	logger.info("Migrationen ok");
 	await ensureSettingsRow();
 	await ensureAdminUser();
 	await pool.end();
-	console.info("[migrate] fertig");
+	logger.info("Migration fertig");
 }
 
 main().catch((err) => {
-	console.error("[migrate] fehlgeschlagen", err);
+	logger.error("Migration fehlgeschlagen", { err });
 	process.exitCode = 1;
 	pool.end().finally(() => process.exit(1));
 });

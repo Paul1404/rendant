@@ -21,6 +21,8 @@ import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiExportRouteImport } from './routes/api/export'
 import { Route as ApiRpcSplatRouteImport } from './routes/api/rpc/$'
+import { Route as ApiExportUstRouteImport } from './routes/api/export.ust'
+import { Route as ApiExportJsonRouteImport } from './routes/api/export.json'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiProtokolleIdStornoPdfRouteImport } from './routes/api/protokolle/$id/storno-pdf'
 import { Route as ApiProtokolleIdPdfRouteImport } from './routes/api/protokolle/$id/pdf'
@@ -85,6 +87,16 @@ const ApiRpcSplatRoute = ApiRpcSplatRouteImport.update({
   path: '/api/rpc/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiExportUstRoute = ApiExportUstRouteImport.update({
+  id: '/ust',
+  path: '/ust',
+  getParentRoute: () => ApiExportRoute,
+} as any)
+const ApiExportJsonRoute = ApiExportJsonRouteImport.update({
+  id: '/json',
+  path: '/json',
+  getParentRoute: () => ApiExportRoute,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -106,7 +118,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/protokolle': typeof ProtokolleRouteRouteWithChildren
   '/login': typeof LoginRoute
-  '/api/export': typeof ApiExportRoute
+  '/api/export': typeof ApiExportRouteWithChildren
   '/api/health': typeof ApiHealthRoute
   '/invite/$token': typeof InviteTokenRoute
   '/protokolle/$id': typeof ProtokolleIdRoute
@@ -115,6 +127,8 @@ export interface FileRoutesByFullPath {
   '/protokolle/neu': typeof ProtokolleNeuRoute
   '/protokolle/': typeof ProtokolleIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/export/json': typeof ApiExportJsonRoute
+  '/api/export/ust': typeof ApiExportUstRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
   '/api/protokolle/$id/pdf': typeof ApiProtokolleIdPdfRoute
   '/api/protokolle/$id/storno-pdf': typeof ApiProtokolleIdStornoPdfRoute
@@ -122,7 +136,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/api/export': typeof ApiExportRoute
+  '/api/export': typeof ApiExportRouteWithChildren
   '/api/health': typeof ApiHealthRoute
   '/invite/$token': typeof InviteTokenRoute
   '/protokolle/$id': typeof ProtokolleIdRoute
@@ -131,6 +145,8 @@ export interface FileRoutesByTo {
   '/protokolle/neu': typeof ProtokolleNeuRoute
   '/protokolle': typeof ProtokolleIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/export/json': typeof ApiExportJsonRoute
+  '/api/export/ust': typeof ApiExportUstRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
   '/api/protokolle/$id/pdf': typeof ApiProtokolleIdPdfRoute
   '/api/protokolle/$id/storno-pdf': typeof ApiProtokolleIdStornoPdfRoute
@@ -140,7 +156,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/protokolle': typeof ProtokolleRouteRouteWithChildren
   '/login': typeof LoginRoute
-  '/api/export': typeof ApiExportRoute
+  '/api/export': typeof ApiExportRouteWithChildren
   '/api/health': typeof ApiHealthRoute
   '/invite/$token': typeof InviteTokenRoute
   '/protokolle/$id': typeof ProtokolleIdRoute
@@ -149,6 +165,8 @@ export interface FileRoutesById {
   '/protokolle/neu': typeof ProtokolleNeuRoute
   '/protokolle/': typeof ProtokolleIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/export/json': typeof ApiExportJsonRoute
+  '/api/export/ust': typeof ApiExportUstRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
   '/api/protokolle/$id/pdf': typeof ApiProtokolleIdPdfRoute
   '/api/protokolle/$id/storno-pdf': typeof ApiProtokolleIdStornoPdfRoute
@@ -168,6 +186,8 @@ export interface FileRouteTypes {
     | '/protokolle/neu'
     | '/protokolle/'
     | '/api/auth/$'
+    | '/api/export/json'
+    | '/api/export/ust'
     | '/api/rpc/$'
     | '/api/protokolle/$id/pdf'
     | '/api/protokolle/$id/storno-pdf'
@@ -184,6 +204,8 @@ export interface FileRouteTypes {
     | '/protokolle/neu'
     | '/protokolle'
     | '/api/auth/$'
+    | '/api/export/json'
+    | '/api/export/ust'
     | '/api/rpc/$'
     | '/api/protokolle/$id/pdf'
     | '/api/protokolle/$id/storno-pdf'
@@ -201,6 +223,8 @@ export interface FileRouteTypes {
     | '/protokolle/neu'
     | '/protokolle/'
     | '/api/auth/$'
+    | '/api/export/json'
+    | '/api/export/ust'
     | '/api/rpc/$'
     | '/api/protokolle/$id/pdf'
     | '/api/protokolle/$id/storno-pdf'
@@ -210,7 +234,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ProtokolleRouteRoute: typeof ProtokolleRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
-  ApiExportRoute: typeof ApiExportRoute
+  ApiExportRoute: typeof ApiExportRouteWithChildren
   ApiHealthRoute: typeof ApiHealthRoute
   InviteTokenRoute: typeof InviteTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -305,6 +329,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRpcSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/export/ust': {
+      id: '/api/export/ust'
+      path: '/ust'
+      fullPath: '/api/export/ust'
+      preLoaderRoute: typeof ApiExportUstRouteImport
+      parentRoute: typeof ApiExportRoute
+    }
+    '/api/export/json': {
+      id: '/api/export/json'
+      path: '/json'
+      fullPath: '/api/export/json'
+      preLoaderRoute: typeof ApiExportJsonRouteImport
+      parentRoute: typeof ApiExportRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -349,11 +387,25 @@ const ProtokolleRouteRouteWithChildren = ProtokolleRouteRoute._addFileChildren(
   ProtokolleRouteRouteChildren,
 )
 
+interface ApiExportRouteChildren {
+  ApiExportJsonRoute: typeof ApiExportJsonRoute
+  ApiExportUstRoute: typeof ApiExportUstRoute
+}
+
+const ApiExportRouteChildren: ApiExportRouteChildren = {
+  ApiExportJsonRoute: ApiExportJsonRoute,
+  ApiExportUstRoute: ApiExportUstRoute,
+}
+
+const ApiExportRouteWithChildren = ApiExportRoute._addFileChildren(
+  ApiExportRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ProtokolleRouteRoute: ProtokolleRouteRouteWithChildren,
   LoginRoute: LoginRoute,
-  ApiExportRoute: ApiExportRoute,
+  ApiExportRoute: ApiExportRouteWithChildren,
   ApiHealthRoute: ApiHealthRoute,
   InviteTokenRoute: InviteTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

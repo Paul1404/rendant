@@ -3,6 +3,18 @@
 All notable changes to this project. Newest first. The version here matches
 `package.json` and the version chip in the app.
 
+## 1.2.0 — 2026-06-20
+
+- Export moved off the dashboard into a dedicated "Export & Auswertungen" page
+  with three downloads over a shared date range: Protokolle (CSV), USt-Auswertung
+  (CSV) und Backup (JSON).
+- All dates and timestamps are now pinned to Europe/Berlin (server runs in UTC),
+  so erstellt/storniert times and the belegnummer year are always correct.
+- Structured server logging with levels and redaction; errors are logged once via
+  an oRPC middleware instead of scattered console calls.
+- Revenue chart now fills the full width of its card.
+- Removed unused environment variables (JWT_SECRET, APP_URL).
+
 ## 1.1.1 — 2026-06-20
 
 - Fixed a crash when copying an invite link over HTTP (clipboard unavailable);

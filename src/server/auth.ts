@@ -14,14 +14,12 @@ function trustedOrigins(): string[] {
 	const origins = new Set<string>(["http://localhost:3000"]);
 	const base = process.env.BETTER_AUTH_URL?.trim();
 	if (base) origins.add(base.replace(/\/$/, ""));
-	const appUrl = process.env.APP_URL?.trim();
-	if (appUrl) origins.add(appUrl.replace(/\/$/, ""));
 	return Array.from(origins);
 }
 
 export const auth = betterAuth({
 	appName: "SVUFO",
-	baseURL: process.env.BETTER_AUTH_URL || process.env.APP_URL || undefined,
+	baseURL: process.env.BETTER_AUTH_URL || undefined,
 	secret: process.env.BETTER_AUTH_SECRET,
 	trustedOrigins: trustedOrigins(),
 	database: drizzleAdapter(db, {

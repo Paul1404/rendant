@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Download, Plus, Receipt, SearchX } from "lucide-react";
+import { Plus, Receipt, SearchX } from "lucide-react";
 import { FinanceOverview } from "@/components/dashboard-stats";
 import { DashboardToolbar } from "@/components/dashboard-toolbar";
 import { PageHeader } from "@/components/page-header";
@@ -79,22 +79,14 @@ function ProtokolleListPage() {
 			<PageHeader
 				eyebrow="Buchhaltung"
 				title="Kassenzählprotokolle"
-				description="Übersicht der erfassten Belege. Neue Protokolle anlegen oder CSV für den Steuerberater exportieren."
+				description="Übersicht der erfassten Belege. Neue Protokolle anlegen und Auswertungen exportieren."
 				actions={
-					<>
-						<Link to="/protokolle/export">
-							<Button variant="outline" size="sm">
-								<Download className="mr-2 h-4 w-4" />
-								Export
-							</Button>
-						</Link>
-						<Link to="/protokolle/neu">
-							<Button size="sm">
-								<Plus className="mr-2 h-4 w-4" />
-								Neues Protokoll
-							</Button>
-						</Link>
-					</>
+					<Link to="/protokolle/neu">
+						<Button size="sm">
+							<Plus className="mr-2 h-4 w-4" />
+							Neues Protokoll
+						</Button>
+					</Link>
 				}
 			/>
 

@@ -3,7 +3,7 @@ import { ExportForm } from "@/components/export-form";
 import { PageHeader } from "@/components/page-header";
 
 export const Route = createFileRoute("/protokolle/export")({
-	head: () => ({ meta: [{ title: "Export · SVUFO" }] }),
+	head: () => ({ meta: [{ title: "Export & Auswertungen · SVUFO" }] }),
 	component: ExportPage,
 });
 
@@ -12,10 +12,10 @@ function ExportPage() {
 		<div className="space-y-8">
 			<PageHeader
 				eyebrow="Buchhaltung"
-				title="CSV-Export"
-				description="Export aller Protokolle eines Zeitraums für Steuerberater oder DATEV. Trenner ist Semikolon, Beträge mit Dezimalkomma."
+				title="Export & Auswertungen"
+				description="Belege, USt-Auswertung und Backup eines Zeitraums herunterladen. Ein Zeitraum gilt für alle Exporte."
 			/>
-			<div className="mx-auto max-w-2xl">
+			<div className="mx-auto max-w-4xl">
 				<ExportForm />
 			</div>
 		</div>
