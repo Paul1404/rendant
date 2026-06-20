@@ -567,7 +567,7 @@ export function ProtokollForm({
 			}
 			const bp = ausgabeUstBp(a);
 			if (bp == null) {
-				toast.error("USt.-Satz ist ungültig (0–100 %)");
+				toast.error("USt.-Satz ist ungültig (0 bis 100 %)");
 				return;
 			}
 			ausgabenPayload.push({
@@ -598,7 +598,7 @@ export function ProtokollForm({
 				}
 				const bp = umsatzUstBp(s);
 				if (bp == null) {
-					toast.error("USt.-Satz im Umsatz ist ungültig (0–100 %)");
+					toast.error("USt.-Satz im Umsatz ist ungültig (0 bis 100 %)");
 					return;
 				}
 				umsatzPayload.push({ ust_basis_punkte: bp, betrag_cent: cent });

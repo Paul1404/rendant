@@ -107,7 +107,7 @@ function NewProtokollPage() {
 						<Wallet className="h-5 w-5 shrink-0 text-muted-foreground" />
 						<div className="space-y-1">
 							<p className="text-sm font-medium text-foreground">
-								Tipp: Kassen anlegen
+								Noch keine Kasse hinterlegt
 							</p>
 							<p className="text-sm text-muted-foreground">
 								Lege deine Kassen einmalig an, um Kassennummer, Bezeichnung und

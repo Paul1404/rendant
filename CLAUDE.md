@@ -87,6 +87,33 @@ Do not use these under any circumstances:
 
 ## Project Structure
 
+The actual layout of this project (keep it this way):
+
+```
+src/
+  router.tsx              # getRouter() + QueryClient + ssr-query integration
+  routeTree.gen.ts        # generated, never edit
+  styles.css              # Tailwind v4 theme + global polish
+  globals.d.ts            # declares build-time globals (__APP_VERSION__)
+  routes/
+    __root.tsx            # html shell, HeadContent/Scripts, ThemeProvider, branding loader
+    login.tsx, invite.$token.tsx
+    protokolle/           # auth-guarded layout (route.tsx) + pages
+    api/                  # server routes: rpc/$, auth/$, health, export, protokolle/$id/pdf
+  components/             # feature components + ui/ (shadcn, radix-ui)
+  lib/                    # pure logic, schemas (valibot), orpc client, auth client, version
+  server/
+    auth.ts               # better-auth instance
+    db/                   # schema.ts, auth-schema.ts (generated), index.ts (drizzle), migrate.ts
+    orpc/                 # base.ts (procedures), context.ts, router.ts
+    services/             # protokoll, pdf, s3, settings, belegnummer, cash-registers, csv, invitations
+drizzle/                  # generated SQL migrations (committed)
+```
+
+Server-only code lives under `src/server/` and is reached only through oRPC
+procedures and server routes. Never import `src/server/**` (db, auth, services)
+from a component.
+
 ---
 
 ## Config Files
@@ -216,9 +243,10 @@ Always use Drizzle Kit — never modify the database directly or push schema to 
 | `app.config.ts` present in project | Delete it — Vinxi-era, replaced by `vite.config.ts` |
 | Drizzle imported in a component | Move all DB logic to `src/server/` and call via oRPC |
 | better-auth cookies not being set | Add `tanstackStartCookies()` as last plugin in auth config |
-| oRPC missing request headers on SSR | Use `createIsomorphicFn` + pass `getHeaders()` server-side |
-| Drizzle adapter table name mismatch | Set `usePlural: true` in drizzle adapter if tables use plural names. When `usePlural: true` is set, the explicit schema mapping keys passed to the adapter must also be plural (e.g. `users`, `sessions`, `accounts`) -- not singular. better-auth transforms the canonical model name to plural before lookup, so singular keys will fail with "model not found in schema object". |
-| Build output path wrong | TanStack Start with Vite (`vite.config.ts`) outputs to `dist/client/` and `dist/server/` -- NOT `.output/`. The `.output/` path is the old Nitro-era convention and is wrong for the current Vite-based setup. Dockerfile must copy `dist/` and `public/`, not `.output/`. |
+| oRPC request helpers on SSR | Helpers are `getRequest()` / `getRequestHeaders()` from `@tanstack/react-start/server` (there is NO `getHeaders` or `getWebRequest` export). The isomorphic oRPC client must self-call the **container loopback** `http://127.0.0.1:${PORT}/api/rpc` during SSR, NOT the public origin -- routing SSR loader calls through the Railway edge proxy returns 500. Forward the `cookie` header so the session resolves. |
+| `createServerFileRoute` / `.methods()` not found | Current server-route API is `createFileRoute('/api/x/$')({ server: { handlers: { GET, POST } } })` imported from `@tanstack/react-router`. No `createServerFileRoute`, no `.methods()`, no `createAPIFileRoute`. Handler signature is `async ({ request, params }) => Response`. Splat param is `params._splat`. |
+| better-auth schema generation | Run `bunx @better-auth/cli generate --config src/server/auth.ts --output src/server/db/auth-schema.ts`. It emits singular table names (`user`, `session`, `account`, `verification`), which match the drizzle adapter default -- do NOT set `usePlural` for the auth tables, or lookups fail with "model not found in schema object". Point drizzle.config `schema` at BOTH the business schema and the generated auth schema. |
+| Build output path | Default Vite/Start build (Nitro) outputs to `.output/`; run `node .output/server/index.mjs` (or `bun .output/server/index.mjs`). Client assets live at `.output/public/` and are served by the Nitro server. `dist/client` + `dist/server` only applies to the Rsbuild bundler or the Cloudflare/Netlify Vite plugins. Dockerfile copies `.output/` (plus `node_modules` + `src` + `drizzle` for the preDeploy migrator). |
 | Bun auto-install in container fails | Never copy only `dist/` + `package.json` into runtime stage -- always include a `prod-deps` stage that runs `bun install --production` and copy its `node_modules` into the runtime image. Bun auto-install does not resolve peer dependencies like `kysely` or `better-call` correctly. |
 | Railway deploy stuck | No healthcheck configured — add `/api/health` endpoint and set it in service settings |
 | Railway port mismatch | App not listening on `process.env.PORT` — Railway injects PORT, always use it |
@@ -277,6 +305,30 @@ Examples:
 - `chore(deps): update drizzle-orm to latest`
 
 Keep the description lowercase, imperative, no period at the end.
+
+---
+
+## Versioning & Releases
+
+The app version lives in **one place**: the `version` field in `package.json`
+(semver). It is injected into the bundle at build time via the Vite `define`
+for `__APP_VERSION__` (see `vite.config.ts`), surfaced through
+`src/lib/version.ts` (`APP_VERSION`), and rendered by `src/components/version-chip.tsx`
+in the footer and on the login page.
+
+**Every agent that ships a user-visible or behavioural change MUST bump the
+version** as part of the same change:
+
+- `patch` (`1.0.0` -> `1.0.1`): bug fixes, copy tweaks, small UI polish.
+- `minor` (`1.0.0` -> `1.1.0`): new features or routes, new settings, schema
+  additions.
+- `major` (`1.0.0` -> `2.0.0`): breaking changes (auth model, data shape,
+  removed features).
+
+On each bump, also add a dated entry to `CHANGELOG.md` (newest first) describing
+what changed. The version chip updates automatically once `package.json` is
+bumped and the app is rebuilt -- no other wiring needed. Do not hardcode the
+version anywhere else.
 
 ---
 

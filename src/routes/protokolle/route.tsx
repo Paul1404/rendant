@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { Header } from "@/components/header";
+import { VersionChip } from "@/components/version-chip";
 import { fetchSession } from "@/lib/server-fns";
 import { useBranding } from "@/routes/__root";
 
@@ -27,9 +28,7 @@ function ProtokolleLayout() {
 					<span>
 						&copy; {new Date().getFullYear()} {branding.vereinsname}
 					</span>
-					<span className="font-mono uppercase tracking-[0.14em]">
-						SVUFO &middot; Interne Anwendung
-					</span>
+					<VersionChip />
 				</div>
 			</footer>
 		</>

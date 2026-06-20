@@ -54,7 +54,7 @@ function EinstellungenPage() {
 			<PageHeader
 				eyebrow="Buchhaltung"
 				title="Einstellungen"
-				description="Vorlagen und Standardwerte für die Kassenzählprotokolle – Kassen, Belegnummer-Format und USt.-Aufteilung."
+				description="Vorlagen und Standardwerte für die Kassenzählprotokolle: Kassen, Belegnummer-Format und USt.-Aufteilung."
 			/>
 
 			<section className="space-y-4">
@@ -70,7 +70,7 @@ function EinstellungenPage() {
 			<section className="space-y-4">
 				<SectionHeading
 					title="Belegnummer-Format"
-					description="Aussehen der Belegnummer für neue Protokolle. Wir empfehlen, das Format während eines Geschäftsjahres nicht mehr zu ändern – das Finanzamt verlangt eine Begründung für Formatwechsel mitten im Jahr."
+					description="Aussehen der Belegnummer für neue Protokolle. Wir empfehlen, das Format während eines Geschäftsjahres nicht mehr zu ändern. Das Finanzamt verlangt sonst eine Begründung für einen Formatwechsel mitten im Jahr."
 				/>
 				<div className="mx-auto max-w-3xl">
 					<BelegnummerSettingsForm initial={settings} serverPreview={preview} />

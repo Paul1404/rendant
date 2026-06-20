@@ -101,7 +101,7 @@ function KpiCard({
 	mono?: boolean;
 }) {
 	return (
-		<div className="group relative overflow-hidden rounded-2xl border border-border bg-card/70 p-4 shadow-sm ring-1 ring-foreground/5 transition-colors hover:border-border/100 hover:bg-card">
+		<div className="group relative overflow-hidden lift rounded-2xl border border-border bg-card/70 p-4 shadow-sm ring-1 ring-foreground/5 hover:border-border/100 hover:bg-card hover:shadow-md">
 			<div className="flex items-center justify-between gap-2">
 				<p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
 					{label}

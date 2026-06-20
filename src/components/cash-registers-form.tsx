@@ -154,7 +154,7 @@ export function CashRegistersForm({ initial }: { initial: CashRegister[] }) {
 	function remove(r: CashRegister) {
 		if (
 			!window.confirm(
-				`Kasse ${r.kassennummer} – ${r.kassenbezeichnung} wirklich löschen?\n\nBereits erstellte Protokolle bleiben unverändert.`,
+				`Kasse ${r.kassennummer} (${r.kassenbezeichnung}) wirklich löschen?\n\nBereits erstellte Protokolle bleiben unverändert.`,
 			)
 		) {
 			return;
