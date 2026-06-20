@@ -13,6 +13,7 @@ import {
 	TriangleAlert,
 } from "lucide-react";
 import { RegeneratePdfButton } from "@/components/regenerate-pdf-button";
+import { DetailSkeleton } from "@/components/skeletons";
 import { StornoDialog } from "@/components/storno-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ export const Route = createFileRoute("/protokolle/$id")({
 		}
 	},
 	notFoundComponent: NotFound,
+	pendingComponent: DetailSkeleton,
 	head: ({ loaderData }) => ({
 		meta: [
 			{

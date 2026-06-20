@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { BelegnummerSettingsForm } from "@/components/belegnummer-settings-form";
 import { CashRegistersForm } from "@/components/cash-registers-form";
 import { PageHeader } from "@/components/page-header";
+import { SettingsSkeleton } from "@/components/skeletons";
 import { UmsatzUstBasisForm } from "@/components/umsatz-ust-basis-form";
 import { UserManagement } from "@/components/user-management";
 import { orpcClient } from "@/lib/orpc";
@@ -26,6 +27,7 @@ export const Route = createFileRoute("/protokolle/einstellungen")({
 		};
 	},
 	head: () => ({ meta: [{ title: "Einstellungen · SVUFO" }] }),
+	pendingComponent: SettingsSkeleton,
 	component: EinstellungenPage,
 });
 

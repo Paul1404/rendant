@@ -3,6 +3,11 @@ import { Loader2, RefreshCw } from "lucide-react";
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { orpcClient } from "@/lib/orpc";
 import { orpcMessage } from "@/lib/orpc-error";
 
@@ -23,19 +28,23 @@ export function RegeneratePdfButton({ protokollId }: { protokollId: string }) {
 	}
 
 	return (
-		<Button
-			variant="outline"
-			size="icon"
-			onClick={regenerate}
-			disabled={pending}
-			title="PDF neu erzeugen"
-			aria-label="PDF neu erzeugen"
-		>
-			{pending ? (
-				<Loader2 className="h-4 w-4 animate-spin" />
-			) : (
-				<RefreshCw className="h-4 w-4" />
-			)}
-		</Button>
+		<Tooltip>
+			<TooltipTrigger asChild>
+				<Button
+					variant="outline"
+					size="icon"
+					onClick={regenerate}
+					disabled={pending}
+					aria-label="PDF neu erzeugen"
+				>
+					{pending ? (
+						<Loader2 className="h-4 w-4 animate-spin" />
+					) : (
+						<RefreshCw className="h-4 w-4" />
+					)}
+				</Button>
+			</TooltipTrigger>
+			<TooltipContent>PDF neu erzeugen</TooltipContent>
+		</Tooltip>
 	);
 }

@@ -18,7 +18,7 @@ export function PageHeader({
 	return (
 		<div
 			className={cn(
-				"relative overflow-hidden rounded-2xl border border-border/70 bg-card/70 px-5 py-6 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_18px_-8px_rgba(0,0,0,0.06)] ring-1 ring-foreground/[0.03] sm:px-7 sm:py-7",
+				"reveal relative overflow-hidden rounded-2xl border border-border/70 bg-card/70 px-5 py-6 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_18px_-8px_rgba(0,0,0,0.06)] ring-1 ring-foreground/[0.03] sm:px-7 sm:py-7",
 				className,
 			)}
 		>

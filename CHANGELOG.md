@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.4.0 — 2026-06-20
+
+- Umschalter für das Erscheinungsbild (System, Hell, Dunkel) im Kopfbereich.
+- Befehlspalette mit Strg+K bzw. Cmd+K: schnell zu Seiten springen und
+  Protokolle nach Belegnummer oder Anlass suchen.
+- Feinschliff in der Bedienung: dezente Einblend-Animationen (mit Rücksicht auf
+  reduzierte Bewegung), Tooltips, eine "Zum Inhalt springen"-Verknüpfung und
+  Lade-Platzhalter beim Seitenwechsel.
+
 ## 1.3.0 — 2026-06-20
 
 - Umsatzdiagramm umschaltbar zwischen Tag, Woche und Monat (Standard: Tag), für
