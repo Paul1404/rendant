@@ -48,6 +48,15 @@ export const Route = createFileRoute("/protokolle/$id")({
 		}
 	},
 	notFoundComponent: NotFound,
+	head: ({ loaderData }) => ({
+		meta: [
+			{
+				title: loaderData
+					? `Beleg ${loaderData.protokoll.belegnummer} · SVUFO`
+					: "Beleg · SVUFO",
+			},
+		],
+	}),
 	component: ProtokollDetailPage,
 });
 

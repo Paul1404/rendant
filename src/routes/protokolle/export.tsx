@@ -3,6 +3,7 @@ import { ExportForm } from "@/components/export-form";
 import { PageHeader } from "@/components/page-header";
 
 export const Route = createFileRoute("/protokolle/export")({
+	head: () => ({ meta: [{ title: "Export · SVUFO" }] }),
 	component: ExportPage,
 });
 

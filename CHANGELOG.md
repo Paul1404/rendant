@@ -3,6 +3,15 @@
 All notable changes to this project. Newest first. The version here matches
 `package.json` and the version chip in the app.
 
+## 1.1.0 — 2026-06-20
+
+- Finance dashboard: period KPIs (Umsatz, Ausgaben, Netto-Ergebnis, Ø je Beleg),
+  a 12-month revenue trend chart, an Umsatzsteuer breakdown (USt. auf Umsatz,
+  Vorsteuer, Zahllast), a Bar-gegen-Karte split and Top-Anlässe ranking. The
+  period selector now drives the whole overview.
+- Version chip opens a "Was ist neu" window with the in-app release notes.
+- Per-page browser titles, a 404 page and a global error boundary.
+
 ## 1.0.1 — 2026-06-20
 
 - Fixed `"/api/rpc" cannot be parsed as a URL` on client-side navigation

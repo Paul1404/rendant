@@ -12,6 +12,7 @@ export const Route = createFileRoute("/login")({
 		const user = await fetchSession();
 		if (user) throw redirect({ to: "/protokolle" });
 	},
+	head: () => ({ meta: [{ title: "Anmelden · SVUFO" }] }),
 	component: LoginPage,
 });
 

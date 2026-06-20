@@ -1,88 +1,240 @@
+import { useQuery } from "@tanstack/react-query";
 import {
 	ArrowDownRight,
 	ArrowUpRight,
-	CalendarClock,
 	CreditCard,
 	Minus,
+	Percent,
+	ReceiptText,
+	Scale,
 	Sparkles,
 	TrendingUp,
-	Wallet,
 } from "lucide-react";
-import type { DashboardStats, MonthlyBucket } from "@/lib/dashboard-stats";
+import { BarList } from "@/components/charts/bar-list";
+import { RevenueAreaChart } from "@/components/charts/revenue-area-chart";
+import { SplitBar } from "@/components/charts/split-bar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { FinanceContext, PeriodStats } from "@/lib/finance";
 import { formatCent } from "@/lib/money";
+import { orpc } from "@/lib/orpc";
+import { formatUstSatz } from "@/lib/ust";
 import { cn } from "@/lib/utils";
 
 type Props = {
-	stats: DashboardStats;
+	period: PeriodStats;
+	context: FinanceContext;
+	rangeLabel: string;
+	vatRange: { von: string; bis: string };
 };
 
-export function DashboardStatsRow({ stats }: Props) {
-	const daysHint = (() => {
-		if (stats.daysSinceLastEntry === null) return "Noch kein Eintrag";
-		if (stats.daysSinceLastEntry === 0) return "Heute";
-		if (stats.daysSinceLastEntry === 1) return "Gestern";
-		return `vor ${stats.daysSinceLastEntry} Tagen`;
-	})();
-
+export function FinanceOverview({
+	period,
+	context,
+	rangeLabel,
+	vatRange,
+}: Props) {
 	return (
 		<div className="space-y-4">
 			<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
 				<KpiCard
 					icon={TrendingUp}
-					label="Diesen Monat"
-					value={formatCent(stats.sumThisMonthCent)}
-					mono
+					label={`Umsatz · ${rangeLabel}`}
+					value={formatCent(period.revenueTotal)}
 					hint={
-						<DeltaHint
-							pct={stats.monthOverMonthPct}
-							countThis={stats.countThisMonth}
-							sumPrev={stats.sumLastMonthCent}
+						<MomDelta
+							pct={context.momPct}
+							thisMonth={context.thisMonthTotal}
+							lastMonth={context.lastMonthTotal}
 						/>
 					}
 				/>
 				<KpiCard
-					icon={CalendarClock}
-					label="Letzte 30 Tage"
-					value={formatCent(stats.sumLast30Cent)}
-					mono
-					hint={
-						stats.countLast30 > 0
-							? `${stats.countLast30} ${stats.countLast30 === 1 ? "Beleg" : "Belege"}`
-							: "keine Belege"
-					}
+					icon={ReceiptText}
+					label="Ausgaben"
+					value={formatCent(period.expenses)}
+					hint={`${period.count} ${period.count === 1 ? "Beleg" : "Belege"}`}
 				/>
 				<KpiCard
-					icon={Wallet}
-					label="Jahr (YTD)"
-					value={formatCent(stats.sumYtdCent)}
-					mono
-					hint={
-						stats.activeCount > 0
-							? `${stats.activeCount} aktive Belege gesamt`
-							: "keine aktiven Belege"
-					}
+					icon={Scale}
+					label="Netto-Ergebnis"
+					value={formatCent(period.net)}
+					tone={period.net < 0 ? "negative" : "default"}
+					hint="Umsatz abzüglich Ausgaben"
 				/>
 				<KpiCard
 					icon={Sparkles}
 					label="Ø je Beleg"
 					value={
-						stats.averagePerProtokollCent > 0
-							? formatCent(stats.averagePerProtokollCent)
+						period.avgPerProtokoll > 0
+							? formatCent(period.avgPerProtokoll)
 							: "—"
 					}
-					mono
-					hint={daysHint}
+					hint={recencyHint(context.lastEntryDays)}
 				/>
 			</div>
 
-			{stats.monthly.some((m) => m.sumCent > 0) ? (
-				<TrendCard
-					monthly={stats.monthly}
-					cardShareBp={stats.cardShareBp}
-					topAnlass={stats.topAnlass}
-					stornoCount={stats.stornoCount}
-				/>
+			{context.monthly.some((m) => m.total > 0) ? (
+				<Card>
+					<CardHeader className="pb-2">
+						<div className="flex flex-wrap items-start justify-between gap-3">
+							<div>
+								<CardTitle className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+									Umsatzverlauf · 12 Monate
+								</CardTitle>
+								<p className="mt-0.5 text-sm text-muted-foreground">
+									Tageseinnahmen inkl. Kartenzahlung je Monat
+								</p>
+							</div>
+							<div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+								{period.cardSharePct !== null ? (
+									<Meta
+										icon={CreditCard}
+										label="Kartenanteil"
+										value={`${period.cardSharePct.toLocaleString("de-DE", { maximumFractionDigits: 1 })} %`}
+									/>
+								) : null}
+								{period.topAnlass[0] ? (
+									<span className="inline-flex items-center gap-1.5">
+										Häufigster Anlass:
+										<span className="max-w-[12rem] truncate font-medium text-foreground">
+											{period.topAnlass[0].anlass}
+										</span>
+									</span>
+								) : null}
+							</div>
+						</div>
+					</CardHeader>
+					<CardContent>
+						<RevenueAreaChart points={context.monthly} />
+					</CardContent>
+				</Card>
 			) : null}
+
+			<div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+				<VatCard vatRange={vatRange} />
+				<Card>
+					<CardHeader className="pb-2">
+						<CardTitle className="flex items-center gap-2 text-sm">
+							<CreditCard className="h-4 w-4 text-primary" />
+							Zahlungsart &amp; Anlässe
+						</CardTitle>
+					</CardHeader>
+					<CardContent className="space-y-5">
+						<div>
+							<p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+								Bar gegen Karte
+							</p>
+							<SplitBar
+								segments={[
+									{
+										label: "Bar",
+										value: period.revenueCashNet,
+										tone: "primary",
+									},
+									{ label: "Karte", value: period.revenueCard, tone: "card" },
+								]}
+							/>
+						</div>
+						<div>
+							<p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+								Top Anlässe
+							</p>
+							<BarList
+								items={period.topAnlass.map((a) => ({
+									label: a.anlass,
+									value: a.sum,
+									sub: `${a.count} ${a.count === 1 ? "Beleg" : "Belege"}`,
+								}))}
+							/>
+						</div>
+					</CardContent>
+				</Card>
+			</div>
+		</div>
+	);
+}
+
+function VatCard({ vatRange }: { vatRange: { von: string; bis: string } }) {
+	const vat = useQuery(orpc.reports.vat.queryOptions({ input: vatRange }));
+
+	const revenue = vat.data?.revenue ?? [];
+	const expenses = vat.data?.expenses ?? [];
+	const ustTotal = revenue.reduce((s, g) => s + g.ust_cent, 0);
+	const vorsteuerTotal = expenses.reduce((s, g) => s + g.ust_cent, 0);
+	const zahllast = ustTotal - vorsteuerTotal;
+	const hasData = revenue.length > 0 || expenses.length > 0;
+
+	return (
+		<Card>
+			<CardHeader className="pb-2">
+				<CardTitle className="flex items-center gap-2 text-sm">
+					<Percent className="h-4 w-4 text-primary" />
+					Umsatzsteuer
+				</CardTitle>
+			</CardHeader>
+			<CardContent className="space-y-4">
+				{vat.isPending ? (
+					<div className="space-y-2" aria-hidden>
+						<div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+						<div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
+						<div className="h-4 w-3/5 animate-pulse rounded bg-muted" />
+					</div>
+				) : hasData ? (
+					<>
+						{revenue.length > 0 ? (
+							<div>
+								<p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+									USt. auf Umsatz
+								</p>
+								<BarList
+									items={revenue.map((g) => ({
+										label: formatUstSatz(g.bp),
+										value: g.ust_cent,
+										sub: `Netto ${formatCent(g.netto_cent)} · Brutto ${formatCent(g.brutto_cent)}`,
+									}))}
+								/>
+							</div>
+						) : null}
+						<div className="space-y-1.5 rounded-xl bg-muted/40 p-3 text-sm">
+							<SummaryRow label="Umsatzsteuer" value={ustTotal} />
+							<SummaryRow label="Vorsteuer (Ausgaben)" value={vorsteuerTotal} />
+							<div className="border-border/60 border-t pt-1.5">
+								<SummaryRow label="Zahllast" value={zahllast} bold />
+							</div>
+						</div>
+					</>
+				) : (
+					<p className="py-4 text-center text-sm text-muted-foreground">
+						Keine USt.-Angaben in diesem Zeitraum.
+					</p>
+				)}
+			</CardContent>
+		</Card>
+	);
+}
+
+function SummaryRow({
+	label,
+	value,
+	bold,
+}: {
+	label: string;
+	value: number;
+	bold?: boolean;
+}) {
+	return (
+		<div className="flex items-center justify-between">
+			<span className={cn(bold ? "font-medium" : "text-muted-foreground")}>
+				{label}
+			</span>
+			<span
+				className={cn(
+					"font-mono tabular-nums",
+					bold ? "font-semibold text-foreground" : "text-foreground",
+				)}
+			>
+				{formatCent(value)}
+			</span>
 		</div>
 	);
 }
@@ -92,28 +244,28 @@ function KpiCard({
 	label,
 	value,
 	hint,
-	mono,
+	tone = "default",
 }: {
 	icon: React.ComponentType<{ className?: string }>;
 	label: string;
 	value: string;
 	hint?: React.ReactNode;
-	mono?: boolean;
+	tone?: "default" | "negative";
 }) {
 	return (
-		<div className="group relative overflow-hidden lift rounded-2xl border border-border bg-card/70 p-4 shadow-sm ring-1 ring-foreground/5 hover:border-border/100 hover:bg-card hover:shadow-md">
+		<div className="lift group relative overflow-hidden rounded-2xl border border-border bg-card/70 p-4 shadow-sm ring-1 ring-foreground/5 hover:border-border/100 hover:bg-card hover:shadow-md">
 			<div className="flex items-center justify-between gap-2">
-				<p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+				<p className="truncate text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
 					{label}
 				</p>
-				<span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-primary/8 text-primary/80">
+				<span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/8 text-primary/80">
 					<Icon className="h-3.5 w-3.5" />
 				</span>
 			</div>
 			<p
 				className={cn(
-					"mt-2 text-xl font-semibold tracking-tight text-foreground sm:text-[1.35rem]",
-					mono && "font-mono tabular-nums",
+					"mt-2 font-mono text-xl font-semibold tabular-nums tracking-tight sm:text-[1.35rem]",
+					tone === "negative" ? "text-destructive" : "text-foreground",
 				)}
 			>
 				{value}
@@ -125,24 +277,42 @@ function KpiCard({
 	);
 }
 
-function DeltaHint({
+function Meta({
+	icon: Icon,
+	label,
+	value,
+}: {
+	icon: React.ComponentType<{ className?: string }>;
+	label: string;
+	value: string;
+}) {
+	return (
+		<span className="inline-flex items-center gap-1.5">
+			<Icon className="h-3.5 w-3.5" />
+			{label}
+			<span className="font-medium text-foreground tabular-nums">{value}</span>
+		</span>
+	);
+}
+
+function MomDelta({
 	pct,
-	countThis,
-	sumPrev,
+	thisMonth,
+	lastMonth,
 }: {
 	pct: number | null;
-	countThis: number;
-	sumPrev: number;
+	thisMonth: number;
+	lastMonth: number;
 }) {
 	if (pct === null) {
-		if (sumPrev === 0 && countThis === 0) return <span>kein Vormonat</span>;
-		return <span>Vormonat ohne Einnahmen</span>;
+		if (lastMonth === 0 && thisMonth === 0) return <span>kein Vormonat</span>;
+		return <span>Vormonat ohne Umsatz</span>;
 	}
 	if (pct === 0) {
 		return (
 			<span className="inline-flex items-center gap-1">
 				<Minus className="h-3 w-3" />
-				unverändert zum Vormonat
+				unverändert ggü. Vormonat
 			</span>
 		);
 	}
@@ -160,130 +330,15 @@ function DeltaHint({
 				<ArrowDownRight className="h-3 w-3" />
 			)}
 			{up ? "+" : ""}
-			{pct.toLocaleString("de-DE", { maximumFractionDigits: 1 })}% zum Vormonat
+			{pct.toLocaleString("de-DE", { maximumFractionDigits: 1 })} % ggü.
+			Vormonat
 		</span>
 	);
 }
 
-function TrendCard({
-	monthly,
-	cardShareBp,
-	topAnlass,
-	stornoCount,
-}: {
-	monthly: MonthlyBucket[];
-	cardShareBp: number | null;
-	topAnlass: { anlass: string; count: number } | null;
-	stornoCount: number;
-}) {
-	return (
-		<div className="rounded-2xl border border-border bg-card/70 p-4 shadow-sm ring-1 ring-foreground/5 sm:p-5">
-			<div className="flex flex-wrap items-start justify-between gap-3">
-				<div>
-					<p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-						Verlauf · letzte 12 Monate
-					</p>
-					<p className="mt-0.5 text-sm text-muted-foreground">
-						Tageseinnahmen je Monat (nur aktive Belege)
-					</p>
-				</div>
-				<div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-					{cardShareBp !== null ? (
-						<span className="inline-flex items-center gap-1.5">
-							<CreditCard className="h-3.5 w-3.5" />
-							Kartenanteil&nbsp;
-							<span className="font-medium text-foreground tabular-nums">
-								{(cardShareBp / 100).toLocaleString("de-DE", {
-									maximumFractionDigits: 1,
-								})}
-								%
-							</span>
-						</span>
-					) : null}
-					{topAnlass ? (
-						<span className="inline-flex items-center gap-1.5">
-							Häufigster Anlass:&nbsp;
-							<span className="max-w-[12rem] truncate font-medium text-foreground">
-								{topAnlass.anlass}
-							</span>
-							<span className="tabular-nums text-muted-foreground/80">
-								({topAnlass.count}x)
-							</span>
-						</span>
-					) : null}
-					{stornoCount > 0 ? (
-						<span className="inline-flex items-center gap-1.5">
-							Stornos:&nbsp;
-							<span className="font-medium text-foreground tabular-nums">
-								{stornoCount}
-							</span>
-						</span>
-					) : null}
-				</div>
-			</div>
-
-			<MiniBarChart monthly={monthly} />
-		</div>
-	);
-}
-
-function MiniBarChart({ monthly }: { monthly: MonthlyBucket[] }) {
-	const max = Math.max(1, ...monthly.map((m) => m.sumCent));
-	return (
-		<div className="mt-4">
-			<div className="flex items-end gap-1.5 sm:gap-2" aria-hidden>
-				{monthly.map((m) => {
-					const heightPct = (m.sumCent / max) * 100;
-					const minVisible = m.sumCent > 0 ? Math.max(heightPct, 4) : 0;
-					return (
-						<div
-							key={m.key}
-							className="group/bar relative flex flex-1 flex-col items-stretch"
-						>
-							<div className="relative h-24 sm:h-28">
-								<div className="absolute inset-x-0 bottom-0 top-0 rounded-md bg-muted/40" />
-								<div
-									className={cn(
-										"absolute inset-x-0 bottom-0 rounded-md transition-colors",
-										m.isCurrentMonth
-											? "bg-primary/80 group-hover/bar:bg-primary"
-											: "bg-primary/30 group-hover/bar:bg-primary/55",
-									)}
-									style={{ height: `${minVisible}%` }}
-								/>
-								<div
-									role="tooltip"
-									className="pointer-events-none absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-[11px] font-medium text-popover-foreground opacity-0 shadow-md transition-opacity group-hover/bar:opacity-100"
-								>
-									<span className="font-mono tabular-nums">
-										{formatCent(m.sumCent)}
-									</span>
-									<span className="ml-1.5 text-muted-foreground">
-										· {m.count}
-									</span>
-								</div>
-							</div>
-							<span
-								className={cn(
-									"mt-1.5 text-center text-[10px] uppercase tracking-wider",
-									m.isCurrentMonth
-										? "font-semibold text-foreground"
-										: "text-muted-foreground/80",
-								)}
-							>
-								{m.label}
-							</span>
-						</div>
-					);
-				})}
-			</div>
-			<ul className="sr-only">
-				{monthly.map((m) => (
-					<li key={m.key}>
-						{m.longLabel}: {formatCent(m.sumCent)} ({m.count} Belege)
-					</li>
-				))}
-			</ul>
-		</div>
-	);
+function recencyHint(days: number | null): string {
+	if (days === null) return "Noch kein Eintrag";
+	if (days === 0) return "Letzter Eintrag heute";
+	if (days === 1) return "Letzter Eintrag gestern";
+	return `Letzter Eintrag vor ${days} Tagen`;
 }

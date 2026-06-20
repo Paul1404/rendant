@@ -20,6 +20,27 @@ export function formatCentPlain(cent: number): string {
 	return `${(negative ? "-" : "") + String(euro)},${String(rest).padStart(2, "0")}`;
 }
 
+function formatCompactNumber(value: number, suffix: string): string {
+	const rounded = Math.round(value * 10) / 10;
+	const text = Number.isInteger(rounded)
+		? String(rounded)
+		: String(rounded).replace(".", ",");
+	return `${text}${suffix}`;
+}
+
+export function formatCentCompact(cent: number): string {
+	const negative = cent < 0;
+	const abs = Math.abs(cent);
+	const sign = negative ? "-" : "";
+	if (abs < 100_000_00) {
+		if (abs < 100000) {
+			return `${sign}${Math.round(abs / 100)} €`;
+		}
+		return `${sign}${formatCompactNumber(abs / 100 / 1000, "k €")}`;
+	}
+	return `${sign}${formatCompactNumber(abs / 100 / 1_000_000, "M €")}`;
+}
+
 export function parseGermanAmount(input: string): number | null {
 	if (typeof input !== "string") return null;
 	const trimmed = input.trim();
