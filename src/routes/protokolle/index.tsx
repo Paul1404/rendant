@@ -96,6 +96,7 @@ function ProtokolleListPage() {
 					context={context}
 					rangeLabel={RANGE_LABELS[timeRange]}
 					vatRange={vatRange}
+					items={allActive}
 				/>
 			) : null}
 

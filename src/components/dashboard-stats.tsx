@@ -10,13 +10,21 @@ import {
 	Sparkles,
 	TrendingUp,
 } from "lucide-react";
+import { useMemo, useState } from "react";
 import { BarList } from "@/components/charts/bar-list";
 import { RevenueAreaChart } from "@/components/charts/revenue-area-chart";
 import { SplitBar } from "@/components/charts/split-bar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { FinanceContext, PeriodStats } from "@/lib/finance";
+import {
+	computeSeries,
+	type FinanceContext,
+	GRANULARITY_LABELS,
+	type Granularity,
+	type PeriodStats,
+} from "@/lib/finance";
 import { formatCent } from "@/lib/money";
 import { orpc } from "@/lib/orpc";
+import type { ProtokollRow } from "@/lib/protokoll-types";
 import { formatUstSatz } from "@/lib/ust";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +33,19 @@ type Props = {
 	context: FinanceContext;
 	rangeLabel: string;
 	vatRange: { von: string; bis: string };
+	items: ProtokollRow[];
+};
+
+const GRANULARITIES: Granularity[] = ["day", "week", "month"];
+const TREND_TITLE: Record<Granularity, string> = {
+	day: "Umsatzverlauf · letzte 30 Tage",
+	week: "Umsatzverlauf · letzte 12 Wochen",
+	month: "Umsatzverlauf · letzte 12 Monate",
+};
+const TREND_SUBTITLE: Record<Granularity, string> = {
+	day: "Tageseinnahmen inkl. Kartenzahlung je Tag",
+	week: "Tageseinnahmen inkl. Kartenzahlung je Woche",
+	month: "Tageseinnahmen inkl. Kartenzahlung je Monat",
 };
 
 export function FinanceOverview({
@@ -32,7 +53,15 @@ export function FinanceOverview({
 	context,
 	rangeLabel,
 	vatRange,
+	items,
 }: Props) {
+	const [granularity, setGranularity] = useState<Granularity>("day");
+	const series = useMemo(
+		() => computeSeries(items, granularity),
+		[items, granularity],
+	);
+	const hasTrend = series.some((p) => p.total > 0);
+
 	return (
 		<div className="space-y-4">
 			<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -77,39 +106,44 @@ export function FinanceOverview({
 				/>
 			</div>
 
-			{context.monthly.some((m) => m.total > 0) ? (
+			{hasTrend ? (
 				<Card>
 					<CardHeader className="pb-2">
 						<div className="flex flex-wrap items-start justify-between gap-3">
 							<div>
 								<CardTitle className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-									Umsatzverlauf · 12 Monate
+									{TREND_TITLE[granularity]}
 								</CardTitle>
 								<p className="mt-0.5 text-sm text-muted-foreground">
-									Tageseinnahmen inkl. Kartenzahlung je Monat
+									{TREND_SUBTITLE[granularity]}
 								</p>
 							</div>
-							<div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-								{period.cardSharePct !== null ? (
-									<Meta
-										icon={CreditCard}
-										label="Kartenanteil"
-										value={`${period.cardSharePct.toLocaleString("de-DE", { maximumFractionDigits: 1 })} %`}
-									/>
-								) : null}
-								{period.topAnlass[0] ? (
-									<span className="inline-flex items-center gap-1.5">
-										Häufigster Anlass:
-										<span className="max-w-[12rem] truncate font-medium text-foreground">
-											{period.topAnlass[0].anlass}
-										</span>
-									</span>
-								) : null}
-							</div>
+							<fieldset className="inline-flex items-center rounded-lg border border-border bg-background/60 p-0.5 shadow-sm">
+								<legend className="sr-only">Zeitliche Auflösung</legend>
+								{GRANULARITIES.map((g) => {
+									const active = granularity === g;
+									return (
+										<button
+											key={g}
+											type="button"
+											aria-pressed={active}
+											onClick={() => setGranularity(g)}
+											className={cn(
+												"rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+												active
+													? "bg-primary/10 text-primary"
+													: "text-muted-foreground hover:text-foreground",
+											)}
+										>
+											{GRANULARITY_LABELS[g]}
+										</button>
+									);
+								})}
+							</fieldset>
 						</div>
 					</CardHeader>
 					<CardContent>
-						<RevenueAreaChart points={context.monthly} />
+						<RevenueAreaChart points={series} />
 					</CardContent>
 				</Card>
 			) : null}
@@ -291,24 +325,6 @@ function renderKpiValue(value: string): React.ReactNode {
 			<span className="whitespace-nowrap">{match[1]}</span>
 			<span className="whitespace-nowrap"> EUR</span>
 		</>
-	);
-}
-
-function Meta({
-	icon: Icon,
-	label,
-	value,
-}: {
-	icon: React.ComponentType<{ className?: string }>;
-	label: string;
-	value: string;
-}) {
-	return (
-		<span className="inline-flex items-center gap-1.5">
-			<Icon className="h-3.5 w-3.5" />
-			{label}
-			<span className="font-medium text-foreground tabular-nums">{value}</span>
-		</span>
 	);
 }
 

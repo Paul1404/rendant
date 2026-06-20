@@ -2,6 +2,7 @@ import type { JSX } from "react";
 import { formatCent, formatCentCompact } from "@/lib/money";
 
 type RevenuePoint = {
+	key: string;
 	label: string;
 	longLabel: string;
 	total: number;
@@ -20,6 +21,9 @@ export function RevenueAreaChart({
 }): JSX.Element {
 	const max = Math.max(0, ...points.map((p) => p.total));
 	const safeMax = max > 0 ? max : 1;
+	// With many buckets (daily view) only mark days that actually have revenue,
+	// plus the current day, to keep the line readable.
+	const dense = points.length > 16;
 
 	// X position as a fraction (0..1) across the plot width.
 	const xFrac = (index: number) => {
@@ -125,9 +129,10 @@ export function RevenueAreaChart({
 					{points.map((p, i) => {
 						const left = xFrac(i) * 100;
 						const top = (yFor(p.total) / VIEW_HEIGHT) * 100;
+						const showDot = !dense || p.isCurrent || p.total > 0;
 						return (
 							<div
-								key={`pt-${p.label}`}
+								key={`pt-${p.key}`}
 								className="group absolute top-0 bottom-0 -translate-x-1/2"
 								style={{
 									left: `${left.toFixed(3)}%`,
@@ -135,14 +140,16 @@ export function RevenueAreaChart({
 								}}
 							>
 								{/* Dot, centered on its column. */}
-								<div
-									className={
-										p.isCurrent
-											? "absolute left-1/2 size-[10px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-primary"
-											: "absolute left-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-primary opacity-80"
-									}
-									style={{ top: `${top.toFixed(3)}%` }}
-								/>
+								{showDot ? (
+									<div
+										className={
+											p.isCurrent
+												? "absolute left-1/2 size-[10px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-primary"
+												: "absolute left-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-primary opacity-80"
+										}
+										style={{ top: `${top.toFixed(3)}%` }}
+									/>
+								) : null}
 								{/* Tooltip. */}
 								<div
 									className="pointer-events-none absolute left-1/2 z-10 w-max -translate-x-1/2 -translate-y-full rounded-md border border-border bg-popover px-2.5 py-1.5 text-center opacity-0 shadow-sm transition-opacity group-hover:opacity-100"
@@ -167,25 +174,27 @@ export function RevenueAreaChart({
 
 				{/* X-axis month labels (HTML, aligned to data points). */}
 				<div className="absolute right-2 bottom-1 left-14 h-4">
-					{points.map((p, i) => (
-						<span
-							key={`x-${p.label}`}
-							className={
-								p.isCurrent
-									? "absolute -translate-x-1/2 text-[11px] font-semibold text-foreground whitespace-nowrap"
-									: "absolute -translate-x-1/2 text-[11px] text-muted-foreground whitespace-nowrap"
-							}
-							style={{ left: `${(xFrac(i) * 100).toFixed(3)}%` }}
-						>
-							{p.label}
-						</span>
-					))}
+					{points.map((p, i) =>
+						p.label ? (
+							<span
+								key={`x-${p.key}`}
+								className={
+									p.isCurrent
+										? "absolute -translate-x-1/2 text-[11px] font-semibold text-foreground whitespace-nowrap"
+										: "absolute -translate-x-1/2 text-[11px] text-muted-foreground whitespace-nowrap"
+								}
+								style={{ left: `${(xFrac(i) * 100).toFixed(3)}%` }}
+							>
+								{p.label}
+							</span>
+						) : null,
+					)}
 				</div>
 			</div>
 
 			<ul className="sr-only">
 				{points.map((p) => (
-					<li key={`sr-${p.label}`}>
+					<li key={`sr-${p.key}`}>
 						{`${p.longLabel}: ${formatCent(p.total)} (${p.count} ${p.count === 1 ? "Beleg" : "Belege"})`}
 					</li>
 				))}
