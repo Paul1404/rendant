@@ -6,10 +6,11 @@ import { createIsomorphicFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
 import type { AppRouter } from "@/server/orpc/router";
 
-// Isomorphic oRPC client. In the browser it calls the relative /api/rpc
-// endpoint (cookies sent automatically). During SSR it calls the same handler
-// over loopback (NOT the public origin -- that would round-trip through the
-// platform proxy and fail) and forwards the session cookie from the incoming
+// Isomorphic oRPC client. RPCLink builds requests with `new URL(url)`, so the
+// url must always be ABSOLUTE (a relative "/api/rpc" throws "cannot be parsed
+// as a URL"). In the browser we use the page origin; during SSR we hit the
+// container loopback (NOT the public origin -- that would round-trip through the
+// platform proxy and fail) and forward the session cookie from the incoming
 // request. The server-only branches (and their imports) are stripped from the
 // client bundle by the TanStack Start compiler.
 
@@ -18,7 +19,7 @@ const resolveUrl = createIsomorphicFn()
 		const port = process.env.PORT ?? "3000";
 		return `http://127.0.0.1:${port}/api/rpc`;
 	})
-	.client(() => "/api/rpc");
+	.client(() => `${window.location.origin}/api/rpc`);
 
 const resolveHeaders = createIsomorphicFn()
 	.server((): Record<string, string> => {

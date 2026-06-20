@@ -3,6 +3,12 @@
 All notable changes to this project. Newest first. The version here matches
 `package.json` and the version chip in the app.
 
+## 1.0.1 — 2026-06-20
+
+- Fixed `"/api/rpc" cannot be parsed as a URL` on client-side navigation
+  (Einstellungen, new protokoll, and other oRPC calls): the browser oRPC client
+  now uses an absolute URL, since RPCLink requires one.
+
 ## 1.0.0 — 2026-06-20
 
 First release on the TanStack Start stack.
