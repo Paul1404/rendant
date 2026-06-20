@@ -67,6 +67,7 @@ export function UmsatzUstBasisForm({ initial }: { initial: UmsatzUstBasis }) {
 							<button
 								key={o.id}
 								type="button"
+								aria-pressed={active}
 								onClick={() => setValue(o.id)}
 								className={cn(
 									"flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors",

@@ -164,7 +164,7 @@ export function RevenueAreaChart({
 										textAnchor="middle"
 										className="fill-muted-foreground text-[10px]"
 									>
-										{`${p.count} Belege`}
+										{`${p.count} ${p.count === 1 ? "Beleg" : "Belege"}`}
 									</text>
 								</g>
 							</g>
@@ -192,7 +192,7 @@ export function RevenueAreaChart({
 			<ul className="sr-only">
 				{points.map((p) => (
 					<li key={p.label}>
-						{`${p.longLabel}: ${formatCent(p.total)} (${p.count} Belege)`}
+						{`${p.longLabel}: ${formatCent(p.total)} (${p.count} ${p.count === 1 ? "Beleg" : "Belege"})`}
 					</li>
 				))}
 			</ul>

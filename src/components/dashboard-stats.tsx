@@ -41,11 +41,15 @@ export function FinanceOverview({
 					label={`Umsatz · ${rangeLabel}`}
 					value={formatCent(period.revenueTotal)}
 					hint={
-						<MomDelta
-							pct={context.momPct}
-							thisMonth={context.thisMonthTotal}
-							lastMonth={context.lastMonthTotal}
-						/>
+						rangeLabel === "Dieser Monat" ? (
+							<MomDelta
+								pct={context.momPct}
+								thisMonth={context.thisMonthTotal}
+								lastMonth={context.lastMonthTotal}
+							/>
+						) : (
+							`${period.count} ${period.count === 1 ? "Beleg" : "Belege"}`
+						)
 					}
 				/>
 				<KpiCard
@@ -67,7 +71,7 @@ export function FinanceOverview({
 					value={
 						period.avgPerProtokoll > 0
 							? formatCent(period.avgPerProtokoll)
-							: "—"
+							: formatCent(0)
 					}
 					hint={recencyHint(context.lastEntryDays)}
 				/>
@@ -264,16 +268,29 @@ function KpiCard({
 			</div>
 			<p
 				className={cn(
-					"mt-2 font-mono text-xl font-semibold tabular-nums tracking-tight sm:text-[1.35rem]",
+					"mt-2 font-mono text-lg font-semibold tabular-nums tracking-tight sm:text-[1.35rem]",
 					tone === "negative" ? "text-destructive" : "text-foreground",
 				)}
 			>
-				{value}
+				{renderKpiValue(value)}
 			</p>
 			{hint ? (
 				<div className="mt-1 text-xs text-muted-foreground">{hint}</div>
 			) : null}
 		</div>
+	);
+}
+
+// Keep the numeric amount on one line so it never breaks mid-number on narrow
+// cards; only the trailing currency suffix may wrap to a second line.
+function renderKpiValue(value: string): React.ReactNode {
+	const match = value.match(/^(.*?)(\s+EUR)$/);
+	if (!match) return value;
+	return (
+		<>
+			<span className="whitespace-nowrap">{match[1]}</span>
+			<span className="whitespace-nowrap"> EUR</span>
+		</>
 	);
 }
 

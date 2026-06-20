@@ -58,6 +58,18 @@ export function UserManagement({
 
 	const pendingInvites = invites.filter((i) => !i.accepted_at);
 
+	async function writeClipboard(text: string): Promise<boolean> {
+		try {
+			if (navigator.clipboard?.writeText) {
+				await navigator.clipboard.writeText(text);
+				return true;
+			}
+		} catch {
+			// Clipboard blocked (insecure context, permissions). Fall through.
+		}
+		return false;
+	}
+
 	function createInvite(e: React.FormEvent) {
 		e.preventDefault();
 		if (!email.trim()) return;
@@ -69,10 +81,12 @@ export function UserManagement({
 				});
 				const link = `${window.location.origin}/invite/${invite.token}`;
 				setLastLink(link);
-				setCopied(false);
 				setEmail("");
-				await navigator.clipboard?.writeText(link).catch(() => {});
-				toast.success("Einladung erstellt, Link kopiert");
+				const ok = await writeClipboard(link);
+				setCopied(ok);
+				toast.success(
+					ok ? "Einladung erstellt, Link kopiert" : "Einladung erstellt",
+				);
 				await router.invalidate();
 			} catch (err) {
 				toast.error(orpcMessage(err, "Einladung fehlgeschlagen"));
@@ -94,9 +108,13 @@ export function UserManagement({
 
 	async function copyLink() {
 		if (!lastLink) return;
-		await navigator.clipboard?.writeText(lastLink).catch(() => {});
-		setCopied(true);
-		toast.success("Link kopiert");
+		const ok = await writeClipboard(lastLink);
+		if (ok) {
+			setCopied(true);
+			toast.success("Link kopiert");
+		} else {
+			toast.error("Kopieren nicht möglich, Link bitte manuell markieren");
+		}
 	}
 
 	return (
@@ -152,14 +170,15 @@ export function UserManagement({
 					</form>
 
 					{lastLink ? (
-						<div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 p-2">
-							<code className="flex-1 truncate font-mono text-xs text-foreground">
+						<div className="flex flex-col gap-2 rounded-lg border border-primary/30 bg-primary/5 p-2 sm:flex-row sm:items-center">
+							<code className="min-w-0 flex-1 select-all break-all font-mono text-xs text-foreground">
 								{lastLink}
 							</code>
 							<Button
 								type="button"
 								variant="outline"
 								size="sm"
+								className="w-full shrink-0 sm:w-auto"
 								onClick={copyLink}
 							>
 								{copied ? (

@@ -63,7 +63,7 @@ const PRESETS: ReadonlyArray<Preset> = [
 	{
 		id: "year_short",
 		label: "Mit Jahr (kurz)",
-		hint: "Zwei­stelliges Jahr + Nummer.",
+		hint: "Zweistelliges Jahr + Nummer.",
 		settings: {
 			min_digits: 2,
 			prefix: "",
@@ -75,7 +75,7 @@ const PRESETS: ReadonlyArray<Preset> = [
 	{
 		id: "prefix",
 		label: "Mit Präfix",
-		hint: "Prefix-Text + Jahr + Nummer.",
+		hint: "Präfix + Jahr + Nummer.",
 		settings: {
 			min_digits: 4,
 			prefix: "SVUFO",
@@ -189,6 +189,7 @@ export function BelegnummerSettingsForm({
 							<button
 								key={p.id}
 								type="button"
+								aria-pressed={active}
 								onClick={() => applyPreset(p)}
 								className={cn(
 									"group flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors",
@@ -247,7 +248,7 @@ export function BelegnummerSettingsForm({
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value="-">Bindestrich (&minus;)</SelectItem>
+									<SelectItem value="-">Bindestrich (-)</SelectItem>
 									<SelectItem value="/">Schrägstrich (/)</SelectItem>
 									<SelectItem value=".">Punkt (.)</SelectItem>
 									<SelectItem value="_">Unterstrich (_)</SelectItem>

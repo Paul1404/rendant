@@ -26,7 +26,7 @@ export function ProtokollList({ items }: Props) {
 
 	return (
 		<>
-			<div className="hidden overflow-hidden rounded-2xl border border-border bg-card shadow-sm ring-1 ring-foreground/5 md:block">
+			<div className="hidden overflow-x-auto rounded-2xl border border-border bg-card shadow-sm ring-1 ring-foreground/5 md:block">
 				<Table>
 					<TableHeader className="bg-muted/40">
 						<TableRow className="hover:bg-transparent">

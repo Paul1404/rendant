@@ -203,6 +203,7 @@ export function CashRegistersForm({ initial }: { initial: CashRegister[] }) {
 							return (
 								<RegisterEditRow
 									key={r.id}
+									idPrefix={`edit-${r.id}`}
 									draft={editDraft}
 									setDraft={setEditDraft}
 									inputRef={editInputRef}
@@ -258,6 +259,7 @@ export function CashRegistersForm({ initial }: { initial: CashRegister[] }) {
 
 					{addingDraft ? (
 						<RegisterEditRow
+							idPrefix="add"
 							draft={addingDraft}
 							setDraft={(d) => setAddingDraft(d)}
 							inputRef={addInputRef}
@@ -273,6 +275,7 @@ export function CashRegistersForm({ initial }: { initial: CashRegister[] }) {
 }
 
 function RegisterEditRow({
+	idPrefix,
 	draft,
 	setDraft,
 	inputRef,
@@ -280,6 +283,7 @@ function RegisterEditRow({
 	onSave,
 	pending,
 }: {
+	idPrefix: string;
 	draft: Draft;
 	setDraft: (d: Draft) => void;
 	inputRef: React.RefObject<HTMLInputElement | null>;
@@ -287,6 +291,9 @@ function RegisterEditRow({
 	onSave: () => void;
 	pending: boolean;
 }) {
+	const numId = `${idPrefix}-reg-num`;
+	const bezId = `${idPrefix}-reg-bez`;
+	const wgId = `${idPrefix}-reg-wg`;
 	const wechselgeldCent = parseGermanAmount(draft.wechselgeld_input);
 	const wechselgeldInvalid =
 		draft.wechselgeld_input.trim() !== "" &&
@@ -306,9 +313,9 @@ function RegisterEditRow({
 		<div className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
 			<div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
 				<div className="space-y-1 sm:col-span-4">
-					<Label htmlFor="reg-num">Kassennummer</Label>
+					<Label htmlFor={numId}>Kassennummer</Label>
 					<Input
-						id="reg-num"
+						id={numId}
 						ref={inputRef}
 						value={draft.kassennummer}
 						onChange={(e) =>
@@ -321,9 +328,9 @@ function RegisterEditRow({
 					/>
 				</div>
 				<div className="space-y-1 sm:col-span-5">
-					<Label htmlFor="reg-bez">Kassenbezeichnung</Label>
+					<Label htmlFor={bezId}>Kassenbezeichnung</Label>
 					<Input
-						id="reg-bez"
+						id={bezId}
 						value={draft.kassenbezeichnung}
 						onChange={(e) =>
 							setDraft({ ...draft, kassenbezeichnung: e.target.value })
@@ -334,9 +341,9 @@ function RegisterEditRow({
 					/>
 				</div>
 				<div className="space-y-1 sm:col-span-3">
-					<Label htmlFor="reg-wg">Wechselgeld</Label>
+					<Label htmlFor={wgId}>Wechselgeld</Label>
 					<Input
-						id="reg-wg"
+						id={wgId}
 						inputMode="decimal"
 						value={draft.wechselgeld_input}
 						onChange={(e) =>

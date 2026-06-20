@@ -133,6 +133,8 @@ function Shell({
 						<img
 							src={logoUrl}
 							alt=""
+							width={48}
+							height={48}
 							className="h-full w-auto object-contain"
 						/>
 					</div>

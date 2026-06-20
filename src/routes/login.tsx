@@ -38,6 +38,8 @@ function LoginPage() {
 						<img
 							src={branding.logoUrl}
 							alt=""
+							width={64}
+							height={64}
 							className="h-full w-auto object-contain"
 						/>
 					</div>

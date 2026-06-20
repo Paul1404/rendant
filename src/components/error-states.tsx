@@ -39,7 +39,7 @@ export function ErrorView({
 				<p className="text-sm text-muted-foreground">
 					Beim Laden der Seite ist ein Fehler aufgetreten.
 				</p>
-				{error?.message ? (
+				{import.meta.env.DEV && error?.message ? (
 					<code className="block max-w-full overflow-x-auto rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
 						{error.message}
 					</code>
