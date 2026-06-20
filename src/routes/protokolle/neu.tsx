@@ -55,6 +55,7 @@ export const Route = createFileRoute("/protokolle/neu")({
 			duplicateBelegnummer,
 		};
 	},
+	head: () => ({ meta: [{ title: "Neues Protokoll · SVUFO" }] }),
 	component: NewProtokollPage,
 });
 

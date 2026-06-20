@@ -5,6 +5,7 @@ import {
 	BelegnummerSettingsSchema,
 	CashRegisterSchema,
 	CreateProtokollSchema,
+	ExportQuerySchema,
 	InviteAcceptSchema,
 	InviteCreateSchema,
 	StornoSchema,
@@ -33,6 +34,7 @@ import {
 	regenerateProtokollPdf,
 	stornoProtokoll,
 } from "@/server/services/protokoll";
+import { vatSummary } from "@/server/services/reports";
 import {
 	getBelegnummerSettings,
 	getUmsatzUstBasisDefault,
@@ -267,6 +269,14 @@ const users = {
 	}),
 };
 
+// ---- Reports -------------------------------------------------------------
+
+const reports = {
+	vat: authed
+		.input(ExportQuerySchema)
+		.handler(({ input }) => vatSummary(input.von, input.bis)),
+};
+
 // ---- Health --------------------------------------------------------------
 
 const health = pub.handler(async () => {
@@ -285,6 +295,7 @@ export const router = {
 	registers,
 	invites,
 	users,
+	reports,
 	health,
 };
 

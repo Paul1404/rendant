@@ -13,6 +13,7 @@ import { useBranding } from "@/routes/__root";
 export const Route = createFileRoute("/invite/$token")({
 	loader: ({ params }) =>
 		orpcClient.invites.getByToken({ token: params.token }),
+	head: () => ({ meta: [{ title: "Einladung · SVUFO" }] }),
 	component: InvitePage,
 });
 

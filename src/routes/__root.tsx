@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-router";
 import { ThemeProvider } from "next-themes";
 import type { ReactNode } from "react";
+import { ErrorView, NotFoundView } from "@/components/error-states";
 import { Toaster } from "@/components/ui/sonner";
 import type { Branding } from "@/lib/branding";
 import { fetchBranding } from "@/lib/server-fns";
@@ -54,6 +55,10 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 	loader: async (): Promise<{ branding: Branding }> => ({
 		branding: await fetchBranding(),
 	}),
+	notFoundComponent: () => <NotFoundView />,
+	errorComponent: ({ error, reset }) => (
+		<ErrorView error={error} reset={reset} />
+	),
 	component: RootComponent,
 });
 

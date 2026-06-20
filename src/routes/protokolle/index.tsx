@@ -1,18 +1,23 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Download, Plus, Receipt, SearchX } from "lucide-react";
-import { DashboardStatsRow } from "@/components/dashboard-stats";
+import { FinanceOverview } from "@/components/dashboard-stats";
 import { DashboardToolbar } from "@/components/dashboard-toolbar";
 import { PageHeader } from "@/components/page-header";
 import { ProtokollList } from "@/components/protokoll-list";
 import { Button } from "@/components/ui/button";
 import {
-	computeDashboardStats,
 	filterByRange,
 	filterBySearch,
 	parseTimeRange,
 	type TimeRange,
 } from "@/lib/dashboard-stats";
+import {
+	computeContext,
+	computePeriod,
+	RANGE_LABELS,
+	rangeToDates,
+} from "@/lib/finance";
 import { formatCent } from "@/lib/money";
 import { orpc } from "@/lib/orpc";
 
@@ -51,7 +56,11 @@ function ProtokolleListPage() {
 	const timeRange: TimeRange = search.range ?? "all";
 	const query = (search.q ?? "").trim();
 
-	const stats = computeDashboardStats(all);
+	const allActive = all.filter((p) => !p.storniert_am);
+	const periodActive = filterByRange(allActive, timeRange);
+	const period = computePeriod(periodActive);
+	const context = computeContext(allActive);
+	const vatRange = rangeToDates(timeRange);
 
 	const visibleScope = includeStorniert
 		? all
@@ -89,7 +98,14 @@ function ProtokolleListPage() {
 				}
 			/>
 
-			{hasAnyData ? <DashboardStatsRow stats={stats} /> : null}
+			{hasAnyData ? (
+				<FinanceOverview
+					period={period}
+					context={context}
+					rangeLabel={RANGE_LABELS[timeRange]}
+					vatRange={vatRange}
+				/>
+			) : null}
 
 			{hasAnyData ? (
 				<div className="space-y-4">

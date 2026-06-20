@@ -25,6 +25,7 @@ export const Route = createFileRoute("/protokolle/einstellungen")({
 			admin: admin ? { users: admin[0], invites: admin[1] } : null,
 		};
 	},
+	head: () => ({ meta: [{ title: "Einstellungen · SVUFO" }] }),
 	component: EinstellungenPage,
 });
 
