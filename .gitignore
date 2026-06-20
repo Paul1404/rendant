@@ -44,3 +44,5 @@ next-env.d.ts
 # local database backups (contain credentials + production data)
 /.db-backup/
 /.output
+.env.preview
+.claude/launch.json
