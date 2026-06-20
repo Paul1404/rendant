@@ -11,6 +11,7 @@ import { ThemeProvider } from "next-themes";
 import type { ReactNode } from "react";
 import { ErrorView, NotFoundView } from "@/components/error-states";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import type { Branding } from "@/lib/branding";
 import { fetchBranding } from "@/lib/server-fns";
 import type { RouterContext } from "@/router";
@@ -85,14 +86,24 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
 				<HeadContent />
 			</head>
 			<body>
+				<a
+					href="#main-content"
+					className="sr-only z-50 rounded-md bg-popover px-4 py-2 text-sm font-medium text-popover-foreground ring-1 ring-foreground/10 focus:not-sr-only focus:absolute focus:top-4 focus:left-4"
+				>
+					Zum Inhalt springen
+				</a>
 				<ThemeProvider
 					attribute="class"
 					defaultTheme="system"
 					enableSystem
 					disableTransitionOnChange
 				>
-					<div className="flex min-h-dvh flex-col">{children}</div>
-					<Toaster richColors position="top-center" />
+					<TooltipProvider delayDuration={300}>
+						<div id="main-content" className="flex min-h-dvh flex-col">
+							{children}
+						</div>
+						<Toaster richColors position="top-center" />
+					</TooltipProvider>
 				</ThemeProvider>
 				<Scripts />
 			</body>

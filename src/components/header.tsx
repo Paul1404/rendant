@@ -2,6 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { Download, List, LogOut, Plus, Settings } from "lucide-react";
 import { useTransition } from "react";
 import { Logo } from "@/components/logo";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
@@ -115,6 +116,8 @@ export function Header({ vereinsname, logoUrl }: HeaderProps) {
 							);
 						})}
 					</div>
+
+					<ThemeToggle />
 
 					<span
 						className="mx-1 hidden h-5 w-px bg-border sm:block"

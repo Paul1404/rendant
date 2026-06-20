@@ -5,6 +5,7 @@ import {
 	ProtokollForm,
 	type ProtokollInitialValues,
 } from "@/components/protokoll-form";
+import { NeuSkeleton } from "@/components/skeletons";
 import { orpcClient } from "@/lib/orpc";
 
 const UUID_RE =
@@ -56,6 +57,7 @@ export const Route = createFileRoute("/protokolle/neu")({
 		};
 	},
 	head: () => ({ meta: [{ title: "Neues Protokoll · SVUFO" }] }),
+	pendingComponent: NeuSkeleton,
 	component: NewProtokollPage,
 });
 

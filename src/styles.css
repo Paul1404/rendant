@@ -197,4 +197,28 @@
   .lift:hover {
     transform: translateY(-2px);
   }
+
+  /* Classy entrance: content is fully visible by default (no FOUC for
+     reduced-motion or no-JS); the animation only enhances. */
+  .reveal {
+    animation-delay: var(--reveal-delay, 0ms);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: reveal-in 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+      animation-delay: var(--reveal-delay, 0ms);
+    }
+  }
+}
+
+@keyframes reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
