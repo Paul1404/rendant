@@ -1,4 +1,4 @@
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { Download, List, LogOut, Plus, Settings } from "lucide-react";
 import { useTransition } from "react";
 import { Logo } from "@/components/logo";
@@ -30,14 +30,13 @@ const NAV: NavItem[] = [
 ];
 
 export function Header({ vereinsname, logoUrl }: HeaderProps) {
-	const navigate = useNavigate();
 	const pathname = useRouterState({ select: (s) => s.location.pathname });
 	const [pending, startTransition] = useTransition();
 
 	function logout() {
 		startTransition(async () => {
 			await authClient.signOut();
-			await navigate({ to: "/login" });
+			window.location.assign("/login");
 		});
 	}
 

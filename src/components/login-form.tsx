@@ -1,4 +1,3 @@
-import { useNavigate } from "@tanstack/react-router";
 import { Eye, EyeOff, Loader2, LogIn } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -8,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
 
 export function LoginForm({ redirectTo }: { redirectTo: string }) {
-	const navigate = useNavigate();
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
@@ -27,8 +25,9 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
 				);
 				return;
 			}
-			toast.success("Anmeldung erfolgreich");
-			await navigate({ to: redirectTo });
+			// Full-document navigation so the freshly set session cookie drives a
+			// clean SSR load of the target route.
+			window.location.assign(redirectTo);
 		});
 	}
 

@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { Loader2, UserPlus } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -20,7 +20,6 @@ function InvitePage() {
 	const { token } = Route.useParams();
 	const invite = Route.useLoaderData();
 	const branding = useBranding();
-	const navigate = useNavigate();
 	const [name, setName] = useState("");
 	const [password, setPassword] = useState("");
 	const [pending, start] = useTransition();
@@ -56,11 +55,10 @@ function InvitePage() {
 			});
 			if (error) {
 				toast.success("Konto angelegt. Bitte anmelden.");
-				await navigate({ to: "/login" });
+				window.location.assign("/login");
 				return;
 			}
-			toast.success("Willkommen!");
-			await navigate({ to: "/protokolle" });
+			window.location.assign("/protokolle");
 		});
 	}
 
