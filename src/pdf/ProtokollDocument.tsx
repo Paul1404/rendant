@@ -127,7 +127,10 @@ function makeStyles(s: number) {
 			fontSize: f(9),
 			fontFamily: "Helvetica",
 			color: "#1a1a1a",
-			lineHeight: 1.3,
+			// No page-level lineHeight on purpose: it leaks into the fixed,
+			// absolutely positioned footer and collapses its stacked rows to a
+			// single line (react-pdf quirk), which hid the address/board lines.
+			// Row spacing comes from each section's own paddingVertical instead.
 		},
 		header: {
 			borderBottom: "0.75pt solid #1a1a1a",
