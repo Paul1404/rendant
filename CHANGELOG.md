@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.5.1 — 2026-06-20
+
+- Neues, professionelles App-Logo für SVUFO (Zählstrich-Motiv passend zum
+  Kassenzählprotokoll) samt vollständigem Favicon- und App-Icon-Satz.
+
 ## 1.5.0 — 2026-06-20
 
 - Gestalterische Generalüberholung mit einem durchgängigen Design-System:
