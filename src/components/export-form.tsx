@@ -156,6 +156,7 @@ export function ExportForm() {
 								value={von}
 								max={bis || undefined}
 								onChange={(e) => setVon(e.target.value)}
+								aria-invalid={invalidRange}
 								required
 							/>
 						</div>
@@ -168,6 +169,7 @@ export function ExportForm() {
 								min={von || undefined}
 								max={TODAY}
 								onChange={(e) => setBis(e.target.value)}
+								aria-invalid={invalidRange}
 								required
 							/>
 						</div>
@@ -179,7 +181,7 @@ export function ExportForm() {
 						)}
 					>
 						{invalidRange
-							? "«Bis» muss nach «Von» liegen."
+							? "Bis muss am oder nach Von liegen."
 							: "Der Zeitraum gilt für alle Downloads."}
 					</p>
 				</CardContent>

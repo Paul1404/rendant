@@ -48,7 +48,7 @@ export function FieldLabel({
 	return (
 		<p
 			className={cn(
-				"text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground",
+				"text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground",
 				className,
 			)}
 		>

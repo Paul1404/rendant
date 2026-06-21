@@ -57,7 +57,7 @@ export function DataField({
 }) {
 	return (
 		<div className={className}>
-			<p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+			<p className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
 				{label}
 			</p>
 			<p

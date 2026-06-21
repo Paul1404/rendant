@@ -356,6 +356,11 @@ function RegisterEditRow({
 							aria-invalid={wechselgeldInvalid}
 							className="text-right tabular-nums"
 						/>
+						{wechselgeldInvalid ? (
+							<p className="text-[11px] text-destructive">
+								Bitte einen gültigen EUR-Betrag eingeben.
+							</p>
+						) : null}
 					</div>
 				</div>
 				<div className="flex flex-wrap items-center justify-end gap-2">
