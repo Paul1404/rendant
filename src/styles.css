@@ -133,27 +133,27 @@
     background-image:
       radial-gradient(
         ellipse 90% 50% at 50% -10%,
-        oklch(0.55 0.07 162 / 0.1),
+        oklch(0.55 0.07 162 / 0.06),
         transparent 70%
       ),
       radial-gradient(
         ellipse 50% 35% at 100% 100%,
-        oklch(0.72 0.09 82 / 0.12),
+        oklch(0.72 0.09 82 / 0.07),
         transparent 75%
       );
     background-attachment: fixed;
-    letter-spacing: -0.005em;
+    letter-spacing: 0;
   }
   .dark body {
     background-image:
       radial-gradient(
         ellipse 90% 50% at 50% -10%,
-        oklch(0.5 0.07 162 / 0.22),
+        oklch(0.5 0.07 162 / 0.14),
         transparent 70%
       ),
       radial-gradient(
         ellipse 50% 35% at 100% 100%,
-        oklch(0.6 0.08 82 / 0.12),
+        oklch(0.6 0.08 82 / 0.08),
         transparent 75%
       );
   }
@@ -161,7 +161,7 @@
   h2,
   h3 {
     font-family: var(--font-heading);
-    letter-spacing: -0.02em;
+    letter-spacing: 0;
   }
 }
 

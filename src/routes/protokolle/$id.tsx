@@ -105,17 +105,17 @@ function ProtokollDetailPage() {
 
 			<div
 				className={cn(
-					"relative overflow-hidden rounded-2xl border bg-card/70 px-5 py-6 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_18px_-8px_rgba(0,0,0,0.06)] ring-1 ring-foreground/[0.03] sm:px-7 sm:py-7",
+					"relative overflow-hidden rounded-xl border bg-card/70 px-5 py-6 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_18px_-8px_rgba(0,0,0,0.06)] ring-1 ring-foreground/[0.03] sm:px-7 sm:py-7",
 					isStorno ? "border-destructive/30" : "border-border/70",
 				)}
 			>
 				<div
 					aria-hidden
 					className={cn(
-						"pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full blur-3xl",
+						"pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full blur-3xl",
 						isStorno
-							? "bg-gradient-to-br from-destructive/12 to-transparent"
-							: "bg-gradient-to-br from-primary/10 via-primary/5 to-transparent",
+							? "bg-gradient-to-br from-destructive/8 to-transparent"
+							: "bg-gradient-to-br from-primary/7 via-primary/[0.03] to-transparent",
 					)}
 				/>
 				<div className="relative flex flex-wrap items-start justify-between gap-4">
@@ -164,7 +164,7 @@ function ProtokollDetailPage() {
 			</div>
 
 			{isStorno ? (
-				<div className="flex gap-3 rounded-2xl border border-destructive/40 bg-destructive/5 p-4">
+				<div className="flex gap-3 rounded-xl border border-destructive/40 bg-destructive/5 p-4">
 					<TriangleAlert className="h-5 w-5 shrink-0 text-destructive" />
 					<div className="space-y-1">
 						<p className="text-sm font-medium text-destructive">
@@ -181,7 +181,7 @@ function ProtokollDetailPage() {
 			) : null}
 
 			{!protokoll.pdf_s3_key ? (
-				<div className="flex gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/5 p-4">
+				<div className="flex gap-3 rounded-xl border border-amber-500/40 bg-amber-500/5 p-4">
 					<TriangleAlert className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
 					<div className="space-y-1">
 						<p className="text-sm font-medium text-amber-700 dark:text-amber-300">
@@ -246,16 +246,16 @@ function ProtokollDetailPage() {
 						<Table>
 							<TableHeader className="bg-muted/40">
 								<TableRow className="hover:bg-transparent">
-									<TableHead className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+									<TableHead className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
 										Wert
 									</TableHead>
-									<TableHead className="text-right text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+									<TableHead className="text-right text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
 										Anzahl
 									</TableHead>
-									<TableHead className="text-right text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+									<TableHead className="text-right text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
 										Einzelwert
 									</TableHead>
-									<TableHead className="text-right text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+									<TableHead className="text-right text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
 										Teilbetrag
 									</TableHead>
 								</TableRow>
@@ -267,7 +267,9 @@ function ProtokollDetailPage() {
 									return (
 										<TableRow
 											key={d.key}
-											className={isZero ? "text-muted-foreground/70" : ""}
+											className={
+												isZero ? "bg-muted/[0.18] text-muted-foreground/75" : ""
+											}
 										>
 											<TableCell className="font-mono">{d.label}</TableCell>
 											<TableCell className="text-right tabular-nums">
@@ -317,19 +319,19 @@ function ProtokollDetailPage() {
 							<Table>
 								<TableHeader className="bg-muted/40">
 									<TableRow className="hover:bg-transparent">
-										<TableHead className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+										<TableHead className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
 											Bezeichnung
 										</TableHead>
-										<TableHead className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+										<TableHead className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
 											Empfänger
 										</TableHead>
-										<TableHead className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+										<TableHead className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
 											Beleg-Nr.
 										</TableHead>
-										<TableHead className="text-right text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+										<TableHead className="text-right text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
 											USt.
 										</TableHead>
-										<TableHead className="text-right text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+										<TableHead className="text-right text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
 											Betrag
 										</TableHead>
 									</TableRow>
@@ -406,14 +408,14 @@ function ProtokollDetailPage() {
 
 					{protokoll.kartenzahlung_cent > 0 ? (
 						<div className="space-y-2">
-							<div className="flex items-center justify-between gap-4 rounded-2xl border border-border/60 bg-muted/40 px-4 py-3">
+							<div className="flex items-center justify-between gap-4 rounded-xl border border-border/60 bg-muted/40 px-4 py-3">
 								<span className="flex items-center gap-2 text-sm font-medium text-foreground">
 									<Banknote className="h-4 w-4 text-muted-foreground" />
 									Tageseinnahmen netto (ohne Kartenzahlung)
 								</span>
 								<Money cent={protokoll.tageseinnahmen_cent} emphasis />
 							</div>
-							<div className="flex items-center justify-between gap-4 rounded-2xl border border-primary/25 bg-primary/[0.05] px-4 py-4">
+							<div className="flex items-center justify-between gap-4 rounded-xl border border-primary/25 bg-primary/[0.05] px-4 py-4">
 								<span className="flex items-center gap-2 text-sm font-medium text-foreground">
 									<Banknote className="h-4 w-4 text-primary" />
 									Tageseinnahmen netto (mit Kartenzahlung)
@@ -429,7 +431,7 @@ function ProtokollDetailPage() {
 							</div>
 						</div>
 					) : (
-						<div className="flex items-center justify-between gap-4 rounded-2xl border border-primary/25 bg-primary/[0.05] px-4 py-4">
+						<div className="flex items-center justify-between gap-4 rounded-xl border border-primary/25 bg-primary/[0.05] px-4 py-4">
 							<span className="flex items-center gap-2 text-sm font-medium text-foreground">
 								<Banknote className="h-4 w-4 text-primary" />
 								Tageseinnahmen netto
@@ -510,16 +512,16 @@ function UstBreakdown({
 				<table className="w-full text-sm">
 					<thead className="bg-muted/40">
 						<tr>
-							<th className="px-3 py-1.5 text-left text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+							<th className="px-3 py-1.5 text-left text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
 								Satz
 							</th>
-							<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+							<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
 								Netto
 							</th>
-							<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+							<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
 								USt.
 							</th>
-							<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+							<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
 								Brutto
 							</th>
 						</tr>
@@ -578,16 +580,16 @@ function UmsatzUstBreakdown({
 			<table className="w-full text-sm">
 				<thead className="bg-muted/40">
 					<tr>
-						<th className="px-3 py-1.5 text-left text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+						<th className="px-3 py-1.5 text-left text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
 							Satz
 						</th>
-						<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+						<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
 							Netto
 						</th>
-						<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+						<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
 							USt.
 						</th>
-						<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+						<th className="px-3 py-1.5 text-right text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
 							Brutto
 						</th>
 					</tr>

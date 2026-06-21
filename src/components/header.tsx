@@ -4,6 +4,12 @@ import { useTransition } from "react";
 import { BrandLockup } from "@/components/brand-lockup";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
@@ -77,33 +83,41 @@ export function Header() {
 						})}
 					</div>
 
-					<div className="flex items-center gap-1 md:hidden">
-						{NAV.map(({ href, label, icon: Icon, exact }) => {
-							const active = exact
-								? pathname === href
-								: pathname.startsWith(href);
-							return (
-								<Link
-									key={href}
-									to={href}
-									aria-label={label}
-									aria-current={active ? "page" : undefined}
-								>
-									<Button
-										variant="ghost"
-										size="icon-sm"
-										className={cn(
-											active
-												? "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
-												: "text-muted-foreground hover:text-foreground",
-										)}
-									>
-										<Icon className="h-4 w-4" />
-									</Button>
-								</Link>
-							);
-						})}
-					</div>
+					<TooltipProvider>
+						<div className="flex items-center gap-0.5 md:hidden">
+							{NAV.map(({ href, label, icon: Icon, exact }) => {
+								const active = exact
+									? pathname === href
+									: pathname.startsWith(href);
+								return (
+									<Tooltip key={href}>
+										<TooltipTrigger asChild>
+											<Link
+												to={href}
+												aria-label={label}
+												aria-current={active ? "page" : undefined}
+											>
+												<Button
+													variant="ghost"
+													size="icon-sm"
+													className={cn(
+														"border",
+														active
+															? "border-primary/25 bg-primary/12 text-primary hover:bg-primary/15 hover:text-primary"
+															: "border-transparent text-muted-foreground hover:text-foreground",
+													)}
+												>
+													<Icon className="h-4 w-4" />
+													<span className="sr-only">{label}</span>
+												</Button>
+											</Link>
+										</TooltipTrigger>
+										<TooltipContent side="bottom">{label}</TooltipContent>
+									</Tooltip>
+								);
+							})}
+						</div>
+					</TooltipProvider>
 
 					<ThemeToggle />
 

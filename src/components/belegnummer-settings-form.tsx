@@ -249,8 +249,15 @@ export function BelegnummerSettingsForm({
 								maxLength={20}
 								aria-invalid={prefixError}
 							/>
-							<p className="text-[11px] text-muted-foreground">
-								Optional. Buchstaben, Ziffern, Bindestrich, Unterstrich.
+							<p
+								className={cn(
+									"text-[11px]",
+									prefixError ? "text-destructive" : "text-muted-foreground",
+								)}
+							>
+								{prefixError
+									? "Nur Buchstaben, Ziffern, Bindestrich und Unterstrich."
+									: "Optional. Buchstaben, Ziffern, Bindestrich, Unterstrich."}
 							</p>
 						</div>
 

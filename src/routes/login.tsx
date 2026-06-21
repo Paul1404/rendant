@@ -30,7 +30,7 @@ function LoginPage() {
 			/>
 			<div
 				aria-hidden
-				className="pointer-events-none absolute left-1/2 top-[28%] -z-10 h-72 w-72 -translate-x-1/2 rounded-full bg-primary/15 blur-[100px]"
+				className="pointer-events-none absolute left-1/2 top-[28%] -z-10 h-64 w-64 -translate-x-1/2 rounded-full bg-primary/10 blur-[100px]"
 			/>
 
 			<div className="w-full max-w-sm">

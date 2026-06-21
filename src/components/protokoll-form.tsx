@@ -849,10 +849,14 @@ export function ProtokollForm({
 								Stückelung
 							</CardTitle>
 						</CardHeader>
-						<CardContent>
+						<CardContent className="space-y-4">
+							<p className="text-xs text-muted-foreground">
+								Trage die Anzahl je Schein oder Münze ein; die Beträge werden
+								automatisch berechnet.
+							</p>
 							<div className="grid grid-cols-1 gap-x-10 gap-y-6 md:grid-cols-2">
 								<div>
-									<h3 className="mb-3 inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+									<h3 className="mb-3 inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
 										<Banknote className="h-3.5 w-3.5" />
 										Scheine
 									</h3>
@@ -863,7 +867,7 @@ export function ProtokollForm({
 									/>
 								</div>
 								<div>
-									<h3 className="mb-3 inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+									<h3 className="mb-3 inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
 										<Coins className="h-3.5 w-3.5" />
 										Münzen
 									</h3>
@@ -875,7 +879,7 @@ export function ProtokollForm({
 								</div>
 							</div>
 							<div className="mt-4 flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
-								<span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+								<span className="text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
 									Summe gezählt
 								</span>
 								<Money cent={gezaehltCent} emphasis />
@@ -1014,28 +1018,35 @@ export function ProtokollForm({
 													</UstChip>
 												</div>
 												{a.ust_mode === "custom" ? (
-													<div className="relative">
-														<Input
-															inputMode="decimal"
-															value={a.ust_custom_input}
-															onFocus={selectOnFocus}
-															onChange={(e) =>
-																updateAusgabe(
-																	i,
-																	"ust_custom_input",
-																	e.target.value,
-																)
-															}
-															placeholder="0,0"
-															className="h-8 w-20 pr-7 text-right tabular-nums"
-															aria-label="USt.-Satz in Prozent"
-															aria-invalid={
-																a.ust_custom_input.trim() !== "" && bp == null
-															}
-														/>
-														<span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-muted-foreground">
-															%
-														</span>
+													<div className="space-y-1">
+														<div className="relative">
+															<Input
+																inputMode="decimal"
+																value={a.ust_custom_input}
+																onFocus={selectOnFocus}
+																onChange={(e) =>
+																	updateAusgabe(
+																		i,
+																		"ust_custom_input",
+																		e.target.value,
+																	)
+																}
+																placeholder="0,0"
+																className="h-9 w-24 pr-7 text-right tabular-nums sm:h-8 sm:w-20"
+																aria-label="USt.-Satz in Prozent"
+																aria-invalid={
+																	a.ust_custom_input.trim() !== "" && bp == null
+																}
+															/>
+															<span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-muted-foreground">
+																%
+															</span>
+														</div>
+														{a.ust_custom_input.trim() !== "" && bp == null ? (
+															<p className="text-[11px] text-destructive">
+																0 bis 100 %
+															</p>
+														) : null}
 													</div>
 												) : null}
 												{bp != null && bp > 0 && ustCent != null ? (
@@ -1065,7 +1076,11 @@ export function ProtokollForm({
 								Bargeld und Kartenzahlung
 							</CardTitle>
 						</CardHeader>
-						<CardContent>
+						<CardContent className="space-y-4">
+							<p className="text-xs text-muted-foreground">
+								Wechselgeld wird vom gezählten Bestand abgezogen.
+								Kartenzahlungen erhöhen die Tageseinnahmen zusätzlich.
+							</p>
 							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 								<div className="space-y-2">
 									<Label htmlFor="wechselgeld">
@@ -1081,8 +1096,16 @@ export function ProtokollForm({
 											setSelectedRegisterId(null);
 										}}
 										required
+										aria-invalid={
+											wechselgeldInput.trim() !== "" && wechselgeldCent < 0
+										}
 										className="text-right tabular-nums"
 									/>
+									{wechselgeldInput.trim() !== "" && wechselgeldCent < 0 ? (
+										<p className="text-[11px] text-destructive">
+											Bitte einen gültigen EUR-Betrag eingeben.
+										</p>
+									) : null}
 								</div>
 								<div className="space-y-2">
 									<Label htmlFor="kartenzahlung">Kartenzahlung EUR</Label>
@@ -1093,8 +1116,16 @@ export function ProtokollForm({
 										value={kartenzahlungInput}
 										onFocus={selectOnFocus}
 										onChange={(e) => setKartenzahlungInput(e.target.value)}
+										aria-invalid={
+											kartenzahlungInput.trim() !== "" && kartenzahlungCent < 0
+										}
 										className="text-right tabular-nums"
 									/>
+									{kartenzahlungInput.trim() !== "" && kartenzahlungCent < 0 ? (
+										<p className="text-[11px] text-destructive">
+											Bitte einen gültigen EUR-Betrag eingeben.
+										</p>
+									) : null}
 								</div>
 							</div>
 						</CardContent>
@@ -1142,30 +1173,36 @@ export function ProtokollForm({
 								Summe muss den Tageseinnahmen entsprechen.
 							</p>
 							{kartenzahlungCent > 0 ? (
-								<div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
-									<span className="text-xs font-medium text-muted-foreground">
-										Bezugsgröße
-									</span>
-									<div className="inline-flex items-center rounded-lg border border-border/70 bg-background/80 p-0.5 shadow-sm">
-										<UstChip
-											active={umsatzUstBasis === "post_card"}
-											onClick={() => setUmsatzUstBasis("post_card")}
-										>
-											Mit Kartenzahlung
-										</UstChip>
-										<UstChip
-											active={umsatzUstBasis === "pre_card"}
-											onClick={() => setUmsatzUstBasis("pre_card")}
-										>
-											Ohne Kartenzahlung
-										</UstChip>
+								<div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
+									<div className="flex flex-wrap items-center gap-2">
+										<span className="text-xs font-medium text-muted-foreground">
+											Bezugsgröße
+										</span>
+										<div className="inline-flex items-center rounded-lg border border-border/70 bg-background/80 p-0.5 shadow-sm">
+											<UstChip
+												active={umsatzUstBasis === "post_card"}
+												onClick={() => setUmsatzUstBasis("post_card")}
+											>
+												Mit Kartenzahlung
+											</UstChip>
+											<UstChip
+												active={umsatzUstBasis === "pre_card"}
+												onClick={() => setUmsatzUstBasis("pre_card")}
+											>
+												Ohne Kartenzahlung
+											</UstChip>
+										</div>
+										<span className="ml-auto text-[11px] text-muted-foreground">
+											Standard:{" "}
+											{umsatzUstBasisDefault === "post_card"
+												? "mit Kartenzahlung"
+												: "ohne Kartenzahlung"}
+										</span>
 									</div>
-									<span className="ml-auto text-[11px] text-muted-foreground">
-										Standard:{" "}
-										{umsatzUstBasisDefault === "post_card"
-											? "mit Kartenzahlung"
-											: "ohne Kartenzahlung"}
-									</span>
+									<p className="mt-2 text-[11px] text-muted-foreground">
+										Wähle, ob die USt.-Aufteilung nur den Barumsatz oder den
+										Gesamtumsatz inklusive Kartenzahlung abbildet.
+									</p>
 								</div>
 							) : null}
 							{umsatzSplits.length === 0 ? (
@@ -1188,7 +1225,7 @@ export function ProtokollForm({
 										>
 											<div className="grid grid-cols-1 items-end gap-2 md:grid-cols-12">
 												<div className="md:col-span-7 space-y-1">
-													<Label className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+													<Label className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
 														USt.-Satz
 													</Label>
 													<div className="flex flex-wrap items-center gap-2">
@@ -1227,29 +1264,37 @@ export function ProtokollForm({
 															</UstChip>
 														</div>
 														{s.ust_mode === "custom" ? (
-															<div className="relative">
-																<Input
-																	inputMode="decimal"
-																	value={s.ust_custom_input}
-																	onFocus={selectOnFocus}
-																	onChange={(e) =>
-																		updateUmsatz(
-																			i,
-																			"ust_custom_input",
-																			e.target.value,
-																		)
-																	}
-																	placeholder="0,0"
-																	className="h-8 w-20 pr-7 text-right tabular-nums"
-																	aria-label="USt.-Satz in Prozent"
-																	aria-invalid={
-																		s.ust_custom_input.trim() !== "" &&
-																		bp == null
-																	}
-																/>
-																<span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-muted-foreground">
-																	%
-																</span>
+															<div className="space-y-1">
+																<div className="relative">
+																	<Input
+																		inputMode="decimal"
+																		value={s.ust_custom_input}
+																		onFocus={selectOnFocus}
+																		onChange={(e) =>
+																			updateUmsatz(
+																				i,
+																				"ust_custom_input",
+																				e.target.value,
+																			)
+																		}
+																		placeholder="0,0"
+																		className="h-9 w-24 pr-7 text-right tabular-nums sm:h-8 sm:w-20"
+																		aria-label="USt.-Satz in Prozent"
+																		aria-invalid={
+																			s.ust_custom_input.trim() !== "" &&
+																			bp == null
+																		}
+																	/>
+																	<span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-muted-foreground">
+																		%
+																	</span>
+																</div>
+																{s.ust_custom_input.trim() !== "" &&
+																bp == null ? (
+																	<p className="text-[11px] text-destructive">
+																		0 bis 100 %
+																	</p>
+																) : null}
 															</div>
 														) : null}
 													</div>
@@ -1500,7 +1545,7 @@ function UstChip({
 			type="button"
 			onClick={onClick}
 			className={cn(
-				"rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+				"min-h-8 rounded-md px-2.5 py-1 text-xs font-medium transition-colors sm:min-h-0",
 				active
 					? "bg-primary/10 text-primary"
 					: "text-muted-foreground hover:text-foreground",
@@ -1548,6 +1593,7 @@ function DenominationSection({
 							onFocus={selectOnFocus}
 							onWheel={blurOnWheel}
 							className="col-span-4 text-right tabular-nums"
+							aria-label={`Anzahl ${d.label}`}
 						/>
 						<div className="col-span-5 text-right">
 							{isZero ? (
