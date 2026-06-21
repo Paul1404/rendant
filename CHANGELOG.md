@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.5.2 — 2026-06-20
+
+- Durchgängiges Co-Branding "SVUFO × Verein": Die App-Marke und das
+  Vereinswappen erscheinen jetzt gemeinsam als Lockup im Kopfbereich und auf
+  der Anmeldeseite.
+
 ## 1.5.1 — 2026-06-20
 
 - Neues, professionelles App-Logo für SVUFO (Zählstrich-Motiv passend zum

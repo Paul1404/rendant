@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { BrandLockup } from "@/components/brand-lockup";
 import { LoginForm } from "@/components/login-form";
 import { VersionChip } from "@/components/version-chip";
 import { fetchSession } from "@/lib/server-fns";
@@ -34,15 +35,12 @@ function LoginPage() {
 
 			<div className="w-full max-w-sm">
 				<div className="flex flex-col items-center text-center">
-					<div className="mb-6 inline-flex h-[84px] w-[84px] items-center justify-center rounded-[1.35rem] bg-white p-2.5 shadow-[0_10px_34px_-10px] shadow-primary/30 ring-1 ring-foreground/10">
-						<img
-							src={branding.logoUrl}
-							alt=""
-							width={64}
-							height={64}
-							className="h-full w-auto object-contain"
-						/>
-					</div>
+					<BrandLockup
+						variant="hero"
+						vereinsname={branding.vereinsname}
+						logoUrl={branding.logoUrl}
+						className="mb-6"
+					/>
 					<p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
 						Kassenzählprotokoll
 					</p>

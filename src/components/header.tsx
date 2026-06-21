@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Download, List, LogOut, Plus, Settings } from "lucide-react";
 import { useTransition } from "react";
-import { Logo } from "@/components/logo";
+import { BrandLockup } from "@/components/brand-lockup";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
@@ -46,17 +46,14 @@ export function Header({ vereinsname, logoUrl }: HeaderProps) {
 			<div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
 				<Link
 					to="/protokolle"
-					className="group flex items-center gap-3 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+					aria-label="SVUFO Startseite"
+					className="group rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
 				>
-					<Logo size={40} priority src={logoUrl} />
-					<span className="hidden flex-col leading-tight sm:flex">
-						<span className="text-sm font-semibold tracking-tight text-foreground">
-							SVUFO
-						</span>
-						<span className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-							{vereinsname}
-						</span>
-					</span>
+					<BrandLockup
+						variant="bar"
+						vereinsname={vereinsname}
+						logoUrl={logoUrl}
+					/>
 				</Link>
 
 				<nav className="flex items-center gap-1">
