@@ -308,10 +308,10 @@ function makeStyles(s: number) {
 		footerRow: {
 			flexDirection: "row",
 			justifyContent: "space-between",
-			marginBottom: 1,
+			alignItems: "baseline",
+			gap: 12,
 		},
 		footerHash: {
-			marginTop: 2,
 			color: "#999999",
 		},
 		watermark: {
@@ -414,11 +414,9 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
 
 	const anschrift = vereinAnschriftLine(data.verein);
 	const register = vereinRegisterLine(data.verein);
-	const legalLine = [
-		data.verein.name.trim(),
-		anschrift,
-		register ? `Registergericht: ${register}` : "",
-	]
+	// The club name is already in the header, so the footer carries only the
+	// remaining legal details (address, register) to avoid duplicating it.
+	const legalLine = [anschrift, register ? `Registergericht: ${register}` : ""]
 		.filter(Boolean)
 		.join("  ·  ");
 	const vorstand = data.verein.vorstand.trim();
@@ -726,15 +724,13 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
 						</View>
 					) : null}
 					<View style={styles.footerRow}>
-						<Text>Beleg: {data.belegnummer}</Text>
-						<Text>Erfasst: {formatDateTimeDe(data.erstellt_am)} Uhr</Text>
+						<Text style={styles.footerHash}>SHA256: {data.pdfHash}</Text>
 						<Text
 							render={({ pageNumber, totalPages }) =>
 								`Seite ${pageNumber} von ${totalPages}`
 							}
 						/>
 					</View>
-					<Text style={styles.footerHash}>SHA256: {data.pdfHash}</Text>
 				</View>
 			</Page>
 		</Document>
