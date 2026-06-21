@@ -14,6 +14,49 @@ const VIEW_WIDTH = 1000;
 const VIEW_HEIGHT = 100;
 const GRID_LINES = 4;
 
+type Pt = { x: number; y: number };
+
+// Fritsch–Carlson monotone cubic spline -> SVG cubic-bezier path. Produces a
+// smooth, rounded line instead of spiky segments, while never overshooting the
+// data, so the curve cannot dip below the baseline between a zero-revenue day
+// and a peak.
+function smoothLinePath(pts: Pt[]): string {
+	const n = pts.length;
+	if (n === 0) return "";
+	const f = (v: number) => v.toFixed(2);
+	if (n === 1) return `M ${f(pts[0].x)} ${f(pts[0].y)}`;
+
+	const dx: number[] = [];
+	const slope: number[] = [];
+	for (let i = 0; i < n - 1; i++) {
+		dx[i] = pts[i + 1].x - pts[i].x;
+		slope[i] = (pts[i + 1].y - pts[i].y) / dx[i];
+	}
+
+	const t: number[] = new Array(n);
+	t[0] = slope[0];
+	t[n - 1] = slope[n - 2];
+	for (let i = 1; i < n - 1; i++) {
+		if (slope[i - 1] * slope[i] <= 0) {
+			t[i] = 0;
+		} else {
+			const w1 = 2 * dx[i] + dx[i - 1];
+			const w2 = dx[i] + 2 * dx[i - 1];
+			t[i] = (w1 + w2) / (w1 / slope[i - 1] + w2 / slope[i]);
+		}
+	}
+
+	let d = `M ${f(pts[0].x)} ${f(pts[0].y)}`;
+	for (let i = 0; i < n - 1; i++) {
+		const c1x = pts[i].x + dx[i] / 3;
+		const c1y = pts[i].y + (t[i] * dx[i]) / 3;
+		const c2x = pts[i + 1].x - dx[i] / 3;
+		const c2y = pts[i + 1].y - (t[i + 1] * dx[i]) / 3;
+		d += ` C ${f(c1x)} ${f(c1y)}, ${f(c2x)} ${f(c2y)}, ${f(pts[i + 1].x)} ${f(pts[i + 1].y)}`;
+	}
+	return d;
+}
+
 export function RevenueAreaChart({
 	points,
 }: {
@@ -35,16 +78,14 @@ export function RevenueAreaChart({
 	// Y in unitless viewBox space (0 = top, VIEW_HEIGHT = baseline).
 	const yFor = (value: number) => VIEW_HEIGHT - (VIEW_HEIGHT * value) / safeMax;
 
-	const linePath = points
-		.map(
-			(p, i) =>
-				`${i === 0 ? "M" : "L"} ${(xFrac(i) * VIEW_WIDTH).toFixed(2)} ${yFor(p.total).toFixed(2)}`,
-		)
-		.join(" ");
-
+	const coords: Pt[] = points.map((p, i) => ({
+		x: xFrac(i) * VIEW_WIDTH,
+		y: yFor(p.total),
+	}));
+	const linePath = smoothLinePath(coords);
 	const areaPath =
-		points.length > 0
-			? `${linePath} L ${(xFrac(points.length - 1) * VIEW_WIDTH).toFixed(2)} ${VIEW_HEIGHT} L ${(xFrac(0) * VIEW_WIDTH).toFixed(2)} ${VIEW_HEIGHT} Z`
+		coords.length > 0
+			? `${linePath} L ${coords[coords.length - 1].x.toFixed(2)} ${VIEW_HEIGHT} L ${coords[0].x.toFixed(2)} ${VIEW_HEIGHT} Z`
 			: "";
 
 	// Tick values from top (safeMax) down to a value above the baseline.
