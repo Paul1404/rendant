@@ -1,8 +1,6 @@
-import { eq } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { auth } from "../auth";
 import { logger } from "../logger";
-import { user as userTable } from "./auth-schema";
+import { ensureCredentialUser } from "../services/auth-accounts";
 import { db, pool } from "./index";
 import { appSettings } from "./schema";
 
@@ -28,31 +26,19 @@ async function ensureAdminUser(): Promise<void> {
 		return;
 	}
 
-	const existing = await db
-		.select({ id: userTable.id })
-		.from(userTable)
-		.where(eq(userTable.email, email))
-		.limit(1);
-	if (existing.length > 0) {
-		logger.info("Admin existiert bereits, Seed uebersprungen");
-		return;
-	}
-
-	const ctx = await auth.$context;
-	const hash = await ctx.password.hash(password);
-	const created = await ctx.internalAdapter.createUser({
+	const result = await ensureCredentialUser({
 		email,
 		name: process.env.ADMIN_NAME?.trim() || "Admin",
-		emailVerified: true,
 		role: "admin",
+		password,
 	});
-	await ctx.internalAdapter.linkAccount({
-		userId: created.id,
-		providerId: "credential",
-		accountId: created.id,
-		password: hash,
-	});
-	logger.info("Admin angelegt", { email });
+	if (result.created) {
+		logger.info("Admin angelegt", { email });
+	} else if (result.linked) {
+		logger.info("Admin-Zugang vervollstaendigt", { email });
+	} else {
+		logger.info("Admin existiert bereits, Seed uebersprungen", { email });
+	}
 }
 
 async function main(): Promise<void> {

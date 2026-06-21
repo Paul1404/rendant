@@ -2,6 +2,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { BrandLockup } from "@/components/brand-lockup";
 import { LoginForm } from "@/components/login-form";
 import { VersionChip } from "@/components/version-chip";
+import { sanitizeAuthRedirect } from "@/lib/redirect";
 import { fetchSession } from "@/lib/server-fns";
 import { useBranding } from "@/routes/__root";
 
@@ -20,7 +21,7 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
 	const { from } = Route.useSearch();
 	const branding = useBranding();
-	const redirectTo = from?.startsWith("/") ? from : "/protokolle";
+	const redirectTo = sanitizeAuthRedirect(from);
 
 	return (
 		<div className="relative flex flex-1 items-center justify-center px-4 py-12 sm:py-16">

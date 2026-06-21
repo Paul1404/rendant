@@ -1,4 +1,5 @@
 import { and, asc, gte, inArray, lte } from "drizzle-orm";
+import { csvCell } from "@/lib/csv";
 import { formatDateDe, formatDateTimeDe } from "@/lib/date";
 import { formatCentPlain } from "@/lib/money";
 import { ustAnteilCent } from "@/lib/ust";
@@ -26,12 +27,6 @@ const HEADERS = [
 	"Storno-Grund",
 	"Bemerkung",
 ];
-
-function escapeCsv(value: string): string {
-	const needsQuoting = /[;"\n\r]/.test(value);
-	const escaped = value.replace(/"/g, '""');
-	return needsQuoting ? `"${escaped}"` : escaped;
-}
 
 export async function exportCsv(von: string, bis: string): Promise<string> {
 	const rows = await db
@@ -108,7 +103,7 @@ export async function exportCsv(von: string, bis: string): Promise<string> {
 			r.storno_grund ?? "",
 			r.bemerkung,
 		];
-		lines.push(cells.map(escapeCsv).join(";"));
+		lines.push(cells.map(csvCell).join(";"));
 	}
 	return `﻿${lines.join("\r\n")}\r\n`;
 }

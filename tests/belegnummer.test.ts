@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   extractTrailingNumber,
   formatBelegnummer,
+  maxTrailingSequence,
+  nextSequenceAfterExisting,
 } from "@/server/services/belegnummer";
 import {
   DEFAULT_BELEGNUMMER_SETTINGS,
@@ -49,5 +51,21 @@ describe("formatBelegnummerWithSettings", () => {
         separator: "/",
       }),
     ).toBe("K/26/007");
+  });
+});
+
+describe("sequence initialization helpers", () => {
+  it("finds the highest trailing sequence in existing belegnummern", () => {
+    expect(maxTrailingSequence(["SVUFO-2026-0001", "SVUFO-2026-0042"])).toBe(42);
+    expect(maxTrailingSequence(["abc", "2026-12"])).toBe(12);
+  });
+
+  it("starts at one when there is no existing trailing number", () => {
+    expect(nextSequenceAfterExisting([])).toBe(1);
+    expect(nextSequenceAfterExisting(["abc"])).toBe(1);
+  });
+
+  it("initializes first-use sequences after the highest existing number", () => {
+    expect(nextSequenceAfterExisting(["SVUFO-2026-0001", "CUSTOM-0099"])).toBe(100);
   });
 });

@@ -218,6 +218,24 @@ export const loginAttempts = pgTable(
 	(t) => [index("idx_login_attempts_ip_versucht_am").on(t.ip, t.versucht_am)],
 );
 
+export const belegnummerSequences = pgTable(
+	"belegnummer_sequences",
+	{
+		year: integer("year").primaryKey(),
+		next_sequence: integer("next_sequence").notNull().default(1),
+		updated_at: timestamp("updated_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		check("belegnummer_sequences_year_check", sql`${t.year} >= 2000`),
+		check(
+			"belegnummer_sequences_next_sequence_check",
+			sql`${t.next_sequence} >= 1`,
+		),
+	],
+);
+
 // Invitations: the seeded admin invites further users. Open sign-up is
 // disabled in better-auth, so an account can only be created by accepting a
 // valid, unexpired, unused invite.

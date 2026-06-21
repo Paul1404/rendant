@@ -1,20 +1,10 @@
 import { and, asc, gte, inArray, lte } from "drizzle-orm";
+import { csvDocument } from "@/lib/csv";
 import { formatCentPlain } from "@/lib/money";
 import { formatUstSatz } from "@/lib/ust";
 import { db } from "@/server/db";
 import { ausgaben, protokolle, protokollUmsatzUst } from "@/server/db/schema";
 import { vatSummary } from "@/server/services/reports";
-
-function csvCell(value: string): string {
-	const needsQuote = /[;"\n\r]/.test(value);
-	const escaped = value.replace(/"/g, '""');
-	return needsQuote ? `"${escaped}"` : escaped;
-}
-
-function csvDocument(rows: string[][]): string {
-	const body = rows.map((r) => r.map(csvCell).join(";")).join("\r\n");
-	return `﻿${body}\r\n`;
-}
 
 // USt-Auswertung: VAT grouped by rate for the period, split into Umsatzsteuer
 // (auf den Umsatz) und Vorsteuer (auf Ausgaben), with totals and the Zahllast.

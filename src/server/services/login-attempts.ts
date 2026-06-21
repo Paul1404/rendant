@@ -18,6 +18,13 @@ export async function recordLoginAttempt(
 		.catch(() => {});
 }
 
+export function isLoginLimitedByCounts(
+	ipCount: number,
+	globalCount: number,
+): boolean {
+	return ipCount >= LOGIN_RATE_MAX || globalCount >= LOGIN_RATE_GLOBAL_MAX;
+}
+
 export async function isLoginRateLimited(ip: string): Promise<boolean> {
 	const minutes = Math.ceil(LOGIN_RATE_WINDOW_MS / 60000);
 	const since = sql`now() - (${minutes} || ' minutes')::interval`;
@@ -37,5 +44,5 @@ export async function isLoginRateLimited(ip: string): Promise<boolean> {
 	const globalCount = rows[0]?.globalCount ?? 0;
 	// Per-IP-Limit plus globaler Backstop. Der Backstop kann nicht durch
 	// gefaelschte X-Forwarded-For-Header umgangen werden.
-	return ipCount >= LOGIN_RATE_MAX || globalCount >= LOGIN_RATE_GLOBAL_MAX;
+	return isLoginLimitedByCounts(ipCount, globalCount);
 }

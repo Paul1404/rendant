@@ -130,9 +130,14 @@ export async function getProtokoll(
 
 export type CreateResult = { id: string; belegnummer: string };
 
-export async function createProtokoll(
-	input: CreateProtokollInput,
-): Promise<CreateResult> {
+export function deriveProtokollAccounting(input: CreateProtokollInput): {
+	counts: DenominationCounts;
+	gezaehlt_cent: number;
+	ausgaben_cent: number;
+	bestand_cent: number;
+	tageseinnahmen_cent: number;
+	umsatz_basis_cent: number;
+} {
 	const counts = {} as DenominationCounts;
 	let gezaehlt_cent = 0;
 	for (const d of DENOMINATIONS) {
@@ -162,6 +167,27 @@ export async function createProtokoll(
 			);
 		}
 	}
+
+	return {
+		counts,
+		gezaehlt_cent,
+		ausgaben_cent,
+		bestand_cent,
+		tageseinnahmen_cent,
+		umsatz_basis_cent,
+	};
+}
+
+export async function createProtokoll(
+	input: CreateProtokollInput,
+): Promise<CreateResult> {
+	const {
+		counts,
+		gezaehlt_cent,
+		ausgaben_cent,
+		bestand_cent,
+		tageseinnahmen_cent,
+	} = deriveProtokollAccounting(input);
 
 	const year = currentYearBerlin();
 	const customBelegnummer = input.belegnummer?.trim() || null;

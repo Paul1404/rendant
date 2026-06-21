@@ -1,9 +1,9 @@
 import { randomBytes } from "node:crypto";
 import { and, desc, eq, gt, isNull } from "drizzle-orm";
-import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { user as userTable } from "@/server/db/auth-schema";
 import { invitations } from "@/server/db/schema";
+import { ensureCredentialUser } from "@/server/services/auth-accounts";
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -103,32 +103,28 @@ export async function acceptInvite(opts: {
 		throw new Error("Einladung ungültig oder abgelaufen");
 	}
 
-	const existingUser = await db
-		.select({ id: userTable.id })
-		.from(userTable)
-		.where(eq(userTable.email, invite.email))
-		.limit(1);
-	if (existingUser.length > 0) {
-		throw new Error("Es existiert bereits ein Konto mit dieser E-Mail");
-	}
-
-	const ctx = await auth.$context;
-	const hash = await ctx.password.hash(opts.password);
-	const created = await ctx.internalAdapter.createUser({
+	await ensureCredentialUser({
 		email: invite.email,
 		name: opts.name.trim(),
-		emailVerified: true,
 		role: invite.role,
-	});
-	await ctx.internalAdapter.linkAccount({
-		userId: created.id,
-		providerId: "credential",
-		accountId: created.id,
-		password: hash,
+		password: opts.password,
 	});
 
-	await db
+	const rows = await db
 		.update(invitations)
 		.set({ accepted_at: new Date() })
-		.where(eq(invitations.id, invite.id));
+		.where(and(eq(invitations.id, invite.id), isNull(invitations.accepted_at)))
+		.returning({ id: invitations.id });
+	if (rows.length === 0) {
+		const stillAccepted = await db
+			.select({ id: invitations.id })
+			.from(invitations)
+			.where(
+				and(eq(invitations.id, invite.id), isNull(invitations.accepted_at)),
+			)
+			.limit(1);
+		if (stillAccepted.length > 0) {
+			throw new Error("Einladung konnte nicht angenommen werden");
+		}
+	}
 }
