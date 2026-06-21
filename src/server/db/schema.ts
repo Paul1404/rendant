@@ -170,6 +170,16 @@ export const appSettings = pgTable(
 		// Club this deployment runs for. Empty means "fall back to the VEREINSNAME
 		// env var, then a generic default". Configured in-app under Einstellungen.
 		vereinsname: text("vereinsname").notNull().default(""),
+		// Vereinsstammdaten für die rechtlich vollständige PDF-Fußzeile. Alle in
+		// den Einstellungen pflegbar; leere Felder werden im PDF ausgelassen.
+		verein_strasse: text("verein_strasse").notNull().default(""),
+		verein_plz: text("verein_plz").notNull().default(""),
+		verein_ort: text("verein_ort").notNull().default(""),
+		verein_vorstand: text("verein_vorstand").notNull().default(""),
+		verein_registergericht: text("verein_registergericht")
+			.notNull()
+			.default(""),
+		verein_registernummer: text("verein_registernummer").notNull().default(""),
 		updated_at: timestamp("updated_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),

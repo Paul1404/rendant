@@ -11,6 +11,11 @@ import { formatDateDe, formatDateTimeDe } from "@/lib/date";
 import { DENOMINATIONS, type Denomination } from "@/lib/denominations";
 import { formatCent } from "@/lib/money";
 import { formatUstSatz, groupByUstRate, hasUstBreakdown } from "@/lib/ust";
+import {
+	type VereinStammdaten,
+	vereinAnschriftLine,
+	vereinRegisterLine,
+} from "@/lib/verein";
 
 Font.registerHyphenationCallback((word) => [word]);
 
@@ -32,6 +37,7 @@ export type UmsatzUstBasisPdf = "pre_card" | "post_card";
 export type ProtokollPdfData = {
 	belegnummer: string;
 	vereinsname: string;
+	verein: VereinStammdaten;
 	erstellt_am: Date;
 	anlass_datum: Date;
 	kassennummer: string;
@@ -83,7 +89,7 @@ function computeScale(
 	height += 120; // summary box (5 rows + 1-2 highlights + padding)
 	if (data.ausgaben.length > 0) {
 		height += 32; // section title + table header
-		height += data.ausgaben.length * 14;
+		height += data.ausgaben.length * 15; // row (allow for occasional wrap)
 		height += 16; // subtotal row
 		if (showAusgabenUst) {
 			height += 30; // breakdown title + header
@@ -98,8 +104,11 @@ function computeScale(
 	}
 	height += 5 * 8; // section gaps
 
-	// Footer reserves ~50pt; page paddings ~26+48 = 74pt; A4 = 842pt
-	const available = 660;
+	// A4 = 842pt. Fixed DIN margins take paddingTop 57 + paddingBottom 70 = 127pt,
+	// leaving ~715pt of content height. The narrower DIN text column wraps more
+	// than this height model predicts, so we keep a wrap-safety buffer and only
+	// start downscaling past ~630pt of estimated content.
+	const available = 630;
 	if (height <= available) return 1;
 	return Math.max(0.55, available / height);
 }
@@ -108,9 +117,13 @@ function makeStyles(s: number) {
 	const f = (n: number) => n * s;
 	return StyleSheet.create({
 		page: {
-			paddingTop: f(26),
-			paddingBottom: 48,
-			paddingHorizontal: f(36),
+			// DIN 5008 Seitenränder (A4, ohne Briefkopf): links 25 mm, rechts 20 mm,
+			// oben 20 mm, unten ~25 mm inkl. Fußzeile. Bewusst NICHT mitskaliert,
+			// damit die Ränder normgerecht bleiben, egal wie dicht der Inhalt ist.
+			paddingTop: 57,
+			paddingBottom: 70,
+			paddingLeft: 71,
+			paddingRight: 57,
 			fontSize: f(9),
 			fontFamily: "Helvetica",
 			color: "#1a1a1a",
@@ -277,17 +290,26 @@ function makeStyles(s: number) {
 		footer: {
 			position: "absolute",
 			bottom: 22,
-			left: 36,
-			right: 36,
-			fontSize: 7.5,
+			left: 71,
+			right: 57,
+			fontSize: 7,
 			color: "#888888",
 			borderTop: "0.4pt solid #d4d4d4",
 			paddingTop: 4,
+		},
+		footerLegal: {
+			color: "#666666",
+			marginBottom: 3,
+			lineHeight: 1.35,
 		},
 		footerRow: {
 			flexDirection: "row",
 			justifyContent: "space-between",
 			marginBottom: 1,
+		},
+		footerHash: {
+			marginTop: 2,
+			color: "#999999",
 		},
 		watermark: {
 			position: "absolute",
@@ -386,6 +408,17 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
 		ustGroups.length,
 	);
 	const styles = makeStyles(scale);
+
+	const anschrift = vereinAnschriftLine(data.verein);
+	const register = vereinRegisterLine(data.verein);
+	const legalLine = [
+		data.verein.name.trim(),
+		anschrift,
+		register ? `Registergericht: ${register}` : "",
+	]
+		.filter(Boolean)
+		.join("  ·  ");
+	const vorstand = data.verein.vorstand.trim();
 
 	return (
 		<Document
@@ -683,11 +716,14 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
 				) : null}
 
 				<View fixed style={styles.footer}>
+					{legalLine || vorstand ? (
+						<View style={styles.footerLegal}>
+							{legalLine ? <Text>{legalLine}</Text> : null}
+							{vorstand ? <Text>Vorstand: {vorstand}</Text> : null}
+						</View>
+					) : null}
 					<View style={styles.footerRow}>
-						<Text>{data.vereinsname}</Text>
 						<Text>Beleg: {data.belegnummer}</Text>
-					</View>
-					<View style={styles.footerRow}>
 						<Text>Erfasst: {formatDateTimeDe(data.erstellt_am)} Uhr</Text>
 						<Text
 							render={({ pageNumber, totalPages }) =>
@@ -695,7 +731,7 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
 							}
 						/>
 					</View>
-					<Text style={{ marginTop: 1 }}>SHA256: {data.pdfHash}</Text>
+					<Text style={styles.footerHash}>SHA256: {data.pdfHash}</Text>
 				</View>
 			</Page>
 		</Document>

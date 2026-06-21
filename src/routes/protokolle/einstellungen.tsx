@@ -26,7 +26,7 @@ export const Route = createFileRoute("/protokolle/einstellungen")({
 			settings: belegnummer.settings,
 			preview: belegnummer.preview,
 			umsatzUstBasis: basis.umsatz_ust_basis,
-			vereinsname: verein.vereinsname,
+			verein,
 			registers,
 			admin: admin ? { users: admin[0], invites: admin[1] } : null,
 		};
@@ -37,7 +37,7 @@ export const Route = createFileRoute("/protokolle/einstellungen")({
 });
 
 function EinstellungenPage() {
-	const { settings, preview, umsatzUstBasis, vereinsname, registers, admin } =
+	const { settings, preview, umsatzUstBasis, verein, registers, admin } =
 		Route.useLoaderData();
 
 	return (
@@ -53,9 +53,9 @@ function EinstellungenPage() {
 					<SectionHeading
 						icon={Building2}
 						title="Verein"
-						description="Der Verein, für den diese SVUFO-Instanz läuft. Wird dezent als Zusatz angezeigt; SVUFO bleibt die führende Marke. Nur für Admins."
+						description="Stammdaten des Vereins, für den diese SVUFO-Instanz läuft. Der Name erscheint dezent in der App; Anschrift, Vorstand und Registereintrag stehen in der Fußzeile der PDF-Protokolle. Nur für Admins."
 					/>
-					<VereinSettingsForm initial={vereinsname} />
+					<VereinSettingsForm initial={verein} />
 				</section>
 			) : null}
 

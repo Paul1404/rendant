@@ -7,6 +7,7 @@ import {
 	Coins,
 	Copy,
 	Download,
+	Eye,
 	FileText,
 	Fingerprint,
 	ReceiptText,
@@ -144,6 +145,16 @@ function ProtokollDetailPage() {
 								Wie dieses
 							</Button>
 						</Link>
+						<a
+							href={`/api/protokolle/${protokoll.id}/pdf?view=1`}
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							<Button variant="outline" size="sm">
+								<Eye className="mr-2 h-4 w-4" />
+								Ansehen
+							</Button>
+						</a>
 						<a href={`/api/protokolle/${protokoll.id}/pdf`}>
 							<Button variant="outline" size="sm">
 								<Download className="mr-2 h-4 w-4" />
@@ -151,12 +162,24 @@ function ProtokollDetailPage() {
 							</Button>
 						</a>
 						{isStorno && protokoll.storno_pdf_s3_key ? (
-							<a href={`/api/protokolle/${protokoll.id}/storno-pdf`}>
-								<Button variant="outline" size="sm">
-									<Download className="mr-2 h-4 w-4" />
-									Storno-PDF
-								</Button>
-							</a>
+							<>
+								<a
+									href={`/api/protokolle/${protokoll.id}/storno-pdf?view=1`}
+									target="_blank"
+									rel="noopener noreferrer"
+								>
+									<Button variant="outline" size="sm">
+										<Eye className="mr-2 h-4 w-4" />
+										Storno ansehen
+									</Button>
+								</a>
+								<a href={`/api/protokolle/${protokoll.id}/storno-pdf`}>
+									<Button variant="outline" size="sm">
+										<Download className="mr-2 h-4 w-4" />
+										Storno-PDF
+									</Button>
+								</a>
+							</>
 						) : null}
 						{!isStorno ? <StornoDialog protokollId={protokoll.id} /> : null}
 					</div>

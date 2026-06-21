@@ -3,6 +3,19 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.8.0 — 2026-06-21
+
+- PDF-Protokolle lassen sich jetzt direkt ansehen, nicht nur herunterladen. In
+  der Detailansicht öffnet "Ansehen" das PDF in einem neuen Tab, "PDF" lädt es
+  wie bisher herunter. Gilt auch für Storno-PDFs.
+- Layout der PDF-Protokolle auf DIN-Seitenränder umgestellt (A4, ohne Briefkopf):
+  links 25 mm, rechts 20 mm, oben 20 mm. Die Ränder bleiben unabhängig von der
+  Inhaltsdichte normgerecht; sehr volle Protokolle werden weiterhin auf eine
+  Seite skaliert.
+- Vereinsstammdaten ergänzt: Anschrift, Vorstand und Registereintrag stehen jetzt
+  in der Fußzeile jedes PDF-Protokolls. Alle Felder sind unter Einstellungen >
+  Verein pflegbar; leere Felder werden im PDF ausgelassen.
+
 ## 1.7.2 — 2026-06-21
 
 - Kennzahlen-Kacheln auf dem Handy korrigiert: Der Gesamtumsatz (und die übrigen
