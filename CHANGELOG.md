@@ -3,6 +3,17 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.8.1 — 2026-06-21
+
+- Fußzeile der PDF-Protokolle korrigiert: Anschrift und Vorstand fehlten und nur
+  die SHA256-Zeile war sichtbar. Ursache war eine Zeilenhöhe auf Seitenebene, die
+  in die fest positionierte Fußzeile durchschlug und deren Zeilen verschluckte.
+  Die Stammdaten stehen jetzt wieder vollständig in der Fußzeile.
+- Doppelte Angaben im PDF entfernt: Vereinsname, Belegnummer und Erfassungsdatum
+  standen sowohl im Kopf als auch in der Fußzeile. Sie stehen jetzt nur noch im
+  Kopf. Die Fußzeile zeigt Anschrift, Vorstand, Registereintrag sowie SHA256 und
+  Seitenzahl.
+
 ## 1.8.0 — 2026-06-21
 
 - PDF-Protokolle lassen sich jetzt direkt ansehen, nicht nur herunterladen. In
