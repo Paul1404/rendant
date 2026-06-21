@@ -3,6 +3,17 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.6.0 — 2026-06-20
+
+- Neue Markenidentität für SVUFO. Das Logo ist jetzt eine Zählstrich-Münze:
+  vier Striche, der fünfte in Messing als abschließender Schrägstrich, in einer
+  tiefgrünen Münze, die zugleich für das geschlossene, geprüfte Kassenbuch steht.
+- Neue Farbwelt aus Ledger-Grün, Messing und Papier, durchgängig auf allen
+  Oberflächen, hell und dunkel.
+- Neue Schriften: Space Grotesk für Wortmarke und Überschriften, Hanken Grotesk
+  für den Fließtext.
+- Vollständiger neuer Favicon- und App-Icon-Satz aus der neuen Marke.
+
 ## 1.5.2 — 2026-06-20
 
 - Durchgängiges Co-Branding "SVUFO × Verein": Die App-Marke und das

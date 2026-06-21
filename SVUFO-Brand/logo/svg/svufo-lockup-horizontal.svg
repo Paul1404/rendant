@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 100" width="360" height="100" role="img" aria-label="SVUFO horizontal lockup">
+  <defs>
+    
+  </defs>
+  <g transform="translate(8,18)">
+    <circle cx="32" cy="32" r="32" fill="#0F4435"></circle>
+    <g transform="translate(32,32) scale(0.696) translate(-50,-50)">
+      <rect x="30.5" y="33" width="5.6" height="34" rx="2.8" fill="#F6F3EC"></rect>
+      <rect x="41.6" y="33" width="5.6" height="34" rx="2.8" fill="#F6F3EC"></rect>
+      <rect x="52.7" y="33" width="5.6" height="34" rx="2.8" fill="#F6F3EC"></rect>
+      <rect x="63.8" y="33" width="5.6" height="34" rx="2.8" fill="#F6F3EC"></rect>
+      <line x1="26" y1="69" x2="74" y2="31" stroke="#C49A4E" stroke-width="6.2" stroke-linecap="round"></line>
+    </g>
+  </g>
+  <text x="90" y="67" class="wm">SVUFO</text>
+</svg>

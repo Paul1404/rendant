@@ -1,1 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="SVUFO"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="64" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#cf4127"/><stop offset="1" stop-color="#8f1f12"/></linearGradient><radialGradient id="hl" cx="30%" cy="20%" r="85%"><stop offset="0" stop-color="#ffffff" stop-opacity="0.18"/><stop offset="60%" stop-color="#ffffff" stop-opacity="0"/></radialGradient></defs><rect width="64" height="64" rx="15" fill="url(#g)"/><rect width="64" height="64" rx="15" fill="url(#hl)"/><rect x="0.5" y="0.5" width="63" height="63" rx="14.5" fill="none" stroke="#000" stroke-opacity="0.06"/><g fill="#fff"><rect x="17.5" y="18" width="5" height="28" rx="2.5"/><rect x="25.5" y="18" width="5" height="28" rx="2.5"/><rect x="33.5" y="18" width="5" height="28" rx="2.5"/><rect x="41.5" y="18" width="5" height="28" rx="2.5"/></g><path d="M15 47 L49 17" stroke="#9f2415" stroke-width="10" stroke-linecap="round"/><path d="M15 47 L49 17" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="64" height="64" role="img" aria-label="SVUFO favicon">
+  <circle cx="50" cy="50" r="50" fill="#0F4435"></circle>
+  <rect x="30.5" y="33" width="5.6" height="34" rx="2.8" fill="#F6F3EC"></rect>
+  <rect x="41.6" y="33" width="5.6" height="34" rx="2.8" fill="#F6F3EC"></rect>
+  <rect x="52.7" y="33" width="5.6" height="34" rx="2.8" fill="#F6F3EC"></rect>
+  <rect x="63.8" y="33" width="5.6" height="34" rx="2.8" fill="#F6F3EC"></rect>
+  <line x1="26" y1="69" x2="74" y2="31" stroke="#C49A4E" stroke-width="6.2" stroke-linecap="round"></line>
+</svg>

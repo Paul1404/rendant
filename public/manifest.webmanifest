@@ -4,8 +4,8 @@
   "description": "Digitale Kassenzählprotokolle",
   "start_url": "/protokolle",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#b3121c",
+  "background_color": "#F6F3EC",
+  "theme_color": "#0F4435",
   "icons": [
     { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192" },
     { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512" },

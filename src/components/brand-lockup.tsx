@@ -28,7 +28,7 @@ export function BrandLockup({
 				className={cn("flex items-center justify-center gap-4", className)}
 				aria-label={hasClub ? `SVUFO und ${vereinsname}` : "SVUFO"}
 			>
-				<span className="inline-flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-[1.3rem] shadow-lg shadow-primary/25 ring-1 ring-foreground/10">
+				<span className="inline-flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-full shadow-lg shadow-primary/25 ring-1 ring-foreground/10">
 					<img
 						src={SVUFO_MARK}
 						alt="SVUFO"
@@ -55,7 +55,7 @@ export function BrandLockup({
 
 	return (
 		<div className={cn("flex items-center gap-2.5", className)}>
-			<span className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[10px] shadow-sm ring-1 ring-foreground/10">
+			<span className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full shadow-sm ring-1 ring-foreground/10">
 				<img
 					src={SVUFO_MARK}
 					alt="SVUFO"
@@ -65,9 +65,7 @@ export function BrandLockup({
 				/>
 			</span>
 			<span className="hidden flex-col leading-tight sm:flex">
-				<span className="text-sm font-semibold tracking-tight text-foreground">
-					SVUFO
-				</span>
+				<span className="wordmark text-sm text-foreground">SVUFO</span>
 				<span className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
 					Kassenzählprotokoll
 				</span>
