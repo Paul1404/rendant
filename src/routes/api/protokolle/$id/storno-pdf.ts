@@ -25,11 +25,13 @@ export const Route = createFileRoute("/api/protokolle/$id/storno-pdf")({
 				const buffer = await downloadPdf(key);
 				const filename =
 					key.split("/").pop() ?? `${detail.protokoll.belegnummer}_STORNO.pdf`;
+				const inline = new URL(request.url).searchParams.get("view") === "1";
+				const disposition = inline ? "inline" : "attachment";
 				return new Response(new Uint8Array(buffer), {
 					status: 200,
 					headers: {
 						"Content-Type": "application/pdf",
-						"Content-Disposition": `attachment; filename="${filename}"`,
+						"Content-Disposition": `${disposition}; filename="${filename}"`,
 						"Content-Length": String(buffer.length),
 					},
 				});

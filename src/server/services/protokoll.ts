@@ -15,7 +15,7 @@ import { logger } from "@/server/logger";
 import { nextBelegnummerInTx } from "@/server/services/belegnummer";
 import { renderProtokollPdf } from "@/server/services/pdf";
 import { deletePdf, uploadPdf } from "@/server/services/s3";
-import { getVereinsname } from "@/server/services/settings";
+import { getVereinStammdaten } from "@/server/services/settings";
 
 type DbProtokoll = typeof protokolle.$inferSelect;
 
@@ -246,8 +246,10 @@ export async function createProtokoll(
 	// still return success so the user does not retry and create a duplicate.
 	// The detail page surfaces a missing PDF and offers a regenerate button.
 	try {
+		const verein = await getVereinStammdaten();
 		const { buffer, hash } = await renderProtokollPdf({
-			vereinsname: await getVereinsname(),
+			vereinsname: verein.name,
+			verein,
 			belegnummer: created.belegnummer,
 			erstellt_am: created.erstellt_am,
 			anlass_datum: new Date(input.anlass_datum),
@@ -286,8 +288,10 @@ export async function createProtokoll(
 
 async function pdfDataFromDetail(detail: ProtokollDetail) {
 	const { protokoll, ausgaben: ausg, umsatzUst } = detail;
+	const verein = await getVereinStammdaten();
 	return {
-		vereinsname: await getVereinsname(),
+		vereinsname: verein.name,
+		verein,
 		belegnummer: protokoll.belegnummer,
 		erstellt_am: protokoll.erstellt_am,
 		anlass_datum: new Date(protokoll.anlass_datum),

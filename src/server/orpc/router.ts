@@ -39,10 +39,10 @@ import { vatSummary } from "@/server/services/reports";
 import {
 	getBelegnummerSettings,
 	getUmsatzUstBasisDefault,
-	getVereinsname,
+	getVereinStammdaten,
 	updateBelegnummerSettings,
 	updateUmsatzUstBasisDefault,
-	updateVereinsname,
+	updateVereinStammdaten,
 } from "@/server/services/settings";
 import { adminOnly, authed, pub } from "./base";
 
@@ -154,15 +154,19 @@ const settings = {
 			),
 		})),
 
-	getVerein: authed.handler(async () => ({
-		vereinsname: await getVereinsname(),
-	})),
+	getVerein: authed.handler(() => getVereinStammdaten()),
 
-	updateVerein: adminOnly
-		.input(VereinSettingsSchema)
-		.handler(async ({ input }) => ({
-			vereinsname: await updateVereinsname(input.vereinsname),
-		})),
+	updateVerein: adminOnly.input(VereinSettingsSchema).handler(({ input }) =>
+		updateVereinStammdaten({
+			name: input.vereinsname,
+			strasse: input.strasse,
+			plz: input.plz,
+			ort: input.ort,
+			vorstand: input.vorstand,
+			registergericht: input.registergericht,
+			registernummer: input.registernummer,
+		}),
+	),
 };
 
 // ---- Cash registers ------------------------------------------------------

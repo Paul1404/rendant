@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import type { VereinStammdaten } from "@/lib/verein";
 import { db } from "@/server/db";
 import { appSettings } from "@/server/db/schema";
 
@@ -108,18 +109,58 @@ export async function getVereinsname(): Promise<string> {
 	return process.env.VEREINSNAME?.trim() || "Verein";
 }
 
-export async function updateVereinsname(name: string): Promise<string> {
+function rowToStammdaten(row: SettingsRow): VereinStammdaten {
+	return {
+		name: row.vereinsname.trim() || process.env.VEREINSNAME?.trim() || "Verein",
+		strasse: row.verein_strasse,
+		plz: row.verein_plz,
+		ort: row.verein_ort,
+		vorstand: row.verein_vorstand,
+		registergericht: row.verein_registergericht,
+		registernummer: row.verein_registernummer,
+	};
+}
+
+// Full club master data for the PDF footer and the settings form. The name
+// keeps its env/default fallback; the rest are plain stored values (empty
+// until configured) and are left out of the document when blank.
+export async function getVereinStammdaten(): Promise<VereinStammdaten> {
+	const row = await loadRow();
+	if (!row) {
+		return {
+			name: process.env.VEREINSNAME?.trim() || "Verein",
+			strasse: "",
+			plz: "",
+			ort: "",
+			vorstand: "",
+			registergericht: "",
+			registernummer: "",
+		};
+	}
+	return rowToStammdaten(row);
+}
+
+export async function updateVereinStammdaten(
+	patch: VereinStammdaten,
+): Promise<VereinStammdaten> {
 	const rows = await db
 		.update(appSettings)
-		.set({ vereinsname: name.trim(), updated_at: new Date() })
+		.set({
+			vereinsname: patch.name.trim(),
+			verein_strasse: patch.strasse.trim(),
+			verein_plz: patch.plz.trim(),
+			verein_ort: patch.ort.trim(),
+			verein_vorstand: patch.vorstand.trim(),
+			verein_registergericht: patch.registergericht.trim(),
+			verein_registernummer: patch.registernummer.trim(),
+			updated_at: new Date(),
+		})
 		.where(eq(appSettings.id, 1))
 		.returning();
 	if (rows.length === 0) {
 		throw new Error("Einstellungen konnten nicht aktualisiert werden");
 	}
-	return (
-		rows[0].vereinsname.trim() || process.env.VEREINSNAME?.trim() || "Verein"
-	);
+	return rowToStammdaten(rows[0]);
 }
 
 export function formatBelegnummerWithSettings(

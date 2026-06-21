@@ -15,6 +15,20 @@
       "when": 1782008028435,
       "tag": "0001_motionless_rocket_raccoon",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782063529841,
+      "tag": "0002_kind_titania",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1782063548850,
+      "tag": "0003_seed_verein_stammdaten",
+      "breakpoints": true
     }
   ]
 }

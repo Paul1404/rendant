@@ -41,6 +41,12 @@ export type UmsatzUstBasisSettingsInput = v.InferOutput<
 	typeof UmsatzUstBasisSettingsSchema
 >;
 
+const optionalText = (max: number, label: string) =>
+	v.optional(
+		v.pipe(v.string(), v.trim(), v.maxLength(max, `Höchstens ${label}`)),
+		"",
+	);
+
 export const VereinSettingsSchema = v.object({
 	vereinsname: v.pipe(
 		v.string(),
@@ -48,6 +54,12 @@ export const VereinSettingsSchema = v.object({
 		v.minLength(1, "Bitte einen Vereinsnamen angeben"),
 		v.maxLength(120, "Höchstens 120 Zeichen"),
 	),
+	strasse: optionalText(120, "120 Zeichen"),
+	plz: optionalText(10, "10 Zeichen"),
+	ort: optionalText(120, "120 Zeichen"),
+	vorstand: optionalText(400, "400 Zeichen"),
+	registergericht: optionalText(120, "120 Zeichen"),
+	registernummer: optionalText(40, "40 Zeichen"),
 });
 export type VereinSettingsInput = v.InferOutput<typeof VereinSettingsSchema>;
 
