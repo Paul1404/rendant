@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.7.1 — 2026-06-20
+
+- Logo im Kopfbereich korrigiert: Die Marke wird jetzt versioniert geladen, damit
+  die neue grüne Münze auch dort sofort erscheint. Zuvor blieb stellenweise das
+  alte rote Logo aus dem Cache stehen.
+- Umsatzdiagramm geglättet: weiche, abgerundete Kurve (monotoner Spline) statt
+  spitzer Zacken, ohne dabei unter die Nulllinie auszuschlagen.
+
 ## 1.7.0 — 2026-06-20
 
 - SVUFO ist jetzt die alleinige Marke der App. Das Vereinswappen wurde aus

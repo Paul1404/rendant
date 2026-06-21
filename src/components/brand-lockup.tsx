@@ -1,9 +1,11 @@
 import { cn } from "@/lib/utils";
+import { APP_VERSION } from "@/lib/version";
 
 // The SVUFO app mark (the tally coin) is a static asset and the product's whole
 // visual identity. The club it runs for is shown elsewhere only as a quiet
-// "läuft für ..." line, never as a competing logo.
-const SVUFO_MARK = "/logo.svg";
+// "läuft für ..." line, never as a competing logo. The ?v= stamp busts the long
+// cache on this static asset whenever the logo (and version) changes.
+const SVUFO_MARK = `/logo.svg?v=${APP_VERSION}`;
 
 type Props = {
 	variant?: "bar" | "hero";
