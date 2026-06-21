@@ -3,6 +3,13 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.7.2 — 2026-06-21
+
+- Kennzahlen-Kacheln auf dem Handy korrigiert: Der Gesamtumsatz (und die übrigen
+  Beträge) wurden am rechten Kartenrand abgeschnitten, weil der Wert breiter war
+  als die halbe Bildschirmbreite. Die Beträge skalieren jetzt mit der Kartenbreite
+  und bleiben ab Tablet-Größe unverändert.
+
 ## 1.7.1 — 2026-06-20
 
 - Logo im Kopfbereich korrigiert: Die Marke wird jetzt versioniert geladen, damit

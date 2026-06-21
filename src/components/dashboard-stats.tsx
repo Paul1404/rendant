@@ -303,7 +303,12 @@ function KpiCard({
 					emphasis
 					className={cn(
 						"mt-2 block tracking-tight",
-						hero ? "text-2xl sm:text-[1.7rem]" : "text-lg sm:text-[1.35rem]",
+						// On narrow mobile the card is half the viewport and clips the
+						// no-wrap figure. Scale the value down with the card width and
+						// pin it to the original fixed size from the sm breakpoint up.
+						hero
+							? "text-[clamp(0.9rem,4.2vw,1.7rem)] sm:text-[1.7rem]"
+							: "text-[clamp(0.85rem,3.6vw,1.35rem)] sm:text-[1.35rem]",
 					)}
 				/>
 				{hint ? (
