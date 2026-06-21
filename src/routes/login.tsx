@@ -44,9 +44,7 @@ function LoginPage() {
 					<p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
 						Kassenzählprotokoll
 					</p>
-					<h1 className="mt-1.5 text-3xl font-semibold tracking-tight text-foreground">
-						SVUFO
-					</h1>
+					<h1 className="wordmark mt-1.5 text-3xl text-foreground">SVUFO</h1>
 					<p className="mt-1.5 text-sm text-muted-foreground">
 						{branding.vereinsname}
 					</p>

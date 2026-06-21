@@ -27,7 +27,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 				name: "description",
 				content: "Digitale Erfassung von Kassenzählprotokollen.",
 			},
-			{ name: "theme-color", content: "#b3331f" },
+			{ name: "theme-color", content: "#0F4435" },
 		],
 		links: [
 			{ rel: "stylesheet", href: appCss },
