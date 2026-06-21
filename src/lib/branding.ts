@@ -1,16 +1,9 @@
-// Branding read at runtime from the environment so the public repository stays
-// generic while a deployment can rebrand without touching code or rebuilding.
-// Server-only: do not import this from a client component. The values are
-// surfaced to the browser through the root route loader (see __root.tsx).
+// The club this deployment runs for. SVUFO owns all visual branding; the club
+// is surfaced only as a quiet "läuft für ..." attribution and in the PDF header.
+// The name is configured in-app under Einstellungen (see the settings service),
+// falling back to the VEREINSNAME env var. The resolved value reaches the
+// browser through the root route loader (see __root.tsx).
 
 export type Branding = {
 	vereinsname: string;
-	logoUrl: string;
 };
-
-export function getBranding(): Branding {
-	return {
-		vereinsname: process.env.VEREINSNAME?.trim() || "Verein",
-		logoUrl: process.env.LOGO_URL?.trim() || "/logo.svg",
-	};
-}

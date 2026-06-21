@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.7.0 — 2026-06-20
+
+- SVUFO ist jetzt die alleinige Marke der App. Das Vereinswappen wurde aus
+  Kopfzeile, Anmeldung und Einladung entfernt; der Verein erscheint nur noch
+  dezent als "läuft für ..."-Hinweis in Fußzeile und auf der Anmeldeseite.
+- Der Verein ist jetzt in den Einstellungen konfigurierbar (Abschnitt "Verein",
+  nur Admins) und wird in der Datenbank gespeichert. Die Umgebungsvariable
+  VEREINSNAME dient nur noch als Anfangswert; LOGO_URL wird nicht mehr benötigt.
+
 ## 1.6.1 — 2026-06-20
 
 - Favicon- und App-Icon-URLs tragen jetzt die Versionsmarke, damit ein

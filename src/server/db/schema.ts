@@ -167,6 +167,9 @@ export const appSettings = pgTable(
 			.default("long"),
 		belegnummer_separator: text("belegnummer_separator").notNull().default("-"),
 		umsatz_ust_basis: text("umsatz_ust_basis").notNull().default("post_card"),
+		// Club this deployment runs for. Empty means "fall back to the VEREINSNAME
+		// env var, then a generic default". Configured in-app under Einstellungen.
+		vereinsname: text("vereinsname").notNull().default(""),
 		updated_at: timestamp("updated_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),

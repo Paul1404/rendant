@@ -10,6 +10,7 @@ import {
 	InviteCreateSchema,
 	StornoSchema,
 	UmsatzUstBasisSettingsSchema,
+	VereinSettingsSchema,
 } from "@/lib/schemas";
 import { db } from "@/server/db";
 import { user as userTable } from "@/server/db/auth-schema";
@@ -38,8 +39,10 @@ import { vatSummary } from "@/server/services/reports";
 import {
 	getBelegnummerSettings,
 	getUmsatzUstBasisDefault,
+	getVereinsname,
 	updateBelegnummerSettings,
 	updateUmsatzUstBasisDefault,
+	updateVereinsname,
 } from "@/server/services/settings";
 import { adminOnly, authed, pub } from "./base";
 
@@ -149,6 +152,16 @@ const settings = {
 			umsatz_ust_basis: await updateUmsatzUstBasisDefault(
 				input.umsatz_ust_basis,
 			),
+		})),
+
+	getVerein: authed.handler(async () => ({
+		vereinsname: await getVereinsname(),
+	})),
+
+	updateVerein: adminOnly
+		.input(VereinSettingsSchema)
+		.handler(async ({ input }) => ({
+			vereinsname: await updateVereinsname(input.vereinsname),
 		})),
 };
 

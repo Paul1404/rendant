@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Hash, Receipt, Users, Wallet } from "lucide-react";
+import { Building2, Hash, Receipt, Users, Wallet } from "lucide-react";
 import { BelegnummerSettingsForm } from "@/components/belegnummer-settings-form";
 import { CashRegistersForm } from "@/components/cash-registers-form";
 import { PageHeader } from "@/components/page-header";
@@ -7,14 +7,16 @@ import { SettingsSkeleton } from "@/components/skeletons";
 import { SectionHeading } from "@/components/ui/section";
 import { UmsatzUstBasisForm } from "@/components/umsatz-ust-basis-form";
 import { UserManagement } from "@/components/user-management";
+import { VereinSettingsForm } from "@/components/verein-settings-form";
 import { orpcClient } from "@/lib/orpc";
 
 export const Route = createFileRoute("/protokolle/einstellungen")({
 	loader: async ({ context }) => {
 		const isAdmin = context.user.role === "admin";
-		const [belegnummer, basis, registers, admin] = await Promise.all([
+		const [belegnummer, basis, verein, registers, admin] = await Promise.all([
 			orpcClient.settings.getBelegnummer(),
 			orpcClient.settings.getUmsatzUstBasis(),
+			orpcClient.settings.getVerein(),
 			orpcClient.registers.list(),
 			isAdmin
 				? Promise.all([orpcClient.users.list(), orpcClient.invites.list()])
@@ -24,6 +26,7 @@ export const Route = createFileRoute("/protokolle/einstellungen")({
 			settings: belegnummer.settings,
 			preview: belegnummer.preview,
 			umsatzUstBasis: basis.umsatz_ust_basis,
+			vereinsname: verein.vereinsname,
 			registers,
 			admin: admin ? { users: admin[0], invites: admin[1] } : null,
 		};
@@ -34,7 +37,7 @@ export const Route = createFileRoute("/protokolle/einstellungen")({
 });
 
 function EinstellungenPage() {
-	const { settings, preview, umsatzUstBasis, registers, admin } =
+	const { settings, preview, umsatzUstBasis, vereinsname, registers, admin } =
 		Route.useLoaderData();
 
 	return (
@@ -44,6 +47,17 @@ function EinstellungenPage() {
 				title="Einstellungen"
 				description="Vorlagen und Standardwerte für die Kassenzählprotokolle: Kassen, Belegnummer-Format und USt.-Aufteilung."
 			/>
+
+			{admin ? (
+				<section className="mx-auto max-w-3xl space-y-4">
+					<SectionHeading
+						icon={Building2}
+						title="Verein"
+						description="Der Verein, für den diese SVUFO-Instanz läuft. Wird dezent als Zusatz angezeigt; SVUFO bleibt die führende Marke. Nur für Admins."
+					/>
+					<VereinSettingsForm initial={vereinsname} />
+				</section>
+			) : null}
 
 			<section className="mx-auto max-w-3xl space-y-4">
 				<SectionHeading

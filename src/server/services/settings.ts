@@ -98,6 +98,30 @@ export async function updateUmsatzUstBasisDefault(
 	return normalizeUmsatzUstBasis(rows[0].umsatz_ust_basis);
 }
 
+// Club name powering the app's "läuft für ..." attribution and the PDF header.
+// DB value wins; an empty value falls back to the VEREINSNAME env var, then a
+// generic default, so an unconfigured deployment still renders sensibly.
+export async function getVereinsname(): Promise<string> {
+	const row = await loadRow();
+	const fromDb = row?.vereinsname?.trim();
+	if (fromDb) return fromDb;
+	return process.env.VEREINSNAME?.trim() || "Verein";
+}
+
+export async function updateVereinsname(name: string): Promise<string> {
+	const rows = await db
+		.update(appSettings)
+		.set({ vereinsname: name.trim(), updated_at: new Date() })
+		.where(eq(appSettings.id, 1))
+		.returning();
+	if (rows.length === 0) {
+		throw new Error("Einstellungen konnten nicht aktualisiert werden");
+	}
+	return (
+		rows[0].vereinsname.trim() || process.env.VEREINSNAME?.trim() || "Verein"
+	);
+}
+
 export function formatBelegnummerWithSettings(
 	sequence: number,
 	year: number,

@@ -41,6 +41,16 @@ export type UmsatzUstBasisSettingsInput = v.InferOutput<
 	typeof UmsatzUstBasisSettingsSchema
 >;
 
+export const VereinSettingsSchema = v.object({
+	vereinsname: v.pipe(
+		v.string(),
+		v.trim(),
+		v.minLength(1, "Bitte einen Vereinsnamen angeben"),
+		v.maxLength(120, "Höchstens 120 Zeichen"),
+	),
+});
+export type VereinSettingsInput = v.InferOutput<typeof VereinSettingsSchema>;
+
 export const CreateProtokollSchema = v.object({
 	belegnummer: v.optional(
 		v.pipe(

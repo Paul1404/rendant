@@ -7,11 +7,6 @@ import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
-type HeaderProps = {
-	vereinsname: string;
-	logoUrl: string;
-};
-
 type NavItem = {
 	href:
 		| "/protokolle"
@@ -30,7 +25,7 @@ const NAV: NavItem[] = [
 	{ href: "/protokolle/einstellungen", label: "Einstellungen", icon: Settings },
 ];
 
-export function Header({ vereinsname, logoUrl }: HeaderProps) {
+export function Header() {
 	const pathname = useRouterState({ select: (s) => s.location.pathname });
 	const [pending, startTransition] = useTransition();
 
@@ -49,11 +44,7 @@ export function Header({ vereinsname, logoUrl }: HeaderProps) {
 					aria-label="SVUFO Startseite"
 					className="group rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
 				>
-					<BrandLockup
-						variant="bar"
-						vereinsname={vereinsname}
-						logoUrl={logoUrl}
-					/>
+					<BrandLockup variant="bar" />
 				</Link>
 
 				<nav className="flex items-center gap-1">

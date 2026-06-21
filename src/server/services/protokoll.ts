@@ -1,5 +1,4 @@
 import { asc, desc, eq, isNull } from "drizzle-orm";
-import { getBranding } from "@/lib/branding";
 import { S3_PREFIX } from "@/lib/constants";
 import { currentYearBerlin, formatFilenameStamp } from "@/lib/date";
 import { DENOMINATIONS, type DenominationCounts } from "@/lib/denominations";
@@ -16,6 +15,7 @@ import { logger } from "@/server/logger";
 import { nextBelegnummerInTx } from "@/server/services/belegnummer";
 import { renderProtokollPdf } from "@/server/services/pdf";
 import { deletePdf, uploadPdf } from "@/server/services/s3";
+import { getVereinsname } from "@/server/services/settings";
 
 type DbProtokoll = typeof protokolle.$inferSelect;
 
@@ -247,7 +247,7 @@ export async function createProtokoll(
 	// The detail page surfaces a missing PDF and offers a regenerate button.
 	try {
 		const { buffer, hash } = await renderProtokollPdf({
-			vereinsname: getBranding().vereinsname,
+			vereinsname: await getVereinsname(),
 			belegnummer: created.belegnummer,
 			erstellt_am: created.erstellt_am,
 			anlass_datum: new Date(input.anlass_datum),
@@ -284,10 +284,10 @@ export async function createProtokoll(
 	return { id: created.id, belegnummer: created.belegnummer };
 }
 
-function pdfDataFromDetail(detail: ProtokollDetail) {
+async function pdfDataFromDetail(detail: ProtokollDetail) {
 	const { protokoll, ausgaben: ausg, umsatzUst } = detail;
 	return {
-		vereinsname: getBranding().vereinsname,
+		vereinsname: await getVereinsname(),
 		belegnummer: protokoll.belegnummer,
 		erstellt_am: protokoll.erstellt_am,
 		anlass_datum: new Date(protokoll.anlass_datum),
@@ -321,7 +321,7 @@ export async function stornoProtokoll(
 	}
 	const stornoAm = new Date();
 	const { buffer, hash } = await renderProtokollPdf({
-		...pdfDataFromDetail(detail),
+		...(await pdfDataFromDetail(detail)),
 		storno: { am: stornoAm, grund: input.storno_grund },
 	});
 	const key = pdfKey(detail.protokoll.belegnummer, "_STORNO");
@@ -353,7 +353,7 @@ export async function regenerateProtokollPdf(id: string): Promise<void> {
 	const detail = await getProtokoll(id);
 	if (!detail) throw new Error("Protokoll nicht gefunden");
 	const { protokoll } = detail;
-	const baseData = pdfDataFromDetail(detail);
+	const baseData = await pdfDataFromDetail(detail);
 
 	const main = await renderProtokollPdf(baseData);
 	const mainKey = pdfKey(protokoll.belegnummer, "");

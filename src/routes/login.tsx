@@ -35,18 +35,13 @@ function LoginPage() {
 
 			<div className="w-full max-w-sm">
 				<div className="flex flex-col items-center text-center">
-					<BrandLockup
-						variant="hero"
-						vereinsname={branding.vereinsname}
-						logoUrl={branding.logoUrl}
-						className="mb-6"
-					/>
+					<BrandLockup variant="hero" className="mb-6" />
 					<p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
 						Kassenzählprotokoll
 					</p>
 					<h1 className="wordmark mt-1.5 text-3xl text-foreground">SVUFO</h1>
 					<p className="mt-1.5 text-sm text-muted-foreground">
-						{branding.vereinsname}
+						läuft für {branding.vereinsname}
 					</p>
 				</div>
 

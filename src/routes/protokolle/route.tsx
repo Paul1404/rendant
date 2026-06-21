@@ -21,14 +21,16 @@ function ProtokolleLayout() {
 	return (
 		<>
 			<CommandPalette />
-			<Header vereinsname={branding.vereinsname} logoUrl={branding.logoUrl} />
+			<Header />
 			<main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
 				<Outlet />
 			</main>
 			<footer className="mt-auto border-t border-border/70 bg-background/60 backdrop-blur">
 				<div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-4 text-[11px] text-muted-foreground sm:px-6">
 					<span>
-						&copy; {new Date().getFullYear()} {branding.vereinsname}
+						<span className="font-medium text-foreground/70">SVUFO</span>
+						<span className="mx-1.5 text-muted-foreground/40">·</span>
+						läuft für {branding.vereinsname}
 					</span>
 					<VersionChip />
 				</div>
