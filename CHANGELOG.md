@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.6.1 — 2026-06-20
+
+- Favicon- und App-Icon-URLs tragen jetzt die Versionsmarke, damit ein
+  Logowechsel den langen Browser- und Edge-Cache sofort umgeht.
+
 ## 1.6.0 — 2026-06-20
 
 - Neue Markenidentität für SVUFO. Das Logo ist jetzt eine Zählstrich-Münze:

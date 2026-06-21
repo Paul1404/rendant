@@ -14,8 +14,13 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { Branding } from "@/lib/branding";
 import { fetchBranding } from "@/lib/server-fns";
+import { APP_VERSION } from "@/lib/version";
 import type { RouterContext } from "@/router";
 import appCss from "@/styles.css?url";
+
+// Version-stamp icon URLs so a logo change propagates past the long edge/browser
+// cache on these static assets the moment the version bumps.
+const v = `?v=${APP_VERSION}`;
 
 export const Route = createRootRouteWithContext<RouterContext>()({
 	head: () => ({
@@ -31,23 +36,23 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 		],
 		links: [
 			{ rel: "stylesheet", href: appCss },
-			{ rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+			{ rel: "icon", href: `/favicon.svg${v}`, type: "image/svg+xml" },
 			{
 				rel: "icon",
-				href: "/favicon-32.png",
+				href: `/favicon-32.png${v}`,
 				sizes: "32x32",
 				type: "image/png",
 			},
 			{
 				rel: "icon",
-				href: "/favicon-16.png",
+				href: `/favicon-16.png${v}`,
 				sizes: "16x16",
 				type: "image/png",
 			},
-			{ rel: "shortcut icon", href: "/favicon.ico" },
+			{ rel: "shortcut icon", href: `/favicon.ico${v}` },
 			{
 				rel: "apple-touch-icon",
-				href: "/apple-touch-icon.png",
+				href: `/apple-touch-icon.png${v}`,
 				sizes: "180x180",
 			},
 			{ rel: "manifest", href: "/manifest.webmanifest" },
