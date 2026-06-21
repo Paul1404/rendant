@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Loader2, UserPlus } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { BrandLockup } from "@/components/brand-lockup";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,7 +29,7 @@ function InvitePage() {
 
 	if (!invite.valid) {
 		return (
-			<Shell logoUrl={branding.logoUrl} vereinsname={branding.vereinsname}>
+			<Shell vereinsname={branding.vereinsname}>
 				<Card className="border-destructive/30">
 					<CardContent className="space-y-1 py-2 text-center">
 						<p className="text-sm font-medium text-destructive">
@@ -67,7 +68,7 @@ function InvitePage() {
 	}
 
 	return (
-		<Shell logoUrl={branding.logoUrl} vereinsname={branding.vereinsname}>
+		<Shell vereinsname={branding.vereinsname}>
 			<Card>
 				<CardContent className="space-y-4">
 					<p className="text-sm text-muted-foreground">
@@ -123,30 +124,20 @@ function InvitePage() {
 
 function Shell({
 	children,
-	logoUrl,
 	vereinsname,
 }: {
 	children: React.ReactNode;
-	logoUrl: string;
 	vereinsname: string;
 }) {
 	return (
 		<div className="relative flex flex-1 items-center justify-center px-4 py-12 sm:py-16">
 			<div className="w-full max-w-sm">
 				<div className="mb-6 flex flex-col items-center text-center">
-					<div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white p-2 shadow-lg shadow-primary/10 ring-1 ring-foreground/10">
-						<img
-							src={logoUrl}
-							alt=""
-							width={48}
-							height={48}
-							className="h-full w-auto object-contain"
-						/>
-					</div>
-					<h1 className="text-xl font-semibold tracking-tight text-foreground">
-						SVUFO
-					</h1>
-					<p className="mt-1 text-sm text-muted-foreground">{vereinsname}</p>
+					<BrandLockup variant="hero" className="mb-4 h-16 w-16" />
+					<h1 className="wordmark text-xl text-foreground">SVUFO</h1>
+					<p className="mt-1 text-sm text-muted-foreground">
+						läuft für {vereinsname}
+					</p>
 				</div>
 				{children}
 			</div>

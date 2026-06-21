@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
-import { getBranding } from "@/lib/branding";
+import type { Branding } from "@/lib/branding";
 import { auth } from "@/server/auth";
+import { getVereinsname } from "@/server/services/settings";
 
 export type SessionUser = {
 	id: string;
@@ -24,6 +25,6 @@ export const fetchSession = createServerFn({ method: "GET" }).handler(
 	},
 );
 
-export const fetchBranding = createServerFn({ method: "GET" }).handler(() =>
-	getBranding(),
+export const fetchBranding = createServerFn({ method: "GET" }).handler(
+	async (): Promise<Branding> => ({ vereinsname: await getVereinsname() }),
 );
