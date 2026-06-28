@@ -13,6 +13,7 @@ import { db } from "@/server/db";
 import { ausgaben, protokolle, protokollUmsatzUst } from "@/server/db/schema";
 import { logger } from "@/server/logger";
 import { nextBelegnummerInTx } from "@/server/services/belegnummer";
+import { sendProtokollNotification } from "@/server/services/email";
 import { renderProtokollPdf } from "@/server/services/pdf";
 import { deletePdf, uploadPdf } from "@/server/services/s3";
 import { getVereinStammdaten } from "@/server/services/settings";
@@ -308,6 +309,17 @@ export async function createProtokoll(
 			err: pdfErr,
 		});
 	}
+
+	// FYI notification to the configured recipients. Best effort: never throws,
+	// so a mail problem cannot affect the created protokoll.
+	await sendProtokollNotification({
+		id: created.id,
+		belegnummer: created.belegnummer,
+		anlass: input.anlass,
+		anlass_datum: input.anlass_datum,
+		kassenbezeichnung: input.kassenbezeichnung,
+		gezaehlt_von: input.gezaehlt_von,
+	});
 
 	return { id: created.id, belegnummer: created.belegnummer };
 }

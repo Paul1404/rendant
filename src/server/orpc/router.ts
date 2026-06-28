@@ -5,10 +5,12 @@ import {
 	BelegnummerSettingsSchema,
 	CashRegisterSchema,
 	CreateProtokollSchema,
+	EmailSettingsSchema,
 	ExportQuerySchema,
 	InviteAcceptSchema,
 	InviteCreateSchema,
 	StornoSchema,
+	TestEmailSchema,
 	UmsatzUstBasisSettingsSchema,
 	VereinSettingsSchema,
 } from "@/lib/schemas";
@@ -21,6 +23,11 @@ import {
 	listCashRegisters,
 	updateCashRegister,
 } from "@/server/services/cash-registers";
+import {
+	getEmailSettings,
+	sendTestEmail,
+	updateEmailSettings,
+} from "@/server/services/email";
 import {
 	acceptInvite,
 	createInvite,
@@ -167,6 +174,40 @@ const settings = {
 			registernummer: input.registernummer,
 		}),
 	),
+
+	getEmail: adminOnly.handler(() => getEmailSettings()),
+
+	updateEmail: adminOnly
+		.input(EmailSettingsSchema)
+		.handler(async ({ input }) => {
+			try {
+				return await updateEmailSettings({
+					enabled: input.enabled,
+					host: input.host,
+					port: input.port,
+					security: input.security,
+					user: input.user,
+					password: input.password,
+					clear_password: input.clear_password,
+					from: input.from,
+					notify_new_protokoll: input.notify_new_protokoll,
+					recipients: input.recipients,
+				});
+			} catch (e) {
+				throw new ORPCError("BAD_REQUEST", { message: (e as Error).message });
+			}
+		}),
+
+	testEmail: adminOnly.input(TestEmailSchema).handler(async ({ input }) => {
+		try {
+			await sendTestEmail(input.to);
+			return { ok: true };
+		} catch (e) {
+			throw new ORPCError("BAD_REQUEST", {
+				message: `Versand fehlgeschlagen: ${(e as Error).message}`,
+			});
+		}
+	}),
 };
 
 // ---- Cash registers ------------------------------------------------------

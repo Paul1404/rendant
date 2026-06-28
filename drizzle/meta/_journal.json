@@ -36,6 +36,13 @@
       "when": 1782068907507,
       "tag": "0004_perpetual_argent",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782642086683,
+      "tag": "0005_real_nightshade",
+      "breakpoints": true
     }
   ]
 }
