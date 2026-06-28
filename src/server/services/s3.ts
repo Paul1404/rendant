@@ -7,7 +7,7 @@ import {
 
 let cachedClient: S3Client | null = null;
 
-function client(): S3Client {
+export function getS3Client(): S3Client {
 	if (cachedClient) return cachedClient;
 	const region = process.env.AWS_DEFAULT_REGION ?? "auto";
 	const endpoint = process.env.AWS_ENDPOINT_URL_S3;
@@ -19,16 +19,16 @@ function client(): S3Client {
 	return cachedClient;
 }
 
-function bucket(): string {
+export function getS3BucketName(): string {
 	const name = process.env.S3_BUCKET_NAME;
 	if (!name) throw new Error("S3_BUCKET_NAME ist nicht gesetzt");
 	return name;
 }
 
 export async function uploadPdf(key: string, body: Buffer): Promise<void> {
-	await client().send(
+	await getS3Client().send(
 		new PutObjectCommand({
-			Bucket: bucket(),
+			Bucket: getS3BucketName(),
 			Key: key,
 			Body: body,
 			ContentType: "application/pdf",
@@ -37,9 +37,9 @@ export async function uploadPdf(key: string, body: Buffer): Promise<void> {
 }
 
 export async function downloadPdf(key: string): Promise<Buffer> {
-	const res = await client().send(
+	const res = await getS3Client().send(
 		new GetObjectCommand({
-			Bucket: bucket(),
+			Bucket: getS3BucketName(),
 			Key: key,
 		}),
 	);
@@ -49,9 +49,9 @@ export async function downloadPdf(key: string): Promise<Buffer> {
 }
 
 export async function deletePdf(key: string): Promise<void> {
-	await client().send(
+	await getS3Client().send(
 		new DeleteObjectCommand({
-			Bucket: bucket(),
+			Bucket: getS3BucketName(),
 			Key: key,
 		}),
 	);
