@@ -169,8 +169,10 @@ export function EmailSettingsForm({ initial }: { initial: EmailSettingsView }) {
 				<CardTitle className="text-base">E-Mail-Benachrichtigungen</CardTitle>
 				<CardDescription>
 					Schickt eine kurze Info-E-Mail, sobald ein neues Kassenzählprotokoll
-					erfasst wurde. SMTP-Zugang und Empfänger werden hier gepflegt. Das
-					Passwort wird verschlüsselt gespeichert und nie wieder angezeigt.
+					erfasst wurde. Angemeldete Benutzer erhalten die Mail über ihre eigene
+					Einstellung. Hier pflegst du den SMTP-Zugang und optional zusätzliche
+					externe Empfänger. Das Passwort wird verschlüsselt gespeichert und nie
+					wieder angezeigt.
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-5">
@@ -297,7 +299,7 @@ export function EmailSettingsForm({ initial }: { initial: EmailSettingsView }) {
 				</div>
 
 				<div className="space-y-1.5">
-					<Label htmlFor="smtp-recipients">Empfänger</Label>
+					<Label htmlFor="smtp-recipients">Zusätzliche Empfänger</Label>
 					<Textarea
 						id="smtp-recipients"
 						value={value.recipients}
@@ -306,7 +308,9 @@ export function EmailSettingsForm({ initial }: { initial: EmailSettingsView }) {
 						onChange={(e) => set("recipients", e.target.value)}
 					/>
 					<p className="text-[11px] text-muted-foreground">
-						Eine oder mehrere Adressen, getrennt durch Komma oder Zeilenumbruch.
+						Externe Adressen zusätzlich zu den angemeldeten Benutzern, getrennt
+						durch Komma oder Zeilenumbruch. Leer lassen, wenn nur Benutzerkonten
+						benachrichtigt werden sollen.
 					</p>
 				</div>
 

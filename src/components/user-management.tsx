@@ -31,6 +31,7 @@ type UserRow = {
 	name: string;
 	role: string | null;
 	createdAt: Date;
+	notifyProtokoll: boolean;
 };
 
 type InviteRow = {
@@ -102,6 +103,22 @@ export function UserManagement({
 				await router.invalidate();
 			} catch (err) {
 				toast.error(orpcMessage(err, "Zurückziehen fehlgeschlagen"));
+			}
+		});
+	}
+
+	function setNotify(id: string, notify: boolean) {
+		start(async () => {
+			try {
+				await orpcClient.users.setNotify({ id, notify });
+				toast.success(
+					notify
+						? "Benachrichtigung aktiviert"
+						: "Benachrichtigung deaktiviert",
+				);
+				await router.invalidate();
+			} catch (err) {
+				toast.error(orpcMessage(err, "Speichern fehlgeschlagen"));
 			}
 		});
 	}
@@ -242,7 +259,7 @@ export function UserManagement({
 					{users.map((u) => (
 						<div
 							key={u.id}
-							className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3"
+							className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card p-3 sm:flex-row sm:items-center sm:justify-between"
 						>
 							<div className="min-w-0">
 								<p className="truncate text-sm font-medium text-foreground">
@@ -252,16 +269,28 @@ export function UserManagement({
 									{u.email}
 								</p>
 							</div>
-							{u.role === "admin" ? (
-								<span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
-									<ShieldCheck className="h-3 w-3" />
-									Admin
-								</span>
-							) : (
-								<span className="text-[11px] text-muted-foreground">
-									Benutzer
-								</span>
-							)}
+							<div className="flex items-center justify-between gap-3 sm:justify-end">
+								<label className="flex cursor-pointer items-center gap-2 text-[11px] text-muted-foreground">
+									<input
+										type="checkbox"
+										checked={u.notifyProtokoll}
+										disabled={pending}
+										onChange={(e) => setNotify(u.id, e.target.checked)}
+										className="h-3.5 w-3.5 rounded border-input accent-primary"
+									/>
+									E-Mail bei neuem Protokoll
+								</label>
+								{u.role === "admin" ? (
+									<span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+										<ShieldCheck className="h-3 w-3" />
+										Admin
+									</span>
+								) : (
+									<span className="text-[11px] text-muted-foreground">
+										Benutzer
+									</span>
+								)}
+							</div>
 						</div>
 					))}
 				</CardContent>

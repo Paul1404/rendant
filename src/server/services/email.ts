@@ -9,6 +9,7 @@ import * as v from "valibot";
 import { db } from "@/server/db";
 import { appSettings } from "@/server/db/schema";
 import { logger } from "@/server/logger";
+import { listOptedInUserEmails } from "@/server/services/notification-prefs";
 import { decryptSecret, encryptSecret } from "@/server/services/secret-box";
 import { getVereinsname } from "@/server/services/settings";
 
@@ -75,6 +76,24 @@ export function parseRecipients(raw: string): {
 		else invalid.push(token);
 	}
 	return { valid, invalid };
+}
+
+// Merges one or more address lists into a single de-duplicated list. Comparison
+// is case-insensitive; the first-seen spelling wins. Empty tokens are dropped.
+export function mergeRecipients(...lists: string[][]): string[] {
+	const seen = new Set<string>();
+	const out: string[] = [];
+	for (const list of lists) {
+		for (const raw of list) {
+			const addr = raw.trim();
+			if (!addr) continue;
+			const key = addr.toLowerCase();
+			if (seen.has(key)) continue;
+			seen.add(key);
+			out.push(addr);
+		}
+	}
+	return out;
 }
 
 async function loadRow(): Promise<SettingsRow | undefined> {
@@ -220,7 +239,10 @@ export async function sendProtokollNotification(
 		const row = await loadRow();
 		if (!row) return;
 		if (!row.smtp_enabled || !row.notify_new_protokoll) return;
-		const { valid: recipients } = parseRecipients(row.notify_recipients);
+		// Recipients are opted-in user accounts plus the free-form extra list.
+		const { valid: extra } = parseRecipients(row.notify_recipients);
+		const optedIn = await listOptedInUserEmails();
+		const recipients = mergeRecipients(optedIn, extra);
 		if (recipients.length === 0) return;
 
 		const transportInfo = await loadTransportConfig();

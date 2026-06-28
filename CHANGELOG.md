@@ -3,6 +3,17 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.10.0 — 2026-06-28
+
+- E-Mail-Empfänger an Benutzerkonten gekoppelt: Angemeldete Benutzer erhalten die
+  Info-E-Mail zu neuen Kassenzählprotokollen direkt an ihre Konto-Adresse. Jeder
+  kann das unter Einstellungen > Meine Benachrichtigungen für sich selbst an- oder
+  abschalten. Neue Konten sind standardmäßig aktiv.
+- Admins können die Benachrichtigung pro Benutzer in der Kontenliste umschalten.
+- Die frühere Empfängerliste bleibt als zusätzliche externe Empfänger erhalten,
+  etwa für Adressen ohne eigenes Konto. Empfänger der Mail sind die aktivierten
+  Konten plus diese Liste; doppelte Adressen werden zusammengeführt.
+
 ## 1.9.0 — 2026-06-28
 
 - E-Mail-Benachrichtigungen ergänzt: Sobald ein neues Kassenzählprotokoll erfasst

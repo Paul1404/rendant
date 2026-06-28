@@ -1,8 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Building2, Hash, Mail, Receipt, Users, Wallet } from "lucide-react";
+import {
+	Bell,
+	Building2,
+	Hash,
+	Mail,
+	Receipt,
+	Users,
+	Wallet,
+} from "lucide-react";
 import { BelegnummerSettingsForm } from "@/components/belegnummer-settings-form";
 import { CashRegistersForm } from "@/components/cash-registers-form";
 import { EmailSettingsForm } from "@/components/email-settings-form";
+import { NotificationPrefForm } from "@/components/notification-pref-form";
 import { PageHeader } from "@/components/page-header";
 import { SettingsSkeleton } from "@/components/skeletons";
 import { SectionHeading } from "@/components/ui/section";
@@ -14,7 +23,7 @@ import { orpcClient } from "@/lib/orpc";
 export const Route = createFileRoute("/protokolle/einstellungen")({
 	loader: async ({ context }) => {
 		const isAdmin = context.user.role === "admin";
-		const [belegnummer, basis, verein, registers, admin, email] =
+		const [belegnummer, basis, verein, registers, admin, email, notify] =
 			await Promise.all([
 				orpcClient.settings.getBelegnummer(),
 				orpcClient.settings.getUmsatzUstBasis(),
@@ -24,6 +33,7 @@ export const Route = createFileRoute("/protokolle/einstellungen")({
 					? Promise.all([orpcClient.users.list(), orpcClient.invites.list()])
 					: Promise.resolve(null),
 				isAdmin ? orpcClient.settings.getEmail() : Promise.resolve(null),
+				orpcClient.profile.getNotify(),
 			]);
 		return {
 			settings: belegnummer.settings,
@@ -33,6 +43,7 @@ export const Route = createFileRoute("/protokolle/einstellungen")({
 			registers,
 			admin: admin ? { users: admin[0], invites: admin[1] } : null,
 			email,
+			notifyProtokoll: notify.notify,
 		};
 	},
 	head: () => ({ meta: [{ title: "Einstellungen · SVUFO" }] }),
@@ -41,8 +52,16 @@ export const Route = createFileRoute("/protokolle/einstellungen")({
 });
 
 function EinstellungenPage() {
-	const { settings, preview, umsatzUstBasis, verein, registers, admin, email } =
-		Route.useLoaderData();
+	const {
+		settings,
+		preview,
+		umsatzUstBasis,
+		verein,
+		registers,
+		admin,
+		email,
+		notifyProtokoll,
+	} = Route.useLoaderData();
 
 	return (
 		<div className="space-y-10">
@@ -90,12 +109,21 @@ function EinstellungenPage() {
 				<UmsatzUstBasisForm initial={umsatzUstBasis} />
 			</section>
 
+			<section className="mx-auto max-w-3xl space-y-4">
+				<SectionHeading
+					icon={Bell}
+					title="Meine Benachrichtigungen"
+					description="Stelle ein, ob du selbst eine Info-E-Mail erhältst, sobald ein neues Kassenzählprotokoll erfasst wurde."
+				/>
+				<NotificationPrefForm initial={notifyProtokoll} />
+			</section>
+
 			{email ? (
 				<section className="mx-auto max-w-3xl space-y-4">
 					<SectionHeading
 						icon={Mail}
 						title="E-Mail-Benachrichtigungen"
-						description="SMTP-Zugang und Empfänger für eine kurze Info-E-Mail bei jedem neuen Kassenzählprotokoll. Nur für Admins."
+						description="SMTP-Zugang und zusätzliche externe Empfänger für eine kurze Info-E-Mail bei jedem neuen Kassenzählprotokoll. Nur für Admins."
 					/>
 					<EmailSettingsForm initial={email} />
 				</section>
