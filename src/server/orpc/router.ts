@@ -36,6 +36,10 @@ import {
 	revokeInvite,
 } from "@/server/services/invitations";
 import {
+	getUserNotifyPref,
+	setUserNotifyPref,
+} from "@/server/services/notification-prefs";
+import {
 	createProtokoll,
 	getProtokoll,
 	listProtokolle,
@@ -320,11 +324,44 @@ const users = {
 				name: userTable.name,
 				role: userTable.role,
 				createdAt: userTable.createdAt,
+				notifyProtokoll: userTable.notifyProtokoll,
 			})
 			.from(userTable)
 			.orderBy(desc(userTable.createdAt));
 		return rows;
 	}),
+
+	// Admin override of another account's notification preference.
+	setNotify: adminOnly
+		.input(
+			v.object({
+				id: v.pipe(v.string(), v.minLength(1)),
+				notify: v.boolean(),
+			}),
+		)
+		.handler(async ({ input }) => {
+			const ok = await setUserNotifyPref(input.id, input.notify);
+			if (!ok) {
+				throw new ORPCError("NOT_FOUND", { message: "Konto nicht gefunden" });
+			}
+			return { ok: true, notify: input.notify };
+		}),
+};
+
+// ---- Profile (own account) ----------------------------------------------
+
+const profile = {
+	// Whether the signed-in user receives the new-protokoll notification mail.
+	getNotify: authed.handler(async ({ context }) => ({
+		notify: await getUserNotifyPref(context.user.id),
+	})),
+
+	setNotify: authed
+		.input(v.object({ notify: v.boolean() }))
+		.handler(async ({ input, context }) => {
+			await setUserNotifyPref(context.user.id, input.notify);
+			return { ok: true, notify: input.notify };
+		}),
 };
 
 // ---- Reports -------------------------------------------------------------
@@ -353,6 +390,7 @@ export const router = {
 	registers,
 	invites,
 	users,
+	profile,
 	reports,
 	health,
 };

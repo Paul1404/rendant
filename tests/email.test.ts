@@ -55,3 +55,27 @@ describe("parseRecipients", () => {
 		expect(parseRecipients("   \n  ")).toEqual({ valid: [], invalid: [] });
 	});
 });
+
+describe("mergeRecipients", () => {
+	it("unions lists and de-duplicates case-insensitively, first spelling wins", async () => {
+		const { mergeRecipients } = await import("@/server/services/email");
+		expect(
+			mergeRecipients(
+				["user@example.de", "Shared@example.de"],
+				["shared@EXAMPLE.de", "extern@example.de"],
+			),
+		).toEqual(["user@example.de", "Shared@example.de", "extern@example.de"]);
+	});
+
+	it("drops empty and whitespace-only tokens", async () => {
+		const { mergeRecipients } = await import("@/server/services/email");
+		expect(mergeRecipients([" a@example.de ", "", "   "], [])).toEqual([
+			"a@example.de",
+		]);
+	});
+
+	it("returns an empty list when nothing is opted in", async () => {
+		const { mergeRecipients } = await import("@/server/services/email");
+		expect(mergeRecipients([], [])).toEqual([]);
+	});
+});

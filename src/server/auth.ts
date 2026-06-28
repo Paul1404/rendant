@@ -32,6 +32,19 @@ export const auth = betterAuth({
 		minPasswordLength: 8,
 		maxPasswordLength: 256,
 	},
+	user: {
+		// Extra column on the user table. Declared here too so the better-auth CLI
+		// keeps it when regenerating the schema. Not user-settable at sign-up; the
+		// DB default (true) applies on account creation.
+		additionalFields: {
+			notifyProtokoll: {
+				type: "boolean",
+				required: false,
+				defaultValue: true,
+				input: false,
+			},
+		},
+	},
 	session: {
 		expiresIn: 60 * 60 * 24 * 7, // 7 days
 		updateAge: 60 * 60 * 24, // refresh once per day

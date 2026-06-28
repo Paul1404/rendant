@@ -43,6 +43,13 @@
       "when": 1782642086683,
       "tag": "0005_real_nightshade",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782646081752,
+      "tag": "0006_wandering_toad_men",
+      "breakpoints": true
     }
   ]
 }
