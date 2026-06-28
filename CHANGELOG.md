@@ -3,6 +3,18 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.9.0 — 2026-06-28
+
+- E-Mail-Benachrichtigungen ergänzt: Sobald ein neues Kassenzählprotokoll erfasst
+  wurde, geht eine kurze Info-E-Mail an die konfigurierten Empfänger. Die Mail
+  enthält nur das Nötigste (Belegnummer, Kasse, Anlass, Datum, gezählt von,
+  Tageseinnahmen) und einen Link zum Protokoll.
+- SMTP-Einstellungen unter Einstellungen > E-Mail-Benachrichtigungen (nur Admin):
+  Server, Port, Verschlüsselung (STARTTLS 587 oder SSL/TLS 465), Zugangsdaten,
+  Absender und Empfängerliste. Das Passwort wird verschlüsselt gespeichert und
+  nie wieder angezeigt. Ein Knopf verschickt eine Test-E-Mail zum Prüfen der
+  Konfiguration.
+
 ## 1.8.1 — 2026-06-21
 
 - Fußzeile der PDF-Protokolle korrigiert: Anschrift und Vorstand fehlten und nur

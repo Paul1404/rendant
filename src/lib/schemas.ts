@@ -151,6 +151,32 @@ export type BelegnummerSettingsInput = v.InferOutput<
 	typeof BelegnummerSettingsSchema
 >;
 
+export const EmailSecuritySchema = v.picklist(["starttls", "ssl", "none"]);
+export type EmailSecurity = v.InferOutput<typeof EmailSecuritySchema>;
+
+// SMTP transport + notification settings. The password is write-only: an empty
+// string means "leave the stored password unchanged"; clear_password removes it.
+// Host and recipients may be empty while the feature is disabled, so structural
+// validation stays loose and the server checks completeness before sending.
+export const EmailSettingsSchema = v.object({
+	enabled: v.boolean(),
+	host: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(255)), ""),
+	port: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(65535)),
+	security: EmailSecuritySchema,
+	user: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(255)), ""),
+	password: v.optional(v.pipe(v.string(), v.maxLength(255)), ""),
+	clear_password: v.optional(v.boolean(), false),
+	from: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(255)), ""),
+	notify_new_protokoll: v.boolean(),
+	recipients: v.optional(v.pipe(v.string(), v.maxLength(4000)), ""),
+});
+export type EmailSettingsInput = v.InferOutput<typeof EmailSettingsSchema>;
+
+export const TestEmailSchema = v.object({
+	to: v.pipe(v.string(), v.trim(), v.email(), v.maxLength(255)),
+});
+export type TestEmailInput = v.InferOutput<typeof TestEmailSchema>;
+
 export const InviteCreateSchema = v.object({
 	email: v.pipe(v.string(), v.trim(), v.email(), v.maxLength(200)),
 	role: v.optional(v.picklist(["user", "admin"]), "user"),

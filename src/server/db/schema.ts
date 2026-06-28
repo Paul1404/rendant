@@ -180,6 +180,20 @@ export const appSettings = pgTable(
 			.notNull()
 			.default(""),
 		verein_registernummer: text("verein_registernummer").notNull().default(""),
+		// E-Mail-Benachrichtigungen. SMTP-Zugang und Empfänger werden in der App
+		// unter Einstellungen gepflegt. Das Passwort liegt verschlüsselt vor
+		// (AES-256-GCM, Schlüssel aus BETTER_AUTH_SECRET), nie im Klartext.
+		smtp_enabled: boolean("smtp_enabled").notNull().default(false),
+		smtp_host: text("smtp_host").notNull().default(""),
+		smtp_port: integer("smtp_port").notNull().default(587),
+		smtp_security: text("smtp_security").notNull().default("starttls"),
+		smtp_user: text("smtp_user").notNull().default(""),
+		smtp_password_enc: text("smtp_password_enc").notNull().default(""),
+		smtp_from: text("smtp_from").notNull().default(""),
+		notify_new_protokoll: boolean("notify_new_protokoll")
+			.notNull()
+			.default(true),
+		notify_recipients: text("notify_recipients").notNull().default(""),
 		updated_at: timestamp("updated_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),
@@ -201,6 +215,14 @@ export const appSettings = pgTable(
 		check(
 			"app_settings_umsatz_ust_basis_check",
 			sql`${t.umsatz_ust_basis} IN ('pre_card', 'post_card')`,
+		),
+		check(
+			"app_settings_smtp_security_check",
+			sql`${t.smtp_security} IN ('starttls', 'ssl', 'none')`,
+		),
+		check(
+			"app_settings_smtp_port_check",
+			sql`${t.smtp_port} BETWEEN 1 AND 65535`,
 		),
 	],
 );
