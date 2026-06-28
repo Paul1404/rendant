@@ -319,7 +319,6 @@ export async function createProtokoll(
 		anlass_datum: input.anlass_datum,
 		kassenbezeichnung: input.kassenbezeichnung,
 		gezaehlt_von: input.gezaehlt_von,
-		tageseinnahmen_cent,
 	});
 
 	return { id: created.id, belegnummer: created.belegnummer };

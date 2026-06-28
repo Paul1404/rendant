@@ -6,7 +6,6 @@
 import { eq } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import * as v from "valibot";
-import { formatCent } from "@/lib/money";
 import { db } from "@/server/db";
 import { appSettings } from "@/server/db/schema";
 import { logger } from "@/server/logger";
@@ -210,7 +209,6 @@ export type ProtokollNotification = {
 	anlass_datum: string;
 	kassenbezeichnung: string;
 	gezaehlt_von: string;
-	tageseinnahmen_cent: number;
 };
 
 // Sends the FYI mail for a newly counted protokoll. No-op when notifications are
@@ -235,7 +233,6 @@ export async function sendProtokollNotification(
 
 		const verein = await getVereinsname();
 		const datum = formatGermanDate(proto.anlass_datum);
-		const summe = formatCent(proto.tageseinnahmen_cent);
 		const base = process.env.BETTER_AUTH_URL?.trim().replace(/\/+$/, "");
 		const link = base ? `${base}/protokolle/${proto.id}` : null;
 
@@ -247,7 +244,6 @@ export async function sendProtokollNotification(
 			`Anlass: ${proto.anlass}`,
 			`Datum: ${datum}`,
 			`Gezählt von: ${proto.gezaehlt_von}`,
-			`Tageseinnahmen: ${summe}`,
 		];
 		if (link) {
 			lines.push(``, `Protokoll öffnen: ${link}`);

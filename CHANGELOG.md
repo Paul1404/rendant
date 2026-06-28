@@ -7,8 +7,8 @@ hier entspricht `package.json` und der Versionsmarke in der App.
 
 - E-Mail-Benachrichtigungen ergänzt: Sobald ein neues Kassenzählprotokoll erfasst
   wurde, geht eine kurze Info-E-Mail an die konfigurierten Empfänger. Die Mail
-  enthält nur das Nötigste (Belegnummer, Kasse, Anlass, Datum, gezählt von,
-  Tageseinnahmen) und einen Link zum Protokoll.
+  enthält nur das Nötigste (Belegnummer, Kasse, Anlass, Datum, gezählt von) und
+  einen Link zum Protokoll. Bewusst ohne Geldbeträge.
 - SMTP-Einstellungen unter Einstellungen > E-Mail-Benachrichtigungen (nur Admin):
   Server, Port, Verschlüsselung (STARTTLS 587 oder SSL/TLS 465), Zugangsdaten,
   Absender und Empfängerliste. Das Passwort wird verschlüsselt gespeichert und
