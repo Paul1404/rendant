@@ -85,9 +85,23 @@ export function UserManagement({
 				setEmail("");
 				const ok = await writeClipboard(link);
 				setCopied(ok);
-				toast.success(
-					ok ? "Einladung erstellt, Link kopiert" : "Einladung erstellt",
-				);
+				if (invite.email_status === "sent") {
+					toast.success(
+						ok
+							? "Einladung per E-Mail gesendet, Link kopiert"
+							: "Einladung per E-Mail gesendet",
+					);
+				} else if (invite.email_status === "failed") {
+					toast.error(
+						ok
+							? "Einladung erstellt, E-Mail fehlgeschlagen, Link kopiert"
+							: "Einladung erstellt, E-Mail fehlgeschlagen",
+					);
+				} else {
+					toast.success(
+						ok ? "Einladung erstellt, Link kopiert" : "Einladung erstellt",
+					);
+				}
 				await router.invalidate();
 			} catch (err) {
 				toast.error(orpcMessage(err, "Einladung fehlgeschlagen"));

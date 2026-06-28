@@ -230,6 +230,15 @@ export type ProtokollNotification = {
 	gezaehlt_von: string;
 };
 
+export type InvitationEmailStatus = "sent" | "skipped" | "failed";
+
+export type InvitationEmail = {
+	to: string;
+	inviteUrl: string;
+	role: string;
+	invitedBy: string | null;
+};
+
 // Sends the FYI mail for a newly counted protokoll. No-op when notifications are
 // disabled or no recipients are configured. Never throws.
 export async function sendProtokollNotification(
@@ -289,6 +298,60 @@ export async function sendProtokollNotification(
 			belegnummer: proto.belegnummer,
 			err,
 		});
+	}
+}
+
+// Sends an account invitation to the invited address. Never throws: the invite
+// link remains available in the admin UI when SMTP is disabled or delivery fails.
+export async function sendInvitationEmail(
+	invite: InvitationEmail,
+): Promise<InvitationEmailStatus> {
+	try {
+		const recipient = invite.to.trim();
+		if (!v.safeParse(EmailItemSchema, recipient).success) return "skipped";
+
+		const row = await loadRow();
+		if (!row?.smtp_enabled) return "skipped";
+
+		const transportInfo = await loadTransportConfig();
+		if (!transportInfo) {
+			logger.warn("Einladungs-E-Mail übersprungen: SMTP unvollständig", {
+				to: recipient,
+			});
+			return "skipped";
+		}
+
+		const verein = await getVereinsname();
+		const role = invite.role === "admin" ? "Administrator" : "Benutzer";
+		const invitedBy = invite.invitedBy
+			? [``, `Eingeladen von: ${invite.invitedBy}`]
+			: [];
+		const text = [
+			`Du wurdest zu SVUFO für ${verein} eingeladen.`,
+			``,
+			`Rolle: ${role}`,
+			...invitedBy,
+			``,
+			`Konto anlegen: ${invite.inviteUrl}`,
+			``,
+			`Der Link ist 7 Tage gültig und kann nur einmal verwendet werden.`,
+		].join("\n");
+
+		const transport = buildTransport(transportInfo.cfg);
+		await transport.sendMail({
+			from: transportInfo.from,
+			to: recipient,
+			subject: `Einladung zu SVUFO`,
+			text,
+		});
+		logger.info("Einladungs-E-Mail gesendet", { to: recipient });
+		return "sent";
+	} catch (err) {
+		logger.error("Einladungs-E-Mail fehlgeschlagen", {
+			to: invite.to,
+			err,
+		});
+		return "failed";
 	}
 }
 

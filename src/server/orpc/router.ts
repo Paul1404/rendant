@@ -25,6 +25,7 @@ import {
 } from "@/server/services/cash-registers";
 import {
 	getEmailSettings,
+	sendInvitationEmail,
 	sendTestEmail,
 	updateEmailSettings,
 } from "@/server/services/email";
@@ -58,6 +59,16 @@ import {
 import { adminOnly, authed, pub } from "./base";
 
 const idInput = v.object({ id: v.pipe(v.string(), v.minLength(1)) });
+
+function publicBaseUrl(headers: Headers): string | null {
+	const configured = process.env.BETTER_AUTH_URL?.trim().replace(/\/+$/, "");
+	if (configured) return configured;
+
+	const host = headers.get("x-forwarded-host") ?? headers.get("host");
+	if (!host) return null;
+	const proto = headers.get("x-forwarded-proto") ?? "https";
+	return `${proto}://${host}`;
+}
 
 // ---- Protokolle ----------------------------------------------------------
 
@@ -277,11 +288,21 @@ const invites = {
 		.input(InviteCreateSchema)
 		.handler(async ({ input, context }) => {
 			try {
-				return await createInvite({
+				const invite = await createInvite({
 					email: input.email,
 					role: input.role,
 					invitedBy: context.user.email,
 				});
+				const baseUrl = publicBaseUrl(context.headers);
+				const emailStatus = baseUrl
+					? await sendInvitationEmail({
+							to: invite.email,
+							inviteUrl: `${baseUrl}/invite/${invite.token}`,
+							role: invite.role,
+							invitedBy: invite.invited_by,
+						})
+					: "skipped";
+				return { ...invite, email_status: emailStatus };
 			} catch (e) {
 				throw new ORPCError("CONFLICT", { message: (e as Error).message });
 			}
