@@ -1,4 +1,5 @@
-import { cpus, freemem, loadavg, totalmem } from "node:os";
+import { readFileSync, statfsSync } from "node:fs";
+import { cpus, totalmem } from "node:os";
 import { HeadBucketCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { sql } from "drizzle-orm";
 import { db, pool } from "@/server/db";
@@ -6,24 +7,23 @@ import { logger } from "@/server/logger";
 import { getS3BucketName, getS3Client } from "@/server/services/s3";
 
 type LfioStatus = "up" | "down" | "degraded" | "unknown";
-type MetricUnit = "bytes" | "ms" | "%" | "count" | "ops/s" | "s";
+type MetricUnit = "%" | "bytes" | "ms" | "ops/s" | "count";
 
-type LfioMetric =
-	| number
-	| {
-			value: number;
-			unit?: MetricUnit;
-			label?: string;
-			group?: string;
-	  };
+type LfioMetric = {
+	key: string;
+	label: string;
+	value: number;
+	unit: MetricUnit;
+	group?: string;
+};
 
 type LfioPayload = {
 	assetKey: string;
-	name?: string;
+	name: string;
 	status: LfioStatus;
+	message: string;
 	latencyMs?: number;
-	message?: string;
-	metrics?: Record<string, LfioMetric>;
+	metrics?: LfioMetric[];
 	metadata?: Record<string, unknown>;
 };
 
@@ -48,6 +48,17 @@ type DbMetricsRow = {
 	replication_lag_ms: string | number | null;
 };
 
+type CpuSample = {
+	usage: NodeJS.CpuUsage;
+	timeMs: number;
+};
+
+type RuntimeMemory = {
+	usedBytes: number;
+	limitBytes: number;
+	source: "cgroup" | "process" | "host";
+};
+
 declare global {
 	// eslint-disable-next-line no-var
 	var __svufoLfioReporter: ReturnType<typeof setInterval> | undefined;
@@ -57,38 +68,78 @@ declare global {
 
 const LFIO_INGEST_URL = "https://lfio.pdcd.net/api/ingest";
 const DEFAULT_INTERVAL_MS = 60_000;
-const DEGRADED_LATENCY_MS = 1_500;
-const REQUEST_TIMEOUT_MS = 10_000;
+const DEFAULT_PROBE_TIMEOUT_MS = 10_000;
+const DEFAULT_DEGRADE_SAMPLES = 3;
+const DEFAULT_RECOVER_SAMPLES = 2;
 
 const log = logger.child({ integration: "lfio" });
+const gates = new Map<string, HysteresisGate>();
+let previousCpuSample: CpuSample = {
+	usage: process.cpuUsage(),
+	timeMs: Date.now(),
+};
+let lastCpuPct = 0;
 
-function reportIntervalMs(): number {
-	const raw = process.env.LFIO_REPORT_INTERVAL_MS;
-	if (!raw) return DEFAULT_INTERVAL_MS;
+export class HysteresisGate {
+	private badSamples = 0;
+	private goodSamples = 0;
+	private degraded = false;
 
-	const parsed = Number(raw);
-	if (!Number.isFinite(parsed) || parsed < 5_000) return DEFAULT_INTERVAL_MS;
+	constructor(
+		private readonly degradeSamples: number,
+		private readonly recoverSamples: number,
+	) {}
+
+	evaluate(breached: boolean): { degraded: boolean; samples: number } {
+		if (breached) {
+			this.badSamples += 1;
+			this.goodSamples = 0;
+			if (!this.degraded && this.badSamples >= this.degradeSamples) {
+				this.degraded = true;
+			}
+			return { degraded: this.degraded, samples: this.badSamples };
+		}
+
+		this.goodSamples += 1;
+		this.badSamples = 0;
+		if (this.degraded && this.goodSamples >= this.recoverSamples) {
+			this.degraded = false;
+		}
+		return { degraded: this.degraded, samples: this.goodSamples };
+	}
+}
+
+function envNumber(name: string, fallback: number, min = 0): number {
+	const parsed = Number(process.env[name]);
+	if (!Number.isFinite(parsed) || parsed < min) return fallback;
 	return parsed;
 }
 
+function reportIntervalMs(): number {
+	return envNumber("LFIO_REPORT_INTERVAL_MS", DEFAULT_INTERVAL_MS, 5_000);
+}
+
+function probeTimeoutMs(): number {
+	return envNumber("LFIO_PROBE_TIMEOUT_MS", DEFAULT_PROBE_TIMEOUT_MS, 1_000);
+}
+
+function threshold(name: string, fallback: number): number {
+	return envNumber(name, fallback);
+}
+
 function metric(
+	key: string,
+	label: string,
 	value: number | null | undefined,
 	unit: MetricUnit,
 	group?: string,
-	label?: string,
 ): LfioMetric | undefined {
 	if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
-	return { value, unit, group, label };
+	return { key, label, value, unit, group };
 }
 
-function compactMetrics(
-	metrics: Record<string, LfioMetric | undefined>,
-): Record<string, LfioMetric> {
-	return Object.fromEntries(
-		Object.entries(metrics).filter((entry): entry is [string, LfioMetric] => {
-			return entry[1] !== undefined;
-		}),
-	);
+function metrics(items: Array<LfioMetric | undefined>): LfioMetric[] {
+	return items.filter((item): item is LfioMetric => Boolean(item));
 }
 
 function toNumber(value: unknown): number | undefined {
@@ -97,6 +148,162 @@ function toNumber(value: unknown): number | undefined {
 	if (typeof value !== "string") return undefined;
 	const parsed = Number(value);
 	return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+async function withTimeout<T>(
+	label: string,
+	promise: Promise<T>,
+	timeoutMs = probeTimeoutMs(),
+): Promise<T> {
+	let timeout: ReturnType<typeof setTimeout> | undefined;
+	try {
+		return await Promise.race([
+			promise,
+			new Promise<never>((_, reject) => {
+				timeout = setTimeout(
+					() => reject(new Error(`${label} timed out after ${timeoutMs} ms`)),
+					timeoutMs,
+				);
+			}),
+		]);
+	} finally {
+		if (timeout) clearTimeout(timeout);
+	}
+}
+
+function gateFor(assetKey: string): HysteresisGate {
+	const existing = gates.get(assetKey);
+	if (existing) return existing;
+	const gate = new HysteresisGate(
+		envNumber("LFIO_DEGRADE_SAMPLES", DEFAULT_DEGRADE_SAMPLES, 1),
+		envNumber("LFIO_RECOVER_SAMPLES", DEFAULT_RECOVER_SAMPLES, 1),
+	);
+	gates.set(assetKey, gate);
+	return gate;
+}
+
+function statusWithHysteresis(
+	assetKey: string,
+	breaches: string[],
+	okMessage: string,
+): { status: LfioStatus; message: string } {
+	const result = gateFor(assetKey).evaluate(breaches.length > 0);
+	if (result.degraded) {
+		return {
+			status: "degraded",
+			message: `${breaches[0]} for ${result.samples} samples`,
+		};
+	}
+	return { status: "up", message: okMessage };
+}
+
+function downPayload(
+	assetKey: string,
+	name: string,
+	err: unknown,
+): LfioPayload {
+	return {
+		assetKey,
+		name,
+		status: "down",
+		message: err instanceof Error ? err.message : "Metric collection failed",
+		metadata: { checkedAt: new Date().toISOString() },
+	};
+}
+
+export function calculateCpuPct(
+	previous: CpuSample,
+	current: CpuSample,
+	coreCount: number,
+): number {
+	const elapsedUs = (current.timeMs - previous.timeMs) * 1000;
+	const cores = Math.max(coreCount, 1);
+	if (elapsedUs <= 0) return 0;
+
+	const userDelta = current.usage.user - previous.usage.user;
+	const systemDelta = current.usage.system - previous.usage.system;
+	const usedUs = Math.max(userDelta + systemDelta, 0);
+	return Math.min(100, Math.round((usedUs / (elapsedUs * cores)) * 100));
+}
+
+function sampleCpuPct(): number {
+	const current = { usage: process.cpuUsage(), timeMs: Date.now() };
+	const elapsedMs = current.timeMs - previousCpuSample.timeMs;
+	if (elapsedMs < 1_000) return lastCpuPct;
+
+	lastCpuPct = calculateCpuPct(previousCpuSample, current, cpus().length || 1);
+	previousCpuSample = current;
+	return lastCpuPct;
+}
+
+export function parseCgroupLimit(value: string): number | undefined {
+	const trimmed = value.trim();
+	if (!trimmed || trimmed === "max") return undefined;
+	const parsed = Number(trimmed);
+	if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
+	// v1 commonly reports a huge sentinel for "unlimited".
+	if (parsed >= 9_000_000_000_000_000) return undefined;
+	return parsed;
+}
+
+function readNumberFile(path: string): number | undefined {
+	try {
+		return parseCgroupLimit(readFileSync(path, "utf8"));
+	} catch {
+		return undefined;
+	}
+}
+
+export function readContainerMemoryLimitBytes(): number {
+	return (
+		readNumberFile("/sys/fs/cgroup/memory.max") ??
+		readNumberFile("/sys/fs/cgroup/memory/memory.limit_in_bytes") ??
+		totalmem()
+	);
+}
+
+function readContainerMemoryUsedBytes(): {
+	usedBytes: number | undefined;
+	source: RuntimeMemory["source"];
+} {
+	const cgroupUsed =
+		readNumberFile("/sys/fs/cgroup/memory.current") ??
+		readNumberFile("/sys/fs/cgroup/memory/memory.usage_in_bytes");
+	if (cgroupUsed !== undefined)
+		return { usedBytes: cgroupUsed, source: "cgroup" };
+	return { usedBytes: process.memoryUsage().rss, source: "process" };
+}
+
+export function calculateMemoryPct(
+	usedBytes: number,
+	limitBytes: number,
+): number {
+	if (limitBytes <= 0) return 0;
+	return Math.min(100, Math.round((usedBytes / limitBytes) * 100));
+}
+
+function readRuntimeMemory(): RuntimeMemory {
+	const limitBytes = readContainerMemoryLimitBytes();
+	const used = readContainerMemoryUsedBytes();
+	return {
+		usedBytes: used.usedBytes ?? process.memoryUsage().rss,
+		limitBytes,
+		source: used.source === "cgroup" ? "cgroup" : "process",
+	};
+}
+
+function readDiskPct(path = "/"): {
+	diskPct: number;
+	totalBytes: number;
+	freeBytes: number;
+} {
+	const stat = statfsSync(path);
+	const totalBytes = stat.blocks * stat.bsize;
+	const freeBytes = stat.bfree * stat.bsize;
+	const usedBytes = Math.max(totalBytes - freeBytes, 0);
+	const diskPct =
+		totalBytes > 0 ? Math.round((usedBytes / totalBytes) * 100) : 0;
+	return { diskPct, totalBytes, freeBytes };
 }
 
 function isS3Configured(): boolean {
@@ -111,16 +318,17 @@ export async function collectHealthSnapshot(): Promise<HealthSnapshot> {
 	const started = performance.now();
 
 	try {
-		await db.execute(sql`select 1`);
+		await withTimeout("database health check", db.execute(sql`select 1`));
 		const latencyMs = Math.round(performance.now() - started);
-		const degraded = latencyMs > DEGRADED_LATENCY_MS;
+		const degraded =
+			latencyMs > threshold("LFIO_DB_LATENCY_DEGRADED_MS", 1_500);
 
 		return {
 			ok: true,
 			db: true,
 			status: degraded ? "degraded" : "up",
 			latencyMs,
-			message: degraded ? `Database check slow (${latencyMs} ms)` : "OK",
+			message: degraded ? `database ping ${latencyMs}ms` : "database ping OK",
 			checkedAt: new Date().toISOString(),
 		};
 	} catch (err) {
@@ -132,7 +340,7 @@ export async function collectHealthSnapshot(): Promise<HealthSnapshot> {
 			db: false,
 			status: "down",
 			latencyMs,
-			message: "Database check failed",
+			message: "database ping failed",
 			checkedAt: new Date().toISOString(),
 		};
 	}
@@ -142,24 +350,62 @@ async function collectApiPayload(): Promise<LfioPayload> {
 	const started = performance.now();
 
 	try {
-		const health = await collectHealthSnapshot();
-		const activeUsers = await countActiveUsers();
+		const [health, activeUsers] = await Promise.all([
+			collectHealthSnapshot(),
+			countActiveUsers(),
+		]);
 		const latencyMs = Math.round(performance.now() - started);
+		const waitingRequests = pool.waitingCount;
+		const breaches: string[] = [];
+
+		if (health.latencyMs > threshold("LFIO_API_LATENCY_DEGRADED_MS", 2_000)) {
+			breaches.push(`api health latency ${health.latencyMs}ms`);
+		}
+		if (waitingRequests > threshold("LFIO_API_WAITING_REQUESTS_DEGRADED", 0)) {
+			breaches.push(`pg pool waiting requests ${waitingRequests}`);
+		}
+
+		const status = health.ok
+			? statusWithHysteresis("api", breaches, "API health check OK")
+			: { status: "down" as const, message: health.message };
 
 		return {
 			assetKey: "api",
 			name: "SVUFO Application",
-			status: health.status,
+			status: status.status,
+			message: status.message,
 			latencyMs: health.latencyMs,
-			message: health.message,
-			metrics: compactMetrics({
-				activeUsers: metric(activeUsers, "count", "HTTP"),
-				openConnections: metric(pool.totalCount, "count", "HTTP"),
-				idleConnections: metric(pool.idleCount, "count", "HTTP"),
-				waitingRequests: metric(pool.waitingCount, "count", "HTTP"),
-				processUptimeSec: metric(Math.round(process.uptime()), "s", "Runtime"),
-				collectorLatencyMs: metric(latencyMs, "ms", "LFIO"),
-			}),
+			metrics: metrics([
+				metric("activeUsers", "Active users", activeUsers, "count", "HTTP"),
+				metric(
+					"openConnections",
+					"Open DB pool connections",
+					pool.totalCount,
+					"count",
+					"HTTP",
+				),
+				metric(
+					"idleConnections",
+					"Idle DB pool connections",
+					pool.idleCount,
+					"count",
+					"HTTP",
+				),
+				metric(
+					"waitingRequests",
+					"Waiting DB pool requests",
+					waitingRequests,
+					"count",
+					"HTTP",
+				),
+				metric(
+					"collectorLatencyMs",
+					"Collector latency",
+					latencyMs,
+					"ms",
+					"LFIO",
+				),
+			]),
 			metadata: {
 				checkedAt: health.checkedAt,
 				nodeEnv: process.env.NODE_ENV ?? "development",
@@ -175,10 +421,13 @@ async function collectApiPayload(): Promise<LfioPayload> {
 
 async function countActiveUsers(): Promise<number | undefined> {
 	try {
-		const result = await pool.query<{ active_users: string }>(
-			`select count(distinct user_id)::text as active_users
-			 from "session"
-			 where expires_at > now()`,
+		const result = await withTimeout(
+			"active user count",
+			pool.query<{ active_users: string }>(
+				`select count(distinct user_id)::text as active_users
+				 from "session"
+				 where expires_at > now()`,
+			),
 		);
 		return toNumber(result.rows[0]?.active_users);
 	} catch (err) {
@@ -192,27 +441,30 @@ async function collectDbPayload(): Promise<LfioPayload> {
 
 	try {
 		const [metricsResult, slowQueries] = await Promise.all([
-			pool.query<DbMetricsRow>(`
-				select
-					current_database() as database_name,
-					version() as version,
-					stats.numbackends::text as connections_active,
-					(select setting from pg_settings where name = 'max_connections') as connections_max,
-					pg_database_size(current_database())::text as db_size_bytes,
-					case
-						when stats.blks_hit + stats.blks_read = 0 then null
-						else round((stats.blks_hit::numeric / (stats.blks_hit + stats.blks_read)) * 100, 2)
-					end::text as cache_hit_ratio_pct,
-					stats.deadlocks::text as deadlocks,
-					pg_is_in_recovery() as is_replica,
-					case
-						when pg_is_in_recovery() and pg_last_xact_replay_timestamp() is not null
-							then round(extract(epoch from now() - pg_last_xact_replay_timestamp()) * 1000)
-						else null
-					end::text as replication_lag_ms
-				from pg_stat_database stats
-				where stats.datname = current_database()
-			`),
+			withTimeout(
+				"postgres metrics",
+				pool.query<DbMetricsRow>(`
+					select
+						current_database() as database_name,
+						version() as version,
+						stats.numbackends::text as connections_active,
+						(select setting from pg_settings where name = 'max_connections') as connections_max,
+						pg_database_size(current_database())::text as db_size_bytes,
+						case
+							when stats.blks_hit + stats.blks_read = 0 then null
+							else round((stats.blks_hit::numeric / (stats.blks_hit + stats.blks_read)) * 100, 2)
+						end::text as cache_hit_ratio_pct,
+						stats.deadlocks::text as deadlocks,
+						pg_is_in_recovery() as is_replica,
+						case
+							when pg_is_in_recovery() and pg_last_xact_replay_timestamp() is not null
+								then round(extract(epoch from now() - pg_last_xact_replay_timestamp()) * 1000)
+							else null
+						end::text as replication_lag_ms
+					from pg_stat_database stats
+					where stats.datname = current_database()
+				`),
+			),
 			countSlowQueries(),
 		]);
 
@@ -230,40 +482,80 @@ async function collectDbPayload(): Promise<LfioPayload> {
 			connectionsActive !== undefined && connectionsMax
 				? (connectionsActive / connectionsMax) * 100
 				: undefined;
-		const degraded =
-			latencyMs > DEGRADED_LATENCY_MS ||
-			(connectionPct !== undefined && connectionPct >= 80) ||
-			(replicationLagMs !== undefined && replicationLagMs >= 5_000) ||
-			(cacheHitRatioPct !== undefined && cacheHitRatioPct < 95);
+		const breaches: string[] = [];
+
+		if (
+			connectionsActive !== undefined &&
+			connectionsMax !== undefined &&
+			connectionPct !== undefined &&
+			connectionPct >= threshold("LFIO_DB_CONNECTION_PCT_DEGRADED", 80)
+		) {
+			breaches.push(`pg connections ${connectionsActive}/${connectionsMax}`);
+		}
+		if (
+			replicationLagMs !== undefined &&
+			replicationLagMs >=
+				threshold("LFIO_DB_REPLICATION_LAG_DEGRADED_MS", 5_000)
+		) {
+			breaches.push(`pg replication lag ${replicationLagMs}ms`);
+		}
+		if (
+			cacheHitRatioPct !== undefined &&
+			cacheHitRatioPct < threshold("LFIO_DB_CACHE_HIT_MIN_PCT", 95)
+		) {
+			breaches.push(`pg cache hit ratio ${cacheHitRatioPct}%`);
+		}
+		if (latencyMs > threshold("LFIO_DB_LATENCY_DEGRADED_MS", 1_500)) {
+			breaches.push(`pg metrics latency ${latencyMs}ms`);
+		}
+
+		const status = statusWithHysteresis("db", breaches, "PostgreSQL OK");
 
 		return {
 			assetKey: "db",
 			name: "SVUFO PostgreSQL",
-			status: degraded ? "degraded" : "up",
+			status: status.status,
+			message: status.message,
 			latencyMs,
-			message: degraded
-				? "Database reachable with degraded signals"
-				: "Database OK",
-			metrics: compactMetrics({
-				connectionsActive: metric(
+			metrics: metrics([
+				metric(
+					"connectionsActive",
+					"Active connections",
 					connectionsActive,
 					"count",
 					"Database",
-					"Active connections",
 				),
-				connectionsMax: metric(
+				metric(
+					"connectionsMax",
+					"Max connections",
 					connectionsMax,
 					"count",
 					"Database",
-					"Max connections",
 				),
-				connectionUsagePct: metric(connectionPct, "%", "Database"),
-				dbSizeBytes: metric(dbSizeBytes, "bytes", "Database"),
-				cacheHitRatioPct: metric(cacheHitRatioPct, "%", "Database"),
-				replicationLagMs: metric(replicationLagMs, "ms", "Database"),
-				deadlocks: metric(deadlocks, "count", "Database"),
-				slowQueries: metric(slowQueries, "count", "Database"),
-			}),
+				metric(
+					"dbSizeBytes",
+					"Database size",
+					dbSizeBytes,
+					"bytes",
+					"Database",
+				),
+				metric("slowQueries", "Slow queries", slowQueries, "count", "Database"),
+				metric(
+					"cacheHitRatioPct",
+					"Cache hit ratio",
+					cacheHitRatioPct,
+					"%",
+					"Database",
+				),
+				metric(
+					"replicationLagMs",
+					"Replication lag",
+					replicationLagMs,
+					"ms",
+					"Database",
+				),
+				metric("deadlocks", "Deadlocks", deadlocks, "count", "Database"),
+			]),
 			metadata: {
 				engine: row.version.split(" on ")[0],
 				database: row.database_name,
@@ -278,15 +570,21 @@ async function collectDbPayload(): Promise<LfioPayload> {
 
 async function countSlowQueries(): Promise<number | undefined> {
 	try {
-		const extension = await pool.query<{ exists: boolean }>(
-			"select exists(select 1 from pg_extension where extname = 'pg_stat_statements')",
+		const extension = await withTimeout(
+			"pg_stat_statements extension check",
+			pool.query<{ exists: boolean }>(
+				"select exists(select 1 from pg_extension where extname = 'pg_stat_statements')",
+			),
 		);
 		if (!extension.rows[0]?.exists) return undefined;
 
-		const result = await pool.query<{ slow_queries: string }>(
-			`select count(*)::text as slow_queries
-			 from pg_stat_statements
-			 where mean_exec_time >= 1000`,
+		const result = await withTimeout(
+			"slow query count",
+			pool.query<{ slow_queries: string }>(
+				`select count(*)::text as slow_queries
+				 from pg_stat_statements
+				 where mean_exec_time >= 1000`,
+			),
 		);
 		return toNumber(result.rows[0]?.slow_queries);
 	} catch (err) {
@@ -303,18 +601,24 @@ async function collectBucketPayload(): Promise<LfioPayload | undefined> {
 	try {
 		const client = getS3Client();
 		const bucket = getS3BucketName();
-		await client.send(new HeadBucketCommand({ Bucket: bucket }));
+		await withTimeout(
+			"bucket head",
+			client.send(new HeadBucketCommand({ Bucket: bucket })),
+		);
 
 		let continuationToken: string | undefined;
 		let objectCount = 0;
 		let totalSizeBytes = 0;
 
 		do {
-			const page = await client.send(
-				new ListObjectsV2Command({
-					Bucket: bucket,
-					ContinuationToken: continuationToken,
-				}),
+			const page = await withTimeout(
+				"bucket list",
+				client.send(
+					new ListObjectsV2Command({
+						Bucket: bucket,
+						ContinuationToken: continuationToken,
+					}),
+				),
 			);
 
 			for (const object of page.Contents ?? []) {
@@ -325,18 +629,28 @@ async function collectBucketPayload(): Promise<LfioPayload | undefined> {
 		} while (continuationToken);
 
 		const latencyMs = Math.round(performance.now() - started);
-		const degraded = latencyMs > 10_000;
+		const breaches =
+			latencyMs > threshold("LFIO_BUCKET_LATENCY_DEGRADED_MS", 10_000)
+				? [`bucket listing latency ${latencyMs}ms`]
+				: [];
+		const status = statusWithHysteresis("bucket", breaches, "Bucket reachable");
 
 		return {
 			assetKey: "bucket",
 			name: "SVUFO Object Storage",
-			status: degraded ? "degraded" : "up",
+			status: status.status,
+			message: status.message,
 			latencyMs,
-			message: degraded ? "Bucket listing is slow" : "Bucket reachable",
-			metrics: compactMetrics({
-				objectCount: metric(objectCount, "count", "Bucket"),
-				totalSizeBytes: metric(totalSizeBytes, "bytes", "Bucket"),
-			}),
+			metrics: metrics([
+				metric("objectCount", "Objects", objectCount, "count", "Bucket"),
+				metric(
+					"totalSizeBytes",
+					"Total size",
+					totalSizeBytes,
+					"bytes",
+					"Bucket",
+				),
+			]),
 			metadata: {
 				bucket,
 				endpoint: process.env.AWS_ENDPOINT_URL_S3,
@@ -350,75 +664,111 @@ async function collectBucketPayload(): Promise<LfioPayload | undefined> {
 }
 
 function collectSystemPayload(): LfioPayload {
-	const memoryTotal = totalmem();
-	const memoryFree = freemem();
-	const memoryPct =
-		memoryTotal > 0
-			? ((memoryTotal - memoryFree) / memoryTotal) * 100
-			: undefined;
-	const cpuCount = cpus().length || 1;
-	const cpuPct = Math.min((loadavg()[0] / cpuCount) * 100, 100);
+	try {
+		const cpuPct = sampleCpuPct();
+		const memory = readRuntimeMemory();
+		const memoryPct = calculateMemoryPct(memory.usedBytes, memory.limitBytes);
+		const disk = readDiskPct("/");
+		const breaches: string[] = [];
 
-	return {
-		assetKey: "system",
-		name: "SVUFO Runtime",
-		status:
-			(memoryPct !== undefined && memoryPct >= 90) || cpuPct >= 90
-				? "degraded"
-				: "up",
-		message: "Runtime metrics collected",
-		metrics: compactMetrics({
-			cpuPct: metric(cpuPct, "%", "System"),
-			memoryPct: metric(memoryPct, "%", "System"),
-			memoryTotalBytes: metric(memoryTotal, "bytes", "System"),
-			memoryFreeBytes: metric(memoryFree, "bytes", "System"),
-			processRssBytes: metric(process.memoryUsage().rss, "bytes", "Process"),
-			processHeapUsedBytes: metric(
-				process.memoryUsage().heapUsed,
-				"bytes",
-				"Process",
-			),
-		}),
-		metadata: {
-			platform: process.platform,
-			arch: process.arch,
-			node: process.version,
-		},
-	};
-}
+		if (cpuPct >= threshold("LFIO_SYSTEM_CPU_DEGRADED_PCT", 90)) {
+			breaches.push(`cpu ${cpuPct}%`);
+		}
+		if (memoryPct >= threshold("LFIO_SYSTEM_MEMORY_DEGRADED_PCT", 90)) {
+			breaches.push(`memory ${memoryPct}%`);
+		}
+		if (disk.diskPct >= threshold("LFIO_SYSTEM_DISK_DEGRADED_PCT", 90)) {
+			breaches.push(`disk ${disk.diskPct}%`);
+		}
 
-function downPayload(
-	assetKey: string,
-	name: string,
-	err: unknown,
-): LfioPayload {
-	return {
-		assetKey,
-		name,
-		status: "down",
-		message: err instanceof Error ? err.message : "Metric collection failed",
-		metadata: {
-			checkedAt: new Date().toISOString(),
-		},
-	};
+		const status = statusWithHysteresis("system", breaches, "Runtime OK");
+
+		return {
+			assetKey: "system",
+			name: "SVUFO Runtime",
+			status: status.status,
+			message: status.message,
+			metrics: metrics([
+				metric("cpuPct", "CPU", cpuPct, "%", "System"),
+				metric("memoryPct", "Memory", memoryPct, "%", "System"),
+				metric(
+					"memoryUsedBytes",
+					"Memory used",
+					memory.usedBytes,
+					"bytes",
+					"System",
+				),
+				metric(
+					"memoryLimitBytes",
+					"Memory limit",
+					memory.limitBytes,
+					"bytes",
+					"System",
+				),
+				metric("diskPct", "Disk", disk.diskPct, "%", "System"),
+				metric(
+					"diskTotalBytes",
+					"Disk total",
+					disk.totalBytes,
+					"bytes",
+					"System",
+				),
+				metric("diskFreeBytes", "Disk free", disk.freeBytes, "bytes", "System"),
+				metric(
+					"processRssBytes",
+					"Process RSS",
+					process.memoryUsage().rss,
+					"bytes",
+					"Process",
+				),
+				metric(
+					"processHeapUsedBytes",
+					"Process heap used",
+					process.memoryUsage().heapUsed,
+					"bytes",
+					"Process",
+				),
+			]),
+			metadata: {
+				platform: process.platform,
+				arch: process.arch,
+				node: process.version,
+				memorySource: memory.source,
+			},
+		};
+	} catch (err) {
+		log.warn("LFIO runtime metrics collection failed", { err });
+		return downPayload("system", "SVUFO Runtime", err);
+	}
 }
 
 async function collectLfioPayloads(): Promise<LfioPayload[]> {
-	const collected = await Promise.all([
+	const settled = await Promise.allSettled([
 		collectApiPayload(),
 		collectDbPayload(),
 		collectBucketPayload(),
 		Promise.resolve(collectSystemPayload()),
 	]);
 
-	return collected.filter((payload): payload is LfioPayload =>
-		Boolean(payload),
-	);
+	const fallbackNames = [
+		["api", "SVUFO Application"],
+		["db", "SVUFO PostgreSQL"],
+		["bucket", "SVUFO Object Storage"],
+		["system", "SVUFO Runtime"],
+	] as const;
+
+	return settled
+		.map((result, index) => {
+			if (result.status === "fulfilled") return result.value;
+			const [assetKey, name] = fallbackNames[index];
+			return downPayload(assetKey, name, result.reason);
+		})
+		.filter((payload): payload is LfioPayload => Boolean(payload));
 }
 
 async function postToLfio(token: string, payload: LfioPayload): Promise<void> {
 	const controller = new AbortController();
-	const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+	const timeout = setTimeout(() => controller.abort(), probeTimeoutMs());
 
 	try {
 		const response = await fetch(LFIO_INGEST_URL, {
