@@ -3,6 +3,16 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.11.0 — 2026-07-04
+
+- E-Mails im neuen SVUFO-Design: Benachrichtigungen, Einladungen und Test-Mail
+  haben jetzt ein sauberes, markengerechtes HTML-Layout (grüner Kopf, Messing-
+  Linie, klare Struktur). Tabellenbasiert und mit Inline-Styles aufgebaut, damit
+  es in Gmail, Outlook und Co. nicht zerfällt; ein Text-Teil bleibt als Fallback.
+- Die Benachrichtigung erklärt jetzt, warum sie nur die Eckdaten und keine
+  Beträge enthält (Datenschutz) und dass das vollständige Protokoll erst nach
+  Anmeldung über den Link sichtbar ist.
+
 ## 1.10.0 — 2026-06-28
 
 - E-Mail-Empfänger an Benutzerkonten gekoppelt: Angemeldete Benutzer erhalten die
@@ -56,16 +66,6 @@ hier entspricht `package.json` und der Versionsmarke in der App.
   Beträge) wurden am rechten Kartenrand abgeschnitten, weil der Wert breiter war
   als die halbe Bildschirmbreite. Die Beträge skalieren jetzt mit der Kartenbreite
   und bleiben ab Tablet-Größe unverändert.
-
-## 1.8.0 — 2026-06-20
-
-- E-Mails im neuen SVUFO-Design: Benachrichtigungen, Einladungen und Test-Mail
-  haben jetzt ein sauberes, markengerechtes HTML-Layout (grüner Kopf, Messing-
-  Linie, klare Struktur). Tabellenbasiert und mit Inline-Styles aufgebaut, damit
-  es in Gmail, Outlook und Co. nicht zerfällt; ein Text-Teil bleibt als Fallback.
-- Die Benachrichtigung erklärt jetzt, warum sie nur die Eckdaten und keine
-  Beträge enthält (Datenschutz) und dass das vollständige Protokoll erst nach
-  Anmeldung über den Link sichtbar ist.
 
 ## 1.7.1 — 2026-06-20
 
