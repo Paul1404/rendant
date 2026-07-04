@@ -9,6 +9,14 @@ import * as v from "valibot";
 import { db } from "@/server/db";
 import { appSettings } from "@/server/db/schema";
 import { logger } from "@/server/logger";
+import {
+	callout,
+	ctaBlock,
+	detailsTable,
+	emailShell,
+	escapeHtml,
+	paragraph,
+} from "@/server/services/email-template";
 import { listOptedInUserEmails } from "@/server/services/notification-prefs";
 import { decryptSecret, encryptSecret } from "@/server/services/secret-box";
 import { getVereinsname } from "@/server/services/settings";
@@ -267,20 +275,63 @@ export async function sendProtokollNotification(
 		const base = process.env.BETTER_AUTH_URL?.trim().replace(/\/+$/, "");
 		const link = base ? `${base}/protokolle/${proto.id}` : null;
 
-		const lines = [
-			`Es wurde ein neues Kassenzählprotokoll erfasst.`,
-			``,
+		const rows: Array<[string, string]> = [
+			["Belegnummer", proto.belegnummer],
+			["Kasse", proto.kassenbezeichnung],
+			["Anlass", proto.anlass],
+			["Datum", datum],
+			["Gezählt von", proto.gezaehlt_von],
+		];
+
+		const blocks = [
+			paragraph(
+				"es wurde ein neues Kassenzählprotokoll erfasst. Die Eckdaten stehen unten. Die Beträge selbst sind bewusst nicht Teil dieser E-Mail.",
+			),
+			detailsTable(rows),
+			callout(
+				"Warum ohne Beträge?",
+				"Diese Nachricht informiert nur darüber, <strong>dass</strong> gezählt wurde. Kassenbestand, Ausgaben und Tageseinnahmen sind vertraulich und nur im geschützten Protokoll sichtbar.",
+			),
+		];
+		if (link) {
+			blocks.push(
+				ctaBlock(
+					link,
+					"Protokoll öffnen",
+					"Der Button führt zur Anmeldung. Erst nach dem Login siehst du das vollständige Protokoll mit allen Beträgen.",
+				),
+			);
+		}
+
+		const html = emailShell({
+			preheader: `Neues Protokoll ${proto.belegnummer}. Zum Ansehen bitte anmelden.`,
+			eyebrow: "Benachrichtigung",
+			heading: "Neues Kassenzählprotokoll",
+			blocks,
+			verein,
+		});
+
+		const text = [
+			"Es wurde ein neues Kassenzählprotokoll erfasst.",
+			"",
 			`Belegnummer: ${proto.belegnummer}`,
 			`Kasse: ${proto.kassenbezeichnung}`,
 			`Anlass: ${proto.anlass}`,
 			`Datum: ${datum}`,
 			`Gezählt von: ${proto.gezaehlt_von}`,
-		];
-		if (link) {
-			lines.push(``, `Protokoll öffnen: ${link}`);
-		}
-		lines.push(``, `Diese Nachricht dient nur zur Information.`, `${verein}`);
-		const text = lines.join("\n");
+			"",
+			"Warum ohne Beträge? Diese Nachricht informiert nur darüber, dass gezählt wurde. Kassenbestand, Ausgaben und Tageseinnahmen sind vertraulich und nur im geschützten Protokoll sichtbar.",
+			...(link
+				? [
+						"",
+						`Protokoll öffnen (Anmeldung erforderlich): ${link}`,
+						"Erst nach dem Login siehst du das vollständige Protokoll mit allen Beträgen.",
+					]
+				: []),
+			"",
+			"Diese Nachricht dient nur zur Information.",
+			verein,
+		].join("\n");
 
 		const transport = buildTransport(transportInfo.cfg);
 		await transport.sendMail({
@@ -288,6 +339,7 @@ export async function sendProtokollNotification(
 			to: recipients.join(", "),
 			subject: `Neues Kassenzählprotokoll ${proto.belegnummer}`,
 			text,
+			html,
 		});
 		logger.info("E-Mail-Benachrichtigung gesendet", {
 			belegnummer: proto.belegnummer,
@@ -323,14 +375,33 @@ export async function sendInvitationEmail(
 
 		const verein = await getVereinsname();
 		const role = invite.role === "admin" ? "Administrator" : "Benutzer";
-		const invitedBy = invite.invitedBy
-			? [``, `Eingeladen von: ${invite.invitedBy}`]
-			: [];
+
+		const rows: Array<[string, string]> = [["Rolle", role]];
+		if (invite.invitedBy) rows.push(["Eingeladen von", invite.invitedBy]);
+
+		const html = emailShell({
+			preheader: `Einladung zu SVUFO für ${verein}. Konto in wenigen Schritten anlegen.`,
+			eyebrow: "Einladung",
+			heading: "Willkommen bei SVUFO",
+			blocks: [
+				paragraph(
+					`du wurdest eingeladen, SVUFO für <strong>${escapeHtml(verein)}</strong> zu nutzen. Lege dazu in wenigen Schritten dein Konto an.`,
+				),
+				detailsTable(rows),
+				ctaBlock(
+					invite.inviteUrl,
+					"Konto anlegen",
+					"Der Link ist 7 Tage gültig und kann nur einmal verwendet werden.",
+				),
+			],
+			verein,
+		});
+
 		const text = [
 			`Du wurdest zu SVUFO für ${verein} eingeladen.`,
 			``,
 			`Rolle: ${role}`,
-			...invitedBy,
+			...(invite.invitedBy ? [`Eingeladen von: ${invite.invitedBy}`] : []),
 			``,
 			`Konto anlegen: ${invite.inviteUrl}`,
 			``,
@@ -343,6 +414,7 @@ export async function sendInvitationEmail(
 			to: recipient,
 			subject: `Einladung zu SVUFO`,
 			text,
+			html,
 		});
 		logger.info("Einladungs-E-Mail gesendet", { to: recipient });
 		return "sent";
@@ -369,6 +441,21 @@ export async function sendTestEmail(to: string): Promise<void> {
 		);
 	}
 	const verein = await getVereinsname();
+	const html = emailShell({
+		preheader: "Test-E-Mail von SVUFO. Die SMTP-Konfiguration funktioniert.",
+		eyebrow: "SMTP-Test",
+		heading: "Test-E-Mail",
+		blocks: [
+			paragraph(
+				"dies ist eine Test-E-Mail von SVUFO. Wenn du sie erhältst, ist die SMTP-Konfiguration korrekt und Benachrichtigungen können versendet werden.",
+			),
+			callout(
+				"Alles bereit",
+				"Neue Protokolle und Einladungen werden ab jetzt zuverlässig per E-Mail zugestellt.",
+			),
+		],
+		verein,
+	});
 	const transport = buildTransport(transportInfo.cfg);
 	await transport.sendMail({
 		from: transportInfo.from,
@@ -379,5 +466,6 @@ export async function sendTestEmail(to: string): Promise<void> {
 			``,
 			`Wenn du diese Nachricht erhältst, ist die SMTP-Konfiguration korrekt.`,
 		].join("\n"),
+		html,
 	});
 }
