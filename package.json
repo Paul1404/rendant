@@ -75,7 +75,7 @@
     "drizzle-kit": "^0.31.10",
     "png-to-ico": "^3.0.1",
     "sharp": "^0.35.2",
-    "typescript": "^6.0.2",
+    "typescript": "^7.0.2",
     "vite": "^8.0.0",
     "vitest": "^4.1.9"
   }
