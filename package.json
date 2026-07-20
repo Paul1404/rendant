@@ -48,7 +48,7 @@
     "lucide-react": "^1.21.0",
     "next-themes": "^0.4.6",
     "nitro": "npm:nitro-nightly@latest",
-    "nodemailer": "9.0.1",
+    "nodemailer": "9.0.3",
     "pg": "^8.22.0",
     "radix-ui": "^1.6.0",
     "react": "^19.2.0",
@@ -75,7 +75,7 @@
     "drizzle-kit": "^0.31.10",
     "png-to-ico": "^3.0.1",
     "sharp": "^0.35.2",
-    "typescript": "^6.0.2",
+    "typescript": "^7.0.2",
     "vite": "^8.0.0",
     "vitest": "^4.1.9"
   }
