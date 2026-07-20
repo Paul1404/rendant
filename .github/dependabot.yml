@@ -18,6 +18,17 @@ updates:
       tanstack:
         patterns:
           - "@tanstack/*"
+      aws:
+        patterns:
+          - "@aws-sdk/*"
+      tailwind:
+        patterns:
+          - "tailwindcss"
+          - "@tailwindcss/*"
+      vite:
+        patterns:
+          - "vite"
+          - "@vitejs/*"
 
   - package-ecosystem: "docker"
     directory: "/"
