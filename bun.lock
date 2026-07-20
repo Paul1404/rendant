@@ -6,7 +6,7 @@
       "name": "svufo",
       "dependencies": {
         "@aws-sdk/client-s3": "^3.1073.0",
-        "@fontsource-variable/hanken-grotesk": "^5.2.8",
+        "@fontsource-variable/hanken-grotesk": "^5.3.0",
         "@fontsource-variable/space-grotesk": "^5.2.10",
         "@orpc/client": "^1.14.6",
         "@orpc/server": "^1.14.6",
@@ -257,7 +257,7 @@
 
     "@floating-ui/utils": ["@floating-ui/utils@0.2.11", "", {}, "sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg=="],
 
-    "@fontsource-variable/hanken-grotesk": ["@fontsource-variable/hanken-grotesk@5.2.8", "", {}, "sha512-K7hu09ZKReBc7EifRLeM4K94NZBrxFEg0nGcISmVwlFQOJo4EmYkLXTWEwr5JcNW4z2hr5zy8vLS2sxC8JDmrQ=="],
+    "@fontsource-variable/hanken-grotesk": ["@fontsource-variable/hanken-grotesk@5.3.0", "", {}, "sha512-DOd0FqL+3cH2dfNy0JtSq9tUfxBz5mLmHMjTU0DOr3E9Zo6wxuatCl53DIPNrSPgCsnuKyM739BTIG5glCLirw=="],
 
     "@fontsource-variable/space-grotesk": ["@fontsource-variable/space-grotesk@5.2.10", "", {}, "sha512-yJQO/o35/hAP3CFnpdFTwQku2yzJOae2HIpBmqkOVoxhhXJaQP3g+b6Jrz7u+eI7A5ZdCIf88uMWpBJdFiGr5w=="],
 
