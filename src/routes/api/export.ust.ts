@@ -1,7 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import * as v from "valibot";
+import { secureDownloadHeaders } from "@/lib/download-headers";
 import { ExportQuerySchema } from "@/lib/schemas";
 import { auth } from "@/server/auth";
+import {
+	auditActor,
+	auditRequest,
+	recordAuditEvent,
+} from "@/server/services/audit";
 import { exportUstCsv } from "@/server/services/export";
 
 export const Route = createFileRoute("/api/export/ust")({
@@ -24,13 +30,20 @@ export const Route = createFileRoute("/api/export/ust")({
 					);
 				}
 				const csv = await exportUstCsv(parsed.output.von, parsed.output.bis);
+				await recordAuditEvent({
+					category: "exports",
+					action: "exports.ust_csv",
+					actor: auditActor(session.user),
+					request: auditRequest(request),
+					metadata: parsed.output,
+				});
 				const filename = `svufo-ust-${parsed.output.von}-${parsed.output.bis}.csv`;
 				return new Response(csv, {
 					status: 200,
-					headers: {
-						"Content-Type": "text/csv; charset=utf-8",
-						"Content-Disposition": `attachment; filename="${filename}"`,
-					},
+					headers: secureDownloadHeaders(
+						"text/csv; charset=utf-8",
+						`attachment; filename="${filename}"`,
+					),
 				});
 			},
 		},

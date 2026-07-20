@@ -16,6 +16,7 @@ import { Route as ProtokolleIndexRouteImport } from './routes/protokolle/index'
 import { Route as ProtokolleNeuRouteImport } from './routes/protokolle/neu'
 import { Route as ProtokolleExportRouteImport } from './routes/protokolle/export'
 import { Route as ProtokolleEinstellungenRouteImport } from './routes/protokolle/einstellungen'
+import { Route as ProtokolleAuditRouteImport } from './routes/protokolle/audit'
 import { Route as ProtokolleIdRouteImport } from './routes/protokolle/$id'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
@@ -60,6 +61,11 @@ const ProtokolleExportRoute = ProtokolleExportRouteImport.update({
 const ProtokolleEinstellungenRoute = ProtokolleEinstellungenRouteImport.update({
   id: '/einstellungen',
   path: '/einstellungen',
+  getParentRoute: () => ProtokolleRouteRoute,
+} as any)
+const ProtokolleAuditRoute = ProtokolleAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
   getParentRoute: () => ProtokolleRouteRoute,
 } as any)
 const ProtokolleIdRoute = ProtokolleIdRouteImport.update({
@@ -122,6 +128,7 @@ export interface FileRoutesByFullPath {
   '/api/health': typeof ApiHealthRoute
   '/invite/$token': typeof InviteTokenRoute
   '/protokolle/$id': typeof ProtokolleIdRoute
+  '/protokolle/audit': typeof ProtokolleAuditRoute
   '/protokolle/einstellungen': typeof ProtokolleEinstellungenRoute
   '/protokolle/export': typeof ProtokolleExportRoute
   '/protokolle/neu': typeof ProtokolleNeuRoute
@@ -140,6 +147,7 @@ export interface FileRoutesByTo {
   '/api/health': typeof ApiHealthRoute
   '/invite/$token': typeof InviteTokenRoute
   '/protokolle/$id': typeof ProtokolleIdRoute
+  '/protokolle/audit': typeof ProtokolleAuditRoute
   '/protokolle/einstellungen': typeof ProtokolleEinstellungenRoute
   '/protokolle/export': typeof ProtokolleExportRoute
   '/protokolle/neu': typeof ProtokolleNeuRoute
@@ -160,6 +168,7 @@ export interface FileRoutesById {
   '/api/health': typeof ApiHealthRoute
   '/invite/$token': typeof InviteTokenRoute
   '/protokolle/$id': typeof ProtokolleIdRoute
+  '/protokolle/audit': typeof ProtokolleAuditRoute
   '/protokolle/einstellungen': typeof ProtokolleEinstellungenRoute
   '/protokolle/export': typeof ProtokolleExportRoute
   '/protokolle/neu': typeof ProtokolleNeuRoute
@@ -181,6 +190,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/invite/$token'
     | '/protokolle/$id'
+    | '/protokolle/audit'
     | '/protokolle/einstellungen'
     | '/protokolle/export'
     | '/protokolle/neu'
@@ -199,6 +209,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/invite/$token'
     | '/protokolle/$id'
+    | '/protokolle/audit'
     | '/protokolle/einstellungen'
     | '/protokolle/export'
     | '/protokolle/neu'
@@ -218,6 +229,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/invite/$token'
     | '/protokolle/$id'
+    | '/protokolle/audit'
     | '/protokolle/einstellungen'
     | '/protokolle/export'
     | '/protokolle/neu'
@@ -292,6 +304,13 @@ declare module '@tanstack/react-router' {
       path: '/einstellungen'
       fullPath: '/protokolle/einstellungen'
       preLoaderRoute: typeof ProtokolleEinstellungenRouteImport
+      parentRoute: typeof ProtokolleRouteRoute
+    }
+    '/protokolle/audit': {
+      id: '/protokolle/audit'
+      path: '/audit'
+      fullPath: '/protokolle/audit'
+      preLoaderRoute: typeof ProtokolleAuditRouteImport
       parentRoute: typeof ProtokolleRouteRoute
     }
     '/protokolle/$id': {
@@ -369,6 +388,7 @@ declare module '@tanstack/react-router' {
 
 interface ProtokolleRouteRouteChildren {
   ProtokolleIdRoute: typeof ProtokolleIdRoute
+  ProtokolleAuditRoute: typeof ProtokolleAuditRoute
   ProtokolleEinstellungenRoute: typeof ProtokolleEinstellungenRoute
   ProtokolleExportRoute: typeof ProtokolleExportRoute
   ProtokolleNeuRoute: typeof ProtokolleNeuRoute
@@ -377,6 +397,7 @@ interface ProtokolleRouteRouteChildren {
 
 const ProtokolleRouteRouteChildren: ProtokolleRouteRouteChildren = {
   ProtokolleIdRoute: ProtokolleIdRoute,
+  ProtokolleAuditRoute: ProtokolleAuditRoute,
   ProtokolleEinstellungenRoute: ProtokolleEinstellungenRoute,
   ProtokolleExportRoute: ProtokolleExportRoute,
   ProtokolleNeuRoute: ProtokolleNeuRoute,

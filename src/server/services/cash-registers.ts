@@ -74,10 +74,12 @@ export async function updateCashRegister(
 	return rowToRegister(rows[0]);
 }
 
-export async function deleteCashRegister(id: string): Promise<boolean> {
+export async function deleteCashRegister(
+	id: string,
+): Promise<CashRegister | null> {
 	const rows = await db
 		.delete(cashRegisters)
 		.where(eq(cashRegisters.id, id))
-		.returning({ id: cashRegisters.id });
-	return rows.length > 0;
+		.returning();
+	return rows[0] ? rowToRegister(rows[0]) : null;
 }

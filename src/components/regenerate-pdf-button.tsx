@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { Loader2, RefreshCw } from "lucide-react";
 import { useTransition } from "react";
@@ -13,6 +14,7 @@ import { orpcMessage } from "@/lib/orpc-error";
 
 export function RegeneratePdfButton({ protokollId }: { protokollId: string }) {
 	const router = useRouter();
+	const queryClient = useQueryClient();
 	const [pending, startTransition] = useTransition();
 
 	function regenerate() {
@@ -20,6 +22,7 @@ export function RegeneratePdfButton({ protokollId }: { protokollId: string }) {
 			try {
 				await orpcClient.protokolle.regeneratePdf({ id: protokollId });
 				toast.success("PDF neu erzeugt");
+				await queryClient.invalidateQueries();
 				await router.invalidate();
 			} catch (e) {
 				toast.error(orpcMessage(e, "Neu erzeugen fehlgeschlagen"));

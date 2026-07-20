@@ -25,6 +25,8 @@ export type UmsatzUstRow = {
 export type ProtokollRow = {
 	id: string;
 	belegnummer: string;
+	erstellt_von_user_id: string | null;
+	erstellt_von_name: string | null;
 	erstellt_am: Date;
 	anlass_datum: string;
 	kassennummer: string;
@@ -43,6 +45,8 @@ export type ProtokollRow = {
 	pdf_s3_key: string | null;
 	pdf_sha256: string | null;
 	storniert_am: Date | null;
+	storniert_von_user_id: string | null;
+	storniert_von_name: string | null;
 	storno_grund: string | null;
 	storno_pdf_s3_key: string | null;
 	storno_pdf_sha256: string | null;

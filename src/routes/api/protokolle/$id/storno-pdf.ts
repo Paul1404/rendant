@@ -1,5 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { secureDownloadHeaders } from "@/lib/download-headers";
 import { auth } from "@/server/auth";
+import {
+	auditActor,
+	auditRequest,
+	recordAuditEvent,
+} from "@/server/services/audit";
 import { getProtokoll } from "@/server/services/protokoll";
 import { downloadPdf } from "@/server/services/s3";
 
@@ -27,11 +33,26 @@ export const Route = createFileRoute("/api/protokolle/$id/storno-pdf")({
 					key.split("/").pop() ?? `${detail.protokoll.belegnummer}_STORNO.pdf`;
 				const inline = new URL(request.url).searchParams.get("view") === "1";
 				const disposition = inline ? "inline" : "attachment";
+				await recordAuditEvent({
+					category: "protokolle",
+					action: inline
+						? "protokolle.storno_pdf_viewed"
+						: "protokolle.storno_pdf_downloaded",
+					actor: auditActor(session.user),
+					subject: {
+						type: "protokoll",
+						id: params.id,
+						label: detail.protokoll.belegnummer,
+					},
+					request: auditRequest(request),
+				});
 				return new Response(new Uint8Array(buffer), {
 					status: 200,
 					headers: {
-						"Content-Type": "application/pdf",
-						"Content-Disposition": `${disposition}; filename="${filename}"`,
+						...secureDownloadHeaders(
+							"application/pdf",
+							`${disposition}; filename="${filename}"`,
+						),
 						"Content-Length": String(buffer.length),
 					},
 				});

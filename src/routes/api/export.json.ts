@@ -1,7 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import * as v from "valibot";
+import { secureDownloadHeaders } from "@/lib/download-headers";
 import { ExportQuerySchema } from "@/lib/schemas";
 import { auth } from "@/server/auth";
+import {
+	auditActor,
+	auditRequest,
+	recordAuditEvent,
+} from "@/server/services/audit";
 import { exportJson } from "@/server/services/export";
 
 export const Route = createFileRoute("/api/export/json")({
@@ -24,13 +30,20 @@ export const Route = createFileRoute("/api/export/json")({
 					);
 				}
 				const data = await exportJson(parsed.output.von, parsed.output.bis);
+				await recordAuditEvent({
+					category: "exports",
+					action: "exports.backup_json",
+					actor: auditActor(session.user),
+					request: auditRequest(request),
+					metadata: parsed.output,
+				});
 				const filename = `svufo-backup-${parsed.output.von}-${parsed.output.bis}.json`;
 				return new Response(JSON.stringify(data, null, 2), {
 					status: 200,
-					headers: {
-						"Content-Type": "application/json; charset=utf-8",
-						"Content-Disposition": `attachment; filename="${filename}"`,
-					},
+					headers: secureDownloadHeaders(
+						"application/json; charset=utf-8",
+						`attachment; filename="${filename}"`,
+					),
 				});
 			},
 		},

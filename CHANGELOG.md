@@ -3,6 +3,45 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.13.0 - 2026-07-20
+
+- Admins erhalten ein eigenes Audit-Log zwischen Export und Einstellungen. Es
+  zeigt Anmeldungen, fehlgeschlagene und blockierte Anmeldeversuche,
+  Abmeldungen, Einladungen, Registrierungen, Protokollaktionen, PDF-Zugriffe,
+  Exporte sowie Änderungen an Benutzern, Kassen und Einstellungen.
+- Die Ereignisspur ist serverseitig geschützt, filter- und durchsuchbar und wird
+  automatisch aktualisiert. Herkunft, handelnde Person und betroffenes Objekt
+  bleiben nachvollziehbar, ohne Passwörter, Tokens, Cookies oder
+  SMTP-Zugangsdaten zu speichern.
+- Audit-Ereignisse liegen in einer eigenen append-only Tabelle. Die Anwendung
+  bietet dafür bewusst keine Änderungs- oder Löschoperation an.
+
+## 1.12.0 - 2026-07-20
+
+- Sicherer Mehrbenutzerbetrieb: Eine Stornierung wird jetzt atomar reserviert.
+  Gleichzeitige Versuche können Begründung, Zeitpunkt und Storno-PDF nicht mehr
+  gegenseitig überschreiben. PDF-Dateien erhalten kollisionsfreie Namen und
+  fehlgeschlagene PDF-Erzeugung bleibt über die vorhandene Regeneration
+  reparierbar.
+- Einladungen werden beim Annehmen jetzt durch eine Datenbanksperre genau einem
+  Vorgang zugeordnet. Zusätzliche Eindeutigkeitsregeln verhindern doppelte
+  Zugangskonten bei parallelen Anfragen.
+- Protokollübersicht, Detailansicht und Umsatzsteuerdaten aktualisieren sich bei
+  Fokus sowie spätestens nach 15 Sekunden. Eigene Änderungen leeren betroffene
+  Caches sofort.
+- Protokolle speichern jetzt das angemeldete Konto, das sie angelegt oder
+  storniert hat. Neue Belege zeigen diese Zuordnung in der Detailansicht.
+  Bestehende Belege bleiben unverändert lesbar.
+- Finanzielle Downloads werden nicht mehr zwischengespeichert und erhalten
+  sichere Browser-Header. Textwerte in CSV-Dateien können beim Öffnen in einer
+  Tabellenkalkulation keine Formeln mehr ausführen.
+- Links mit Schaltflächen wurden semantisch korrigiert. Fehler beim Laden der
+  Umsatzsteuerdaten erscheinen jetzt als Fehler mit Wiederholen-Aktion statt
+  wie ein leerer Zeitraum.
+- Die Arbeitsregeln für Codex und ChatGPT übernehmen nun ausdrücklich die
+  Projektregeln aus `CLAUDE.md`, einschließlich Versionspflege,
+  Mehrbenutzer-Architektur und vollständiger Verifikation.
+
 ## 1.11.0 — 2026-07-04
 
 - E-Mails im neuen SVUFO-Design: Benachrichtigungen, Einladungen und Test-Mail

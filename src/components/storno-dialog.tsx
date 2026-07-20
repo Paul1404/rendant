@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { Ban, Loader2 } from "lucide-react";
 import { useState, useTransition } from "react";
@@ -24,6 +25,7 @@ const STORNO_MAX = 500;
 
 export function StornoDialog({ protokollId }: { protokollId: string }) {
 	const router = useRouter();
+	const queryClient = useQueryClient();
 	const [grund, setGrund] = useState("");
 	const [open, setOpen] = useState(false);
 	const [pending, startTransition] = useTransition();
@@ -45,6 +47,7 @@ export function StornoDialog({ protokollId }: { protokollId: string }) {
 				});
 				toast.success("Beleg storniert");
 				setOpen(false);
+				await queryClient.invalidateQueries();
 				await router.invalidate();
 			} catch (e) {
 				toast.error(orpcMessage(e, "Stornierung fehlgeschlagen"));

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouteContext } from "@tanstack/react-router";
 import { Command } from "cmdk";
-import { Download, List, Plus, Settings } from "lucide-react";
+import { Download, List, Plus, Settings, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
 	Dialog,
@@ -16,12 +16,23 @@ const NAV_ITEMS = [
 	{ to: "/protokolle", label: "Protokolle", icon: List },
 	{ to: "/protokolle/neu", label: "Neues Protokoll", icon: Plus },
 	{ to: "/protokolle/export", label: "Export", icon: Download },
+	{
+		to: "/protokolle/audit",
+		label: "Audit-Log",
+		icon: ShieldCheck,
+		adminOnly: true,
+	},
 	{ to: "/protokolle/einstellungen", label: "Einstellungen", icon: Settings },
 ] as const;
 
 export function CommandPalette() {
 	const [open, setOpen] = useState(false);
 	const navigate = useNavigate();
+	const { user } = useRouteContext({ from: "/protokolle" });
+	const navItems = NAV_ITEMS.filter(
+		(item) =>
+			!("adminOnly" in item) || !item.adminOnly || user.role === "admin",
+	);
 
 	const { data: protokolle } = useQuery(
 		orpc.protokolle.list.queryOptions({ input: { includeStorniert: true } }),
@@ -67,7 +78,7 @@ export function CommandPalette() {
 						</Command.Empty>
 
 						<Command.Group heading="Navigation">
-							{NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+							{navItems.map(({ to, label, icon: Icon }) => (
 								<Command.Item
 									key={to}
 									value={`navigation ${label}`}

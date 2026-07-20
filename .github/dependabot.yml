@@ -1,12 +1,23 @@
 version: 2
 updates:
-  - package-ecosystem: "npm"
+  - package-ecosystem: "bun"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "sunday"
       time: "08:00"
       timezone: "Europe/Berlin"
+    groups:
+      react:
+        patterns:
+          - "react*"
+          - "@types/react*"
+      orpc:
+        patterns:
+          - "@orpc/*"
+      tanstack:
+        patterns:
+          - "@tanstack/*"
 
   - package-ecosystem: "docker"
     directory: "/"

@@ -1,4 +1,4 @@
-import { asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { S3_PREFIX } from "@/lib/constants";
 import { currentYearBerlin, formatFilenameStamp } from "@/lib/date";
 import { DENOMINATIONS, type DenominationCounts } from "@/lib/denominations";
@@ -19,6 +19,11 @@ import { deletePdf, uploadPdf } from "@/server/services/s3";
 import { getVereinStammdaten } from "@/server/services/settings";
 
 type DbProtokoll = typeof protokolle.$inferSelect;
+type AuditActor = { id: string; name: string; email: string };
+
+function actorName(actor: AuditActor): string {
+	return actor.name.trim() || actor.email;
+}
 
 function rowToProtokoll(row: DbProtokoll): ProtokollRow {
 	const counts = {} as DenominationCounts;
@@ -28,6 +33,8 @@ function rowToProtokoll(row: DbProtokoll): ProtokollRow {
 	return {
 		id: row.id,
 		belegnummer: row.belegnummer,
+		erstellt_von_user_id: row.erstellt_von_user_id ?? null,
+		erstellt_von_name: row.erstellt_von_name ?? null,
 		erstellt_am: row.erstellt_am,
 		anlass_datum: row.anlass_datum,
 		kassennummer: row.kassennummer ?? "",
@@ -47,6 +54,8 @@ function rowToProtokoll(row: DbProtokoll): ProtokollRow {
 		pdf_s3_key: row.pdf_s3_key ?? null,
 		pdf_sha256: row.pdf_sha256 ?? null,
 		storniert_am: row.storniert_am ?? null,
+		storniert_von_user_id: row.storniert_von_user_id ?? null,
+		storniert_von_name: row.storniert_von_name ?? null,
 		storno_grund: row.storno_grund ?? null,
 		storno_pdf_s3_key: row.storno_pdf_s3_key ?? null,
 		storno_pdf_sha256: row.storno_pdf_sha256 ?? null,
@@ -55,7 +64,7 @@ function rowToProtokoll(row: DbProtokoll): ProtokollRow {
 }
 
 function pdfKey(belegnummer: string, suffix: "" | "_STORNO"): string {
-	return `${S3_PREFIX}/${belegnummer}${suffix}_${formatFilenameStamp(new Date())}.pdf`;
+	return `${S3_PREFIX}/${belegnummer}${suffix}_${formatFilenameStamp(new Date())}_${crypto.randomUUID()}.pdf`;
 }
 
 export async function listProtokolle(opts: {
@@ -181,6 +190,7 @@ export function deriveProtokollAccounting(input: CreateProtokollInput): {
 
 export async function createProtokoll(
 	input: CreateProtokollInput,
+	actor?: AuditActor,
 ): Promise<CreateResult> {
 	const {
 		counts,
@@ -207,6 +217,8 @@ export async function createProtokoll(
 					.insert(protokolle)
 					.values({
 						belegnummer,
+						erstellt_von_user_id: actor?.id ?? null,
+						erstellt_von_name: actor ? actorName(actor) : null,
 						anlass_datum: input.anlass_datum,
 						kassennummer: input.kassennummer,
 						kassenbezeichnung: input.kassenbezeichnung,
@@ -355,6 +367,7 @@ async function pdfDataFromDetail(detail: ProtokollDetail) {
 export async function stornoProtokoll(
 	id: string,
 	input: StornoInput,
+	actor?: AuditActor,
 ): Promise<void> {
 	const detail = await getProtokoll(id);
 	if (!detail) throw new Error("Protokoll nicht gefunden");
@@ -362,22 +375,40 @@ export async function stornoProtokoll(
 		throw new Error("Protokoll ist bereits storniert");
 	}
 	const stornoAm = new Date();
-	const { buffer, hash } = await renderProtokollPdf({
-		...(await pdfDataFromDetail(detail)),
-		storno: { am: stornoAm, grund: input.storno_grund },
-	});
-	const key = pdfKey(detail.protokoll.belegnummer, "_STORNO");
-	await uploadPdf(key, buffer);
-
-	await db
+	const claimed = await db
 		.update(protokolle)
 		.set({
 			storniert_am: stornoAm,
+			storniert_von_user_id: actor?.id ?? null,
+			storniert_von_name: actor ? actorName(actor) : null,
 			storno_grund: input.storno_grund,
-			storno_pdf_s3_key: key,
-			storno_pdf_sha256: hash,
 		})
-		.where(eq(protokolle.id, id));
+		.where(and(eq(protokolle.id, id), isNull(protokolle.storniert_am)))
+		.returning({ id: protokolle.id });
+
+	if (claimed.length === 0) {
+		throw new Error("Protokoll ist bereits storniert");
+	}
+
+	// Cancellation is the authoritative event. PDF generation is recoverable,
+	// so a storage outage must not invite a second cancellation attempt.
+	try {
+		const { buffer, hash } = await renderProtokollPdf({
+			...(await pdfDataFromDetail(detail)),
+			storno: { am: stornoAm, grund: input.storno_grund },
+		});
+		const key = pdfKey(detail.protokoll.belegnummer, "_STORNO");
+		await uploadPdf(key, buffer);
+		await db
+			.update(protokolle)
+			.set({ storno_pdf_s3_key: key, storno_pdf_sha256: hash })
+			.where(and(eq(protokolle.id, id), eq(protokolle.storniert_am, stornoAm)));
+	} catch (pdfErr) {
+		logger.error("Storno-PDF-Erzeugung fehlgeschlagen", {
+			belegnummer: detail.protokoll.belegnummer,
+			err: pdfErr,
+		});
+	}
 }
 
 export async function deleteAllPdfsForProtokoll(
@@ -421,15 +452,32 @@ export async function regenerateProtokollPdf(id: string): Promise<void> {
 		.set({
 			pdf_s3_key: mainKey,
 			pdf_sha256: main.hash,
-			storno_pdf_s3_key: stornoKey ?? protokoll.storno_pdf_s3_key,
-			storno_pdf_sha256: stornoHash ?? protokoll.storno_pdf_sha256,
 		})
 		.where(eq(protokolle.id, id));
+
+	let stornoUpdated = false;
+	if (stornoKey && stornoHash && protokoll.storniert_am) {
+		const rows = await db
+			.update(protokolle)
+			.set({
+				storno_pdf_s3_key: stornoKey,
+				storno_pdf_sha256: stornoHash,
+			})
+			.where(
+				and(
+					eq(protokolle.id, id),
+					eq(protokolle.storniert_am, protokoll.storniert_am),
+				),
+			)
+			.returning({ id: protokolle.id });
+		stornoUpdated = rows.length > 0;
+	}
 
 	if (protokoll.pdf_s3_key && protokoll.pdf_s3_key !== mainKey) {
 		await deletePdf(protokoll.pdf_s3_key).catch(() => {});
 	}
 	if (
+		stornoUpdated &&
 		stornoKey &&
 		protokoll.storno_pdf_s3_key &&
 		protokoll.storno_pdf_s3_key !== stornoKey

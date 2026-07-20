@@ -14,6 +14,7 @@ import { useMemo, useState } from "react";
 import { BarList } from "@/components/charts/bar-list";
 import { RevenueAreaChart } from "@/components/charts/revenue-area-chart";
 import { SplitBar } from "@/components/charts/split-bar";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Money } from "@/components/ui/money";
 import { FieldLabel } from "@/components/ui/section";
@@ -186,7 +187,14 @@ export function FinanceOverview({
 }
 
 function VatCard({ vatRange }: { vatRange: { von: string; bis: string } }) {
-	const vat = useQuery(orpc.reports.vat.queryOptions({ input: vatRange }));
+	const vat = useQuery(
+		orpc.reports.vat.queryOptions({
+			input: vatRange,
+			refetchInterval: 15_000,
+			refetchIntervalInBackground: false,
+			refetchOnWindowFocus: "always",
+		}),
+	);
 
 	const revenue = vat.data?.revenue ?? [];
 	const expenses = vat.data?.expenses ?? [];
@@ -209,6 +217,15 @@ function VatCard({ vatRange }: { vatRange: { von: string; bis: string } }) {
 						<div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
 						<div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
 						<div className="h-4 w-3/5 animate-pulse rounded bg-muted" />
+					</div>
+				) : vat.isError ? (
+					<div className="space-y-2 py-3 text-center" role="alert">
+						<p className="text-sm font-medium text-destructive">
+							Umsatzsteuerdaten konnten nicht geladen werden.
+						</p>
+						<Button variant="outline" size="sm" onClick={() => vat.refetch()}>
+							Erneut versuchen
+						</Button>
 					</div>
 				) : hasData ? (
 					<>

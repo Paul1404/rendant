@@ -1,5 +1,12 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import { Download, List, LogOut, Plus, Settings } from "lucide-react";
+import { Link, useRouteContext, useRouterState } from "@tanstack/react-router";
+import {
+	Download,
+	List,
+	LogOut,
+	Plus,
+	Settings,
+	ShieldCheck,
+} from "lucide-react";
 import { useTransition } from "react";
 import { BrandLockup } from "@/components/brand-lockup";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -18,21 +25,33 @@ type NavItem = {
 		| "/protokolle"
 		| "/protokolle/neu"
 		| "/protokolle/export"
+		| "/protokolle/audit"
 		| "/protokolle/einstellungen";
 	label: string;
 	icon: typeof List;
 	exact?: boolean;
+	adminOnly?: boolean;
 };
 
 const NAV: NavItem[] = [
 	{ href: "/protokolle", label: "Protokolle", icon: List, exact: true },
 	{ href: "/protokolle/neu", label: "Neu", icon: Plus },
 	{ href: "/protokolle/export", label: "Export", icon: Download },
+	{
+		href: "/protokolle/audit",
+		label: "Audit-Log",
+		icon: ShieldCheck,
+		adminOnly: true,
+	},
 	{ href: "/protokolle/einstellungen", label: "Einstellungen", icon: Settings },
 ];
 
 export function Header() {
 	const pathname = useRouterState({ select: (s) => s.location.pathname });
+	const { user } = useRouteContext({ from: "/protokolle" });
+	const navItems = NAV.filter(
+		(item) => !item.adminOnly || user.role === "admin",
+	);
 	const [pending, startTransition] = useTransition();
 
 	function logout() {
@@ -55,62 +74,61 @@ export function Header() {
 
 				<nav className="flex items-center gap-1">
 					<div className="hidden items-center gap-0.5 rounded-xl border border-border/70 bg-background/60 p-1 shadow-sm md:flex">
-						{NAV.map(({ href, label, icon: Icon, exact }) => {
+						{navItems.map(({ href, label, icon: Icon, exact }) => {
 							const active = exact
 								? pathname === href
 								: pathname.startsWith(href);
 							return (
-								<Link
+								<Button
 									key={href}
-									to={href}
-									aria-current={active ? "page" : undefined}
+									asChild
+									variant="ghost"
+									size="sm"
+									className={cn(
+										"h-8 rounded-lg px-3",
+										active
+											? "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+											: "text-muted-foreground hover:text-foreground",
+									)}
 								>
-									<Button
-										variant="ghost"
-										size="sm"
-										className={cn(
-											"h-8 rounded-lg px-3",
-											active
-												? "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
-												: "text-muted-foreground hover:text-foreground",
-										)}
-									>
+									<Link to={href} aria-current={active ? "page" : undefined}>
 										<Icon className="mr-1.5 h-4 w-4" />
 										{label}
-									</Button>
-								</Link>
+									</Link>
+								</Button>
 							);
 						})}
 					</div>
 
 					<TooltipProvider>
 						<div className="flex items-center gap-0.5 md:hidden">
-							{NAV.map(({ href, label, icon: Icon, exact }) => {
+							{navItems.map(({ href, label, icon: Icon, exact }) => {
 								const active = exact
 									? pathname === href
 									: pathname.startsWith(href);
 								return (
 									<Tooltip key={href}>
 										<TooltipTrigger asChild>
-											<Link
-												to={href}
-												aria-label={label}
-												aria-current={active ? "page" : undefined}
+											<Button
+												asChild
+												variant="ghost"
+												size="icon-sm"
+												className={cn(
+													"border",
+													active
+														? "border-primary/25 bg-primary/12 text-primary hover:bg-primary/15 hover:text-primary"
+														: "border-transparent text-muted-foreground hover:text-foreground",
+												)}
 											>
-												<Button
-													variant="ghost"
-													size="icon-sm"
-													className={cn(
-														"border",
-														active
-															? "border-primary/25 bg-primary/12 text-primary hover:bg-primary/15 hover:text-primary"
-															: "border-transparent text-muted-foreground hover:text-foreground",
-													)}
+												<Link
+													to={href}
+													aria-label={label}
+													aria-current={active ? "page" : undefined}
 												>
 													<Icon className="h-4 w-4" />
 													<span className="sr-only">{label}</span>
-												</Button>
-											</Link>
+												</Link>
+											</Button>
 										</TooltipTrigger>
 										<TooltipContent side="bottom">{label}</TooltipContent>
 									</Tooltip>

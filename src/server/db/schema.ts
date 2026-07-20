@@ -6,6 +6,7 @@ import {
 	date,
 	index,
 	integer,
+	jsonb,
 	pgTable,
 	text,
 	timestamp,
@@ -20,6 +21,8 @@ export const protokolle = pgTable(
 	{
 		id: uuid("id").primaryKey().defaultRandom(),
 		belegnummer: text("belegnummer").notNull().unique(),
+		erstellt_von_user_id: text("erstellt_von_user_id"),
+		erstellt_von_name: text("erstellt_von_name"),
 		erstellt_am: timestamp("erstellt_am", { withTimezone: true })
 			.notNull()
 			.defaultNow(),
@@ -59,6 +62,8 @@ export const protokolle = pgTable(
 		pdf_s3_key: text("pdf_s3_key"),
 		pdf_sha256: text("pdf_sha256"),
 		storniert_am: timestamp("storniert_am", { withTimezone: true }),
+		storniert_von_user_id: text("storniert_von_user_id"),
+		storniert_von_name: text("storniert_von_name"),
 		storno_grund: text("storno_grund"),
 		storno_pdf_s3_key: text("storno_pdf_s3_key"),
 		storno_pdf_sha256: text("storno_pdf_sha256"),
@@ -67,6 +72,8 @@ export const protokolle = pgTable(
 		index("idx_protokolle_erstellt_am").on(t.erstellt_am),
 		index("idx_protokolle_storniert_am").on(t.storniert_am),
 		index("idx_protokolle_anlass_datum").on(t.anlass_datum),
+		index("idx_protokolle_erstellt_von_user_id").on(t.erstellt_von_user_id),
+		index("idx_protokolle_storniert_von_user_id").on(t.storniert_von_user_id),
 		check("protokolle_wechselgeld_cent_check", sql`${t.wechselgeld_cent} >= 0`),
 		check(
 			"protokolle_kartenzahlung_cent_check",
@@ -238,6 +245,43 @@ export const loginAttempts = pgTable(
 		erfolgreich: boolean("erfolgreich").notNull(),
 	},
 	(t) => [index("idx_login_attempts_ip_versucht_am").on(t.ip, t.versucht_am)],
+);
+
+// Append-only security and business audit trail. The application exposes no
+// update or delete operation for this table. Metadata is deliberately limited
+// to non-secret context by the audit service.
+export const auditEvents = pgTable(
+	"audit_events",
+	{
+		id: bigserial("id", { mode: "number" }).primaryKey(),
+		event_at: timestamp("event_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		category: text("category").notNull(),
+		action: text("action").notNull(),
+		success: boolean("success").notNull().default(true),
+		actor_user_id: text("actor_user_id"),
+		actor_email: text("actor_email"),
+		actor_name: text("actor_name"),
+		actor_role: text("actor_role"),
+		subject_type: text("subject_type"),
+		subject_id: text("subject_id"),
+		subject_label: text("subject_label"),
+		request_id: uuid("request_id").notNull().defaultRandom(),
+		ip_address: text("ip_address"),
+		user_agent: text("user_agent"),
+		metadata: jsonb("metadata")
+			.$type<Record<string, unknown>>()
+			.notNull()
+			.default({}),
+	},
+	(t) => [
+		index("idx_audit_events_event_at").on(t.event_at),
+		index("idx_audit_events_category_event_at").on(t.category, t.event_at),
+		index("idx_audit_events_action_event_at").on(t.action, t.event_at),
+		index("idx_audit_events_actor_user_id").on(t.actor_user_id),
+		index("idx_audit_events_subject").on(t.subject_type, t.subject_id),
+	],
 );
 
 export const belegnummerSequences = pgTable(

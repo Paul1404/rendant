@@ -50,6 +50,27 @@
       "when": 1782646081752,
       "tag": "0006_wandering_toad_men",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784573774103,
+      "tag": "0007_unusual_smasher",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784573893843,
+      "tag": "0008_blue_zarda",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784574544423,
+      "tag": "0009_glamorous_darwin",
+      "breakpoints": true
     }
   ]
 }

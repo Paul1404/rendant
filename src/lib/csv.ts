@@ -1,6 +1,10 @@
 export function csvCell(value: string): string {
-	const needsQuote = /[;"\n\r]/.test(value);
-	const escaped = value.replace(/"/g, '""');
+	const trimmed = value.trimStart();
+	const isNegativeNumber = /^-\d+(?:[.,]\d+)?$/.test(trimmed);
+	const spreadsheetSafe =
+		!isNegativeNumber && /^[=+@-]|^[\t\r]/.test(trimmed) ? `'${value}` : value;
+	const needsQuote = /[;"\n\r]/.test(spreadsheetSafe);
+	const escaped = spreadsheetSafe.replace(/"/g, '""');
 	return needsQuote ? `"${escaped}"` : escaped;
 }
 

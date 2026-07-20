@@ -29,6 +29,9 @@ type ProtokolleSearch = {
 
 const listQueryOptions = orpc.protokolle.list.queryOptions({
 	input: { includeStorniert: true },
+	refetchInterval: 15_000,
+	refetchIntervalInBackground: false,
+	refetchOnWindowFocus: "always",
 });
 
 export const Route = createFileRoute("/protokolle/")({
@@ -81,12 +84,12 @@ function ProtokolleListPage() {
 				title="Kassenzählprotokolle"
 				description="Übersicht der erfassten Belege. Neue Protokolle anlegen und Auswertungen exportieren."
 				actions={
-					<Link to="/protokolle/neu">
-						<Button size="sm">
+					<Button asChild size="sm">
+						<Link to="/protokolle/neu">
 							<Plus className="mr-2 h-4 w-4" />
 							Neues Protokoll
-						</Button>
-					</Link>
+						</Link>
+					</Button>
 				}
 			/>
 
@@ -159,12 +162,12 @@ function EmptyState() {
 				Lege das erste Kassenzählprotokoll an, um Kassenbestand und
 				Tageseinnahmen zu erfassen.
 			</p>
-			<Link to="/protokolle/neu" className="mt-2">
-				<Button size="sm">
+			<Button asChild size="sm" className="mt-2">
+				<Link to="/protokolle/neu">
 					<Plus className="mr-2 h-4 w-4" />
 					Neues Protokoll
-				</Button>
-			</Link>
+				</Link>
+			</Button>
 		</div>
 	);
 }

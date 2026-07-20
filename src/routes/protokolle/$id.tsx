@@ -1,4 +1,5 @@
 import { ORPCError } from "@orpc/client";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import {
 	ArrowLeft,
@@ -33,7 +34,7 @@ import {
 } from "@/components/ui/table";
 import { formatDateDe, formatDateTimeDe } from "@/lib/date";
 import { DENOMINATIONS } from "@/lib/denominations";
-import { orpcClient } from "@/lib/orpc";
+import { orpc } from "@/lib/orpc";
 import {
 	formatUstSatz as formatUstSatzLib,
 	groupByUstRate,
@@ -42,10 +43,21 @@ import {
 } from "@/lib/ust";
 import { cn } from "@/lib/utils";
 
+function detailQueryOptions(id: string) {
+	return orpc.protokolle.get.queryOptions({
+		input: { id },
+		refetchInterval: 15_000,
+		refetchIntervalInBackground: false,
+		refetchOnWindowFocus: "always",
+	});
+}
+
 export const Route = createFileRoute("/protokolle/$id")({
-	loader: async ({ params }) => {
+	loader: async ({ context, params }) => {
 		try {
-			return await orpcClient.protokolle.get({ id: params.id });
+			return await context.queryClient.ensureQueryData(
+				detailQueryOptions(params.id),
+			);
 		} catch (e) {
 			if (e instanceof ORPCError && e.code === "NOT_FOUND") throw notFound();
 			throw e;
@@ -83,7 +95,9 @@ function NotFound() {
 }
 
 function ProtokollDetailPage() {
-	const { protokoll, ausgaben, umsatzUst } = Route.useLoaderData();
+	const { id } = Route.useParams();
+	const { data } = useSuspenseQuery(detailQueryOptions(id));
+	const { protokoll, ausgaben, umsatzUst } = data;
 	const sumScheine = DENOMINATIONS.filter((d) => d.kind === "schein").reduce(
 		(s, d) => s + protokoll.counts[d.key] * d.cent,
 		0,
@@ -127,6 +141,9 @@ function ProtokollDetailPage() {
 						</h1>
 						<p className="mt-1 text-sm text-muted-foreground">
 							Erstellt am {formatDateTimeDe(protokoll.erstellt_am)}
+							{protokoll.erstellt_von_name
+								? ` von ${protokoll.erstellt_von_name}`
+								: ""}
 						</p>
 					</div>
 					<div className="flex flex-wrap items-center gap-2">
@@ -139,46 +156,46 @@ function ProtokollDetailPage() {
 							</span>
 						)}
 						<RegeneratePdfButton protokollId={protokoll.id} />
-						<Link to="/protokolle/neu" search={{ duplicate: protokoll.id }}>
-							<Button variant="outline" size="sm">
+						<Button asChild variant="outline" size="sm">
+							<Link to="/protokolle/neu" search={{ duplicate: protokoll.id }}>
 								<Copy className="mr-2 h-4 w-4" />
 								Wie dieses
-							</Button>
-						</Link>
-						<a
-							href={`/api/protokolle/${protokoll.id}/pdf?view=1`}
-							target="_blank"
-							rel="noopener noreferrer"
-						>
-							<Button variant="outline" size="sm">
+							</Link>
+						</Button>
+						<Button asChild variant="outline" size="sm">
+							<a
+								href={`/api/protokolle/${protokoll.id}/pdf?view=1`}
+								target="_blank"
+								rel="noopener noreferrer"
+							>
 								<Eye className="mr-2 h-4 w-4" />
 								Ansehen
-							</Button>
-						</a>
-						<a href={`/api/protokolle/${protokoll.id}/pdf`}>
-							<Button variant="outline" size="sm">
+							</a>
+						</Button>
+						<Button asChild variant="outline" size="sm">
+							<a href={`/api/protokolle/${protokoll.id}/pdf`}>
 								<Download className="mr-2 h-4 w-4" />
 								PDF
-							</Button>
-						</a>
+							</a>
+						</Button>
 						{isStorno && protokoll.storno_pdf_s3_key ? (
 							<>
-								<a
-									href={`/api/protokolle/${protokoll.id}/storno-pdf?view=1`}
-									target="_blank"
-									rel="noopener noreferrer"
-								>
-									<Button variant="outline" size="sm">
+								<Button asChild variant="outline" size="sm">
+									<a
+										href={`/api/protokolle/${protokoll.id}/storno-pdf?view=1`}
+										target="_blank"
+										rel="noopener noreferrer"
+									>
 										<Eye className="mr-2 h-4 w-4" />
 										Storno ansehen
-									</Button>
-								</a>
-								<a href={`/api/protokolle/${protokoll.id}/storno-pdf`}>
-									<Button variant="outline" size="sm">
+									</a>
+								</Button>
+								<Button asChild variant="outline" size="sm">
+									<a href={`/api/protokolle/${protokoll.id}/storno-pdf`}>
 										<Download className="mr-2 h-4 w-4" />
 										Storno-PDF
-									</Button>
-								</a>
+									</a>
+								</Button>
 							</>
 						) : null}
 						{!isStorno ? <StornoDialog protokollId={protokoll.id} /> : null}
@@ -195,9 +212,27 @@ function ProtokollDetailPage() {
 							{protokoll.storniert_am
 								? formatDateTimeDe(protokoll.storniert_am)
 								: ""}
+							{protokoll.storniert_von_name
+								? ` von ${protokoll.storniert_von_name}`
+								: ""}
 						</p>
 						<p className="text-sm text-destructive/90">
 							Grund: {protokoll.storno_grund}
+						</p>
+					</div>
+				</div>
+			) : null}
+
+			{isStorno && !protokoll.storno_pdf_s3_key ? (
+				<div className="flex gap-3 rounded-xl border border-amber-500/40 bg-amber-500/5 p-4">
+					<TriangleAlert className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+					<div className="space-y-1">
+						<p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+							Storno-PDF wurde noch nicht erzeugt
+						</p>
+						<p className="text-sm text-amber-700/90 dark:text-amber-300/90">
+							Die Stornierung ist gespeichert. Mit dem Aktualisieren-Symbol oben
+							kannst du das fehlende PDF nachholen.
 						</p>
 					</div>
 				</div>

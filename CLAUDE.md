@@ -50,7 +50,8 @@ This project uses the following stack. Always use these tools — never substitu
 - **Framework**: TanStack Start (RC, Vite-based) + TanStack Router (file-based routing)
 - **Data Fetching**: TanStack Query v5
 - **Styling**: Tailwind CSS v4 + shadcn/ui
-- **Forms**: TanStack Form
+- **Forms**: TanStack Form for new or substantially refactored forms. Existing
+  hand-controlled forms may remain until they are deliberately refactored.
 
 ### Backend
 - **API**: oRPC v1 (type-safe RPC + built-in OpenAPI)
@@ -172,6 +173,34 @@ Browser client:
 
 Never rely on route-level guards alone — every protected oRPC procedure must check auth directly:
 
+### 7. Multi-user Mutations and Auditability
+
+Assume concurrent users and multiple Railway instances for every shared write.
+
+- Use database transactions and atomic conditional updates. A client-side
+  pending flag or read-before-write check is never a concurrency boundary.
+- Allocate authoritative identifiers inside the write transaction. Preview
+  values are advisory only.
+- Make cancellation and other irreversible state transitions single-winner and
+  return `CONFLICT` to later attempts.
+- Record the authenticated actor for accounting mutations. Preserve a display
+  snapshot where later account changes must not rewrite history.
+- Treat S3, PDF, and email work as recoverable side effects. A retry must not
+  duplicate the accounting record or change an already accepted transition.
+- Use revisions or `updated_at` predicates for settings that multiple admins can
+  edit. Never silently accept last-write-wins data loss.
+- Invalidate affected TanStack Query data after local mutations and give shared
+  financial views a documented cross-client freshness policy.
+- Concurrency-sensitive behavior requires PostgreSQL integration tests with
+  coordinated parallel calls, not only pure helper tests.
+- Security and business actions go through the central audit service and are
+  stored append-only in `audit_events`. Never add update or delete operations
+  for audit rows. Never put passwords, tokens, cookies, authorization headers,
+  SMTP credentials, raw request bodies, or other secrets into audit metadata.
+- New mutations and sensitive reads or downloads must define an audit event as
+  part of their implementation. Audit entries identify the actor and subject,
+  while snapshots remain limited to the context needed for accountability.
+
 ---
 
 ## Dockerfile (Bun + Railway)
@@ -259,8 +288,13 @@ Always use Drizzle Kit — never modify the database directly or push schema to 
 Every project must have a `.github/dependabot.yml` configured for the full stack. Always create this file when setting up a new project.
 
 Coverage required:
-- `npm` ecosystem (covers bun/node_modules) -- weekly, Sunday 08:00 Europe/Berlin
+- `bun` ecosystem -- weekly, Sunday 08:00 Europe/Berlin
 - `docker` ecosystem (Dockerfile base images) -- weekly, Sunday 08:00 Europe/Berlin
+
+Group packages that must remain in lockstep, especially `react*` and
+`@types/react*`, so Dependabot cannot create version-skewed pull requests.
+Dependabot security updates do not currently support the Bun ecosystem; this
+configuration covers version updates.
 
 Fetch the latest Dependabot config schema before creating the file: https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference
 
@@ -446,4 +480,3 @@ Never log raw Postgres NOTICE messages (42P07, 42P06, etc.) -- these are not err
 - No stack traces for expected conditions (e.g. migration table already exists)
 - Errors must include enough context to debug without being verbose
 - Never log sensitive values (tokens, passwords, private keys, connection strings)
-

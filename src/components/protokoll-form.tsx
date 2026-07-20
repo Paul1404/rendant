@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import {
 	Banknote,
@@ -182,6 +183,7 @@ export function ProtokollForm({
 	initialValues?: ProtokollInitialValues;
 }) {
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 	const [pending, startTransition] = useTransition();
 
 	// Decide which register to preselect at SSR-time (so server and client
@@ -679,6 +681,7 @@ export function ProtokollForm({
 					clearLocalPref(LOCAL_PREF_KEYS.lastRegisterId);
 				}
 				toast.success("Protokoll gespeichert");
+				await queryClient.invalidateQueries();
 				await navigate({ to: "/protokolle/$id", params: { id: body.id } });
 			} catch (e) {
 				toast.error(orpcMessage(e, "Speichern fehlgeschlagen"));

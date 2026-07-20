@@ -70,12 +70,12 @@ export async function createInvite(opts: {
 	return { ...rowToInvite(rows[0]), token };
 }
 
-export async function revokeInvite(id: string): Promise<boolean> {
+export async function revokeInvite(id: string): Promise<Invite | null> {
 	const rows = await db
 		.delete(invitations)
 		.where(and(eq(invitations.id, id), isNull(invitations.accepted_at)))
-		.returning({ id: invitations.id });
-	return rows.length > 0;
+		.returning();
+	return rows[0] ? rowToInvite(rows[0]) : null;
 }
 
 export async function getValidInvite(token: string): Promise<Invite | null> {
@@ -97,34 +97,56 @@ export async function acceptInvite(opts: {
 	token: string;
 	name: string;
 	password: string;
-}): Promise<void> {
-	const invite = await getValidInvite(opts.token);
-	if (!invite) {
-		throw new Error("Einladung ungültig oder abgelaufen");
-	}
-
-	await ensureCredentialUser({
-		email: invite.email,
-		name: opts.name.trim(),
-		role: invite.role,
-		password: opts.password,
-	});
-
-	const rows = await db
-		.update(invitations)
-		.set({ accepted_at: new Date() })
-		.where(and(eq(invitations.id, invite.id), isNull(invitations.accepted_at)))
-		.returning({ id: invitations.id });
-	if (rows.length === 0) {
-		const stillAccepted = await db
-			.select({ id: invitations.id })
+}): Promise<{
+	userId: string;
+	email: string;
+	name: string;
+	role: string;
+	inviteId: string;
+}> {
+	return db.transaction(async (tx) => {
+		// The row lock makes invite consumption single-winner. A concurrent caller
+		// waits here, then re-evaluates the active predicate after the first commit.
+		const inviteRows = await tx
+			.select()
 			.from(invitations)
 			.where(
-				and(eq(invitations.id, invite.id), isNull(invitations.accepted_at)),
+				and(
+					eq(invitations.token, opts.token),
+					isNull(invitations.accepted_at),
+					gt(invitations.expires_at, new Date()),
+				),
 			)
-			.limit(1);
-		if (stillAccepted.length > 0) {
+			.limit(1)
+			.for("update");
+		const inviteRow = inviteRows[0];
+		if (!inviteRow) {
+			throw new Error("Einladung ungültig oder abgelaufen");
+		}
+
+		const credentialUser = await ensureCredentialUser({
+			email: inviteRow.email,
+			name: opts.name.trim(),
+			role: inviteRow.role,
+			password: opts.password,
+		});
+
+		const rows = await tx
+			.update(invitations)
+			.set({ accepted_at: new Date() })
+			.where(
+				and(eq(invitations.id, inviteRow.id), isNull(invitations.accepted_at)),
+			)
+			.returning({ id: invitations.id });
+		if (rows.length === 0) {
 			throw new Error("Einladung konnte nicht angenommen werden");
 		}
-	}
+		return {
+			userId: credentialUser.id,
+			email: inviteRow.email,
+			name: opts.name.trim(),
+			role: inviteRow.role,
+			inviteId: inviteRow.id,
+		};
+	});
 }
