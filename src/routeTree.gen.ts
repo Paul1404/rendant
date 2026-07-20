@@ -9,25 +9,30 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ProtokolleRouteRouteImport } from './routes/protokolle/route'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as ProtokolleIndexRouteImport } from './routes/protokolle/index'
-import { Route as ProtokolleNeuRouteImport } from './routes/protokolle/neu'
-import { Route as ProtokolleExportRouteImport } from './routes/protokolle/export'
-import { Route as ProtokolleEinstellungenRouteImport } from './routes/protokolle/einstellungen'
-import { Route as ProtokolleAuditRouteImport } from './routes/protokolle/audit'
-import { Route as ProtokolleIdRouteImport } from './routes/protokolle/$id'
-import { Route as InviteTokenRouteImport } from './routes/invite.$token'
-import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiExportRouteImport } from './routes/api/export'
-import { Route as ApiRpcSplatRouteImport } from './routes/api/rpc/$'
-import { Route as ApiExportUstRouteImport } from './routes/api/export.ust'
-import { Route as ApiExportJsonRouteImport } from './routes/api/export.json'
+import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as ProtokolleIndexRouteImport } from './routes/protokolle/index'
+import { Route as ProtokolleIdRouteImport } from './routes/protokolle/$id'
+import { Route as ProtokolleAuditRouteImport } from './routes/protokolle/audit'
+import { Route as ProtokolleEinstellungenRouteImport } from './routes/protokolle/einstellungen'
+import { Route as ProtokolleExportRouteImport } from './routes/protokolle/export'
+import { Route as ProtokolleNeuRouteImport } from './routes/protokolle/neu'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
-import { Route as ApiProtokolleIdStornoPdfRouteImport } from './routes/api/protokolle/$id/storno-pdf'
+import { Route as ApiExportJsonRouteImport } from './routes/api/export.json'
+import { Route as ApiExportUstRouteImport } from './routes/api/export.ust'
+import { Route as ApiRpcSplatRouteImport } from './routes/api/rpc/$'
 import { Route as ApiProtokolleIdPdfRouteImport } from './routes/api/protokolle/$id/pdf'
+import { Route as ApiProtokolleIdStornoPdfRouteImport } from './routes/api/protokolle/$id/storno-pdf'
 
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -38,44 +43,9 @@ const ProtokolleRouteRoute = ProtokolleRouteRouteImport.update({
   path: '/protokolle',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProtokolleIndexRoute = ProtokolleIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => ProtokolleRouteRoute,
-} as any)
-const ProtokolleNeuRoute = ProtokolleNeuRouteImport.update({
-  id: '/neu',
-  path: '/neu',
-  getParentRoute: () => ProtokolleRouteRoute,
-} as any)
-const ProtokolleExportRoute = ProtokolleExportRouteImport.update({
-  id: '/export',
-  path: '/export',
-  getParentRoute: () => ProtokolleRouteRoute,
-} as any)
-const ProtokolleEinstellungenRoute = ProtokolleEinstellungenRouteImport.update({
-  id: '/einstellungen',
-  path: '/einstellungen',
-  getParentRoute: () => ProtokolleRouteRoute,
-} as any)
-const ProtokolleAuditRoute = ProtokolleAuditRouteImport.update({
-  id: '/audit',
-  path: '/audit',
-  getParentRoute: () => ProtokolleRouteRoute,
-} as any)
-const ProtokolleIdRoute = ProtokolleIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => ProtokolleRouteRoute,
-} as any)
-const InviteTokenRoute = InviteTokenRouteImport.update({
-  id: '/invite/$token',
-  path: '/invite/$token',
+const ApiExportRoute = ApiExportRouteImport.update({
+  id: '/api/export',
+  path: '/api/export',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiHealthRoute = ApiHealthRouteImport.update({
@@ -83,29 +53,64 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
   path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiExportRoute = ApiExportRouteImport.update({
-  id: '/api/export',
-  path: '/api/export',
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiRpcSplatRoute = ApiRpcSplatRouteImport.update({
-  id: '/api/rpc/$',
-  path: '/api/rpc/$',
-  getParentRoute: () => rootRouteImport,
+const ProtokolleIndexRoute = ProtokolleIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProtokolleRouteRoute,
 } as any)
-const ApiExportUstRoute = ApiExportUstRouteImport.update({
-  id: '/ust',
-  path: '/ust',
-  getParentRoute: () => ApiExportRoute,
+const ProtokolleIdRoute = ProtokolleIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ProtokolleRouteRoute,
+} as any)
+const ProtokolleAuditRoute = ProtokolleAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => ProtokolleRouteRoute,
+} as any)
+const ProtokolleEinstellungenRoute = ProtokolleEinstellungenRouteImport.update({
+  id: '/einstellungen',
+  path: '/einstellungen',
+  getParentRoute: () => ProtokolleRouteRoute,
+} as any)
+const ProtokolleExportRoute = ProtokolleExportRouteImport.update({
+  id: '/export',
+  path: '/export',
+  getParentRoute: () => ProtokolleRouteRoute,
+} as any)
+const ProtokolleNeuRoute = ProtokolleNeuRouteImport.update({
+  id: '/neu',
+  path: '/neu',
+  getParentRoute: () => ProtokolleRouteRoute,
+} as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiExportJsonRoute = ApiExportJsonRouteImport.update({
   id: '/json',
   path: '/json',
   getParentRoute: () => ApiExportRoute,
 } as any)
-const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
-  id: '/api/auth/$',
-  path: '/api/auth/$',
+const ApiExportUstRoute = ApiExportUstRouteImport.update({
+  id: '/ust',
+  path: '/ust',
+  getParentRoute: () => ApiExportRoute,
+} as any)
+const ApiRpcSplatRoute = ApiRpcSplatRouteImport.update({
+  id: '/api/rpc/$',
+  path: '/api/rpc/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiProtokolleIdPdfRoute = ApiProtokolleIdPdfRouteImport.update({
+  id: '/api/protokolle/$id/pdf',
+  path: '/api/protokolle/$id/pdf',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiProtokolleIdStornoPdfRoute =
@@ -114,11 +119,6 @@ const ApiProtokolleIdStornoPdfRoute =
     path: '/api/protokolle/$id/storno-pdf',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiProtokolleIdPdfRoute = ApiProtokolleIdPdfRouteImport.update({
-  id: '/api/protokolle/$id/pdf',
-  path: '/api/protokolle/$id/pdf',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -257,6 +257,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -271,60 +278,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtokolleRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/protokolle/': {
-      id: '/protokolle/'
-      path: '/'
-      fullPath: '/protokolle/'
-      preLoaderRoute: typeof ProtokolleIndexRouteImport
-      parentRoute: typeof ProtokolleRouteRoute
-    }
-    '/protokolle/neu': {
-      id: '/protokolle/neu'
-      path: '/neu'
-      fullPath: '/protokolle/neu'
-      preLoaderRoute: typeof ProtokolleNeuRouteImport
-      parentRoute: typeof ProtokolleRouteRoute
-    }
-    '/protokolle/export': {
-      id: '/protokolle/export'
-      path: '/export'
-      fullPath: '/protokolle/export'
-      preLoaderRoute: typeof ProtokolleExportRouteImport
-      parentRoute: typeof ProtokolleRouteRoute
-    }
-    '/protokolle/einstellungen': {
-      id: '/protokolle/einstellungen'
-      path: '/einstellungen'
-      fullPath: '/protokolle/einstellungen'
-      preLoaderRoute: typeof ProtokolleEinstellungenRouteImport
-      parentRoute: typeof ProtokolleRouteRoute
-    }
-    '/protokolle/audit': {
-      id: '/protokolle/audit'
-      path: '/audit'
-      fullPath: '/protokolle/audit'
-      preLoaderRoute: typeof ProtokolleAuditRouteImport
-      parentRoute: typeof ProtokolleRouteRoute
-    }
-    '/protokolle/$id': {
-      id: '/protokolle/$id'
-      path: '/$id'
-      fullPath: '/protokolle/$id'
-      preLoaderRoute: typeof ProtokolleIdRouteImport
-      parentRoute: typeof ProtokolleRouteRoute
-    }
-    '/invite/$token': {
-      id: '/invite/$token'
-      path: '/invite/$token'
-      fullPath: '/invite/$token'
-      preLoaderRoute: typeof InviteTokenRouteImport
+    '/api/export': {
+      id: '/api/export'
+      path: '/api/export'
+      fullPath: '/api/export'
+      preLoaderRoute: typeof ApiExportRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/health': {
@@ -334,33 +292,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/export': {
-      id: '/api/export'
-      path: '/api/export'
-      fullPath: '/api/export'
-      preLoaderRoute: typeof ApiExportRouteImport
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/rpc/$': {
-      id: '/api/rpc/$'
-      path: '/api/rpc/$'
-      fullPath: '/api/rpc/$'
-      preLoaderRoute: typeof ApiRpcSplatRouteImport
-      parentRoute: typeof rootRouteImport
+    '/protokolle/': {
+      id: '/protokolle/'
+      path: '/'
+      fullPath: '/protokolle/'
+      preLoaderRoute: typeof ProtokolleIndexRouteImport
+      parentRoute: typeof ProtokolleRouteRoute
     }
-    '/api/export/ust': {
-      id: '/api/export/ust'
-      path: '/ust'
-      fullPath: '/api/export/ust'
-      preLoaderRoute: typeof ApiExportUstRouteImport
-      parentRoute: typeof ApiExportRoute
+    '/protokolle/$id': {
+      id: '/protokolle/$id'
+      path: '/$id'
+      fullPath: '/protokolle/$id'
+      preLoaderRoute: typeof ProtokolleIdRouteImport
+      parentRoute: typeof ProtokolleRouteRoute
     }
-    '/api/export/json': {
-      id: '/api/export/json'
-      path: '/json'
-      fullPath: '/api/export/json'
-      preLoaderRoute: typeof ApiExportJsonRouteImport
-      parentRoute: typeof ApiExportRoute
+    '/protokolle/audit': {
+      id: '/protokolle/audit'
+      path: '/audit'
+      fullPath: '/protokolle/audit'
+      preLoaderRoute: typeof ProtokolleAuditRouteImport
+      parentRoute: typeof ProtokolleRouteRoute
+    }
+    '/protokolle/einstellungen': {
+      id: '/protokolle/einstellungen'
+      path: '/einstellungen'
+      fullPath: '/protokolle/einstellungen'
+      preLoaderRoute: typeof ProtokolleEinstellungenRouteImport
+      parentRoute: typeof ProtokolleRouteRoute
+    }
+    '/protokolle/export': {
+      id: '/protokolle/export'
+      path: '/export'
+      fullPath: '/protokolle/export'
+      preLoaderRoute: typeof ProtokolleExportRouteImport
+      parentRoute: typeof ProtokolleRouteRoute
+    }
+    '/protokolle/neu': {
+      id: '/protokolle/neu'
+      path: '/neu'
+      fullPath: '/protokolle/neu'
+      preLoaderRoute: typeof ProtokolleNeuRouteImport
+      parentRoute: typeof ProtokolleRouteRoute
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -369,11 +348,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/protokolle/$id/storno-pdf': {
-      id: '/api/protokolle/$id/storno-pdf'
-      path: '/api/protokolle/$id/storno-pdf'
-      fullPath: '/api/protokolle/$id/storno-pdf'
-      preLoaderRoute: typeof ApiProtokolleIdStornoPdfRouteImport
+    '/api/export/json': {
+      id: '/api/export/json'
+      path: '/json'
+      fullPath: '/api/export/json'
+      preLoaderRoute: typeof ApiExportJsonRouteImport
+      parentRoute: typeof ApiExportRoute
+    }
+    '/api/export/ust': {
+      id: '/api/export/ust'
+      path: '/ust'
+      fullPath: '/api/export/ust'
+      preLoaderRoute: typeof ApiExportUstRouteImport
+      parentRoute: typeof ApiExportRoute
+    }
+    '/api/rpc/$': {
+      id: '/api/rpc/$'
+      path: '/api/rpc/$'
+      fullPath: '/api/rpc/$'
+      preLoaderRoute: typeof ApiRpcSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/protokolle/$id/pdf': {
@@ -381,6 +374,13 @@ declare module '@tanstack/react-router' {
       path: '/api/protokolle/$id/pdf'
       fullPath: '/api/protokolle/$id/pdf'
       preLoaderRoute: typeof ApiProtokolleIdPdfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/protokolle/$id/storno-pdf': {
+      id: '/api/protokolle/$id/storno-pdf'
+      path: '/api/protokolle/$id/storno-pdf'
+      fullPath: '/api/protokolle/$id/storno-pdf'
+      preLoaderRoute: typeof ApiProtokolleIdStornoPdfRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
