@@ -245,7 +245,7 @@ Always use Drizzle Kit — never modify the database directly or push schema to 
 
 **PORT**: Railway injects a `PORT` env var. Your app must listen on it:
 
-**Health endpoint**: Always implement `/health` returning HTTP 200. Configure it in Railway service settings under Healthcheck. Without it, Railway can't guarantee zero-downtime deploys.
+**Health endpoint**: Always implement `/api/health` returning HTTP 200. Configure it in Railway service settings under Healthcheck. Without it, Railway can't guarantee zero-downtime deploys.
 
 **DATABASE_URL**: Railway Postgres auto-provides this variable. Always use it as-is — never hardcode credentials.
 
