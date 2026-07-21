@@ -30,6 +30,13 @@ export const protokolle = pgTable(
 		kassennummer: text("kassennummer").notNull().default(""),
 		kassenbezeichnung: text("kassenbezeichnung").notNull().default(""),
 		anlass: text("anlass").notNull(),
+		// Stable grouping key for the year-over-year comparison (see plans/007).
+		// The free-text `anlass` above stays as the human label; this points at the
+		// managed catalog entry. Nullable: legacy rows fall back to text grouping.
+		anlass_katalog_id: uuid("anlass_katalog_id").references(
+			() => anlassKatalog.id,
+			{ onDelete: "set null" },
+		),
 		gezaehlt_von: text("gezaehlt_von").notNull(),
 		geprueft_von: text("geprueft_von").notNull(),
 		bemerkung: text("bemerkung").notNull().default(""),
@@ -72,6 +79,7 @@ export const protokolle = pgTable(
 		index("idx_protokolle_erstellt_am").on(t.erstellt_am),
 		index("idx_protokolle_storniert_am").on(t.storniert_am),
 		index("idx_protokolle_anlass_datum").on(t.anlass_datum),
+		index("idx_protokolle_anlass_katalog_id").on(t.anlass_katalog_id),
 		index("idx_protokolle_erstellt_von_user_id").on(t.erstellt_von_user_id),
 		index("idx_protokolle_storniert_von_user_id").on(t.storniert_von_user_id),
 		check("protokolle_wechselgeld_cent_check", sql`${t.wechselgeld_cent} >= 0`),
@@ -156,6 +164,56 @@ export const cashRegisters = pgTable(
 			sql`${t.wechselgeld_cent} >= 0`,
 		),
 	],
+);
+
+// Anlass catalog: the club's real recurring/one-off events, managed once by an
+// admin (mirrors cash_registers). The catalog id is the stable grouping key for
+// the year-over-year comparison; the free-text `anlass` on a protokoll stays as
+// the human label for the PDF/audit. See plans/007.
+export const anlassKatalog = pgTable(
+	"anlass_katalog",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		name: text("name").notNull().unique(),
+		// 'wiederkehrend' rolls up per season; 'einmalig' compares year-to-year.
+		typ: text("typ").notNull().default("wiederkehrend"),
+		aktiv: boolean("aktiv").notNull().default(true),
+		reihenfolge: integer("reihenfolge").notNull().default(0),
+		created_at: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		updated_at: timestamp("updated_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		index("idx_anlass_katalog_order").on(t.reihenfolge, t.name),
+		check(
+			"anlass_katalog_typ_check",
+			sql`${t.typ} IN ('wiederkehrend', 'einmalig')`,
+		),
+		check(
+			"anlass_katalog_name_check",
+			sql`length(trim(${t.name})) BETWEEN 1 AND 120`,
+		),
+	],
+);
+
+// Normalized old spellings mapped to a catalog entry. Used to backfill existing
+// protokolle and to suggest a match when a stray free-text anlass appears.
+export const anlassAliase = pgTable(
+	"anlass_aliase",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		alias_norm: text("alias_norm").notNull().unique(),
+		anlass_katalog_id: uuid("anlass_katalog_id")
+			.notNull()
+			.references(() => anlassKatalog.id, { onDelete: "cascade" }),
+		created_at: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [index("idx_anlass_aliase_katalog").on(t.anlass_katalog_id)],
 );
 
 export const appSettings = pgTable(
@@ -295,6 +353,12 @@ export const historicalRevenues = pgTable(
 		anlass_datum: date("anlass_datum", { mode: "string" }).notNull(),
 		anlass: text("anlass").notNull(),
 		vergleichsgruppe: text("vergleichsgruppe").notNull(),
+		// Unifies historical entries under the same catalog as protokolle (plans/007).
+		// Nullable during migration; `vergleichsgruppe` stays for backward compat.
+		anlass_katalog_id: uuid("anlass_katalog_id").references(
+			() => anlassKatalog.id,
+			{ onDelete: "set null" },
+		),
 		umsatz_cent: integer("umsatz_cent").notNull(),
 		ausgaben_cent: integer("ausgaben_cent").notNull().default(0),
 		bemerkung: text("bemerkung"),
@@ -313,6 +377,7 @@ export const historicalRevenues = pgTable(
 	},
 	(t) => [
 		index("idx_historical_revenues_anlass_datum").on(t.anlass_datum),
+		index("idx_historical_revenues_anlass_katalog_id").on(t.anlass_katalog_id),
 		index("idx_historical_revenues_erstellt_von_user_id").on(
 			t.erstellt_von_user_id,
 		),

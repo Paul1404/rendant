@@ -3,6 +3,7 @@ import { desc, eq } from "drizzle-orm";
 import * as v from "valibot";
 import { AUDIT_CATEGORIES } from "@/lib/audit";
 import {
+	AnlassKatalogSchema,
 	BelegnummerSettingsSchema,
 	CashRegisterSchema,
 	CreateProtokollSchema,
@@ -19,6 +20,13 @@ import {
 } from "@/lib/schemas";
 import { db } from "@/server/db";
 import { user as userTable } from "@/server/db/auth-schema";
+import {
+	countKatalogReferences,
+	createKatalog,
+	deleteKatalog,
+	listKatalog,
+	updateKatalog,
+} from "@/server/services/anlass-catalog";
 import {
 	listAuditEvents,
 	recordAuditEvent,
@@ -452,6 +460,94 @@ const registers = {
 	}),
 };
 
+// ---- Anlass catalog ------------------------------------------------------
+
+const anlassKatalog = {
+	list: authed.handler(() => listKatalog()),
+
+	create: adminOnly
+		.input(AnlassKatalogSchema)
+		.handler(async ({ input, context }) => {
+			try {
+				const entry = await createKatalog(input);
+				await recordAuditEvent({
+					category: "anlass",
+					action: "anlass.created",
+					actor: context.user,
+					subject: { type: "anlass", id: entry.id, label: entry.name },
+					request: requestAuditContext(context),
+					metadata: { typ: entry.typ, aktiv: entry.aktiv },
+				});
+				return { entry };
+			} catch (e) {
+				if ((e as { code?: string }).code === "23505") {
+					throw new ORPCError("CONFLICT", {
+						message: "Anlass mit diesem Namen existiert bereits",
+					});
+				}
+				throw e;
+			}
+		}),
+
+	update: adminOnly
+		.input(
+			v.object({
+				id: v.pipe(v.string(), v.minLength(1)),
+				...AnlassKatalogSchema.entries,
+			}),
+		)
+		.handler(async ({ input, context }) => {
+			try {
+				const entry = await updateKatalog(input.id, {
+					name: input.name,
+					typ: input.typ,
+					aktiv: input.aktiv,
+				});
+				if (!entry) {
+					throw new ORPCError("NOT_FOUND", {
+						message: "Anlass nicht gefunden",
+					});
+				}
+				await recordAuditEvent({
+					category: "anlass",
+					action: "anlass.updated",
+					actor: context.user,
+					subject: { type: "anlass", id: entry.id, label: entry.name },
+					request: requestAuditContext(context),
+					metadata: { typ: entry.typ, aktiv: entry.aktiv },
+				});
+				return { entry };
+			} catch (e) {
+				if ((e as { code?: string }).code === "23505") {
+					throw new ORPCError("CONFLICT", {
+						message: "Anlass mit diesem Namen existiert bereits",
+					});
+				}
+				throw e;
+			}
+		}),
+
+	remove: adminOnly.input(idInput).handler(async ({ input, context }) => {
+		const refs = await countKatalogReferences(input.id);
+		if (refs > 0) {
+			throw new ORPCError("CONFLICT", {
+				message: `Anlass ist ${refs} Belegen zugeordnet. Bitte stattdessen deaktivieren.`,
+			});
+		}
+		const entry = await deleteKatalog(input.id);
+		if (!entry)
+			throw new ORPCError("NOT_FOUND", { message: "Anlass nicht gefunden" });
+		await recordAuditEvent({
+			category: "anlass",
+			action: "anlass.deleted",
+			actor: context.user,
+			subject: { type: "anlass", id: entry.id, label: entry.name },
+			request: requestAuditContext(context),
+		});
+		return { ok: true };
+	}),
+};
+
 // ---- Invites & users -----------------------------------------------------
 
 const invites = {
@@ -729,6 +825,7 @@ export const router = {
 	protokolle,
 	settings,
 	registers,
+	anlassKatalog,
 	invites,
 	users,
 	profile,
