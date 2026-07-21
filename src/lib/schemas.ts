@@ -47,6 +47,18 @@ const optionalText = (max: number, label: string) =>
 		"",
 	);
 
+export const AnlassKatalogSchema = v.object({
+	name: v.pipe(
+		v.string(),
+		v.trim(),
+		v.minLength(1, "Bitte einen Namen angeben"),
+		v.maxLength(120, "Höchstens 120 Zeichen"),
+	),
+	typ: v.picklist(["wiederkehrend", "einmalig"]),
+	aktiv: v.boolean(),
+});
+export type AnlassKatalogFormInput = v.InferOutput<typeof AnlassKatalogSchema>;
+
 export const VereinSettingsSchema = v.object({
 	vereinsname: v.pipe(
 		v.string(),

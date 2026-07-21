@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.15.0 - 2026-07-21
+
+- Anlass-Katalog eingeführt (Einstellungen > Anlässe, nur Admins). Der Verein
+  legt seine wiederkehrenden (z. B. Biergarten) und einmaligen (z. B. Sommerfest)
+  Anlässe einmal fest. Das ist die Grundlage, damit der Jahresvergleich über die
+  Jahre verlässlich zusammenpasst, statt von frei getippten Schreibweisen
+  abzuhängen. Auswahl beim Erfassen und die Umstellung des Vergleichs folgen in
+  den nächsten Schritten (siehe plans/007).
+
 ## 1.14.2 - 2026-07-21
 
 - UI-Feinschliff quer durch die App. Im Vorjahresvergleich stehen "Umsatz" und

@@ -2,12 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
 	Bell,
 	Building2,
+	CalendarRange,
 	Hash,
 	Mail,
 	Receipt,
 	Users,
 	Wallet,
 } from "lucide-react";
+import { AnlassCatalogForm } from "@/components/anlass-catalog-form";
 import { BelegnummerSettingsForm } from "@/components/belegnummer-settings-form";
 import { CashRegistersForm } from "@/components/cash-registers-form";
 import { EmailSettingsForm } from "@/components/email-settings-form";
@@ -23,24 +25,34 @@ import { orpcClient } from "@/lib/orpc";
 export const Route = createFileRoute("/protokolle/einstellungen")({
 	loader: async ({ context }) => {
 		const isAdmin = context.user.role === "admin";
-		const [belegnummer, basis, verein, registers, admin, email, notify] =
-			await Promise.all([
-				orpcClient.settings.getBelegnummer(),
-				orpcClient.settings.getUmsatzUstBasis(),
-				orpcClient.settings.getVerein(),
-				orpcClient.registers.list(),
-				isAdmin
-					? Promise.all([orpcClient.users.list(), orpcClient.invites.list()])
-					: Promise.resolve(null),
-				isAdmin ? orpcClient.settings.getEmail() : Promise.resolve(null),
-				orpcClient.profile.getNotify(),
-			]);
+		const [
+			belegnummer,
+			basis,
+			verein,
+			registers,
+			anlass,
+			admin,
+			email,
+			notify,
+		] = await Promise.all([
+			orpcClient.settings.getBelegnummer(),
+			orpcClient.settings.getUmsatzUstBasis(),
+			orpcClient.settings.getVerein(),
+			orpcClient.registers.list(),
+			orpcClient.anlassKatalog.list(),
+			isAdmin
+				? Promise.all([orpcClient.users.list(), orpcClient.invites.list()])
+				: Promise.resolve(null),
+			isAdmin ? orpcClient.settings.getEmail() : Promise.resolve(null),
+			orpcClient.profile.getNotify(),
+		]);
 		return {
 			settings: belegnummer.settings,
 			preview: belegnummer.preview,
 			umsatzUstBasis: basis.umsatz_ust_basis,
 			verein,
 			registers,
+			anlassKatalog: anlass,
 			admin: admin ? { users: admin[0], invites: admin[1] } : null,
 			email,
 			notifyProtokoll: notify.notify,
@@ -58,6 +70,7 @@ function EinstellungenPage() {
 		umsatzUstBasis,
 		verein,
 		registers,
+		anlassKatalog,
 		admin,
 		email,
 		notifyProtokoll,
@@ -90,6 +103,17 @@ function EinstellungenPage() {
 				/>
 				<CashRegistersForm initial={registers} />
 			</section>
+
+			{admin ? (
+				<section className="mx-auto max-w-3xl space-y-4">
+					<SectionHeading
+						icon={CalendarRange}
+						title="Anlässe"
+						description="Fester Katalog der Vereins-Anlässe. Beim Erfassen wird der Anlass daraus gewählt statt frei getippt, damit der Jahresvergleich über die Jahre zusammenpasst. Wiederkehrende Anlässe (z. B. Biergarten) werden pro Saison zusammengefasst, einmalige (z. B. Sommerfest) Jahr für Jahr verglichen. Nur für Admins."
+					/>
+					<AnlassCatalogForm initial={anlassKatalog} />
+				</section>
+			) : null}
 
 			<section className="mx-auto max-w-3xl space-y-4">
 				<SectionHeading

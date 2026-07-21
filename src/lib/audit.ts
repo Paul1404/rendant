@@ -6,6 +6,7 @@ export const AUDIT_CATEGORIES = [
 	"exports",
 	"settings",
 	"kassen",
+	"anlass",
 ] as const;
 
 export type AuditCategory = (typeof AUDIT_CATEGORIES)[number];
@@ -37,6 +38,7 @@ export const AUDIT_CATEGORY_LABELS: Record<string, string> = {
 	exports: "Exporte",
 	settings: "Einstellungen",
 	kassen: "Kassen",
+	anlass: "Anlässe",
 };
 
 export const AUDIT_ACTION_LABELS: Record<string, string> = {
