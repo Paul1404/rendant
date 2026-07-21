@@ -149,7 +149,7 @@ export function DashboardToolbar({
 							});
 						}}
 						aria-label="Kalenderjahr für die JHV-Auswertung"
-						className="h-8 rounded-lg border border-border/60 bg-background/60 px-2.5 text-xs font-medium text-muted-foreground shadow-sm outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+						className="rounded-lg border border-border/60 bg-background/60 px-2.5 py-1.5 text-xs font-medium text-muted-foreground shadow-sm outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
 					>
 						<option value="">JHV: alle Jahre</option>
 						{availableYears.map((year) => (

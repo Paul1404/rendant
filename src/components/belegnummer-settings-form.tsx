@@ -354,7 +354,7 @@ export function BelegnummerSettingsForm({
 					<Card variant="hero" size="sm">
 						<CardContent className="space-y-1">
 							<FieldLabel>Nächste Belegnummer</FieldLabel>
-							<p className="font-mono text-2xl font-semibold tracking-tight tabular-nums text-foreground">
+							<p className="break-all font-mono text-2xl font-semibold tracking-tight tabular-nums text-foreground">
 								{previewNext}
 							</p>
 							<p className="text-xs text-muted-foreground">

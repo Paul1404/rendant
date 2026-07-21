@@ -3,6 +3,16 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.14.2 - 2026-07-21
+
+- UI-Feinschliff quer durch die App. Im Vorjahresvergleich stehen "Umsatz" und
+  "Ergebnis" wieder sauber über ihren Beträgen statt direkt daran zu kleben.
+  Die Export-Karten nutzen jetzt zwei breitere Spalten, sodass kein Button-Text
+  mehr abgeschnitten wird. Im Umsatzdiagramm bleibt der Tooltip auch am linken
+  und rechten Rand vollständig sichtbar. Dazu kleinere Ausrichtungs- und
+  Abstandskorrekturen im Erfassungsformular (Ausgaben- und USt-Bereich), in den
+  Vereins- und Belegnummer-Einstellungen und in der Statusanzeige der Belegliste.
+
 ## 1.14.1 - 2026-07-21
 
 - Die Protokollsuche kommt ohne das überflüssige Lupensymbol aus. Der Suchtext

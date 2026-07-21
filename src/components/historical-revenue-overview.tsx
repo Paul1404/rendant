@@ -670,11 +670,11 @@ function ComparisonCard({ group }: { group: OccasionComparison }) {
 							<CalendarDays className="h-3.5 w-3.5 text-primary" />
 							{year.year}
 						</div>
-						<div className="flex items-center justify-between gap-2 sm:block">
+						<div className="flex items-center justify-between gap-2 sm:flex-col sm:items-start sm:gap-0.5">
 							<span className="text-xs text-muted-foreground">Umsatz</span>
-							<Money cent={year.revenueCent} emphasis className="sm:mt-0.5" />
+							<Money cent={year.revenueCent} emphasis />
 						</div>
-						<div className="flex items-center justify-between gap-2 sm:block">
+						<div className="flex items-center justify-between gap-2 sm:flex-col sm:items-start sm:gap-0.5">
 							<span className="text-xs text-muted-foreground">Ergebnis</span>
 							<Money
 								cent={year.revenueCent - year.expensesCent}
@@ -683,7 +683,6 @@ function ComparisonCard({ group }: { group: OccasionComparison }) {
 										? "negative"
 										: "default"
 								}
-								className="sm:mt-0.5"
 							/>
 						</div>
 						<div className="col-start-2 text-[11px] text-muted-foreground sm:col-span-2 sm:col-start-2">

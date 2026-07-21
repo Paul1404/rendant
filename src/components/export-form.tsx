@@ -84,7 +84,7 @@ const EXPORTS: ReadonlyArray<{
 			"Kassenzählprotokolle und historische Werte in einer gemeinsamen Umsatzliste mit Herkunft und Status.",
 		path: "/api/export/revenue",
 		icon: ChartNoAxesColumnIncreasing,
-		button: "Umsätze herunterladen",
+		button: "Herunterladen",
 	},
 	{
 		id: "csv",
@@ -93,7 +93,7 @@ const EXPORTS: ReadonlyArray<{
 			"Alle Belege des Zeitraums als CSV mit Semikolon und Dezimalkomma. Passend für Steuerberater und DATEV.",
 		path: "/api/export",
 		icon: FileText,
-		button: "CSV herunterladen",
+		button: "Herunterladen",
 	},
 	{
 		id: "ust",
@@ -102,7 +102,7 @@ const EXPORTS: ReadonlyArray<{
 			"Umsatzsteuer und Vorsteuer nach Satz aufgeschlüsselt, inklusive Zahllast.",
 		path: "/api/export/ust",
 		icon: Percent,
-		button: "Auswertung herunterladen",
+		button: "Herunterladen",
 	},
 	{
 		id: "json",
@@ -111,7 +111,7 @@ const EXPORTS: ReadonlyArray<{
 			"Vollständige Sicherung aller Protokolle inklusive Ausgaben und USt-Aufteilung.",
 		path: "/api/export/json",
 		icon: Braces,
-		button: "Backup herunterladen",
+		button: "Herunterladen",
 	},
 ];
 
@@ -202,7 +202,7 @@ export function ExportForm() {
 				</CardContent>
 			</Card>
 
-			<div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+			<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 				{EXPORTS.map((ex) => {
 					const Icon = ex.icon;
 					return (
