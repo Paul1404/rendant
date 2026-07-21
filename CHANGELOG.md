@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.17.0 - 2026-07-21
+
+- Vorjahresvergleich rechnet jetzt über den Anlass-Katalog statt über den
+  Freitext (plans/007 Phase 3). Verschiedene Schreibweisen desselben Anlasses
+  fallen zu einer Karte zusammen, mehrere Kassen eines Tages zählen als ein
+  Termin, und wiederkehrende Anlässe zeigen pro Jahr die Anzahl Termine plus
+  den Durchschnitt je Termin. Einmalige Anlässe werden direkt Jahr für Jahr
+  verglichen. Noch nicht zugeordnete Altbelege bleiben als eigene Karte sichtbar.
+
 ## 1.16.0 - 2026-07-21
 
 - Anlass wird beim Erfassen jetzt aus dem Katalog gewählt statt frei getippt

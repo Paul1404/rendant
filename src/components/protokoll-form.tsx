@@ -252,7 +252,7 @@ export function ProtokollForm({
 	const anlass = hasKatalog
 		? selectedKatalog
 			? anlassZusatz.trim()
-				? `${selectedKatalog.name} — ${anlassZusatz.trim()}`
+				? `${selectedKatalog.name} · ${anlassZusatz.trim()}`
 				: selectedKatalog.name
 			: ""
 		: anlassFree;
