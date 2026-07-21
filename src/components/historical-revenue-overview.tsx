@@ -46,6 +46,15 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import type { AnlassKatalogEntry } from "@/lib/anlass";
+import {
+	buildComparisons,
+	groupKeyFor,
+	type OccasionComparison,
+	type OccasionYear,
+	occasionKey,
+	toComparisonEntries,
+} from "@/lib/anlass-comparison";
 import { formatDateDe, todayIsoDate } from "@/lib/date";
 import { formatCentPlain, parseGermanAmount } from "@/lib/money";
 import { orpcClient } from "@/lib/orpc";
@@ -57,6 +66,7 @@ export type HistoricalRevenue = {
 	id: string;
 	anlass_datum: string;
 	anlass: string;
+	anlass_katalog_id: string | null;
 	umsatz_cent: number;
 	ausgaben_cent: number;
 	bemerkung: string | null;
@@ -68,109 +78,15 @@ export type HistoricalRevenue = {
 	storno_grund?: string | null;
 };
 
-type ComparisonEntry = {
-	id: string;
-	date: string;
-	occasion: string;
-	revenueCent: number;
-	expensesCent: number;
-	source: "historical" | "protocol";
-};
-
-type OccasionYear = {
-	year: number;
-	revenueCent: number;
-	expensesCent: number;
-	count: number;
-	historicalCount: number;
-	protocolCount: number;
-	latestDate: string;
-};
-
-type OccasionComparison = {
-	key: string;
-	label: string;
-	years: Map<number, OccasionYear>;
-};
-
-function occasionKey(value: string): string {
-	return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("de-DE");
-}
-
-function protocolRevenue(protocol: ProtokollRow): number {
-	return protocol.tageseinnahmen_cent + protocol.kartenzahlung_cent;
-}
-
-function toComparisonEntries(
-	historical: HistoricalRevenue[],
-	protocols: ProtokollRow[],
-): ComparisonEntry[] {
-	return [
-		...historical
-			.filter((entry) => !entry.storniert_am)
-			.map((entry) => ({
-				id: entry.id,
-				date: entry.anlass_datum,
-				occasion: entry.vergleichsgruppe,
-				revenueCent: entry.umsatz_cent,
-				expensesCent: entry.ausgaben_cent,
-				source: "historical" as const,
-			})),
-		...protocols
-			.filter((protocol) => !protocol.storniert_am)
-			.map((protocol) => ({
-				id: protocol.id,
-				date: protocol.anlass_datum,
-				occasion: protocol.anlass,
-				revenueCent: protocolRevenue(protocol),
-				expensesCent: protocol.ausgaben_cent,
-				source: "protocol" as const,
-			})),
-	];
-}
-
-function buildComparisons(entries: ComparisonEntry[]): OccasionComparison[] {
-	const groups = new Map<string, OccasionComparison>();
-	for (const entry of entries) {
-		const key = occasionKey(entry.occasion);
-		if (!key) continue;
-		const year = Number(entry.date.slice(0, 4));
-		if (!Number.isInteger(year)) continue;
-		const group = groups.get(key) ?? {
-			key,
-			label: entry.occasion.trim(),
-			years: new Map<number, OccasionYear>(),
-		};
-		const existing = group.years.get(year);
-		group.years.set(year, {
-			year,
-			revenueCent: (existing?.revenueCent ?? 0) + entry.revenueCent,
-			expensesCent: (existing?.expensesCent ?? 0) + entry.expensesCent,
-			count: (existing?.count ?? 0) + 1,
-			historicalCount:
-				(existing?.historicalCount ?? 0) +
-				(entry.source === "historical" ? 1 : 0),
-			protocolCount:
-				(existing?.protocolCount ?? 0) + (entry.source === "protocol" ? 1 : 0),
-			latestDate:
-				existing && existing.latestDate > entry.date
-					? existing.latestDate
-					: entry.date,
-		});
-		groups.set(key, group);
-	}
-	return Array.from(groups.values()).sort((a, b) =>
-		a.label.localeCompare(b.label, "de-DE"),
-	);
-}
-
 export function HistoricalRevenueOverview({
 	initialHistorical,
 	protocols,
+	anlassKatalog,
 	canCreate,
 }: {
 	initialHistorical: HistoricalRevenue[];
 	protocols: ProtokollRow[];
+	anlassKatalog: AnlassKatalogEntry[];
 	canCreate: boolean;
 }) {
 	const router = useRouter();
@@ -187,9 +103,14 @@ export function HistoricalRevenueOverview({
 	const [occasionFilter, setOccasionFilter] = useState("all");
 	const idempotencyKey = useRef<string | null>(null);
 
+	const catalogById = useMemo(
+		() => new Map(anlassKatalog.map((k) => [k.id, k])),
+		[anlassKatalog],
+	);
 	const comparisons = useMemo(
-		() => buildComparisons(toComparisonEntries(historical, protocols)),
-		[historical, protocols],
+		() =>
+			buildComparisons(toComparisonEntries(historical, protocols), catalogById),
+		[historical, protocols, catalogById],
 	);
 	const visibleComparisons =
 		occasionFilter === "all"
@@ -265,7 +186,9 @@ export function HistoricalRevenueOverview({
 					quellreferenz: value.sourceReference.trim() || null,
 				});
 				setHistorical((entries) => [created, ...entries]);
-				setOccasionFilter(occasionKey(created.vergleichsgruppe));
+				setOccasionFilter(
+					groupKeyFor(created.anlass_katalog_id, created.vergleichsgruppe),
+				);
 				idempotencyKey.current = null;
 				form.reset();
 				setShowForm(false);
@@ -632,9 +555,21 @@ function ComparisonCard({ group }: { group: OccasionComparison }) {
 				<div className="flex items-start justify-between gap-3">
 					<div className="min-w-0">
 						<CardTitle className="truncate">{group.label}</CardTitle>
-						<CardDescription>
-							{years.length} {years.length === 1 ? "Jahr" : "Jahre"} erfasst
-						</CardDescription>
+						<div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+							<CardDescription>
+								{years.length} {years.length === 1 ? "Jahr" : "Jahre"} erfasst
+							</CardDescription>
+							<span
+								className={cn(
+									"inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium",
+									group.typ === "wiederkehrend"
+										? "bg-primary/10 text-primary"
+										: "bg-muted text-muted-foreground",
+								)}
+							>
+								{group.typ === "wiederkehrend" ? "wiederkehrend" : "einmalig"}
+							</span>
+						</div>
 					</div>
 					<span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
 						<TrendingUp className="h-4 w-4" />
@@ -686,6 +621,18 @@ function ComparisonCard({ group }: { group: OccasionComparison }) {
 							/>
 						</div>
 						<div className="col-start-2 text-[11px] text-muted-foreground sm:col-span-2 sm:col-start-2">
+							{group.typ === "wiederkehrend" ? (
+								<span className="font-medium text-foreground/70">
+									{year.dates.size}{" "}
+									{year.dates.size === 1 ? "Termin" : "Termine"}
+									{year.dates.size > 0
+										? ` · Ø ${formatCentPlain(
+												Math.round(year.revenueCent / year.dates.size),
+											)} EUR/Termin`
+										: ""}
+									{" · "}
+								</span>
+							) : null}
 							{sourceSummary(year)}, zuletzt am {formatDateDe(year.latestDate)}
 						</div>
 					</div>

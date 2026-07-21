@@ -17,11 +17,16 @@ const protocolsQueryOptions = orpc.protokolle.list.queryOptions({
 	refetchOnWindowFocus: "always",
 });
 
+const anlassKatalogQueryOptions = orpc.anlassKatalog.list.queryOptions({
+	refetchOnWindowFocus: "always",
+});
+
 export const Route = createFileRoute("/protokolle/umsaetze")({
 	loader: async ({ context }) => {
 		await Promise.all([
 			context.queryClient.ensureQueryData(historicalQueryOptions),
 			context.queryClient.ensureQueryData(protocolsQueryOptions),
+			context.queryClient.ensureQueryData(anlassKatalogQueryOptions),
 		]);
 	},
 	head: () => ({ meta: [{ title: "Umsätze im Vergleich · SVUFO" }] }),
@@ -31,6 +36,7 @@ export const Route = createFileRoute("/protokolle/umsaetze")({
 function RevenueComparisonPage() {
 	const { data: historical } = useSuspenseQuery(historicalQueryOptions);
 	const { data: protocols } = useSuspenseQuery(protocolsQueryOptions);
+	const { data: anlassKatalog } = useSuspenseQuery(anlassKatalogQueryOptions);
 	const { user } = Route.useRouteContext();
 	return (
 		<div className="space-y-8">
@@ -42,6 +48,7 @@ function RevenueComparisonPage() {
 			<HistoricalRevenueOverview
 				initialHistorical={historical}
 				protocols={protocols}
+				anlassKatalog={anlassKatalog}
 				canCreate={user.role === "admin"}
 			/>
 		</div>
