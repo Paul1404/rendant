@@ -32,6 +32,7 @@ export type ProtokollRow = {
 	kassennummer: string;
 	kassenbezeichnung: string;
 	anlass: string;
+	anlass_katalog_id: string | null;
 	gezaehlt_von: string;
 	geprueft_von: string;
 	bemerkung: string;

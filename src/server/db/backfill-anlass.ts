@@ -1,4 +1,4 @@
-import { eq, isNull, sql } from "drizzle-orm";
+import { eq, inArray, isNull, sql } from "drizzle-orm";
 import { type AnlassTyp, anlassKey } from "@/lib/anlass";
 import { db, pool } from "@/server/db";
 import {
@@ -130,10 +130,11 @@ async function assign(
 	}
 	let updated = 0;
 	for (const [cid, ids] of idsByCatalog) {
+		if (ids.length === 0) continue;
 		await db
 			.update(table)
 			.set({ anlass_katalog_id: cid })
-			.where(sql`${table.id} = ANY(${ids})`);
+			.where(inArray(table.id, ids));
 		updated += ids.length;
 	}
 	return updated;

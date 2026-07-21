@@ -22,11 +22,13 @@ export const Route = createFileRoute("/protokolle/neu")({
 	}),
 	loaderDeps: ({ search }) => ({ duplicate: search.duplicate }),
 	loader: async ({ deps }) => {
-		const [belegnummerRes, basisRes, registers] = await Promise.all([
-			orpcClient.protokolle.nextBelegnummer(),
-			orpcClient.settings.getUmsatzUstBasis(),
-			orpcClient.registers.list(),
-		]);
+		const [belegnummerRes, basisRes, registers, anlassKatalog] =
+			await Promise.all([
+				orpcClient.protokolle.nextBelegnummer(),
+				orpcClient.settings.getUmsatzUstBasis(),
+				orpcClient.registers.list(),
+				orpcClient.anlassKatalog.list(),
+			]);
 
 		let initialValues: ProtokollInitialValues | undefined;
 		let duplicateBelegnummer: string | undefined;
@@ -38,6 +40,7 @@ export const Route = createFileRoute("/protokolle/neu")({
 					kassennummer: src.protokoll.kassennummer || undefined,
 					kassenbezeichnung: src.protokoll.kassenbezeichnung || undefined,
 					anlass: src.protokoll.anlass || undefined,
+					anlass_katalog_id: src.protokoll.anlass_katalog_id ?? null,
 					gezaehlt_von: src.protokoll.gezaehlt_von || undefined,
 					geprueft_von: src.protokoll.geprueft_von || undefined,
 					wechselgeld_cent: src.protokoll.wechselgeld_cent,
@@ -52,6 +55,7 @@ export const Route = createFileRoute("/protokolle/neu")({
 			belegnummer: belegnummerRes.belegnummer,
 			umsatzUstBasisDefault: basisRes.umsatz_ust_basis,
 			registers,
+			anlassKatalog,
 			initialValues,
 			duplicateBelegnummer,
 		};
@@ -66,6 +70,7 @@ function NewProtokollPage() {
 		belegnummer,
 		umsatzUstBasisDefault,
 		registers,
+		anlassKatalog,
 		initialValues,
 		duplicateBelegnummer,
 	} = Route.useLoaderData();
@@ -132,6 +137,7 @@ function NewProtokollPage() {
 				belegnummerPreview={belegnummer}
 				umsatzUstBasisDefault={umsatzUstBasisDefault}
 				registers={registers}
+				anlassKatalog={anlassKatalog}
 				initialValues={initialValues}
 			/>
 		</div>

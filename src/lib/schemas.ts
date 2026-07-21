@@ -88,6 +88,11 @@ export const CreateProtokollSchema = v.object({
 	kassennummer: v.pipe(v.string(), v.minLength(1), v.maxLength(50)),
 	kassenbezeichnung: v.pipe(v.string(), v.minLength(1), v.maxLength(120)),
 	anlass: v.pipe(v.string(), v.minLength(1), v.maxLength(200)),
+	// Optional link to the anlass catalog (plans/007). The `anlass` text above
+	// stays the human label; this is the stable grouping key.
+	anlass_katalog_id: v.optional(
+		v.nullable(v.pipe(v.string(), v.maxLength(40))),
+	),
 	gezaehlt_von: v.pipe(v.string(), v.minLength(1), v.maxLength(120)),
 	geprueft_von: v.pipe(v.string(), v.minLength(1), v.maxLength(120)),
 	bemerkung: v.optional(v.pipe(v.string(), v.maxLength(2000)), ""),
