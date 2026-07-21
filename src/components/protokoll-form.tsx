@@ -22,7 +22,15 @@ import { DataRow } from "@/components/ui/data-row";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Money } from "@/components/ui/money";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import type { AnlassKatalogEntry } from "@/lib/anlass";
 import { WECHSELGELD_DEFAULT_CENT } from "@/lib/constants";
 import { todayIsoDate } from "@/lib/date";
 import {
@@ -59,6 +67,7 @@ export type ProtokollInitialValues = {
 	kassennummer?: string;
 	kassenbezeichnung?: string;
 	anlass?: string;
+	anlass_katalog_id?: string | null;
 	gezaehlt_von?: string;
 	geprueft_von?: string;
 	wechselgeld_cent?: number;
@@ -73,7 +82,9 @@ type FormDraft = {
 	selectedRegisterId: string | null;
 	kassennummer: string;
 	kassenbezeichnung: string;
-	anlass: string;
+	anlassKatalogId: string | null;
+	anlassZusatz: string;
+	anlassFree: string;
 	gezaehltVon: string;
 	gepruefftVon: string;
 	bemerkung: string;
@@ -175,13 +186,22 @@ export function ProtokollForm({
 	belegnummerPreview,
 	umsatzUstBasisDefault,
 	registers = [],
+	anlassKatalog = [],
 	initialValues,
 }: {
 	belegnummerPreview: string;
 	umsatzUstBasisDefault: UmsatzUstBasis;
 	registers?: CashRegisterPreset[];
+	anlassKatalog?: AnlassKatalogEntry[];
 	initialValues?: ProtokollInitialValues;
 }) {
+	// Active catalog entries drive the Anlass picker. An entry that a stored
+	// protokoll still references but that was since deactivated is added back so
+	// the duplicate flow can preselect it.
+	const activeKatalog = anlassKatalog.filter(
+		(k) => k.aktiv || k.id === initialValues?.anlass_katalog_id,
+	);
+	const hasKatalog = activeKatalog.length > 0;
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const [pending, startTransition] = useTransition();
@@ -219,7 +239,23 @@ export function ProtokollForm({
 	const [kassenbezeichnung, setKassenbezeichnung] = useState(
 		initialKassenbezeichnung,
 	);
-	const [anlass, setAnlass] = useState(initialValues?.anlass ?? "");
+	// Anlass is captured via the catalog picker (stable grouping key) plus an
+	// optional free "Zusatz" note; the stored `anlass` label is composed from
+	// both. When no catalog exists yet, fall back to a plain free-text field.
+	const [anlassKatalogId, setAnlassKatalogId] = useState<string | null>(
+		initialValues?.anlass_katalog_id ?? null,
+	);
+	const [anlassZusatz, setAnlassZusatz] = useState("");
+	const [anlassFree, setAnlassFree] = useState(initialValues?.anlass ?? "");
+	const selectedKatalog =
+		activeKatalog.find((k) => k.id === anlassKatalogId) ?? null;
+	const anlass = hasKatalog
+		? selectedKatalog
+			? anlassZusatz.trim()
+				? `${selectedKatalog.name} — ${anlassZusatz.trim()}`
+				: selectedKatalog.name
+			: ""
+		: anlassFree;
 	const [gezaehltVon, setGezaehltVon] = useState(
 		initialValues?.gezaehlt_von ?? "",
 	);
@@ -375,7 +411,9 @@ export function ProtokollForm({
 			selectedRegisterId,
 			kassennummer,
 			kassenbezeichnung,
-			anlass,
+			anlassKatalogId,
+			anlassZusatz,
+			anlassFree,
 			gezaehltVon,
 			gepruefftVon,
 			bemerkung,
@@ -392,7 +430,9 @@ export function ProtokollForm({
 			selectedRegisterId,
 			kassennummer,
 			kassenbezeichnung,
-			anlass,
+			anlassKatalogId,
+			anlassZusatz,
+			anlassFree,
 			gezaehltVon,
 			gepruefftVon,
 			bemerkung,
@@ -415,7 +455,9 @@ export function ProtokollForm({
 			setDatum(d.datum || todayIsoDate());
 			setKassennummer(d.kassennummer ?? "");
 			setKassenbezeichnung(d.kassenbezeichnung ?? "");
-			setAnlass(d.anlass ?? "");
+			setAnlassKatalogId(d.anlassKatalogId ?? null);
+			setAnlassZusatz(d.anlassZusatz ?? "");
+			setAnlassFree(d.anlassFree ?? (d as { anlass?: string }).anlass ?? "");
 			setGezaehltVon(d.gezaehltVon ?? "");
 			setGepruefftVon(d.gepruefftVon ?? "");
 			setBemerkung(d.bemerkung ?? "");
@@ -643,6 +685,7 @@ export function ProtokollForm({
 			kassennummer: kassennummer.trim(),
 			kassenbezeichnung: kassenbezeichnung.trim(),
 			anlass: anlass.trim(),
+			anlass_katalog_id: hasKatalog ? anlassKatalogId : null,
 			gezaehlt_von: gezaehltVon.trim(),
 			geprueft_von: gepruefftVon.trim(),
 			bemerkung: bemerkung.trim(),
@@ -804,18 +847,59 @@ export function ProtokollForm({
 									/>
 								</div>
 							</div>
-							<div className="space-y-2">
-								<Label htmlFor="anlass">Anlass</Label>
-								<Input
-									id="anlass"
-									value={anlass}
-									onChange={(e) => setAnlass(e.target.value)}
-									required
-									autoFocus
-									maxLength={200}
-									placeholder="z.B. Heimspiel 1. Mannschaft"
-								/>
-							</div>
+							{hasKatalog ? (
+								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+									<div className="space-y-2">
+										<Label htmlFor="anlass-katalog">Anlass</Label>
+										<Select
+											value={anlassKatalogId ?? ""}
+											onValueChange={(val) => setAnlassKatalogId(val || null)}
+										>
+											<SelectTrigger id="anlass-katalog" className="w-full">
+												<SelectValue placeholder="Anlass wählen" />
+											</SelectTrigger>
+											<SelectContent>
+												{activeKatalog.map((k) => (
+													<SelectItem key={k.id} value={k.id}>
+														{k.name}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor="anlass-zusatz">
+											Zusatz{" "}
+											<span className="font-normal text-muted-foreground">
+												(optional)
+											</span>
+										</Label>
+										<Input
+											id="anlass-zusatz"
+											value={anlassZusatz}
+											onChange={(e) => setAnlassZusatz(e.target.value)}
+											maxLength={120}
+											placeholder="z. B. gegen Grettstadt"
+										/>
+									</div>
+								</div>
+							) : (
+								<div className="space-y-2">
+									<Label htmlFor="anlass">Anlass</Label>
+									<Input
+										id="anlass"
+										value={anlassFree}
+										onChange={(e) => setAnlassFree(e.target.value)}
+										required
+										maxLength={200}
+										placeholder="z.B. Heimspiel 1. Mannschaft"
+									/>
+									<p className="text-xs text-muted-foreground">
+										Tipp: Lege unter Einstellungen &gt; Anlässe einen festen
+										Katalog an, damit der Jahresvergleich zusammenpasst.
+									</p>
+								</div>
+							)}
 							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 								<div className="space-y-2">
 									<Label htmlFor="gezaehlt_von">Gezählt von</Label>

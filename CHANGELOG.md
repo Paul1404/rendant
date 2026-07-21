@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.16.0 - 2026-07-21
+
+- Anlass wird beim Erfassen jetzt aus dem Katalog gewählt statt frei getippt
+  (plans/007 Phase 2). Dazu ein optionales Zusatzfeld für den konkreten Abend
+  (z. B. "gegen Grettstadt"), das die Beschriftung ergänzt, aber die Zuordnung
+  nicht beeinflusst. Dadurch passt der Jahresvergleich künftig automatisch
+  zusammen, egal wer zählt. Ist noch kein Katalog angelegt, bleibt das freie
+  Textfeld als Rückfall.
+
 ## 1.15.0 - 2026-07-21
 
 - Anlass-Katalog eingeführt (Einstellungen > Anlässe, nur Admins). Der Verein
