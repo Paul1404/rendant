@@ -132,7 +132,7 @@ export function VereinSettingsForm({ initial }: { initial: VereinStammdaten }) {
 							onChange={(e) => set("strasse", e.target.value)}
 						/>
 					</div>
-					<div className="grid grid-cols-[6rem_1fr] gap-3 sm:flex sm:items-end">
+					<div className="grid grid-cols-[6rem_1fr] gap-3 sm:grid-cols-[6rem_11rem] sm:items-end">
 						<div className="space-y-1.5">
 							<Label htmlFor="verein-plz">PLZ</Label>
 							<Input

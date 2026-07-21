@@ -171,6 +171,14 @@ export function RevenueAreaChart({
 						const left = xFrac(i) * 100;
 						const top = (yFor(p.total) / VIEW_HEIGHT) * 100;
 						const showDot = !dense || p.isCurrent || p.total > 0;
+						// Anchor the tooltip to the nearest edge for points close to the
+						// plot border so it can't clip against the card's overflow.
+						const tipPos =
+							left > 80
+								? "right-0 translate-x-0"
+								: left < 20
+									? "left-0 translate-x-0"
+									: "left-1/2 -translate-x-1/2";
 						return (
 							<div
 								key={`pt-${p.key}`}
@@ -193,7 +201,7 @@ export function RevenueAreaChart({
 								) : null}
 								{/* Tooltip. */}
 								<div
-									className="pointer-events-none absolute left-1/2 z-10 w-max -translate-x-1/2 -translate-y-full rounded-md border border-border bg-popover px-2.5 py-1.5 text-center opacity-0 shadow-sm transition-opacity group-hover:opacity-100"
+									className={`pointer-events-none absolute z-10 w-max ${tipPos} -translate-y-full rounded-md border border-border bg-popover px-2.5 py-1.5 text-center opacity-0 shadow-sm transition-opacity group-hover:opacity-100`}
 									style={{
 										top: `calc(${top.toFixed(3)}% - 10px)`,
 									}}

@@ -20,7 +20,7 @@ function StatusPill({ storniert }: { storniert: boolean }) {
 		return <Badge variant="destructive">storniert</Badge>;
 	}
 	return (
-		<span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-medium text-success">
+		<span className="inline-flex h-5 items-center gap-1.5 rounded-full bg-success/10 px-2 text-xs font-medium leading-none text-success">
 			<span className="h-1.5 w-1.5 rounded-full bg-success" />
 			aktiv
 		</span>

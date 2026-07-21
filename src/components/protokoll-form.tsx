@@ -891,7 +891,7 @@ export function ProtokollForm({
 					</Card>
 
 					<Card>
-						<CardHeader className="flex flex-row items-center justify-between">
+						<CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
 							<CardTitle className="flex items-center gap-2">
 								<ReceiptText className="h-4 w-4 text-primary" />
 								Betriebliche Ausgaben
@@ -925,7 +925,7 @@ export function ProtokollForm({
 											key={a.id}
 											className="rounded-xl border border-border/70 bg-muted/20 p-3"
 										>
-											<div className="grid grid-cols-1 items-start gap-2 md:grid-cols-12">
+											<div className="grid grid-cols-1 gap-2 md:grid-cols-12 md:items-end">
 												<div className="md:col-span-4 space-y-1">
 													<Label htmlFor={`bez-${i}`}>Bezeichnung</Label>
 													<Input
@@ -1135,7 +1135,7 @@ export function ProtokollForm({
 					</Card>
 
 					<Card>
-						<CardHeader className="flex flex-row items-center justify-between">
+						<CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
 							<CardTitle className="flex items-center gap-2">
 								<Percent className="h-4 w-4 text-primary" />
 								Umsatz nach USt.
