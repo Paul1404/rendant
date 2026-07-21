@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { Search, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import type { TimeRange } from "@/lib/dashboard-stats";
@@ -94,13 +94,12 @@ export function DashboardToolbar({
 	return (
 		<div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
 			<div className="relative w-full sm:max-w-xs">
-				<Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
 				<Input
 					type="search"
 					value={query}
 					onChange={(e) => onQueryChange(e.target.value)}
 					placeholder="Suchen: Belegnr., Anlass, Person..."
-					className="h-9 pl-8 pr-8 text-sm"
+					className="h-9 pr-8 text-sm"
 					aria-label="Protokolle durchsuchen"
 				/>
 				{query ? (

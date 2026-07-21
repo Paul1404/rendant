@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.14.1 - 2026-07-21
+
+- Die Protokollsuche kommt ohne das überflüssige Lupensymbol aus. Der Suchtext
+  beginnt dadurch wieder mit sauberem Abstand am linken Rand.
+
 ## 1.14.0 - 2026-07-21
 
 - Historische Bruttoumsätze aus Altunterlagen lassen sich getrennt von
