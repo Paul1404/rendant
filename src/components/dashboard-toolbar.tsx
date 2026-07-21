@@ -15,12 +15,16 @@ const RANGES: { value: TimeRange; label: string }[] = [
 type Props = {
 	initialQuery: string;
 	initialRange: TimeRange;
+	selectedYear?: number;
+	availableYears: number[];
 	includeStorniert: boolean;
 };
 
 export function DashboardToolbar({
 	initialQuery,
 	initialRange,
+	selectedYear,
+	availableYears,
 	includeStorniert,
 }: Props) {
 	const navigate = useNavigate({ from: "/protokolle/" });
@@ -45,6 +49,7 @@ export function DashboardToolbar({
 	function pushParams(next: {
 		q?: string;
 		range?: TimeRange;
+		jahr?: number | null;
 		storno?: boolean;
 	}) {
 		navigate({
@@ -54,6 +59,7 @@ export function DashboardToolbar({
 				const updated = { ...prev } as {
 					q?: string;
 					range?: TimeRange;
+					jahr?: number;
 					storno?: boolean;
 				};
 				if (next.q !== undefined) {
@@ -61,6 +67,9 @@ export function DashboardToolbar({
 				}
 				if (next.range !== undefined) {
 					updated.range = next.range === "all" ? undefined : next.range;
+				}
+				if ("jahr" in next) {
+					updated.jahr = next.jahr ?? undefined;
 				}
 				if (next.storno !== undefined) {
 					updated.storno = next.storno ? true : undefined;
@@ -116,7 +125,7 @@ export function DashboardToolbar({
 								key={r.value}
 								type="button"
 								aria-pressed={active}
-								onClick={() => pushParams({ range: r.value })}
+								onClick={() => pushParams({ range: r.value, jahr: null })}
 								className={cn(
 									"rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
 									active
@@ -129,6 +138,28 @@ export function DashboardToolbar({
 						);
 					})}
 				</fieldset>
+
+				{availableYears.length > 0 ? (
+					<select
+						value={selectedYear ?? ""}
+						onChange={(event) => {
+							const value = event.target.value;
+							pushParams({
+								range: "all",
+								jahr: value ? Number(value) : null,
+							});
+						}}
+						aria-label="Kalenderjahr für die JHV-Auswertung"
+						className="h-8 rounded-lg border border-border/60 bg-background/60 px-2.5 text-xs font-medium text-muted-foreground shadow-sm outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+					>
+						<option value="">JHV: alle Jahre</option>
+						{availableYears.map((year) => (
+							<option key={year} value={year}>
+								JHV {year}
+							</option>
+						))}
+					</select>
+				) : null}
 
 				<label className="inline-flex cursor-pointer select-none items-center gap-2 rounded-lg border border-border/60 bg-background/60 px-2.5 py-1.5 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:text-foreground">
 					<input

@@ -21,8 +21,10 @@ import { Route as ProtokolleAuditRouteImport } from './routes/protokolle/audit'
 import { Route as ProtokolleEinstellungenRouteImport } from './routes/protokolle/einstellungen'
 import { Route as ProtokolleExportRouteImport } from './routes/protokolle/export'
 import { Route as ProtokolleNeuRouteImport } from './routes/protokolle/neu'
+import { Route as ProtokolleUmsaetzeRouteImport } from './routes/protokolle/umsaetze'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiExportJsonRouteImport } from './routes/api/export.json'
+import { Route as ApiExportRevenueRouteImport } from './routes/api/export.revenue'
 import { Route as ApiExportUstRouteImport } from './routes/api/export.ust'
 import { Route as ApiRpcSplatRouteImport } from './routes/api/rpc/$'
 import { Route as ApiProtokolleIdPdfRouteImport } from './routes/api/protokolle/$id/pdf'
@@ -88,6 +90,11 @@ const ProtokolleNeuRoute = ProtokolleNeuRouteImport.update({
   path: '/neu',
   getParentRoute: () => ProtokolleRouteRoute,
 } as any)
+const ProtokolleUmsaetzeRoute = ProtokolleUmsaetzeRouteImport.update({
+  id: '/umsaetze',
+  path: '/umsaetze',
+  getParentRoute: () => ProtokolleRouteRoute,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -96,6 +103,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 const ApiExportJsonRoute = ApiExportJsonRouteImport.update({
   id: '/json',
   path: '/json',
+  getParentRoute: () => ApiExportRoute,
+} as any)
+const ApiExportRevenueRoute = ApiExportRevenueRouteImport.update({
+  id: '/revenue',
+  path: '/revenue',
   getParentRoute: () => ApiExportRoute,
 } as any)
 const ApiExportUstRoute = ApiExportUstRouteImport.update({
@@ -132,9 +144,11 @@ export interface FileRoutesByFullPath {
   '/protokolle/einstellungen': typeof ProtokolleEinstellungenRoute
   '/protokolle/export': typeof ProtokolleExportRoute
   '/protokolle/neu': typeof ProtokolleNeuRoute
+  '/protokolle/umsaetze': typeof ProtokolleUmsaetzeRoute
   '/protokolle/': typeof ProtokolleIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/export/json': typeof ApiExportJsonRoute
+  '/api/export/revenue': typeof ApiExportRevenueRoute
   '/api/export/ust': typeof ApiExportUstRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
   '/api/protokolle/$id/pdf': typeof ApiProtokolleIdPdfRoute
@@ -151,9 +165,11 @@ export interface FileRoutesByTo {
   '/protokolle/einstellungen': typeof ProtokolleEinstellungenRoute
   '/protokolle/export': typeof ProtokolleExportRoute
   '/protokolle/neu': typeof ProtokolleNeuRoute
+  '/protokolle/umsaetze': typeof ProtokolleUmsaetzeRoute
   '/protokolle': typeof ProtokolleIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/export/json': typeof ApiExportJsonRoute
+  '/api/export/revenue': typeof ApiExportRevenueRoute
   '/api/export/ust': typeof ApiExportUstRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
   '/api/protokolle/$id/pdf': typeof ApiProtokolleIdPdfRoute
@@ -172,9 +188,11 @@ export interface FileRoutesById {
   '/protokolle/einstellungen': typeof ProtokolleEinstellungenRoute
   '/protokolle/export': typeof ProtokolleExportRoute
   '/protokolle/neu': typeof ProtokolleNeuRoute
+  '/protokolle/umsaetze': typeof ProtokolleUmsaetzeRoute
   '/protokolle/': typeof ProtokolleIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/export/json': typeof ApiExportJsonRoute
+  '/api/export/revenue': typeof ApiExportRevenueRoute
   '/api/export/ust': typeof ApiExportUstRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
   '/api/protokolle/$id/pdf': typeof ApiProtokolleIdPdfRoute
@@ -194,9 +212,11 @@ export interface FileRouteTypes {
     | '/protokolle/einstellungen'
     | '/protokolle/export'
     | '/protokolle/neu'
+    | '/protokolle/umsaetze'
     | '/protokolle/'
     | '/api/auth/$'
     | '/api/export/json'
+    | '/api/export/revenue'
     | '/api/export/ust'
     | '/api/rpc/$'
     | '/api/protokolle/$id/pdf'
@@ -213,9 +233,11 @@ export interface FileRouteTypes {
     | '/protokolle/einstellungen'
     | '/protokolle/export'
     | '/protokolle/neu'
+    | '/protokolle/umsaetze'
     | '/protokolle'
     | '/api/auth/$'
     | '/api/export/json'
+    | '/api/export/revenue'
     | '/api/export/ust'
     | '/api/rpc/$'
     | '/api/protokolle/$id/pdf'
@@ -233,9 +255,11 @@ export interface FileRouteTypes {
     | '/protokolle/einstellungen'
     | '/protokolle/export'
     | '/protokolle/neu'
+    | '/protokolle/umsaetze'
     | '/protokolle/'
     | '/api/auth/$'
     | '/api/export/json'
+    | '/api/export/revenue'
     | '/api/export/ust'
     | '/api/rpc/$'
     | '/api/protokolle/$id/pdf'
@@ -341,6 +365,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtokolleNeuRouteImport
       parentRoute: typeof ProtokolleRouteRoute
     }
+    '/protokolle/umsaetze': {
+      id: '/protokolle/umsaetze'
+      path: '/umsaetze'
+      fullPath: '/protokolle/umsaetze'
+      preLoaderRoute: typeof ProtokolleUmsaetzeRouteImport
+      parentRoute: typeof ProtokolleRouteRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -353,6 +384,13 @@ declare module '@tanstack/react-router' {
       path: '/json'
       fullPath: '/api/export/json'
       preLoaderRoute: typeof ApiExportJsonRouteImport
+      parentRoute: typeof ApiExportRoute
+    }
+    '/api/export/revenue': {
+      id: '/api/export/revenue'
+      path: '/revenue'
+      fullPath: '/api/export/revenue'
+      preLoaderRoute: typeof ApiExportRevenueRouteImport
       parentRoute: typeof ApiExportRoute
     }
     '/api/export/ust': {
@@ -392,6 +430,7 @@ interface ProtokolleRouteRouteChildren {
   ProtokolleEinstellungenRoute: typeof ProtokolleEinstellungenRoute
   ProtokolleExportRoute: typeof ProtokolleExportRoute
   ProtokolleNeuRoute: typeof ProtokolleNeuRoute
+  ProtokolleUmsaetzeRoute: typeof ProtokolleUmsaetzeRoute
   ProtokolleIndexRoute: typeof ProtokolleIndexRoute
 }
 
@@ -401,6 +440,7 @@ const ProtokolleRouteRouteChildren: ProtokolleRouteRouteChildren = {
   ProtokolleEinstellungenRoute: ProtokolleEinstellungenRoute,
   ProtokolleExportRoute: ProtokolleExportRoute,
   ProtokolleNeuRoute: ProtokolleNeuRoute,
+  ProtokolleUmsaetzeRoute: ProtokolleUmsaetzeRoute,
   ProtokolleIndexRoute: ProtokolleIndexRoute,
 }
 
@@ -410,11 +450,13 @@ const ProtokolleRouteRouteWithChildren = ProtokolleRouteRoute._addFileChildren(
 
 interface ApiExportRouteChildren {
   ApiExportJsonRoute: typeof ApiExportJsonRoute
+  ApiExportRevenueRoute: typeof ApiExportRevenueRoute
   ApiExportUstRoute: typeof ApiExportUstRoute
 }
 
 const ApiExportRouteChildren: ApiExportRouteChildren = {
   ApiExportJsonRoute: ApiExportJsonRoute,
+  ApiExportRevenueRoute: ApiExportRevenueRoute,
   ApiExportUstRoute: ApiExportUstRoute,
 }
 

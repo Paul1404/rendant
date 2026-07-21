@@ -189,3 +189,51 @@ export const InviteAcceptSchema = v.object({
 	password: v.pipe(v.string(), v.minLength(8), v.maxLength(256)),
 });
 export type InviteAcceptInput = v.InferOutput<typeof InviteAcceptSchema>;
+
+const historicalRevenueOptionalText = (maxLength: number) =>
+	v.optional(v.nullable(v.pipe(v.string(), v.trim(), v.maxLength(maxLength))));
+
+export const HistoricalRevenueCreateSchema = v.object({
+	idempotency_key: v.pipe(v.string(), v.uuid()),
+	anlass_datum: v.pipe(v.string(), v.regex(/^\d{4}-\d{2}-\d{2}$/)),
+	anlass: v.pipe(
+		v.string(),
+		v.trim(),
+		v.minLength(1, "Bitte einen Anlass angeben"),
+		v.maxLength(200),
+	),
+	vergleichsgruppe: v.pipe(
+		v.string(),
+		v.trim(),
+		v.minLength(1, "Bitte eine Vergleichsgruppe angeben"),
+		v.maxLength(120),
+	),
+	umsatz_cent: v.pipe(
+		v.number(),
+		v.integer(),
+		v.minValue(0),
+		v.maxValue(2_147_483_647),
+	),
+	ausgaben_cent: v.optional(
+		v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(2_147_483_647)),
+		0,
+	),
+	bemerkung: historicalRevenueOptionalText(2000),
+	quellreferenz: historicalRevenueOptionalText(500),
+});
+export type HistoricalRevenueCreateInput = v.InferOutput<
+	typeof HistoricalRevenueCreateSchema
+>;
+
+export const HistoricalRevenueCancelSchema = v.object({
+	id: v.pipe(v.string(), v.uuid()),
+	storno_grund: v.pipe(
+		v.string(),
+		v.trim(),
+		v.minLength(5, "Bitte einen Stornogrund angeben"),
+		v.maxLength(500),
+	),
+});
+export type HistoricalRevenueCancelInput = v.InferOutput<
+	typeof HistoricalRevenueCancelSchema
+>;

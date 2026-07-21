@@ -1,5 +1,6 @@
 import { Link, useRouteContext, useRouterState } from "@tanstack/react-router";
 import {
+	ChartNoAxesColumnIncreasing,
 	Download,
 	List,
 	LogOut,
@@ -24,6 +25,7 @@ type NavItem = {
 	href:
 		| "/protokolle"
 		| "/protokolle/neu"
+		| "/protokolle/umsaetze"
 		| "/protokolle/export"
 		| "/protokolle/audit"
 		| "/protokolle/einstellungen";
@@ -36,6 +38,11 @@ type NavItem = {
 const NAV: NavItem[] = [
 	{ href: "/protokolle", label: "Protokolle", icon: List, exact: true },
 	{ href: "/protokolle/neu", label: "Neu", icon: Plus },
+	{
+		href: "/protokolle/umsaetze",
+		label: "Umsätze",
+		icon: ChartNoAxesColumnIncreasing,
+	},
 	{ href: "/protokolle/export", label: "Export", icon: Download },
 	{
 		href: "/protokolle/audit",

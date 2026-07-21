@@ -23,6 +23,7 @@ import {
 	type FinanceContext,
 	GRANULARITY_LABELS,
 	type Granularity,
+	type HistoricalRevenueLike,
 	type PeriodStats,
 } from "@/lib/finance";
 import { formatCent } from "@/lib/money";
@@ -37,6 +38,9 @@ type Props = {
 	rangeLabel: string;
 	vatRange: { von: string; bis: string };
 	items: ProtokollRow[];
+	historicalItems: HistoricalRevenueLike[];
+	seriesNow: Date;
+	initialGranularity: Granularity;
 };
 
 const GRANULARITIES: Granularity[] = ["day", "week", "month"];
@@ -57,11 +61,15 @@ export function FinanceOverview({
 	rangeLabel,
 	vatRange,
 	items,
+	historicalItems,
+	seriesNow,
+	initialGranularity,
 }: Props) {
-	const [granularity, setGranularity] = useState<Granularity>("day");
+	const [granularity, setGranularity] =
+		useState<Granularity>(initialGranularity);
 	const series = useMemo(
-		() => computeSeries(items, granularity),
-		[items, granularity],
+		() => computeSeries(items, granularity, seriesNow, historicalItems),
+		[items, historicalItems, granularity, seriesNow],
 	);
 	const hasTrend = series.some((p) => p.total > 0);
 
@@ -81,7 +89,7 @@ export function FinanceOverview({
 								lastMonth={context.lastMonthTotal}
 							/>
 						) : (
-							`${period.count} ${period.count === 1 ? "Beleg" : "Belege"}`
+							`${period.count} ${period.count === 1 ? "Eintrag" : "Einträge"}`
 						)
 					}
 				/>
@@ -89,18 +97,18 @@ export function FinanceOverview({
 					icon={ReceiptText}
 					label="Ausgaben"
 					cent={period.expenses}
-					hint={`${period.count} ${period.count === 1 ? "Beleg" : "Belege"}`}
+					hint={`${period.count} ${period.count === 1 ? "Eintrag" : "Einträge"}`}
 				/>
 				<KpiCard
 					icon={Scale}
-					label="Netto-Ergebnis"
+					label="Überschuss"
 					cent={period.net}
 					tone={period.net < 0 ? "negative" : "default"}
-					hint="Umsatz abzüglich Ausgaben"
+					hint="Umsatz abzüglich erfasster Ausgaben"
 				/>
 				<KpiCard
 					icon={Sparkles}
-					label="Ø je Beleg"
+					label="Ø je Eintrag"
 					cent={period.avgPerProtokoll > 0 ? period.avgPerProtokoll : 0}
 					hint={recencyHint(context.lastEntryDays)}
 				/>
@@ -166,6 +174,11 @@ export function FinanceOverview({
 										tone: "primary",
 									},
 									{ label: "Karte", value: period.revenueCard, tone: "card" },
+									{
+										label: "Historisch, Zahlungsart unbekannt",
+										value: period.revenueHistorical,
+										tone: "muted",
+									},
 								]}
 							/>
 						</div>
@@ -210,6 +223,9 @@ function VatCard({ vatRange }: { vatRange: { von: string; bis: string } }) {
 					<Percent className="h-4 w-4 text-primary" />
 					Umsatzsteuer
 				</CardTitle>
+				<p className="text-xs text-muted-foreground">
+					Nur Kassenzählprotokolle mit USt.-Aufteilung
+				</p>
 			</CardHeader>
 			<CardContent className="space-y-4">
 				{vat.isPending ? (

@@ -46,17 +46,40 @@ export function parseTimeRange(value: string | undefined): TimeRange {
 	return "all";
 }
 
-export function filterByRange(
-	items: ProtokollRow[],
+export function filterByRange<T extends { anlass_datum: string }>(
+	items: T[],
 	range: TimeRange,
 	now: Date = new Date(),
-): ProtokollRow[] {
+): T[] {
 	if (range === "all") return items;
 	let from: Date;
 	if (range === "month") from = startOfMonth(now);
 	else if (range === "year") from = startOfYear(now);
 	else from = addDays(startOfDay(now), -29);
 	return items.filter((p) => new Date(p.anlass_datum) >= from);
+}
+
+export function filterByYear<T extends { anlass_datum: string }>(
+	items: T[],
+	year: number | undefined,
+): T[] {
+	if (year === undefined) return items;
+	const prefix = `${year}-`;
+	return items.filter((item) => item.anlass_datum.startsWith(prefix));
+}
+
+export function availableYears(
+	items: ReadonlyArray<{ anlass_datum: string }>,
+): number[] {
+	return Array.from(
+		new Set(
+			items
+				.map((item) => Number(item.anlass_datum.slice(0, 4)))
+				.filter(
+					(year) => Number.isInteger(year) && year >= 1900 && year <= 9999,
+				),
+		),
+	).sort((a, b) => b - a);
 }
 
 export function filterBySearch(
@@ -103,7 +126,9 @@ export function groupByMonth(items: ProtokollRow[]): MonthGroup[] {
 		}
 		g.items.push(p);
 		g.count++;
-		if (!p.storniert_am) g.sumActiveCent += p.tageseinnahmen_cent;
+		if (!p.storniert_am) {
+			g.sumActiveCent += p.tageseinnahmen_cent + p.kartenzahlung_cent;
+		}
 	}
 	return Array.from(map.values()).sort((a, b) => b.key.localeCompare(a.key));
 }

@@ -3,6 +3,22 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.14.0 - 2026-07-21
+
+- Historische Bruttoumsätze aus Altunterlagen lassen sich getrennt von
+  Kassenzählprotokollen erfassen. Vergleichsgruppen verbinden denselben Anlass
+  über mehrere Jahre, ohne fehlende Kassenbestände oder Steuerwerte zu erfinden.
+- Die neue Umsatzansicht zeigt Vorjahresvergleiche, Herkunft und Status. Eine
+  sichtbare Warnung schützt vor versehentlicher Doppelerfassung. Korrekturen
+  erfolgen nachvollziehbar über eine atomare Stornierung mit Begründung.
+- Das Dashboard bezieht aktive Altwerte in Umsatz, Ausgaben, Überschuss und
+  Verlauf ein. Für die Jahreshauptversammlung steht eine direkte Auswahl der
+  vorhandenen Kalenderjahre bereit. Historische Werte bleiben ausdrücklich aus
+  der USt-Auswertung ausgeschlossen.
+- Ein neuer Excel-kompatibler Umsatzexport führt Kassenzählprotokolle und
+  Altunterlagen mit Vergleichsgruppe, Quelle, Status und Quellreferenz in einer
+  CSV-Datei zusammen.
+
 ## 1.13.0 - 2026-07-20
 
 - Admins erhalten ein eigenes Audit-Log zwischen Export und Einstellungen. Es

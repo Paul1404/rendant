@@ -8,6 +8,8 @@ import {
 	CreateProtokollSchema,
 	EmailSettingsSchema,
 	ExportQuerySchema,
+	HistoricalRevenueCancelSchema,
+	HistoricalRevenueCreateSchema,
 	InviteAcceptSchema,
 	InviteCreateSchema,
 	StornoSchema,
@@ -35,6 +37,13 @@ import {
 	sendTestEmail,
 	updateEmailSettings,
 } from "@/server/services/email";
+import {
+	cancelHistoricalRevenue,
+	createHistoricalRevenue,
+	HistoricalRevenueConflictError,
+	HistoricalRevenueNotFoundError,
+	listHistoricalRevenues,
+} from "@/server/services/historical-revenue";
 import {
 	acceptInvite,
 	createInvite,
@@ -606,6 +615,78 @@ const profile = {
 		}),
 };
 
+// ---- Historical revenue -------------------------------------------------
+
+const historicalRevenue = {
+	list: authed.handler(() => listHistoricalRevenues()),
+
+	create: adminOnly
+		.input(HistoricalRevenueCreateSchema)
+		.handler(async ({ input, context }) => {
+			try {
+				const result = await createHistoricalRevenue(input, context.user);
+				if (result.created) {
+					await recordAuditEvent({
+						category: "umsaetze",
+						action: "umsaetze.created",
+						actor: context.user,
+						subject: {
+							type: "historischer_umsatz",
+							id: result.row.id,
+							label: result.row.anlass,
+						},
+						request: requestAuditContext(context),
+						metadata: {
+							anlass_datum: result.row.anlass_datum,
+							vergleichsgruppe: result.row.vergleichsgruppe,
+							umsatz_cent: result.row.umsatz_cent,
+							ausgaben_cent: result.row.ausgaben_cent,
+						},
+					});
+				}
+				return result.row;
+			} catch (error) {
+				if (error instanceof HistoricalRevenueConflictError) {
+					throw new ORPCError("CONFLICT", { message: error.message });
+				}
+				throw error;
+			}
+		}),
+
+	cancel: adminOnly
+		.input(HistoricalRevenueCancelSchema)
+		.handler(async ({ input, context }) => {
+			try {
+				const cancelled = await cancelHistoricalRevenue(
+					input.id,
+					input.storno_grund,
+					context.user,
+				);
+				await recordAuditEvent({
+					category: "umsaetze",
+					action: "umsaetze.cancelled",
+					actor: context.user,
+					subject: {
+						type: "historischer_umsatz",
+						id: cancelled.id,
+						label: cancelled.anlass,
+					},
+					request: requestAuditContext(context),
+					metadata: { grund: input.storno_grund },
+				});
+				return { ok: true as const };
+			} catch (error) {
+				if (error instanceof HistoricalRevenueNotFoundError) {
+					throw new ORPCError("NOT_FOUND", { message: error.message });
+				}
+				if (error instanceof HistoricalRevenueConflictError) {
+					throw new ORPCError("CONFLICT", { message: error.message });
+				}
+				throw error;
+			}
+		}),
+};
+
 // ---- Reports -------------------------------------------------------------
 
 const reports = {
@@ -651,6 +732,7 @@ export const router = {
 	invites,
 	users,
 	profile,
+	historicalRevenue,
 	reports,
 	audit,
 	health,

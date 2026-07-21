@@ -284,6 +284,67 @@ export const auditEvents = pgTable(
 	],
 );
 
+// Imported revenue figures that predate the cash-counting workflow. Entries
+// are immutable accounting records: corrections happen through cancellation
+// plus a new entry, never by overwriting history.
+export const historicalRevenues = pgTable(
+	"historical_revenues",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		idempotency_key: uuid("idempotency_key").notNull().unique(),
+		anlass_datum: date("anlass_datum", { mode: "string" }).notNull(),
+		anlass: text("anlass").notNull(),
+		vergleichsgruppe: text("vergleichsgruppe").notNull(),
+		umsatz_cent: integer("umsatz_cent").notNull(),
+		ausgaben_cent: integer("ausgaben_cent").notNull().default(0),
+		bemerkung: text("bemerkung"),
+		quellreferenz: text("quellreferenz"),
+		erstellt_von_user_id: text("erstellt_von_user_id").notNull(),
+		erstellt_von_name: text("erstellt_von_name").notNull(),
+		erstellt_von_email: text("erstellt_von_email").notNull(),
+		created_at: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		storniert_am: timestamp("storniert_am", { withTimezone: true }),
+		storniert_von_user_id: text("storniert_von_user_id"),
+		storniert_von_name: text("storniert_von_name"),
+		storniert_von_email: text("storniert_von_email"),
+		storno_grund: text("storno_grund"),
+	},
+	(t) => [
+		index("idx_historical_revenues_anlass_datum").on(t.anlass_datum),
+		index("idx_historical_revenues_erstellt_von_user_id").on(
+			t.erstellt_von_user_id,
+		),
+		index("idx_historical_revenues_storniert_am").on(t.storniert_am),
+		check(
+			"historical_revenues_anlass_check",
+			sql`length(trim(${t.anlass})) BETWEEN 1 AND 200`,
+		),
+		check(
+			"historical_revenues_vergleichsgruppe_check",
+			sql`length(trim(${t.vergleichsgruppe})) BETWEEN 1 AND 120`,
+		),
+		check("historical_revenues_umsatz_cent_check", sql`${t.umsatz_cent} >= 0`),
+		check(
+			"historical_revenues_ausgaben_cent_check",
+			sql`${t.ausgaben_cent} >= 0`,
+		),
+		check(
+			"historical_revenues_bemerkung_check",
+			sql`${t.bemerkung} IS NULL OR length(${t.bemerkung}) <= 2000`,
+		),
+		check(
+			"historical_revenues_quellreferenz_check",
+			sql`${t.quellreferenz} IS NULL OR length(${t.quellreferenz}) <= 500`,
+		),
+		check(
+			"historical_revenues_storno_check",
+			sql`(${t.storniert_am} IS NULL AND ${t.storniert_von_user_id} IS NULL AND ${t.storniert_von_name} IS NULL AND ${t.storniert_von_email} IS NULL AND ${t.storno_grund} IS NULL) OR (${t.storniert_am} IS NOT NULL AND ${t.storniert_von_user_id} IS NOT NULL AND ${t.storniert_von_name} IS NOT NULL AND ${t.storniert_von_email} IS NOT NULL AND length(trim(${t.storno_grund})) BETWEEN 5 AND 500)`,
+		),
+	],
+);
+
 export const belegnummerSequences = pgTable(
 	"belegnummer_sequences",
 	{

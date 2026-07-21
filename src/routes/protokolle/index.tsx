@@ -8,8 +8,10 @@ import { ProtokollList } from "@/components/protokoll-list";
 import { Button } from "@/components/ui/button";
 import { Money } from "@/components/ui/money";
 import {
+	availableYears,
 	filterByRange,
 	filterBySearch,
+	filterByYear,
 	parseTimeRange,
 	type TimeRange,
 } from "@/lib/dashboard-stats";
@@ -18,6 +20,7 @@ import {
 	computePeriod,
 	RANGE_LABELS,
 	rangeToDates,
+	revenueOf,
 } from "@/lib/finance";
 import { orpc } from "@/lib/orpc";
 
@@ -25,10 +28,17 @@ type ProtokolleSearch = {
 	q?: string;
 	range?: TimeRange;
 	storno?: boolean;
+	jahr?: number;
 };
 
 const listQueryOptions = orpc.protokolle.list.queryOptions({
 	input: { includeStorniert: true },
+	refetchInterval: 15_000,
+	refetchIntervalInBackground: false,
+	refetchOnWindowFocus: "always",
+});
+
+const historicalRevenueQueryOptions = orpc.historicalRevenue.list.queryOptions({
 	refetchInterval: 15_000,
 	refetchIntervalInBackground: false,
 	refetchOnWindowFocus: "always",
@@ -44,38 +54,64 @@ export const Route = createFileRoute("/protokolle/")({
 			range: range === "all" ? undefined : range,
 			storno:
 				search.storno === true || search.storno === "true" ? true : undefined,
+			jahr:
+				typeof search.jahr === "string" && /^\d{4}$/.test(search.jahr)
+					? Number(search.jahr)
+					: typeof search.jahr === "number" && Number.isInteger(search.jahr)
+						? search.jahr
+						: undefined,
 		};
 	},
 	loader: ({ context }) =>
-		context.queryClient.ensureQueryData(listQueryOptions),
+		Promise.all([
+			context.queryClient.ensureQueryData(listQueryOptions),
+			context.queryClient.ensureQueryData(historicalRevenueQueryOptions),
+		]),
 	component: ProtokolleListPage,
 });
 
 function ProtokolleListPage() {
 	const search = Route.useSearch();
 	const { data: all } = useSuspenseQuery(listQueryOptions);
+	const { data: historical } = useSuspenseQuery(historicalRevenueQueryOptions);
 
 	const includeStorniert = search.storno === true;
 	const timeRange: TimeRange = search.range ?? "all";
+	const selectedYear = search.jahr;
 	const query = (search.q ?? "").trim();
 
 	const allActive = all.filter((p) => !p.storniert_am);
-	const periodActive = filterByRange(allActive, timeRange);
-	const period = computePeriod(periodActive);
-	const context = computeContext(allActive);
-	const vatRange = rangeToDates(timeRange);
+	const historicalActive = historical.filter((item) => !item.storniert_am);
+	const periodActive = filterByYear(
+		filterByRange(allActive, timeRange),
+		selectedYear,
+	);
+	const periodHistorical = filterByYear(
+		filterByRange(historicalActive, timeRange),
+		selectedYear,
+	);
+	const period = computePeriod(periodActive, periodHistorical);
+	const context = computeContext(allActive, new Date(), historicalActive);
+	const vatRange = selectedYear
+		? { von: `${selectedYear}-01-01`, bis: `${selectedYear}-12-31` }
+		: rangeToDates(timeRange);
+	const years = availableYears([...allActive, ...historicalActive]);
 
 	const visibleScope = includeStorniert
 		? all
 		: all.filter((p) => !p.storniert_am);
-	const ranged = filterByRange(visibleScope, timeRange);
+	const ranged = filterByYear(
+		filterByRange(visibleScope, timeRange),
+		selectedYear,
+	);
 	const items = filterBySearch(ranged, query);
 
-	const hasAnyData = all.length > 0;
-	const hasFilters = !!query || timeRange !== "all" || includeStorniert;
+	const hasAnyData = all.length > 0 || historical.length > 0;
+	const hasFilters =
+		!!query || timeRange !== "all" || includeStorniert || !!selectedYear;
 	const visibleSumCent = items
 		.filter((p) => !p.storniert_am)
-		.reduce((s, p) => s + p.tageseinnahmen_cent, 0);
+		.reduce((s, p) => s + revenueOf(p), 0);
 
 	return (
 		<div className="space-y-8">
@@ -95,11 +131,19 @@ function ProtokolleListPage() {
 
 			{hasAnyData ? (
 				<FinanceOverview
+					key={selectedYear ?? timeRange}
 					period={period}
 					context={context}
-					rangeLabel={RANGE_LABELS[timeRange]}
+					rangeLabel={
+						selectedYear ? `Jahr ${selectedYear}` : RANGE_LABELS[timeRange]
+					}
 					vatRange={vatRange}
-					items={allActive}
+					items={periodActive}
+					historicalItems={periodHistorical}
+					seriesNow={
+						selectedYear ? new Date(selectedYear, 11, 31, 12) : new Date()
+					}
+					initialGranularity={selectedYear ? "month" : "day"}
 				/>
 			) : null}
 
@@ -108,6 +152,8 @@ function ProtokolleListPage() {
 					<DashboardToolbar
 						initialQuery={query}
 						initialRange={timeRange}
+						selectedYear={selectedYear}
+						availableYears={years}
 						includeStorniert={includeStorniert}
 					/>
 

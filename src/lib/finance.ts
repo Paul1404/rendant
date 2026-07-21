@@ -59,10 +59,19 @@ export type MonthPoint = {
 
 export type AnlassPoint = { anlass: string; count: number; sum: number };
 
+export type HistoricalRevenueLike = {
+	anlass_datum: string;
+	anlass: string;
+	vergleichsgruppe: string;
+	umsatz_cent: number;
+	ausgaben_cent: number;
+};
+
 export type PeriodStats = {
 	count: number;
 	revenueCashNet: number;
 	revenueCard: number;
+	revenueHistorical: number;
 	revenueTotal: number;
 	expenses: number;
 	net: number;
@@ -81,9 +90,13 @@ export type FinanceContext = {
 };
 
 // Period KPIs from an already range-filtered list of ACTIVE protokolle.
-export function computePeriod(items: ProtokollRow[]): PeriodStats {
+export function computePeriod(
+	items: ProtokollRow[],
+	historical: HistoricalRevenueLike[] = [],
+): PeriodStats {
 	let revenueCashNet = 0;
 	let revenueCard = 0;
+	let revenueHistorical = 0;
 	let expenses = 0;
 	const anlass = new Map<string, AnlassPoint>();
 
@@ -99,21 +112,35 @@ export function computePeriod(items: ProtokollRow[]): PeriodStats {
 			anlass.set(key, cur);
 		}
 	}
+	for (const item of historical) {
+		revenueHistorical += item.umsatz_cent;
+		expenses += item.ausgaben_cent;
+		const key = item.anlass.trim();
+		if (key) {
+			const cur = anlass.get(key) ?? { anlass: key, count: 0, sum: 0 };
+			cur.count += 1;
+			cur.sum += item.umsatz_cent;
+			anlass.set(key, cur);
+		}
+	}
 
-	const revenueTotal = revenueCashNet + revenueCard;
+	const revenueTotal = revenueCashNet + revenueCard + revenueHistorical;
 	const topAnlass = Array.from(anlass.values())
 		.sort((a, b) => b.sum - a.sum)
 		.slice(0, 5);
 
 	return {
-		count: items.length,
+		count: items.length + historical.length,
 		revenueCashNet,
 		revenueCard,
+		revenueHistorical,
 		revenueTotal,
 		expenses,
 		net: revenueTotal - expenses,
 		avgPerProtokoll:
-			items.length > 0 ? Math.round(revenueTotal / items.length) : 0,
+			items.length + historical.length > 0
+				? Math.round(revenueTotal / (items.length + historical.length))
+				: 0,
 		cardSharePct:
 			revenueTotal > 0
 				? Math.round((revenueCard / revenueTotal) * 1000) / 10
@@ -127,6 +154,7 @@ export function computePeriod(items: ProtokollRow[]): PeriodStats {
 export function computeContext(
 	allActive: ProtokollRow[],
 	now: Date = new Date(),
+	historical: HistoricalRevenueLike[] = [],
 ): FinanceContext {
 	const nowMonth = startOfMonth(now);
 	const buckets: MonthPoint[] = [];
@@ -163,6 +191,18 @@ export function computeContext(
 		}
 		if (k === thisKey) thisMonthTotal += revenueOf(p);
 		else if (k === lastKey) lastMonthTotal += revenueOf(p);
+		if (!last || d > last) last = d;
+	}
+	for (const item of historical) {
+		const d = new Date(item.anlass_datum);
+		const k = monthKey(d);
+		const b = byKey.get(k);
+		if (b) {
+			b.total += item.umsatz_cent;
+			b.count += 1;
+		}
+		if (k === thisKey) thisMonthTotal += item.umsatz_cent;
+		else if (k === lastKey) lastMonthTotal += item.umsatz_cent;
 		if (!last || d > last) last = d;
 	}
 
@@ -255,9 +295,10 @@ export function computeSeries(
 	allActive: ProtokollRow[],
 	granularity: Granularity,
 	now: Date = new Date(),
+	historical: HistoricalRevenueLike[] = [],
 ): MonthPoint[] {
 	if (granularity === "month") {
-		return computeContext(allActive, now).monthly;
+		return computeContext(allActive, now, historical).monthly;
 	}
 
 	if (granularity === "day") {
@@ -267,6 +308,12 @@ export function computeSeries(
 			cur.total += revenueOf(p);
 			cur.count += 1;
 			byDay.set(p.anlass_datum, cur);
+		}
+		for (const item of historical) {
+			const cur = byDay.get(item.anlass_datum) ?? { total: 0, count: 0 };
+			cur.total += item.umsatz_cent;
+			cur.count += 1;
+			byDay.set(item.anlass_datum, cur);
 		}
 		const today = startOfDay(now);
 		const points: MonthPoint[] = [];
@@ -305,6 +352,12 @@ export function computeSeries(
 				count += 1;
 			}
 		}
+		for (const item of historical) {
+			if (item.anlass_datum >= startKey && item.anlass_datum <= endKey) {
+				total += item.umsatz_cent;
+				count += 1;
+			}
+		}
 		points.push({
 			key: startKey,
 			label: ddmm(start),
@@ -315,4 +368,80 @@ export function computeSeries(
 		});
 	}
 	return points;
+}
+
+export type OccasionYearValue = {
+	year: number;
+	revenue: number;
+	expenses: number;
+	count: number;
+};
+
+export type OccasionComparison = {
+	key: string;
+	anlass: string;
+	years: OccasionYearValue[];
+};
+
+function occasionKey(value: string): string {
+	return value.trim().toLocaleLowerCase("de-DE").replace(/\s+/g, " ");
+}
+
+export function computeOccasionComparisons(
+	protokolle: ProtokollRow[],
+	historical: HistoricalRevenueLike[] = [],
+): OccasionComparison[] {
+	const groups = new Map<
+		string,
+		{ anlass: string; years: Map<number, OccasionYearValue> }
+	>();
+	const add = (
+		anlass: string,
+		date: string,
+		revenue: number,
+		expenses: number,
+	) => {
+		const key = occasionKey(anlass);
+		const year = Number(date.slice(0, 4));
+		if (!key || !Number.isInteger(year)) return;
+		const group = groups.get(key) ?? {
+			anlass: anlass.trim(),
+			years: new Map(),
+		};
+		const value = group.years.get(year) ?? {
+			year,
+			revenue: 0,
+			expenses: 0,
+			count: 0,
+		};
+		value.revenue += revenue;
+		value.expenses += expenses;
+		value.count += 1;
+		group.years.set(year, value);
+		groups.set(key, group);
+	};
+
+	for (const item of protokolle) {
+		add(item.anlass, item.anlass_datum, revenueOf(item), item.ausgaben_cent);
+	}
+	for (const item of historical) {
+		add(
+			item.vergleichsgruppe,
+			item.anlass_datum,
+			item.umsatz_cent,
+			item.ausgaben_cent,
+		);
+	}
+
+	return Array.from(groups, ([key, group]) => ({
+		key,
+		anlass: group.anlass,
+		years: Array.from(group.years.values()).sort((a, b) => a.year - b.year),
+	}))
+		.filter((group) => group.years.length >= 2)
+		.sort((a, b) => {
+			const latestA = a.years.at(-1)?.revenue ?? 0;
+			const latestB = b.years.at(-1)?.revenue ?? 0;
+			return latestB - latestA || a.anlass.localeCompare(b.anlass, "de");
+		});
 }

@@ -1,4 +1,10 @@
-import { Braces, Download, FileText, Percent } from "lucide-react";
+import {
+	Braces,
+	ChartNoAxesColumnIncreasing,
+	Download,
+	FileText,
+	Percent,
+} from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -71,6 +77,15 @@ const EXPORTS: ReadonlyArray<{
 	icon: typeof FileText;
 	button: string;
 }> = [
+	{
+		id: "revenue",
+		title: "Umsätze für Excel (CSV)",
+		description:
+			"Kassenzählprotokolle und historische Werte in einer gemeinsamen Umsatzliste mit Herkunft und Status.",
+		path: "/api/export/revenue",
+		icon: ChartNoAxesColumnIncreasing,
+		button: "Umsätze herunterladen",
+	},
 	{
 		id: "csv",
 		title: "Protokolle (CSV)",
@@ -187,7 +202,7 @@ export function ExportForm() {
 				</CardContent>
 			</Card>
 
-			<div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+			<div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
 				{EXPORTS.map((ex) => {
 					const Icon = ex.icon;
 					return (
