@@ -4,8 +4,8 @@ import type { RevenueExportRow } from "@/lib/revenue-csv";
 const HEADER = [
 	"Datum",
 	"Jahr",
-	"Anlass",
-	"Vergleichsgruppe",
+	"Veranstaltung",
+	"Umsatzgruppe",
 	"Umsatz brutto EUR",
 	"Ausgaben EUR",
 	"Überschuss EUR",

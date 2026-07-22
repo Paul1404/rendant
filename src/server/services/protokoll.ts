@@ -10,7 +10,12 @@ import type {
 } from "@/lib/protokoll-types";
 import type { CreateProtokollInput, StornoInput } from "@/lib/schemas";
 import { db } from "@/server/db";
-import { ausgaben, protokolle, protokollUmsatzUst } from "@/server/db/schema";
+import {
+	anlassKatalog,
+	ausgaben,
+	protokolle,
+	protokollUmsatzUst,
+} from "@/server/db/schema";
 import { logger } from "@/server/logger";
 import { nextBelegnummerInTx } from "@/server/services/belegnummer";
 import { sendProtokollNotification } from "@/server/services/email";
@@ -141,7 +146,7 @@ export async function getProtokoll(
 	};
 }
 
-export type CreateResult = { id: string; belegnummer: string };
+export type CreateResult = { id: string; belegnummer: string; anlass: string };
 
 export function deriveProtokollAccounting(input: CreateProtokollInput): {
 	counts: DenominationCounts;
@@ -235,13 +240,35 @@ export async function createProtokoll(
 	const customBelegnummer = input.belegnummer?.trim() || null;
 	const maxRetries = customBelegnummer ? 1 : 3;
 	let attempt = 0;
-	let created: { id: string; belegnummer: string; erstellt_am: Date } | null =
-		null;
+	let created: {
+		id: string;
+		belegnummer: string;
+		erstellt_am: Date;
+		anlass: string;
+	} | null = null;
 
 	while (attempt < maxRetries) {
 		attempt++;
 		try {
 			created = await db.transaction(async (tx) => {
+				let anlass = input.veranstaltungsbezeichnung;
+				if (input.anlass_katalog_id) {
+					const [umsatzgruppe] = await tx
+						.select({ name: anlassKatalog.name })
+						.from(anlassKatalog)
+						.where(eq(anlassKatalog.id, input.anlass_katalog_id))
+						.limit(1)
+						.for("key share");
+					if (!umsatzgruppe) {
+						throw new Error("Umsatzgruppe wurde nicht gefunden");
+					}
+					anlass = `${umsatzgruppe.name} · ${input.veranstaltungsbezeichnung}`;
+				}
+				if (anlass.length > 200) {
+					throw new Error(
+						"Veranstaltungsbezeichnung ist zusammen mit der Umsatzgruppe zu lang",
+					);
+				}
 				const belegnummer =
 					customBelegnummer ?? (await nextBelegnummerInTx(tx, year));
 				const protoRows = await tx
@@ -253,7 +280,7 @@ export async function createProtokoll(
 						anlass_datum: input.anlass_datum,
 						kassennummer: input.kassennummer,
 						kassenbezeichnung: input.kassenbezeichnung,
-						anlass: input.anlass,
+						anlass,
 						anlass_katalog_id: input.anlass_katalog_id ?? null,
 						gezaehlt_von: input.gezaehlt_von,
 						geprueft_von: input.geprueft_von,
@@ -271,6 +298,7 @@ export async function createProtokoll(
 						id: protokolle.id,
 						belegnummer: protokolle.belegnummer,
 						erstellt_am: protokolle.erstellt_am,
+						anlass: protokolle.anlass,
 					});
 				const proto = protoRows[0];
 				if (input.ausgaben.length > 0) {
@@ -326,7 +354,7 @@ export async function createProtokoll(
 			anlass_datum: new Date(input.anlass_datum),
 			kassennummer: input.kassennummer,
 			kassenbezeichnung: input.kassenbezeichnung,
-			anlass: input.anlass,
+			anlass: created.anlass,
 			gezaehlt_von: input.gezaehlt_von,
 			geprueft_von: input.geprueft_von,
 			bemerkung: input.bemerkung,
@@ -359,13 +387,17 @@ export async function createProtokoll(
 	await sendProtokollNotification({
 		id: created.id,
 		belegnummer: created.belegnummer,
-		anlass: input.anlass,
+		anlass: created.anlass,
 		anlass_datum: input.anlass_datum,
 		kassenbezeichnung: input.kassenbezeichnung,
 		gezaehlt_von: input.gezaehlt_von,
 	});
 
-	return { id: created.id, belegnummer: created.belegnummer };
+	return {
+		id: created.id,
+		belegnummer: created.belegnummer,
+		anlass: created.anlass,
+	};
 }
 
 async function pdfDataFromDetail(detail: ProtokollDetail) {

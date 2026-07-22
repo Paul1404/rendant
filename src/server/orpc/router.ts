@@ -50,7 +50,9 @@ import {
 import {
 	cancelHistoricalRevenue,
 	createHistoricalRevenue,
+	HistoricalRevenueCatalogError,
 	HistoricalRevenueConflictError,
+	HistoricalRevenueInputError,
 	HistoricalRevenueNotFoundError,
 	listHistoricalRevenues,
 } from "@/server/services/historical-revenue";
@@ -143,7 +145,7 @@ const protokolle = {
 					},
 					request: requestAuditContext(context),
 					metadata: {
-						anlass: input.anlass,
+						anlass: created.anlass,
 						anlass_datum: input.anlass_datum,
 						kassennummer: input.kassennummer,
 					},
@@ -158,6 +160,12 @@ const protokolle = {
 					throw new ORPCError("BAD_REQUEST", { message: msg });
 				}
 				if (msg.startsWith("Betrag oder Stückzahl")) {
+					throw new ORPCError("BAD_REQUEST", { message: msg });
+				}
+				if (msg === "Umsatzgruppe wurde nicht gefunden") {
+					throw new ORPCError("BAD_REQUEST", { message: msg });
+				}
+				if (msg.startsWith("Veranstaltungsbezeichnung ist")) {
 					throw new ORPCError("BAD_REQUEST", { message: msg });
 				}
 				throw e;
@@ -487,7 +495,7 @@ const anlassKatalog = {
 			} catch (e) {
 				if ((e as { code?: string }).code === "23505") {
 					throw new ORPCError("CONFLICT", {
-						message: "Anlass mit diesem Namen existiert bereits",
+						message: "Umsatzgruppe mit diesem Namen existiert bereits",
 					});
 				}
 				throw e;
@@ -507,7 +515,7 @@ const anlassKatalog = {
 				});
 				if (!result) {
 					throw new ORPCError("NOT_FOUND", {
-						message: "Ziel-Anlass nicht gefunden",
+						message: "Ziel-Umsatzgruppe nicht gefunden",
 					});
 				}
 				await recordAuditEvent({
@@ -533,7 +541,7 @@ const anlassKatalog = {
 				}
 				if ((error as { code?: string }).code === "23505") {
 					throw new ORPCError("CONFLICT", {
-						message: "Anlass mit diesem Namen existiert bereits",
+						message: "Umsatzgruppe mit diesem Namen existiert bereits",
 					});
 				}
 				throw error;
@@ -556,7 +564,7 @@ const anlassKatalog = {
 				});
 				if (!entry) {
 					throw new ORPCError("NOT_FOUND", {
-						message: "Anlass nicht gefunden",
+						message: "Umsatzgruppe nicht gefunden",
 					});
 				}
 				await recordAuditEvent({
@@ -571,7 +579,7 @@ const anlassKatalog = {
 			} catch (e) {
 				if ((e as { code?: string }).code === "23505") {
 					throw new ORPCError("CONFLICT", {
-						message: "Anlass mit diesem Namen existiert bereits",
+						message: "Umsatzgruppe mit diesem Namen existiert bereits",
 					});
 				}
 				throw e;
@@ -582,11 +590,13 @@ const anlassKatalog = {
 		const result = await deleteKatalog(input.id);
 		if (result.status === "referenced") {
 			throw new ORPCError("CONFLICT", {
-				message: `Anlass ist ${result.references} Belegen zugeordnet. Bitte stattdessen deaktivieren.`,
+				message: `Umsatzgruppe ist ${result.references} Belegen zugeordnet. Bitte stattdessen deaktivieren.`,
 			});
 		}
 		if (result.status === "not_found")
-			throw new ORPCError("NOT_FOUND", { message: "Anlass nicht gefunden" });
+			throw new ORPCError("NOT_FOUND", {
+				message: "Umsatzgruppe nicht gefunden",
+			});
 		const entry = result.entry;
 		await recordAuditEvent({
 			category: "anlass",
@@ -793,6 +803,12 @@ const historicalRevenue = {
 				}
 				return result.row;
 			} catch (error) {
+				if (error instanceof HistoricalRevenueCatalogError) {
+					throw new ORPCError("BAD_REQUEST", { message: error.message });
+				}
+				if (error instanceof HistoricalRevenueInputError) {
+					throw new ORPCError("BAD_REQUEST", { message: error.message });
+				}
 				if (error instanceof HistoricalRevenueConflictError) {
 					throw new ORPCError("CONFLICT", { message: error.message });
 				}

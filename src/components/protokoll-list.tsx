@@ -60,7 +60,7 @@ export function ProtokollList({ items }: Props) {
 								Datum
 							</TableHead>
 							<TableHead className="text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
-								Anlass
+								Veranstaltung
 							</TableHead>
 							<TableHead className="w-[160px] text-right text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
 								Tageseinnahmen

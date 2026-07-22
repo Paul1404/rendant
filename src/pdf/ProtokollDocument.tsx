@@ -474,10 +474,12 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
 							<Text style={styles.kopfdatenLabel}>Gezählt von</Text>
 							<Text style={styles.kopfdatenValue}>{data.gezaehlt_von}</Text>
 						</View>
-						<View style={styles.kopfdatenCell}>
-							<Text style={styles.kopfdatenLabel}>Geprüft von</Text>
-							<Text style={styles.kopfdatenValue}>{data.geprueft_von}</Text>
-						</View>
+						{data.geprueft_von ? (
+							<View style={styles.kopfdatenCell}>
+								<Text style={styles.kopfdatenLabel}>Geprüft von</Text>
+								<Text style={styles.kopfdatenValue}>{data.geprueft_von}</Text>
+							</View>
+						) : null}
 						<View style={styles.kopfdatenCell}>
 							<Text style={styles.kopfdatenLabel}>Datum</Text>
 							<Text style={styles.kopfdatenValue}>
@@ -485,7 +487,7 @@ export function ProtokollDocument({ data }: { data: ProtokollPdfData }) {
 							</Text>
 						</View>
 						<View style={styles.kopfdatenCellFull}>
-							<Text style={styles.kopfdatenLabel}>Anlass</Text>
+							<Text style={styles.kopfdatenLabel}>Veranstaltung</Text>
 							<Text style={styles.kopfdatenValue}>{data.anlass}</Text>
 						</View>
 						{data.bemerkung ? (

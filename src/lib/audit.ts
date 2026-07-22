@@ -38,7 +38,7 @@ export const AUDIT_CATEGORY_LABELS: Record<string, string> = {
 	exports: "Exporte",
 	settings: "Einstellungen",
 	kassen: "Kassen",
-	anlass: "Anlässe",
+	anlass: "Umsatzgruppen",
 };
 
 export const AUDIT_ACTION_LABELS: Record<string, string> = {
@@ -72,10 +72,10 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
 	"kassen.created": "Kasse angelegt",
 	"kassen.updated": "Kasse geändert",
 	"kassen.deleted": "Kasse gelöscht",
-	"anlass.created": "Anlass angelegt",
-	"anlass.updated": "Anlass geändert",
-	"anlass.deleted": "Anlass gelöscht",
-	"anlass.bulk_assigned": "Anlässe gesammelt zugeordnet",
+	"anlass.created": "Umsatzgruppe angelegt",
+	"anlass.updated": "Umsatzgruppe geändert",
+	"anlass.deleted": "Umsatzgruppe gelöscht",
+	"anlass.bulk_assigned": "Umsatzgruppen gesammelt zugeordnet",
 };
 
 export function auditActionLabel(action: string): string {

@@ -183,7 +183,7 @@ export function FinanceOverview({
 							/>
 						</div>
 						<div className="space-y-2">
-							<FieldLabel>Top Anlässe</FieldLabel>
+							<FieldLabel>Top Veranstaltungen</FieldLabel>
 							<BarList
 								items={period.topAnlass.map((a) => ({
 									label: a.anlass,

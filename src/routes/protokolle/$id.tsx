@@ -275,13 +275,15 @@ function ProtokollDetailPage() {
 							value={protokoll.kassenbezeichnung}
 						/>
 					) : null}
-					<DataField label="Anlass" value={protokoll.anlass} />
+					<DataField label="Veranstaltung" value={protokoll.anlass} />
 					<DataField
 						label="Datum"
 						value={formatDateDe(protokoll.anlass_datum)}
 					/>
 					<DataField label="Gezählt von" value={protokoll.gezaehlt_von} />
-					<DataField label="Geprüft von" value={protokoll.geprueft_von} />
+					{protokoll.geprueft_von ? (
+						<DataField label="Geprüft von" value={protokoll.geprueft_von} />
+					) : null}
 					{protokoll.bemerkung ? (
 						<DataField
 							className="sm:col-span-2"

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
+import * as v from "valibot";
 import { emptyCounts } from "@/lib/denominations";
-import type { CreateProtokollInput } from "@/lib/schemas";
+import {
+	CreateProtokollSchema,
+	type CreateProtokollInput,
+} from "@/lib/schemas";
 import { deriveProtokollAccounting } from "@/server/services/protokoll";
 
 function baseInput(
@@ -11,7 +15,7 @@ function baseInput(
     anlass_datum: "2026-06-21",
     kassennummer: "K1",
     kassenbezeichnung: "Hauptkasse",
-    anlass: "Sommerfest",
+		veranstaltungsbezeichnung: "Sommerfest 2026",
     gezaehlt_von: "Anna",
     geprueft_von: "Bob",
     bemerkung: "",
@@ -35,6 +39,22 @@ function baseInput(
 }
 
 describe("deriveProtokollAccounting", () => {
+	it("accepts one counting person without a separate checker", () => {
+		const result = v.safeParse(CreateProtokollSchema, {
+			...baseInput(),
+			geprueft_von: "",
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it("requires a concrete event label", () => {
+		const result = v.safeParse(CreateProtokollSchema, {
+			...baseInput(),
+			veranstaltungsbezeichnung: "   ",
+		});
+		expect(result.success).toBe(false);
+	});
+
   it("derives counted cash, bestand, and takings", () => {
     const result = deriveProtokollAccounting(baseInput());
 

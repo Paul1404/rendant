@@ -98,7 +98,7 @@ export function DashboardToolbar({
 					type="search"
 					value={query}
 					onChange={(e) => onQueryChange(e.target.value)}
-					placeholder="Suchen: Belegnr., Anlass, Person..."
+					placeholder="Suchen: Belegnr., Veranstaltung, Person..."
 					className="h-9 pr-8 text-sm"
 					aria-label="Protokolle durchsuchen"
 				/>

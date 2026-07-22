@@ -278,7 +278,7 @@ export async function sendProtokollNotification(
 		const rows: Array<[string, string]> = [
 			["Belegnummer", proto.belegnummer],
 			["Kasse", proto.kassenbezeichnung],
-			["Anlass", proto.anlass],
+			["Veranstaltung", proto.anlass],
 			["Datum", datum],
 			["Gezählt von", proto.gezaehlt_von],
 		];
@@ -316,7 +316,7 @@ export async function sendProtokollNotification(
 			"",
 			`Belegnummer: ${proto.belegnummer}`,
 			`Kasse: ${proto.kassenbezeichnung}`,
-			`Anlass: ${proto.anlass}`,
+			`Veranstaltung: ${proto.anlass}`,
 			`Datum: ${datum}`,
 			`Gezählt von: ${proto.gezaehlt_von}`,
 			"",

@@ -325,7 +325,7 @@ function RegisterEditRow({
 							}
 							onKeyDown={onKeyDown}
 							maxLength={50}
-							placeholder="K-01"
+							placeholder="1"
 							className="font-mono"
 						/>
 					</div>

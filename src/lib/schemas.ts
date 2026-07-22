@@ -116,14 +116,19 @@ export const CreateProtokollSchema = v.object({
 	),
 	kassennummer: v.pipe(v.string(), v.minLength(1), v.maxLength(50)),
 	kassenbezeichnung: v.pipe(v.string(), v.minLength(1), v.maxLength(120)),
-	anlass: v.pipe(v.string(), v.minLength(1), v.maxLength(200)),
+	veranstaltungsbezeichnung: v.pipe(
+		v.string(),
+		v.trim(),
+		v.minLength(1, "Bitte eine Veranstaltungsbezeichnung angeben"),
+		v.maxLength(120),
+	),
 	// Optional link to the anlass catalog (plans/007). The `anlass` text above
 	// stays the human label; this is the stable grouping key.
 	anlass_katalog_id: v.optional(
 		v.nullable(v.pipe(v.string(), v.maxLength(40))),
 	),
 	gezaehlt_von: v.pipe(v.string(), v.minLength(1), v.maxLength(120)),
-	geprueft_von: v.pipe(v.string(), v.minLength(1), v.maxLength(120)),
+	geprueft_von: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(120)), ""),
 	bemerkung: v.optional(v.pipe(v.string(), v.maxLength(2000)), ""),
 	wechselgeld_cent: intGte0,
 	kartenzahlung_cent: v.optional(intGte0, 0),
@@ -248,16 +253,11 @@ const historicalRevenueOptionalText = (maxLength: number) =>
 export const HistoricalRevenueCreateSchema = v.object({
 	idempotency_key: v.pipe(v.string(), v.uuid()),
 	anlass_datum: isoCalendarDate,
-	anlass: v.pipe(
+	anlass_katalog_id: v.pipe(v.string(), v.uuid()),
+	veranstaltungsbezeichnung: v.pipe(
 		v.string(),
 		v.trim(),
-		v.minLength(1, "Bitte einen Anlass angeben"),
-		v.maxLength(200),
-	),
-	vergleichsgruppe: v.pipe(
-		v.string(),
-		v.trim(),
-		v.minLength(1, "Bitte eine Vergleichsgruppe angeben"),
+		v.minLength(1, "Bitte eine Veranstaltungsbezeichnung angeben"),
 		v.maxLength(120),
 	),
 	umsatz_cent: v.pipe(

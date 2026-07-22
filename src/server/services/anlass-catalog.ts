@@ -195,7 +195,7 @@ export async function bulkAssignKatalog(input: {
 
 export class AnlassKatalogConcurrencyError extends Error {
 	constructor() {
-		super("Anlass wurde zwischenzeitlich geändert");
+		super("Umsatzgruppe wurde zwischenzeitlich geändert");
 		this.name = "AnlassKatalogConcurrencyError";
 	}
 }

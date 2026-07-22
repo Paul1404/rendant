@@ -108,8 +108,8 @@ function EinstellungenPage() {
 				<section className="mx-auto max-w-3xl space-y-4">
 					<SectionHeading
 						icon={CalendarRange}
-						title="Anlässe"
-						description="Fester Katalog der Vereins-Anlässe. Beim Erfassen wird der Anlass daraus gewählt statt frei getippt, damit der Jahresvergleich über die Jahre zusammenpasst. Wiederkehrende Anlässe (z. B. Biergarten) werden pro Saison zusammengefasst, einmalige (z. B. Sommerfest) Jahr für Jahr verglichen. Nur für Admins."
+						title="Umsatzgruppen"
+						description="Fester Katalog für die Auswertung. Beim Erfassen wird eine Umsatzgruppe gewählt und mit einer konkreten Veranstaltungsbezeichnung ergänzt. Wiederkehrende Gruppen (z. B. Heimspiel) werden pro Saison zusammengefasst, einmalige (z. B. Sommerfest) Jahr für Jahr verglichen. Nur für Admins."
 					/>
 					<AnlassCatalogForm initial={anlassKatalog} />
 				</section>

@@ -41,6 +41,12 @@ export const Route = createFileRoute("/protokolle/neu")({
 					kassenbezeichnung: src.protokoll.kassenbezeichnung || undefined,
 					anlass: src.protokoll.anlass || undefined,
 					anlass_katalog_id: src.protokoll.anlass_katalog_id ?? null,
+					veranstaltungsbezeichnung: (() => {
+						const separatorIndex = src.protokoll.anlass.indexOf(" · ");
+						return separatorIndex >= 0
+							? src.protokoll.anlass.slice(separatorIndex + 3)
+							: src.protokoll.anlass;
+					})(),
 					gezaehlt_von: src.protokoll.gezaehlt_von || undefined,
 					geprueft_von: src.protokoll.geprueft_von || undefined,
 					wechselgeld_cent: src.protokoll.wechselgeld_cent,
@@ -103,9 +109,10 @@ function NewProtokollPage() {
 							übernommen
 						</p>
 						<p className="text-sm text-muted-foreground">
-							Kassennummer, Kassenbezeichnung, Anlass, Wechselgeld und Namen
-							sind vorausgefüllt. Stückelung, Ausgaben und USt.-Aufteilung bitte
-							für diesen Tag neu erfassen.
+							Kassennummer, Kassenbezeichnung, Umsatzgruppe,
+							Veranstaltungsbezeichnung, Wechselgeld und Namen sind
+							vorausgefüllt. Stückelung, Ausgaben und USt.-Aufteilung bitte für
+							diesen Tag neu erfassen.
 						</p>
 					</div>
 				</div>

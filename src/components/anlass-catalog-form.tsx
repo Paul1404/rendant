@@ -77,7 +77,7 @@ export function AnlassCatalogForm({
 				});
 				setEntries((list) => [...list, data.entry]);
 				setAddingDraft(null);
-				toast.success("Anlass angelegt");
+				toast.success("Umsatzgruppe angelegt");
 				await router.invalidate();
 			} catch (e) {
 				toast.error(orpcMessage(e, "Speichern fehlgeschlagen"));
@@ -104,7 +104,7 @@ export function AnlassCatalogForm({
 				setEntries((list) => list.map((e) => (e.id === id ? data.entry : e)));
 				setEditingId(null);
 				setEditDraft(null);
-				toast.success("Anlass aktualisiert");
+				toast.success("Umsatzgruppe aktualisiert");
 				await router.invalidate();
 			} catch (e) {
 				toast.error(orpcMessage(e, "Speichern fehlgeschlagen"));
@@ -115,7 +115,7 @@ export function AnlassCatalogForm({
 	function remove(entry: AnlassKatalogEntry) {
 		if (
 			!window.confirm(
-				`Anlass "${entry.name}" wirklich löschen?\n\nGeht nur, wenn ihm keine Belege zugeordnet sind. Sonst besser deaktivieren.`,
+				`Umsatzgruppe "${entry.name}" wirklich löschen?\n\nGeht nur, wenn ihr keine Belege zugeordnet sind. Sonst besser deaktivieren.`,
 			)
 		) {
 			return;
@@ -128,7 +128,7 @@ export function AnlassCatalogForm({
 					setEditingId(null);
 					setEditDraft(null);
 				}
-				toast.success("Anlass gelöscht");
+				toast.success("Umsatzgruppe gelöscht");
 				await router.invalidate();
 			} catch (e) {
 				toast.error(orpcMessage(e, "Löschen fehlgeschlagen"));
@@ -147,13 +147,13 @@ export function AnlassCatalogForm({
 					disabled={addingDraft != null || pending}
 				>
 					<Plus className="mr-2 h-4 w-4" />
-					Anlass anlegen
+					Umsatzgruppe anlegen
 				</Button>
 			</CardHeader>
 			<CardContent className="space-y-3">
 				{entries.length === 0 && !addingDraft ? (
 					<p className="rounded-xl border border-dashed border-border/60 bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground">
-						Noch kein Anlass angelegt.
+						Noch keine Umsatzgruppe angelegt.
 					</p>
 				) : null}
 
@@ -208,7 +208,7 @@ export function AnlassCatalogForm({
 										type="button"
 										variant="ghost"
 										size="icon-sm"
-										aria-label="Anlass bearbeiten"
+										aria-label="Umsatzgruppe bearbeiten"
 										onClick={() => startEdit(entry)}
 										disabled={pending}
 									>
@@ -218,7 +218,7 @@ export function AnlassCatalogForm({
 										type="button"
 										variant="ghost"
 										size="icon-sm"
-										aria-label="Anlass löschen"
+										aria-label="Umsatzgruppe löschen"
 										onClick={() => remove(entry)}
 										disabled={pending}
 									>

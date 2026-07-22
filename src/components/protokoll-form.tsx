@@ -68,6 +68,7 @@ export type ProtokollInitialValues = {
 	kassenbezeichnung?: string;
 	anlass?: string;
 	anlass_katalog_id?: string | null;
+	veranstaltungsbezeichnung?: string;
 	gezaehlt_von?: string;
 	geprueft_von?: string;
 	wechselgeld_cent?: number;
@@ -87,6 +88,7 @@ type FormDraft = {
 	anlassFree: string;
 	gezaehltVon: string;
 	gepruefftVon: string;
+	showGeprueftVon: boolean;
 	bemerkung: string;
 	wechselgeldInput: string;
 	kartenzahlungInput: string;
@@ -209,7 +211,7 @@ export function ProtokollForm({
 	const [newAnlassName, setNewAnlassName] = useState("");
 	const [newAnlassTyp, setNewAnlassTyp] = useState<AnlassTyp>("wiederkehrend");
 	const [creatingPreset, setCreatingPreset] = useState(false);
-	// Active catalog entries drive the Anlass picker. An entry that a stored
+	// Active catalog entries drive the Umsatzgruppe picker. An entry that a stored
 	// protokoll still references but that was since deactivated is added back so
 	// the duplicate flow can preselect it.
 	const activeKatalog = availableKatalog.filter(
@@ -253,13 +255,15 @@ export function ProtokollForm({
 	const [kassenbezeichnung, setKassenbezeichnung] = useState(
 		initialKassenbezeichnung,
 	);
-	// Anlass is captured via the catalog picker (stable grouping key) plus an
-	// optional free "Zusatz" note; the stored `anlass` label is composed from
-	// both. When no catalog exists yet, fall back to a plain free-text field.
+	// The catalog provides the stable Umsatzgruppe. Every new protocol also gets
+	// a concrete Veranstaltungsbezeichnung. The stored `anlass` label combines
+	// both for compatibility with existing exports and reports.
 	const [anlassKatalogId, setAnlassKatalogId] = useState<string | null>(
 		initialValues?.anlass_katalog_id ?? null,
 	);
-	const [anlassZusatz, setAnlassZusatz] = useState("");
+	const [anlassZusatz, setAnlassZusatz] = useState(
+		initialValues?.veranstaltungsbezeichnung ?? "",
+	);
 	const [anlassFree, setAnlassFree] = useState(initialValues?.anlass ?? "");
 	const selectedKatalog =
 		activeKatalog.find((k) => k.id === anlassKatalogId) ?? null;
@@ -275,6 +279,9 @@ export function ProtokollForm({
 	);
 	const [gepruefftVon, setGepruefftVon] = useState(
 		initialValues?.geprueft_von ?? "",
+	);
+	const [showGeprueftVon, setShowGeprueftVon] = useState(
+		Boolean(initialValues?.geprueft_von),
 	);
 	const [bemerkung, setBemerkung] = useState("");
 	const [wechselgeldInput, setWechselgeldInput] = useState(
@@ -296,8 +303,6 @@ export function ProtokollForm({
 		queueMicrotask(() => {
 			const lastGezVon = getLocalPref(LOCAL_PREF_KEYS.lastGezaehltVon);
 			if (lastGezVon && !gezaehltVon) setGezaehltVon(lastGezVon);
-			const lastGepVon = getLocalPref(LOCAL_PREF_KEYS.lastGeprueftVon);
-			if (lastGepVon && !gepruefftVon) setGepruefftVon(lastGepVon);
 			if (
 				!selectedRegisterId &&
 				availableRegisters.length > 1 &&
@@ -367,7 +372,7 @@ export function ProtokollForm({
 	async function createAnlassInline() {
 		const name = newAnlassName.trim();
 		if (!name) {
-			toast.error("Bitte einen Namen für den Anlass angeben");
+			toast.error("Bitte einen Namen für die Umsatzgruppe angeben");
 			return;
 		}
 		setCreatingPreset(true);
@@ -382,10 +387,12 @@ export function ProtokollForm({
 			setShowNewAnlass(false);
 			setNewAnlassName("");
 			setNewAnlassTyp("wiederkehrend");
-			toast.success("Anlass angelegt und ausgewählt");
+			toast.success("Umsatzgruppe angelegt und ausgewählt");
 			await queryClient.invalidateQueries();
 		} catch (error) {
-			toast.error(orpcMessage(error, "Anlass konnte nicht angelegt werden"));
+			toast.error(
+				orpcMessage(error, "Umsatzgruppe konnte nicht angelegt werden"),
+			);
 		} finally {
 			setCreatingPreset(false);
 		}
@@ -499,6 +506,7 @@ export function ProtokollForm({
 			anlassFree,
 			gezaehltVon,
 			gepruefftVon,
+			showGeprueftVon,
 			bemerkung,
 			wechselgeldInput,
 			kartenzahlungInput,
@@ -518,6 +526,7 @@ export function ProtokollForm({
 			anlassFree,
 			gezaehltVon,
 			gepruefftVon,
+			showGeprueftVon,
 			bemerkung,
 			wechselgeldInput,
 			kartenzahlungInput,
@@ -543,6 +552,7 @@ export function ProtokollForm({
 			setAnlassFree(d.anlassFree ?? (d as { anlass?: string }).anlass ?? "");
 			setGezaehltVon(d.gezaehltVon ?? "");
 			setGepruefftVon(d.gepruefftVon ?? "");
+			setShowGeprueftVon(d.showGeprueftVon ?? Boolean(d.gepruefftVon?.trim()));
 			setBemerkung(d.bemerkung ?? "");
 			setWechselgeldInput(
 				d.wechselgeldInput ?? formatCentPlain(WECHSELGELD_DEFAULT_CENT),
@@ -671,7 +681,7 @@ export function ProtokollForm({
 			!kassenbezeichnung.trim() ||
 			!anlass.trim() ||
 			!gezaehltVon.trim() ||
-			!gepruefftVon.trim()
+			(hasKatalog && !anlassZusatz.trim())
 		) {
 			toast.error("Bitte alle Pflichtfelder ausfüllen");
 			return;
@@ -767,8 +777,10 @@ export function ProtokollForm({
 			anlass_datum: datum,
 			kassennummer: kassennummer.trim(),
 			kassenbezeichnung: kassenbezeichnung.trim(),
-			anlass: anlass.trim(),
 			anlass_katalog_id: hasKatalog ? anlassKatalogId : null,
+			veranstaltungsbezeichnung: hasKatalog
+				? anlassZusatz.trim()
+				: anlassFree.trim(),
 			gezaehlt_von: gezaehltVon.trim(),
 			geprueft_von: gepruefftVon.trim(),
 			bemerkung: bemerkung.trim(),
@@ -827,7 +839,14 @@ export function ProtokollForm({
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="space-y-4">
-							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+							<div
+								className={cn(
+									"grid grid-cols-1 gap-4",
+									showGeprueftVon
+										? "sm:grid-cols-2"
+										: "sm:max-w-3xl sm:grid-cols-[minmax(0,1fr)_auto]",
+								)}
+							>
 								<div className="space-y-2">
 									<Label htmlFor="belegnummer">Belegnummer</Label>
 									<Input
@@ -917,7 +936,7 @@ export function ProtokollForm({
 													}
 													maxLength={50}
 													autoFocus
-													placeholder="z. B. K-04"
+													placeholder="z. B. 4"
 												/>
 											</div>
 											<div className="space-y-1.5">
@@ -974,7 +993,7 @@ export function ProtokollForm({
 										}}
 										required
 										maxLength={50}
-										placeholder="z.B. K-01"
+										placeholder="z. B. 1"
 										className="font-mono"
 									/>
 								</div>
@@ -996,7 +1015,7 @@ export function ProtokollForm({
 							{hasKatalog ? (
 								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 									<div className="space-y-2">
-										<Label htmlFor="anlass-katalog">Anlass</Label>
+										<Label htmlFor="anlass-katalog">Umsatzgruppe</Label>
 										<Select
 											value={anlassKatalogId ?? ""}
 											onValueChange={(val) => {
@@ -1008,7 +1027,7 @@ export function ProtokollForm({
 											}}
 										>
 											<SelectTrigger id="anlass-katalog" className="w-full">
-												<SelectValue placeholder="Anlass wählen" />
+												<SelectValue placeholder="Umsatzgruppe wählen" />
 											</SelectTrigger>
 											<SelectContent>
 												{activeKatalog.map((k) => (
@@ -1018,7 +1037,7 @@ export function ProtokollForm({
 												))}
 												{canManageAnlassKatalog ? (
 													<SelectItem value="__new_anlass__">
-														+ Neuen Anlass anlegen
+														+ Neue Umsatzgruppe anlegen
 													</SelectItem>
 												) : null}
 											</SelectContent>
@@ -1027,7 +1046,9 @@ export function ProtokollForm({
 									{showNewAnlass ? (
 										<div className="grid gap-3 rounded-xl border border-primary/20 bg-primary/[0.03] p-3 sm:col-span-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end">
 											<div className="space-y-1.5">
-												<Label htmlFor="new-anlass-name">Neuer Anlass</Label>
+												<Label htmlFor="new-anlass-name">
+													Neue Umsatzgruppe
+												</Label>
 												<Input
 													id="new-anlass-name"
 													value={newAnlassName}
@@ -1069,43 +1090,45 @@ export function ProtokollForm({
 									) : null}
 									<div className="space-y-2">
 										<Label htmlFor="anlass-zusatz">
-											Zusatz{" "}
-											<span className="font-normal text-muted-foreground">
-												(optional)
-											</span>
+											Veranstaltungsbezeichnung
 										</Label>
 										<Input
 											id="anlass-zusatz"
 											value={anlassZusatz}
 											onChange={(e) => setAnlassZusatz(e.target.value)}
-											maxLength={120}
-											placeholder="z. B. gegen Grettstadt"
+											required
+											maxLength={Math.min(
+												120,
+												197 - (selectedKatalog?.name.length ?? 0),
+											)}
+											placeholder="z. B. Heimspiel gegen Grettstadt"
 										/>
 									</div>
 									<p className="text-xs text-muted-foreground sm:col-span-2">
-										Der feste Katalog verhindert unterschiedliche Schreibweisen
-										und ordnet denselben Anlass im Jahresvergleich richtig zu.
-										Konkrete Angaben wie Gegner oder Termin gehören in den
-										Zusatz.
+										Die Umsatzgruppe bündelt vergleichbare Veranstaltungen über
+										mehrere Jahre. Die Veranstaltungsbezeichnung beschreibt den
+										konkreten Termin, zum Beispiel Gegner oder
+										Veranstaltungsname.
 										{canManageAnlassKatalog
-											? " Fehlt ein Anlass, lege ihn über die Auswahl neu an."
-											: " Fehlende Anlässe kann ein Admin im Katalog ergänzen."}
+											? " Fehlt eine Umsatzgruppe, lege sie über die Auswahl neu an."
+											: " Fehlende Umsatzgruppen kann ein Admin ergänzen."}
 									</p>
 								</div>
 							) : (
 								<div className="space-y-2">
-									<Label htmlFor="anlass">Anlass</Label>
+									<Label htmlFor="anlass">Veranstaltungsbezeichnung</Label>
 									<Input
 										id="anlass"
 										value={anlassFree}
 										onChange={(e) => setAnlassFree(e.target.value)}
 										required
 										maxLength={200}
-										placeholder="z.B. Heimspiel 1. Mannschaft"
+										placeholder="z. B. Heimspiel 1. Mannschaft"
 									/>
 									<p className="text-xs text-muted-foreground">
-										Ein fester Katalog verhindert unterschiedliche Schreibweisen
-										und macht den Jahresvergleich verlässlich.
+										Lege eine Umsatzgruppe an, damit vergleichbare
+										Veranstaltungen im Jahresvergleich zuverlässig
+										zusammengefasst werden.
 									</p>
 									{canManageAnlassKatalog ? (
 										<>
@@ -1116,13 +1139,13 @@ export function ProtokollForm({
 												onClick={() => setShowNewAnlass((value) => !value)}
 											>
 												<Plus className="mr-2 h-4 w-4" />
-												Ersten Anlass anlegen
+												Erste Umsatzgruppe anlegen
 											</Button>
 											{showNewAnlass ? (
 												<div className="grid gap-3 rounded-xl border border-primary/20 bg-primary/[0.03] p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end">
 													<div className="space-y-1.5">
 														<Label htmlFor="first-anlass-name">
-															Neuer Anlass
+															Neue Umsatzgruppe
 														</Label>
 														<Input
 															id="first-anlass-name"
@@ -1182,18 +1205,52 @@ export function ProtokollForm({
 										placeholder="Vor- und Nachname"
 									/>
 								</div>
-								<div className="space-y-2">
-									<Label htmlFor="geprueft_von">Geprüft von</Label>
-									<Input
-										id="geprueft_von"
-										value={gepruefftVon}
-										onChange={(e) => setGepruefftVon(e.target.value)}
-										required
-										maxLength={120}
-										autoComplete="name"
-										placeholder="Vor- und Nachname"
-									/>
-								</div>
+								{showGeprueftVon ? (
+									<div className="space-y-2">
+										<div className="flex items-center justify-between gap-2">
+											<Label htmlFor="geprueft_von">Geprüft von</Label>
+											<Button
+												type="button"
+												variant="ghost"
+												size="sm"
+												onClick={() => {
+													setGepruefftVon("");
+													setShowGeprueftVon(false);
+												}}
+												className="h-7 px-2 text-xs text-muted-foreground"
+											>
+												<Trash2 className="mr-1 h-3.5 w-3.5" />
+												Entfernen
+											</Button>
+										</div>
+										<Input
+											id="geprueft_von"
+											value={gepruefftVon}
+											onChange={(e) => setGepruefftVon(e.target.value)}
+											maxLength={120}
+											autoComplete="name"
+											placeholder="Vor- und Nachname"
+										/>
+									</div>
+								) : (
+									<div className="flex items-end">
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											onClick={() => {
+												const last = getLocalPref(
+													LOCAL_PREF_KEYS.lastGeprueftVon,
+												);
+												if (last) setGepruefftVon(last);
+												setShowGeprueftVon(true);
+											}}
+										>
+											<Plus className="mr-2 h-4 w-4" />
+											Prüfende Person hinzufügen
+										</Button>
+									</div>
+								)}
 							</div>
 						</CardContent>
 					</Card>

@@ -8,8 +8,8 @@ import {
 const validCreate = {
 	idempotency_key: "019f84bc-9383-7301-95e6-c23483cfb28b",
 	anlass_datum: "2024-05-01",
-	anlass: "Biergarteneröffnung",
-	vergleichsgruppe: "Biergarteneröffnung",
+	anlass_katalog_id: "019f84bc-9383-7301-95e6-c23483cfb28c",
+	veranstaltungsbezeichnung: "Biergarteneröffnung am 1. Mai",
 	umsatz_cent: 123_456,
 	ausgaben_cent: 12_300,
 	bemerkung: "Übertrag aus dem Kassenbuch",
@@ -59,12 +59,18 @@ describe("HistoricalRevenueCreateSchema", () => {
 		).toBe(false);
 	});
 
-	it("requires a comparison group", () => {
+	it("requires a revenue group and event label", () => {
 		const result = v.safeParse(HistoricalRevenueCreateSchema, {
 			...validCreate,
-			vergleichsgruppe: "   ",
+			veranstaltungsbezeichnung: "   ",
 		});
 		expect(result.success).toBe(false);
+		expect(
+			v.safeParse(HistoricalRevenueCreateSchema, {
+				...validCreate,
+				anlass_katalog_id: "not-a-uuid",
+			}).success,
+		).toBe(false);
 	});
 });
 

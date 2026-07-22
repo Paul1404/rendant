@@ -3,6 +3,18 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.19.0 - 2026-07-22
+
+- Neue Protokolle zeigen standardmäßig nur „Gezählt von“. Eine separate
+  prüfende Person lässt sich bei Bedarf hinzufügen und wieder entfernen.
+- Der bisherige Anlass-Katalog heißt in der Oberfläche jetzt Umsatzgruppen.
+  Neue Einträge kombinieren eine feste Umsatzgruppe mit einer verpflichtenden
+  Veranstaltungsbezeichnung für den konkreten Termin.
+- Auch vergangene Umsätze verwenden das neue Konzept. Die Umsatzgruppe wird aus
+  dem Katalog gewählt, die Veranstaltungsbezeichnung beschreibt den einzelnen
+  Termin und die technische Vergleichsgruppe wird automatisch abgeleitet.
+- Platzhalter für Kassennummern verwenden reine Nummern ohne vorangestelltes K.
+
 ## 1.18.1 - 2026-07-22
 
 - Einladungen und Anlass-Löschungen sind jetzt auch bei gleichzeitigen

@@ -198,8 +198,8 @@ export function HistoricalRevenueOverview({
 	const form = useForm({
 		defaultValues: {
 			date: todayIsoDate(),
-			occasion: "",
-			comparisonGroup: "",
+			revenueGroupId: "",
+			eventLabel: "",
 			revenue: "",
 			expenses: "0,00",
 			note: "",
@@ -208,12 +208,10 @@ export function HistoricalRevenueOverview({
 		onSubmit: async ({ value }) => {
 			const revenueCent = parseGermanAmount(value.revenue);
 			const expensesCent = parseGermanAmount(value.expenses);
-			if (
-				!value.date ||
-				!value.occasion.trim() ||
-				!value.comparisonGroup.trim()
-			) {
-				toast.error("Datum, Anlass und Vergleichsgruppe sind erforderlich");
+			if (!value.date || !value.revenueGroupId || !value.eventLabel.trim()) {
+				toast.error(
+					"Datum, Umsatzgruppe und Veranstaltungsbezeichnung sind erforderlich",
+				);
 				return;
 			}
 			if (revenueCent == null || revenueCent < 0) {
@@ -230,8 +228,8 @@ export function HistoricalRevenueOverview({
 				const created = await orpcClient.historicalRevenue.create({
 					idempotency_key: idempotencyKey.current,
 					anlass_datum: value.date,
-					anlass: value.occasion.trim(),
-					vergleichsgruppe: value.comparisonGroup.trim(),
+					anlass_katalog_id: value.revenueGroupId,
+					veranstaltungsbezeichnung: value.eventLabel.trim(),
 					umsatz_cent: revenueCent,
 					ausgaben_cent: expensesCent,
 					bemerkung: value.note.trim() || null,
@@ -325,51 +323,52 @@ export function HistoricalRevenueOverview({
 								)}
 							</form.Field>
 
-							<form.Field name="occasion">
+							<form.Field name="revenueGroupId">
 								{(field) => (
-									<div className="space-y-1.5 sm:col-span-1 lg:col-span-5">
-										<Label htmlFor={field.name}>Anlass</Label>
-										<Input
-											id={field.name}
-											name={field.name}
+									<div className="space-y-1.5 sm:col-span-1 lg:col-span-4">
+										<Label htmlFor={field.name}>Umsatzgruppe</Label>
+										<Select
 											value={field.state.value}
-											onBlur={field.handleBlur}
-											onChange={(event) =>
-												field.handleChange(event.target.value)
-											}
-											placeholder="Zum Beispiel Biergarteneröffnung"
-											maxLength={200}
-											required
-										/>
+											onValueChange={field.handleChange}
+										>
+											<SelectTrigger id={field.name} className="w-full">
+												<SelectValue placeholder="Umsatzgruppe wählen" />
+											</SelectTrigger>
+											<SelectContent>
+												{anlassKatalog
+													.filter((entry) => entry.aktiv)
+													.map((entry) => (
+														<SelectItem key={entry.id} value={entry.id}>
+															{entry.name}
+														</SelectItem>
+													))}
+											</SelectContent>
+										</Select>
 									</div>
 								)}
 							</form.Field>
 
-							<form.Field name="comparisonGroup">
+							<form.Field name="eventLabel">
 								{(field) => (
-									<div className="space-y-1.5 sm:col-span-2 lg:col-span-4">
-										<Label htmlFor={field.name}>Vergleichsgruppe</Label>
+									<div className="space-y-1.5 sm:col-span-2 lg:col-span-5">
+										<Label htmlFor={field.name}>
+											Veranstaltungsbezeichnung
+										</Label>
 										<Input
 											id={field.name}
 											name={field.name}
-											list="historical-comparison-groups"
 											value={field.state.value}
 											onBlur={field.handleBlur}
 											onChange={(event) =>
 												field.handleChange(event.target.value)
 											}
-											placeholder="Zum Beispiel Biergarteneröffnung"
-											maxLength={200}
+											placeholder="z. B. Heimspiel gegen Grettstadt"
+											maxLength={120}
 											required
 										/>
-										<datalist id="historical-comparison-groups">
-											{comparisons.map((group) => (
-												<option key={group.key} value={group.label} />
-											))}
-										</datalist>
 										<p className="text-xs text-muted-foreground">
-											Gleiche Gruppe für denselben Anlass in jedem Jahr
-											verwenden.
+											Bezeichnet den konkreten Termin innerhalb der
+											Umsatzgruppe.
 										</p>
 									</div>
 								)}
@@ -422,11 +421,12 @@ export function HistoricalRevenueOverview({
 							<form.Subscribe
 								selector={(state) => [
 									state.values.date,
-									state.values.comparisonGroup,
+									state.values.revenueGroupId,
 								]}
 							>
-								{([date, comparisonGroup]) => {
-									const duplicates = duplicateSources(date, comparisonGroup);
+								{([date, revenueGroupId]) => {
+									const groupName = catalogById.get(revenueGroupId)?.name ?? "";
+									const duplicates = duplicateSources(date, groupName);
 									return duplicates.length > 0 ? (
 										<div
 											className="flex gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 sm:col-span-2 lg:col-span-12 dark:text-amber-200"
@@ -434,10 +434,10 @@ export function HistoricalRevenueOverview({
 										>
 											<TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
 											<p>
-												Für dieses Datum und diese Vergleichsgruppe gibt es
-												bereits: {duplicates.join(" und ")}. Prüfe die Zahlen,
-												damit der Umsatz nicht doppelt gezählt wird.
-												Absichtliches Speichern bleibt möglich.
+												Für dieses Datum und diese Umsatzgruppe gibt es bereits:{" "}
+												{duplicates.join(" und ")}. Prüfe die Zahlen, damit der
+												Umsatz nicht doppelt gezählt wird. Absichtliches
+												Speichern bleibt möglich.
 											</p>
 										</div>
 									) : null;
@@ -499,13 +499,13 @@ export function HistoricalRevenueOverview({
 					</div>
 					{comparisons.length > 0 ? (
 						<div className="w-full space-y-1.5 sm:w-64">
-							<Label htmlFor="occasion-filter">Anlass filtern</Label>
+							<Label htmlFor="occasion-filter">Umsatzgruppe filtern</Label>
 							<Select value={occasionFilter} onValueChange={setOccasionFilter}>
 								<SelectTrigger id="occasion-filter" className="w-full">
-									<SelectValue placeholder="Alle Anlässe" />
+									<SelectValue placeholder="Alle Umsatzgruppen" />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value="all">Alle Anlässe</SelectItem>
+									<SelectItem value="all">Alle Umsatzgruppen</SelectItem>
 									{comparisons.map((group) => (
 										<SelectItem key={group.key} value={group.key}>
 											{group.label}
@@ -844,16 +844,16 @@ function ComparisonCard({
 						{canManage ? (
 							<div className="space-y-3 rounded-xl border border-primary/20 bg-primary/[0.03] p-3">
 								<p className="text-xs text-muted-foreground">
-									Ausgewählte Einträge einem Katalog-Anlass zuordnen. Der
+									Ausgewählte Einträge einer Umsatzgruppe zuordnen. Der
 									ursprüngliche Belegtext bleibt aus Gründen der
 									Nachvollziehbarkeit erhalten.
 								</p>
 								<div className="grid gap-2 sm:grid-cols-2">
 									<div className="space-y-1.5">
-										<Label>Ziel-Anlass</Label>
+										<Label>Ziel-Umsatzgruppe</Label>
 										<Select value={targetId} onValueChange={selectTarget}>
 											<SelectTrigger className="w-full">
-												<SelectValue placeholder="Anlass wählen" />
+												<SelectValue placeholder="Umsatzgruppe wählen" />
 											</SelectTrigger>
 											<SelectContent>
 												{catalog.map((entry) => (
@@ -958,7 +958,7 @@ function HistoricalEntries({
 								</Badge>
 							</div>
 							<p className="mt-1 text-xs text-muted-foreground">
-								Vergleichsgruppe: {entry.vergleichsgruppe}
+								Umsatzgruppe: {entry.vergleichsgruppe}
 								{entry.quellreferenz ? ` · Quelle: ${entry.quellreferenz}` : ""}
 							</p>
 							{entry.storniert_am ? (

@@ -11,7 +11,7 @@ const HEADERS = [
 	"Datum",
 	"Kassennummer",
 	"Kassenbezeichnung",
-	"Anlass",
+	"Veranstaltung",
 	"Gezählt von",
 	"Geprüft von",
 	"Wechselgeld EUR",

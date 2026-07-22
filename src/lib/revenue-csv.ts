@@ -19,8 +19,8 @@ export function revenueCsvDocument(rows: RevenueExportRow[]): string {
 		[
 			"Datum",
 			"Jahr",
-			"Anlass",
-			"Vergleichsgruppe",
+			"Veranstaltung",
+			"Umsatzgruppe",
 			"Umsatz brutto EUR",
 			"Ausgaben EUR",
 			"Überschuss EUR",
