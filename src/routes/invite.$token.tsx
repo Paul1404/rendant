@@ -32,9 +32,9 @@ function InvitePage() {
 			<Shell vereinsname={branding.vereinsname}>
 				<Card className="border-destructive/30">
 					<CardContent className="space-y-1 py-2 text-center">
-						<p className="text-sm font-medium text-destructive">
+						<h2 className="text-sm font-medium text-destructive">
 							Diese Einladung ist ungültig oder abgelaufen.
-						</p>
+						</h2>
 						<p className="text-sm text-muted-foreground">
 							Bitte den Administrator um eine neue Einladung bitten.
 						</p>
@@ -71,6 +71,9 @@ function InvitePage() {
 		<Shell vereinsname={branding.vereinsname}>
 			<Card>
 				<CardContent className="space-y-4">
+					<h2 className="text-lg font-semibold text-foreground">
+						Konto anlegen
+					</h2>
 					<p className="text-sm text-muted-foreground">
 						Konto anlegen für{" "}
 						<span className="font-medium text-foreground">{invite.email}</span>
@@ -80,6 +83,7 @@ function InvitePage() {
 							<Label htmlFor="name">Name</Label>
 							<Input
 								id="name"
+								autoComplete="name"
 								value={name}
 								onChange={(e) => setName(e.target.value)}
 								required
@@ -96,9 +100,13 @@ function InvitePage() {
 								onChange={(e) => setPassword(e.target.value)}
 								required
 								minLength={8}
+								aria-describedby="password-help"
 								className="h-10"
 							/>
-							<p className="text-[11px] text-muted-foreground">
+							<p
+								id="password-help"
+								className="text-[11px] text-muted-foreground"
+							>
 								Mindestens 8 Zeichen.
 							</p>
 						</div>
@@ -109,11 +117,11 @@ function InvitePage() {
 							disabled={pending || !name.trim() || password.length < 8}
 						>
 							{pending ? (
-								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								<Loader2 aria-hidden className="mr-2 h-4 w-4 animate-spin" />
 							) : (
-								<UserPlus className="mr-2 h-4 w-4" />
+								<UserPlus aria-hidden className="mr-2 h-4 w-4" />
 							)}
-							Konto anlegen
+							{pending ? "Konto wird angelegt…" : "Konto anlegen"}
 						</Button>
 					</form>
 				</CardContent>

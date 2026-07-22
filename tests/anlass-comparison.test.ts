@@ -105,4 +105,19 @@ describe("anlass comparison aggregation", () => {
 		]);
 		expect(groups.size).toBe(0);
 	});
+
+	test("cancelled historical entries are excluded", () => {
+		const groups = build([], [
+			{
+				id: "historical-1",
+				anlass_datum: "2025-06-01",
+				anlass_katalog_id: "b",
+				vergleichsgruppe: "Biergarten",
+				umsatz_cent: 10_000,
+				ausgaben_cent: 1_000,
+				storniert_am: new Date("2026-01-01T00:00:00Z"),
+			},
+		]);
+		expect(groups.size).toBe(0);
+	});
 });

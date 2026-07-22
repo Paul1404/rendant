@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { availableYears, filterByYear } from "@/lib/dashboard-stats";
 import {
+	availableYears,
+	filterByRange,
+	filterByYear,
+} from "@/lib/dashboard-stats";
+import {
+	computeContext,
 	computeOccasionComparisons,
 	computePeriod,
+	computeSeries,
+	rangeToDates,
 } from "@/lib/finance";
 import type { ProtokollRow } from "@/lib/protokoll-types";
 
@@ -86,5 +93,66 @@ describe("year filters", () => {
 	it("filters a selected business year", () => {
 		expect(filterByYear(rows, 2026)).toEqual([rows[1], rows[3]]);
 		expect(filterByYear(rows, undefined)).toEqual(rows);
+	});
+});
+
+describe("Berlin reporting ranges", () => {
+	const afterMidnightBerlin = new Date("2026-03-31T22:30:00.000Z");
+
+	it("derives report dates in Berlin instead of the process timezone", () => {
+		expect(rangeToDates("month", afterMidnightBerlin)).toEqual({
+			von: "2026-04-01",
+			bis: "2026-04-01",
+		});
+		expect(rangeToDates("30d", afterMidnightBerlin)).toEqual({
+			von: "2026-03-03",
+			bis: "2026-04-01",
+		});
+	});
+
+	it("uses the Berlin month for monthly totals and chart buckets", () => {
+		const rows = [protokoll("Silvester", "2026-04-01", 12_300)];
+		const context = computeContext(rows, afterMidnightBerlin);
+		expect(context.thisMonthTotal).toBe(12_300);
+		expect(context.monthly.at(-1)).toMatchObject({
+			key: "2026-04",
+			total: 12_300,
+			isCurrent: true,
+		});
+		expect(computeSeries(rows, "day", afterMidnightBerlin).at(-1)).toMatchObject(
+			{
+				key: "2026-04-01",
+				total: 12_300,
+				isCurrent: true,
+			},
+		);
+	});
+
+	it("excludes future-dated entries from current ranges", () => {
+		const rows = [
+			{ anlass_datum: "2026-03-31" },
+			{ anlass_datum: "2026-04-01" },
+			{ anlass_datum: "2026-04-02" },
+		];
+		expect(filterByRange(rows, "month", afterMidnightBerlin)).toEqual([
+			rows[1],
+		]);
+	});
+
+	it("excludes future-dated entries from current context and monthly charts", () => {
+		const current = protokoll("Frühlingsfest", "2026-04-01", 12_300);
+		const future = protokoll("Zukunft", "2026-04-02", 99_900);
+
+		const context = computeContext([current, future], afterMidnightBerlin);
+		expect(context.thisMonthTotal).toBe(12_300);
+		expect(context.lastEntryDays).toBe(0);
+		expect(context.monthly.at(-1)).toMatchObject({
+			key: "2026-04",
+			total: 12_300,
+			count: 1,
+		});
+		expect(
+			computeSeries([current, future], "month", afterMidnightBerlin).at(-1),
+		).toMatchObject({ total: 12_300, count: 1 });
 	});
 });

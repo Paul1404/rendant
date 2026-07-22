@@ -65,4 +65,23 @@ describe("deriveProtokollAccounting", () => {
       ),
     ).toThrow("Summe der USt.-Aufteilung");
   });
+
+  it("rejects denomination counts outside PostgreSQL integer range", () => {
+    const input = baseInput();
+    (input as unknown as Record<string, number>).anzahl_500_eur = 2_147_483_648;
+
+    expect(() => deriveProtokollAccounting(input)).toThrow(
+      "überschreitet den zulässigen Bereich",
+    );
+  });
+
+  it("rejects derived totals outside PostgreSQL integer range", () => {
+    const input = baseInput();
+    (input as unknown as Record<string, number>).anzahl_500_eur = 42_949;
+    (input as unknown as Record<string, number>).anzahl_200_eur = 1;
+
+    expect(() => deriveProtokollAccounting(input)).toThrow(
+      "überschreitet den zulässigen Bereich",
+    );
+  });
 });

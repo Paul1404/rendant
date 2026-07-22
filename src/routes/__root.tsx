@@ -104,7 +104,11 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
 					disableTransitionOnChange
 				>
 					<TooltipProvider delayDuration={300}>
-						<div id="main-content" className="flex min-h-dvh flex-col">
+						<div
+							id="main-content"
+							tabIndex={-1}
+							className="flex min-h-dvh flex-col outline-none"
+						>
 							{children}
 						</div>
 						<Toaster richColors position="top-center" />

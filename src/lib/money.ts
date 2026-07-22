@@ -32,7 +32,7 @@ export function formatCentCompact(cent: number): string {
 	const negative = cent < 0;
 	const abs = Math.abs(cent);
 	const sign = negative ? "-" : "";
-	if (abs < 100_000_00) {
+	if (abs < 100_000_000) {
 		if (abs < 100000) {
 			return `${sign}${Math.round(abs / 100)} €`;
 		}

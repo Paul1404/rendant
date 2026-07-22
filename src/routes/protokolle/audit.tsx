@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
 	Table,
 	TableBody,
@@ -21,6 +22,7 @@ import {
 	auditActionLabel,
 	auditCategoryLabel,
 } from "@/lib/audit";
+import { BERLIN_TZ } from "@/lib/date";
 import { orpc } from "@/lib/orpc";
 
 type AuditSearch = {
@@ -72,6 +74,7 @@ export const Route = createFileRoute("/protokolle/audit")({
 });
 
 const dateFormatter = new Intl.DateTimeFormat("de-DE", {
+	timeZone: BERLIN_TZ,
 	dateStyle: "medium",
 	timeStyle: "medium",
 });
@@ -103,11 +106,16 @@ function AuditPage() {
 			<Card>
 				<CardContent className="space-y-4">
 					<form
+						key={`${search.q ?? ""}:${search.category ?? ""}`}
 						onSubmit={submitFilters}
 						className="flex flex-col gap-3 sm:flex-row sm:items-center"
 					>
 						<div className="relative min-w-0 flex-1">
+							<Label htmlFor="audit-search" className="sr-only">
+								Audit-Log durchsuchen
+							</Label>
 							<Input
+								id="audit-search"
 								name="q"
 								type="search"
 								defaultValue={search.q}
@@ -116,19 +124,24 @@ function AuditPage() {
 							/>
 							<Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity peer-placeholder-shown:opacity-100" />
 						</div>
-						<select
-							name="category"
-							defaultValue={search.category ?? ""}
-							aria-label="Kategorie"
-							className="h-9 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-						>
-							<option value="">Alle Kategorien</option>
-							{AUDIT_CATEGORIES.map((category) => (
-								<option key={category} value={category}>
-									{auditCategoryLabel(category)}
-								</option>
-							))}
-						</select>
+						<div>
+							<Label htmlFor="audit-category" className="sr-only">
+								Kategorie
+							</Label>
+							<select
+								id="audit-category"
+								name="category"
+								defaultValue={search.category ?? ""}
+								className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:w-auto"
+							>
+								<option value="">Alle Kategorien</option>
+								{AUDIT_CATEGORIES.map((category) => (
+									<option key={category} value={category}>
+										{auditCategoryLabel(category)}
+									</option>
+								))}
+							</select>
+						</div>
 						<Button type="submit" variant="outline">
 							Filtern
 						</Button>
@@ -180,7 +193,7 @@ function AuditPage() {
 												</p>
 											) : null}
 										</TableCell>
-										<TableCell className="max-w-52 truncate">
+										<TableCell className="max-w-52 whitespace-normal break-words">
 											{event.subject_label ?? "Keine Angabe"}
 										</TableCell>
 										<TableCell className="text-xs text-muted-foreground">
@@ -216,7 +229,7 @@ function AuditPage() {
 							>
 								<ChevronLeft />
 							</Button>
-							<span>
+							<span aria-live="polite">
 								Seite {data.page} von {pages}
 							</span>
 							<Button

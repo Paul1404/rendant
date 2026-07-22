@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   formatCent,
+	formatCentCompact,
   formatCentPlain,
   parseGermanAmount,
 } from "@/lib/money";
@@ -50,6 +51,13 @@ describe("formatCent", () => {
     expect(formatCent(123456)).toBe("1.234,56 EUR");
     expect(formatCent(-500)).toBe("-5,00 EUR");
   });
+});
+
+describe("formatCentCompact", () => {
+	it("keeps six-figure euro amounts in the readable thousands scale", () => {
+		expect(formatCentCompact(12_345_600)).toBe("123,5k €");
+		expect(formatCentCompact(100_000_000)).toBe("1M €");
+	});
 });
 
 describe("parse/format round-trip", () => {

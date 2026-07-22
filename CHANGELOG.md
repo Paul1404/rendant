@@ -3,6 +3,22 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.18.1 - 2026-07-22
+
+- Einladungen und Anlass-Löschungen sind jetzt auch bei gleichzeitigen
+  Zugriffen mehrerer App-Instanzen sicher. Unzulässig große Zählwerte werden
+  vor dem Speichern abgewiesen und Protokollaktionen benötigen immer eine
+  nachvollziehbare Benutzerzuordnung.
+- Datumsfilter, Kennzahlen, Diagramme und Exporte verwenden einheitlich den
+  Berliner Kalendertag. Ungültige Zeiträume und zukünftige Buchungen verfälschen
+  aktuelle Auswertungen nicht mehr.
+- Navigation, Dialoge, Einladungsmaske, Audit-Log und Protokolldetails sind auf
+  kleinen Bildschirmen, per Tastatur und mit Hilfstechnologien verlässlicher
+  bedienbar. Beträge und fehlende Angaben werden eindeutiger dargestellt.
+- Die kompakte Betragsanzeige bleibt bei sechsstelligen Eurobeträgen im besser
+  lesbaren Tausenderbereich. Audit-Zeitstempel werden ausdrücklich in Berliner
+  Zeit angezeigt.
+
 ## 1.18.0 - 2026-07-22
 
 - Neue Kassen und Anlässe lassen sich von Admins direkt beim Erfassen eines

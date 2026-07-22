@@ -1,5 +1,10 @@
 import type { TimeRange } from "@/lib/dashboard-stats";
-import { formatDateDe } from "@/lib/date";
+import {
+	addIsoCalendarDays,
+	formatDateDe,
+	isoCalendarDayDifference,
+	todayIsoDate,
+} from "@/lib/date";
 import type { ProtokollRow } from "@/lib/protokoll-types";
 
 const MONTH_SHORT = [
@@ -31,16 +36,13 @@ const MONTH_LONG = [
 	"Dezember",
 ];
 
-function monthKey(d: Date): string {
-	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-function startOfDay(d: Date): Date {
-	const x = new Date(d);
-	x.setHours(0, 0, 0, 0);
-	return x;
-}
-function startOfMonth(d: Date): Date {
-	return new Date(d.getFullYear(), d.getMonth(), 1);
+function addMonthsToKey(key: string, months: number): string {
+	const year = Number(key.slice(0, 4));
+	const month = Number(key.slice(5, 7));
+	const absoluteMonth = year * 12 + month - 1 + months;
+	const resultYear = Math.floor(absoluteMonth / 12);
+	const resultMonth = ((absoluteMonth % 12) + 12) % 12;
+	return `${String(resultYear).padStart(4, "0")}-${String(resultMonth + 1).padStart(2, "0")}`;
 }
 
 // Total day revenue for a protokoll: net cash takings plus card payments.
@@ -156,15 +158,17 @@ export function computeContext(
 	now: Date = new Date(),
 	historical: HistoricalRevenueLike[] = [],
 ): FinanceContext {
-	const nowMonth = startOfMonth(now);
+	const today = todayIsoDate(now);
+	const thisKey = today.slice(0, 7);
 	const buckets: MonthPoint[] = [];
 	for (let i = 11; i >= 0; i--) {
-		const d = new Date(nowMonth);
-		d.setMonth(d.getMonth() - i);
+		const key = addMonthsToKey(thisKey, -i);
+		const year = Number(key.slice(0, 4));
+		const month = Number(key.slice(5, 7));
 		buckets.push({
-			key: monthKey(d),
-			label: MONTH_SHORT[d.getMonth()],
-			longLabel: `${MONTH_LONG[d.getMonth()]} ${d.getFullYear()}`,
+			key,
+			label: MONTH_SHORT[month - 1],
+			longLabel: `${MONTH_LONG[month - 1]} ${year}`,
 			total: 0,
 			count: 0,
 			isCurrent: i === 0,
@@ -172,18 +176,15 @@ export function computeContext(
 	}
 	const byKey = new Map(buckets.map((b) => [b.key, b]));
 
-	const thisKey = monthKey(nowMonth);
-	const lastMonthDate = new Date(nowMonth);
-	lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
-	const lastKey = monthKey(lastMonthDate);
+	const lastKey = addMonthsToKey(thisKey, -1);
 
 	let thisMonthTotal = 0;
 	let lastMonthTotal = 0;
-	let last: Date | null = null;
+	let last: string | null = null;
 
 	for (const p of allActive) {
-		const d = new Date(p.anlass_datum);
-		const k = monthKey(d);
+		if (p.anlass_datum > today) continue;
+		const k = p.anlass_datum.slice(0, 7);
 		const b = byKey.get(k);
 		if (b) {
 			b.total += revenueOf(p);
@@ -191,11 +192,11 @@ export function computeContext(
 		}
 		if (k === thisKey) thisMonthTotal += revenueOf(p);
 		else if (k === lastKey) lastMonthTotal += revenueOf(p);
-		if (!last || d > last) last = d;
+		if (!last || p.anlass_datum > last) last = p.anlass_datum;
 	}
 	for (const item of historical) {
-		const d = new Date(item.anlass_datum);
-		const k = monthKey(d);
+		if (item.anlass_datum > today) continue;
+		const k = item.anlass_datum.slice(0, 7);
 		const b = byKey.get(k);
 		if (b) {
 			b.total += item.umsatz_cent;
@@ -203,7 +204,7 @@ export function computeContext(
 		}
 		if (k === thisKey) thisMonthTotal += item.umsatz_cent;
 		else if (k === lastKey) lastMonthTotal += item.umsatz_cent;
-		if (!last || d > last) last = d;
+		if (!last || item.anlass_datum > last) last = item.anlass_datum;
 	}
 
 	const momPct =
@@ -214,12 +215,7 @@ export function computeContext(
 			: null;
 
 	const lastEntryDays = last
-		? Math.max(
-				0,
-				Math.floor(
-					(startOfDay(now).getTime() - startOfDay(last).getTime()) / 86_400_000,
-				),
-			)
+		? Math.max(0, isoCalendarDayDifference(today, last))
 		: null;
 
 	return {
@@ -232,30 +228,20 @@ export function computeContext(
 	};
 }
 
-function isoDate(d: Date): string {
-	const pad = (n: number) => String(n).padStart(2, "0");
-	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
 // Date window for a selected time range, used to query period-scoped reports.
 export function rangeToDates(
 	range: TimeRange,
 	now: Date = new Date(),
 ): { von: string; bis: string } {
-	const bis = isoDate(now);
+	const bis = todayIsoDate(now);
 	if (range === "year") {
-		return { von: isoDate(new Date(now.getFullYear(), 0, 1)), bis };
+		return { von: `${bis.slice(0, 4)}-01-01`, bis };
 	}
 	if (range === "month") {
-		return {
-			von: isoDate(new Date(now.getFullYear(), now.getMonth(), 1)),
-			bis,
-		};
+		return { von: `${bis.slice(0, 7)}-01`, bis };
 	}
 	if (range === "30d") {
-		const start = startOfDay(now);
-		start.setDate(start.getDate() - 29);
-		return { von: isoDate(start), bis };
+		return { von: addIsoCalendarDays(bis, -29), bis };
 	}
 	return { von: "2000-01-01", bis };
 }
@@ -278,14 +264,8 @@ export const GRANULARITY_LABELS: Record<Granularity, string> = {
 const DAY_BUCKETS = 30;
 const WEEK_BUCKETS = 12;
 
-function isoLocal(d: Date): string {
-	const pad = (n: number) => String(n).padStart(2, "0");
-	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-function ddmm(d: Date): string {
-	const pad = (n: number) => String(n).padStart(2, "0");
-	return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.`;
+function ddmm(value: string): string {
+	return `${value.slice(8, 10)}.${value.slice(5, 7)}.`;
 }
 
 // Revenue series for the chart at the chosen granularity. Daily shows the last
@@ -315,17 +295,15 @@ export function computeSeries(
 			cur.count += 1;
 			byDay.set(item.anlass_datum, cur);
 		}
-		const today = startOfDay(now);
+		const today = todayIsoDate(now);
 		const points: MonthPoint[] = [];
 		for (let i = DAY_BUCKETS - 1; i >= 0; i--) {
-			const d = new Date(today);
-			d.setDate(d.getDate() - i);
-			const key = isoLocal(d);
+			const key = addIsoCalendarDays(today, -i);
 			const agg = byDay.get(key) ?? { total: 0, count: 0 };
 			points.push({
 				key,
-				label: i % 5 === 0 ? ddmm(d) : "",
-				longLabel: formatDateDe(d),
+				label: i % 5 === 0 ? ddmm(key) : "",
+				longLabel: formatDateDe(key),
 				total: agg.total,
 				count: agg.count,
 				isCurrent: i === 0,
@@ -335,15 +313,11 @@ export function computeSeries(
 	}
 
 	// week: rolling 7-day buckets ending today.
-	const today = startOfDay(now);
+	const today = todayIsoDate(now);
 	const points: MonthPoint[] = [];
 	for (let i = WEEK_BUCKETS - 1; i >= 0; i--) {
-		const end = new Date(today);
-		end.setDate(end.getDate() - i * 7);
-		const start = new Date(end);
-		start.setDate(start.getDate() - 6);
-		const startKey = isoLocal(start);
-		const endKey = isoLocal(end);
+		const endKey = addIsoCalendarDays(today, -i * 7);
+		const startKey = addIsoCalendarDays(endKey, -6);
 		let total = 0;
 		let count = 0;
 		for (const p of allActive) {
@@ -360,8 +334,8 @@ export function computeSeries(
 		}
 		points.push({
 			key: startKey,
-			label: ddmm(start),
-			longLabel: `Woche ${formatDateDe(start)} bis ${formatDateDe(end)}`,
+			label: ddmm(startKey),
+			longLabel: `Woche ${formatDateDe(startKey)} bis ${formatDateDe(endKey)}`,
 			total,
 			count,
 			isCurrent: i === 0,

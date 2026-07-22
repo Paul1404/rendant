@@ -1,3 +1,4 @@
+import { addIsoCalendarDays, todayIsoDate } from "@/lib/date";
 import type { ProtokollRow } from "@/lib/protokoll-types";
 
 const MONTH_LABELS_LONG = [
@@ -15,30 +16,6 @@ const MONTH_LABELS_LONG = [
 	"Dezember",
 ];
 
-function monthKey(d: Date): string {
-	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function startOfDay(d: Date): Date {
-	const x = new Date(d);
-	x.setHours(0, 0, 0, 0);
-	return x;
-}
-
-function startOfMonth(d: Date): Date {
-	return new Date(d.getFullYear(), d.getMonth(), 1);
-}
-
-function startOfYear(d: Date): Date {
-	return new Date(d.getFullYear(), 0, 1);
-}
-
-function addDays(d: Date, days: number): Date {
-	const x = new Date(d);
-	x.setDate(x.getDate() + days);
-	return x;
-}
-
 export type TimeRange = "month" | "30d" | "year" | "all";
 
 export function parseTimeRange(value: string | undefined): TimeRange {
@@ -52,11 +29,14 @@ export function filterByRange<T extends { anlass_datum: string }>(
 	now: Date = new Date(),
 ): T[] {
 	if (range === "all") return items;
-	let from: Date;
-	if (range === "month") from = startOfMonth(now);
-	else if (range === "year") from = startOfYear(now);
-	else from = addDays(startOfDay(now), -29);
-	return items.filter((p) => new Date(p.anlass_datum) >= from);
+	const today = todayIsoDate(now);
+	let from: string;
+	if (range === "month") from = `${today.slice(0, 7)}-01`;
+	else if (range === "year") from = `${today.slice(0, 4)}-01-01`;
+	else from = addIsoCalendarDays(today, -29);
+	return items.filter(
+		(item) => item.anlass_datum >= from && item.anlass_datum <= today,
+	);
 }
 
 export function filterByYear<T extends { anlass_datum: string }>(
@@ -111,13 +91,15 @@ export type MonthGroup = {
 export function groupByMonth(items: ProtokollRow[]): MonthGroup[] {
 	const map = new Map<string, MonthGroup>();
 	for (const p of items) {
-		const d = new Date(p.anlass_datum);
-		const k = monthKey(d);
+		const year = Number(p.anlass_datum.slice(0, 4));
+		const month = Number(p.anlass_datum.slice(5, 7));
+		if (!Number.isInteger(year) || month < 1 || month > 12) continue;
+		const k = `${year}-${String(month).padStart(2, "0")}`;
 		let g = map.get(k);
 		if (!g) {
 			g = {
 				key: k,
-				label: `${MONTH_LABELS_LONG[d.getMonth()]} ${d.getFullYear()}`,
+				label: `${MONTH_LABELS_LONG[month - 1]} ${year}`,
 				count: 0,
 				sumActiveCent: 0,
 				items: [],

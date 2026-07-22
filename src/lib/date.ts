@@ -4,6 +4,54 @@
 // belegnummer year could flip a day early around New Year.
 export const BERLIN_TZ = "Europe/Berlin";
 
+const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+export function isIsoCalendarDate(value: string): boolean {
+	const match = ISO_DATE_PATTERN.exec(value);
+	if (!match) return false;
+	const year = Number(match[1]);
+	const month = Number(match[2]);
+	const day = Number(match[3]);
+	if (year < 1 || month < 1 || month > 12 || day < 1) return false;
+	const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+	return day <= daysInMonth;
+}
+
+function isoDateAtUtcNoon(value: string): Date {
+	if (!isIsoCalendarDate(value)) {
+		throw new RangeError(`Invalid ISO calendar date: ${value}`);
+	}
+	const [year, month, day] = value.split("-").map(Number);
+	const date = new Date(0);
+	date.setUTCFullYear(year, month - 1, day);
+	date.setUTCHours(12, 0, 0, 0);
+	return date;
+}
+
+function utcDateToIso(value: Date): string {
+	return [
+		String(value.getUTCFullYear()).padStart(4, "0"),
+		String(value.getUTCMonth() + 1).padStart(2, "0"),
+		String(value.getUTCDate()).padStart(2, "0"),
+	].join("-");
+}
+
+export function addIsoCalendarDays(value: string, days: number): string {
+	const date = isoDateAtUtcNoon(value);
+	date.setUTCDate(date.getUTCDate() + days);
+	return utcDateToIso(date);
+}
+
+export function isoCalendarDayDifference(
+	later: string,
+	earlier: string,
+): number {
+	return Math.round(
+		(isoDateAtUtcNoon(later).getTime() - isoDateAtUtcNoon(earlier).getTime()) /
+			86_400_000,
+	);
+}
+
 const dateFormatter = new Intl.DateTimeFormat("de-DE", {
 	timeZone: BERLIN_TZ,
 	day: "2-digit",

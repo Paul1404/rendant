@@ -70,7 +70,7 @@ export function Header() {
 
 	return (
 		<header className="sticky top-0 z-30 border-b border-border/70 bg-background/75 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
-			<div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+			<div className="mx-auto grid max-w-6xl grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-6 lg:flex lg:justify-between lg:gap-4">
 				<Link
 					to="/protokolle"
 					aria-label="SVUFO Startseite"
@@ -79,8 +79,11 @@ export function Header() {
 					<BrandLockup variant="bar" />
 				</Link>
 
-				<nav className="flex items-center gap-1">
-					<div className="hidden items-center gap-0.5 rounded-xl border border-border/70 bg-background/60 p-1 shadow-sm md:flex">
+				<nav
+					aria-label="Hauptnavigation"
+					className="order-3 col-span-2 min-w-0 lg:order-none lg:col-span-1"
+				>
+					<div className="hidden items-center gap-0.5 rounded-xl border border-border/70 bg-background/60 p-1 shadow-sm lg:flex">
 						{navItems.map(({ href, label, icon: Icon, exact }) => {
 							const active = exact
 								? pathname === href
@@ -108,7 +111,7 @@ export function Header() {
 					</div>
 
 					<TooltipProvider>
-						<div className="flex items-center gap-0.5 md:hidden">
+						<div className="flex items-center justify-between gap-1 rounded-xl border border-border/70 bg-background/60 p-1 shadow-sm lg:hidden">
 							{navItems.map(({ href, label, icon: Icon, exact }) => {
 								const active = exact
 									? pathname === href
@@ -143,7 +146,9 @@ export function Header() {
 							})}
 						</div>
 					</TooltipProvider>
+				</nav>
 
+				<div className="flex items-center justify-end gap-1">
 					<ThemeToggle />
 
 					<span
@@ -160,7 +165,7 @@ export function Header() {
 						<LogOut className="h-4 w-4 sm:mr-1.5" />
 						<span className="hidden sm:inline">Abmelden</span>
 					</Button>
-				</nav>
+				</div>
 			</div>
 		</header>
 	);

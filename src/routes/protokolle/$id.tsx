@@ -338,7 +338,7 @@ function ProtokollDetailPage() {
 											</TableCell>
 											<TableCell className="text-right">
 												{isZero ? (
-													<span className="text-muted-foreground/50">—</span>
+													<Money cent={0} tone="muted" />
 												) : (
 													<Money cent={count * d.cent} />
 												)}
@@ -402,13 +402,13 @@ function ProtokollDetailPage() {
 											<TableRow key={a.id}>
 												<TableCell>{a.bezeichnung}</TableCell>
 												<TableCell className="text-muted-foreground">
-													{a.empfaenger || "—"}
+													{a.empfaenger || "Keine Angabe"}
 												</TableCell>
 												<TableCell className="font-mono text-muted-foreground">
-													{a.beleg_nr || "—"}
+													{a.beleg_nr || "Keine Angabe"}
 												</TableCell>
 												<TableCell className="text-right tabular-nums text-muted-foreground">
-													{bp === 0 ? "—" : formatUstSatzLib(bp)}
+													{formatUstSatzLib(bp)}
 													{bp > 0 ? (
 														<span className="ml-1 text-[10px] text-muted-foreground/70">
 															(<Money cent={ust} tone="muted" />)
@@ -595,7 +595,7 @@ function UstBreakdown({
 								</td>
 								<td className="px-3 py-1.5 text-right">
 									{g.ust_cent === 0 ? (
-										<span className="text-muted-foreground/50">—</span>
+										<Money cent={0} tone="muted" />
 									) : (
 										<Money cent={g.ust_cent} />
 									)}
@@ -663,7 +663,7 @@ function UmsatzUstBreakdown({
 							</td>
 							<td className="px-3 py-1.5 text-right">
 								{g.ust_cent === 0 ? (
-									<span className="text-muted-foreground/50">—</span>
+									<Money cent={0} tone="muted" />
 								) : (
 									<Money cent={g.ust_cent} />
 								)}

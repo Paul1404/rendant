@@ -71,30 +71,48 @@ export async function updateKatalog(
 	return rowToEntry(rows[0]);
 }
 
-// How many stored rows still point at this catalog entry. Deletion is blocked
-// while referenced so we never silently drop a grouping; deactivate instead.
-export async function countKatalogReferences(id: string): Promise<number> {
-	const [p, h] = await Promise.all([
-		db
-			.select({ n: sql<number>`count(*)` })
-			.from(protokolle)
-			.where(eq(protokolle.anlass_katalog_id, id)),
-		db
-			.select({ n: sql<number>`count(*)` })
-			.from(historicalRevenues)
-			.where(eq(historicalRevenues.anlass_katalog_id, id)),
-	]);
-	return Number(p[0]?.n ?? 0) + Number(h[0]?.n ?? 0);
-}
-
 export async function deleteKatalog(
 	id: string,
-): Promise<AnlassKatalogEntry | null> {
-	const rows = await db
-		.delete(anlassKatalog)
-		.where(eq(anlassKatalog.id, id))
-		.returning();
-	return rows[0] ? rowToEntry(rows[0]) : null;
+): Promise<
+	| { status: "deleted"; entry: AnlassKatalogEntry }
+	| { status: "referenced"; references: number }
+	| { status: "not_found" }
+> {
+	return db.transaction(async (tx) => {
+		// The row lock makes the reference check and deletion one concurrency
+		// boundary. Foreign-key writers must wait, so a newly assigned record
+		// cannot be silently detached by ON DELETE SET NULL between two queries.
+		const target = await tx
+			.select()
+			.from(anlassKatalog)
+			.where(eq(anlassKatalog.id, id))
+			.limit(1)
+			.for("update");
+		if (!target[0]) return { status: "not_found" as const };
+
+		const [p, h] = await Promise.all([
+			tx
+				.select({ n: sql<number>`count(*)` })
+				.from(protokolle)
+				.where(eq(protokolle.anlass_katalog_id, id)),
+			tx
+				.select({ n: sql<number>`count(*)` })
+				.from(historicalRevenues)
+				.where(eq(historicalRevenues.anlass_katalog_id, id)),
+		]);
+		const references = Number(p[0]?.n ?? 0) + Number(h[0]?.n ?? 0);
+		if (references > 0) {
+			return { status: "referenced" as const, references };
+		}
+
+		const rows = await tx
+			.delete(anlassKatalog)
+			.where(eq(anlassKatalog.id, id))
+			.returning();
+		return rows[0]
+			? { status: "deleted" as const, entry: rowToEntry(rows[0]) }
+			: { status: "not_found" as const };
+	});
 }
 
 export async function bulkAssignKatalog(input: {

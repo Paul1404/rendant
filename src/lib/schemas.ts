@@ -1,4 +1,5 @@
 import * as v from "valibot";
+import { isIsoCalendarDate } from "@/lib/date";
 import { DENOMINATION_KEYS } from "@/lib/denominations";
 
 // Validation schemas in Valibot, shared between the oRPC procedures (server)
@@ -10,6 +11,12 @@ const ustPunkte = v.pipe(
 	v.integer(),
 	v.minValue(0),
 	v.maxValue(10000),
+);
+
+const isoCalendarDate = v.pipe(
+	v.string(),
+	v.regex(/^\d{4}-\d{2}-\d{2}$/),
+	v.check(isIsoCalendarDate, "Bitte ein gültiges Datum angeben"),
 );
 
 const countsEntries = Object.fromEntries(
@@ -120,7 +127,7 @@ export const CreateProtokollSchema = v.object({
 	bemerkung: v.optional(v.pipe(v.string(), v.maxLength(2000)), ""),
 	wechselgeld_cent: intGte0,
 	kartenzahlung_cent: v.optional(intGte0, 0),
-	anlass_datum: v.pipe(v.string(), v.regex(/^\d{4}-\d{2}-\d{2}$/)),
+	anlass_datum: isoCalendarDate,
 	...countsEntries,
 	ausgaben: v.optional(v.pipe(v.array(AusgabeSchema), v.maxLength(100)), []),
 	umsatz_ust: v.optional(
@@ -136,10 +143,16 @@ export const StornoSchema = v.object({
 });
 export type StornoInput = v.InferOutput<typeof StornoSchema>;
 
-export const ExportQuerySchema = v.object({
-	von: v.pipe(v.string(), v.regex(/^\d{4}-\d{2}-\d{2}$/)),
-	bis: v.pipe(v.string(), v.regex(/^\d{4}-\d{2}-\d{2}$/)),
-});
+export const ExportQuerySchema = v.pipe(
+	v.object({
+		von: isoCalendarDate,
+		bis: isoCalendarDate,
+	}),
+	v.check(
+		(input) => input.von <= input.bis,
+		"Das Startdatum muss vor dem Enddatum liegen",
+	),
+);
 export type ExportQuery = v.InferOutput<typeof ExportQuerySchema>;
 
 export const CashRegisterSchema = v.object({
@@ -234,7 +247,7 @@ const historicalRevenueOptionalText = (maxLength: number) =>
 
 export const HistoricalRevenueCreateSchema = v.object({
 	idempotency_key: v.pipe(v.string(), v.uuid()),
-	anlass_datum: v.pipe(v.string(), v.regex(/^\d{4}-\d{2}-\d{2}$/)),
+	anlass_datum: isoCalendarDate,
 	anlass: v.pipe(
 		v.string(),
 		v.trim(),

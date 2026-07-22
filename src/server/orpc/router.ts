@@ -24,7 +24,6 @@ import { user as userTable } from "@/server/db/auth-schema";
 import {
 	AnlassKatalogConcurrencyError,
 	bulkAssignKatalog,
-	countKatalogReferences,
 	createKatalog,
 	deleteKatalog,
 	listKatalog,
@@ -156,6 +155,9 @@ const protokolle = {
 					throw new ORPCError("CONFLICT", { message: msg });
 				}
 				if (msg.startsWith("Summe der USt")) {
+					throw new ORPCError("BAD_REQUEST", { message: msg });
+				}
+				if (msg.startsWith("Betrag oder Stückzahl")) {
 					throw new ORPCError("BAD_REQUEST", { message: msg });
 				}
 				throw e;
@@ -577,15 +579,15 @@ const anlassKatalog = {
 		}),
 
 	remove: adminOnly.input(idInput).handler(async ({ input, context }) => {
-		const refs = await countKatalogReferences(input.id);
-		if (refs > 0) {
+		const result = await deleteKatalog(input.id);
+		if (result.status === "referenced") {
 			throw new ORPCError("CONFLICT", {
-				message: `Anlass ist ${refs} Belegen zugeordnet. Bitte stattdessen deaktivieren.`,
+				message: `Anlass ist ${result.references} Belegen zugeordnet. Bitte stattdessen deaktivieren.`,
 			});
 		}
-		const entry = await deleteKatalog(input.id);
-		if (!entry)
+		if (result.status === "not_found")
 			throw new ORPCError("NOT_FOUND", { message: "Anlass nicht gefunden" });
+		const entry = result.entry;
 		await recordAuditEvent({
 			category: "anlass",
 			action: "anlass.deleted",

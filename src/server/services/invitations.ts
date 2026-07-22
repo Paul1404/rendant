@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { and, desc, eq, gt, isNull } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import { db } from "@/server/db";
 import { user as userTable } from "@/server/db/auth-schema";
 import { invitations } from "@/server/db/schema";
@@ -47,27 +47,53 @@ export async function createInvite(opts: {
 	invitedBy: string | null;
 }): Promise<InviteWithLink> {
 	const email = opts.email.trim().toLowerCase();
-	const existingUser = await db
-		.select({ id: userTable.id })
-		.from(userTable)
-		.where(eq(userTable.email, email))
-		.limit(1);
-	if (existingUser.length > 0) {
-		throw new Error("Es existiert bereits ein Konto mit dieser E-Mail");
-	}
+	return db.transaction(async (tx) => {
+		// Serialize invitation creation per normalized email across all app
+		// instances. A read-before-write check alone permits two admins to create
+		// simultaneously valid invitations for the same future account.
+		await tx.execute(
+			sql`select pg_advisory_xact_lock(hashtextextended(${email}, 0))`,
+		);
 
-	const token = randomBytes(32).toString("base64url");
-	const rows = await db
-		.insert(invitations)
-		.values({
-			email,
-			token,
-			role: opts.role,
-			invited_by: opts.invitedBy,
-			expires_at: new Date(Date.now() + INVITE_TTL_MS),
-		})
-		.returning();
-	return { ...rowToInvite(rows[0]), token };
+		const existingUser = await tx
+			.select({ id: userTable.id })
+			.from(userTable)
+			.where(eq(userTable.email, email))
+			.limit(1);
+		if (existingUser.length > 0) {
+			throw new Error("Es existiert bereits ein Konto mit dieser E-Mail");
+		}
+
+		const activeInvite = await tx
+			.select({ id: invitations.id })
+			.from(invitations)
+			.where(
+				and(
+					eq(invitations.email, email),
+					isNull(invitations.accepted_at),
+					gt(invitations.expires_at, new Date()),
+				),
+			)
+			.limit(1);
+		if (activeInvite.length > 0) {
+			throw new Error(
+				"Für diese E-Mail besteht bereits eine gültige Einladung",
+			);
+		}
+
+		const token = randomBytes(32).toString("base64url");
+		const rows = await tx
+			.insert(invitations)
+			.values({
+				email,
+				token,
+				role: opts.role,
+				invited_by: opts.invitedBy,
+				expires_at: new Date(Date.now() + INVITE_TTL_MS),
+			})
+			.returning();
+		return { ...rowToInvite(rows[0]), token };
+	});
 }
 
 export async function revokeInvite(id: string): Promise<Invite | null> {

@@ -231,11 +231,9 @@ function NoResults({ hasFilters }: { hasFilters: boolean }) {
 					: "Es sind keine Belege vorhanden."}
 			</p>
 			{hasFilters ? (
-				<Link to="/protokolle" className="mt-1">
-					<Button variant="outline" size="sm">
-						Filter zurücksetzen
-					</Button>
-				</Link>
+				<Button asChild variant="outline" size="sm" className="mt-1">
+					<Link to="/protokolle">Filter zurücksetzen</Link>
+				</Button>
 			) : null}
 		</div>
 	);

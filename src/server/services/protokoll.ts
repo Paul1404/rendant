@@ -20,6 +20,8 @@ import { getVereinStammdaten } from "@/server/services/settings";
 
 type DbProtokoll = typeof protokolle.$inferSelect;
 type AuditActor = { id: string; name: string; email: string };
+const POSTGRES_INTEGER_MAX = 2_147_483_647;
+const POSTGRES_INTEGER_MIN = -2_147_483_648;
 
 function actorName(actor: AuditActor): string {
 	return actor.name.trim() || actor.email;
@@ -153,6 +155,11 @@ export function deriveProtokollAccounting(input: CreateProtokollInput): {
 	let gezaehlt_cent = 0;
 	for (const d of DENOMINATIONS) {
 		const value = (input as unknown as Record<string, number>)[d.key] ?? 0;
+		if (!Number.isSafeInteger(value) || value > POSTGRES_INTEGER_MAX) {
+			throw new Error(
+				"Betrag oder Stückzahl überschreitet den zulässigen Bereich",
+			);
+		}
 		counts[d.key] = value;
 		gezaehlt_cent += value * d.cent;
 	}
@@ -165,6 +172,29 @@ export function deriveProtokollAccounting(input: CreateProtokollInput): {
 		input.umsatz_ust_basis === "pre_card"
 			? tageseinnahmen_cent
 			: tageseinnahmen_gesamt_cent;
+
+	const storedAmounts = [
+		input.wechselgeld_cent,
+		input.kartenzahlung_cent,
+		gezaehlt_cent,
+		ausgaben_cent,
+		bestand_cent,
+		tageseinnahmen_cent,
+		...input.ausgaben.map((item) => item.betrag_cent),
+		...input.umsatz_ust.map((item) => item.betrag_cent),
+	];
+	if (
+		storedAmounts.some(
+			(value) =>
+				!Number.isSafeInteger(value) ||
+				value < POSTGRES_INTEGER_MIN ||
+				value > POSTGRES_INTEGER_MAX,
+		)
+	) {
+		throw new Error(
+			"Betrag oder Stückzahl überschreitet den zulässigen Bereich",
+		);
+	}
 
 	if (input.umsatz_ust.length > 0) {
 		const sum = input.umsatz_ust.reduce((s, u) => s + u.betrag_cent, 0);
@@ -191,7 +221,7 @@ export function deriveProtokollAccounting(input: CreateProtokollInput): {
 
 export async function createProtokoll(
 	input: CreateProtokollInput,
-	actor?: AuditActor,
+	actor: AuditActor,
 ): Promise<CreateResult> {
 	const {
 		counts,
@@ -218,8 +248,8 @@ export async function createProtokoll(
 					.insert(protokolle)
 					.values({
 						belegnummer,
-						erstellt_von_user_id: actor?.id ?? null,
-						erstellt_von_name: actor ? actorName(actor) : null,
+						erstellt_von_user_id: actor.id,
+						erstellt_von_name: actorName(actor),
 						anlass_datum: input.anlass_datum,
 						kassennummer: input.kassennummer,
 						kassenbezeichnung: input.kassenbezeichnung,
@@ -369,7 +399,7 @@ async function pdfDataFromDetail(detail: ProtokollDetail) {
 export async function stornoProtokoll(
 	id: string,
 	input: StornoInput,
-	actor?: AuditActor,
+	actor: AuditActor,
 ): Promise<void> {
 	const detail = await getProtokoll(id);
 	if (!detail) throw new Error("Protokoll nicht gefunden");
@@ -381,8 +411,8 @@ export async function stornoProtokoll(
 		.update(protokolle)
 		.set({
 			storniert_am: stornoAm,
-			storniert_von_user_id: actor?.id ?? null,
-			storniert_von_name: actor ? actorName(actor) : null,
+			storniert_von_user_id: actor.id,
+			storniert_von_name: actorName(actor),
 			storno_grund: input.storno_grund,
 		})
 		.where(and(eq(protokolle.id, id), isNull(protokolle.storniert_am)))

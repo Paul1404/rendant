@@ -48,6 +48,12 @@ describe("HistoricalRevenueCreateSchema", () => {
 		expect(
 			v.safeParse(HistoricalRevenueCreateSchema, {
 				...validCreate,
+				anlass_datum: "2024-02-31",
+			}).success,
+		).toBe(false);
+		expect(
+			v.safeParse(HistoricalRevenueCreateSchema, {
+				...validCreate,
 				umsatz_cent: -1,
 			}).success,
 		).toBe(false);
