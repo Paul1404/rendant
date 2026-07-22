@@ -3,6 +3,7 @@ import { desc, eq } from "drizzle-orm";
 import * as v from "valibot";
 import { AUDIT_CATEGORIES } from "@/lib/audit";
 import {
+	AnlassKatalogBulkAssignSchema,
 	AnlassKatalogSchema,
 	BelegnummerSettingsSchema,
 	CashRegisterSchema,
@@ -21,6 +22,8 @@ import {
 import { db } from "@/server/db";
 import { user as userTable } from "@/server/db/auth-schema";
 import {
+	AnlassKatalogConcurrencyError,
+	bulkAssignKatalog,
 	countKatalogReferences,
 	createKatalog,
 	deleteKatalog,
@@ -486,6 +489,52 @@ const anlassKatalog = {
 					});
 				}
 				throw e;
+			}
+		}),
+
+	bulkAssign: adminOnly
+		.input(AnlassKatalogBulkAssignSchema)
+		.handler(async ({ input, context }) => {
+			try {
+				const result = await bulkAssignKatalog({
+					targetId: input.target_id,
+					sourceId: input.source_id,
+					targetName: input.target_name,
+					protokollIds: input.protokoll_ids,
+					historicalIds: input.historical_ids,
+				});
+				if (!result) {
+					throw new ORPCError("NOT_FOUND", {
+						message: "Ziel-Anlass nicht gefunden",
+					});
+				}
+				await recordAuditEvent({
+					category: "anlass",
+					action: "anlass.bulk_assigned",
+					actor: context.user,
+					subject: {
+						type: "anlass",
+						id: result.entry.id,
+						label: result.entry.name,
+					},
+					request: requestAuditContext(context),
+					metadata: {
+						protokolle: result.protocols,
+						altunterlagen: result.historical,
+						übersprungen: result.skipped,
+					},
+				});
+				return result;
+			} catch (error) {
+				if (error instanceof AnlassKatalogConcurrencyError) {
+					throw new ORPCError("CONFLICT", { message: error.message });
+				}
+				if ((error as { code?: string }).code === "23505") {
+					throw new ORPCError("CONFLICT", {
+						message: "Anlass mit diesem Namen existiert bereits",
+					});
+				}
+				throw error;
 			}
 		}),
 

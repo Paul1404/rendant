@@ -59,6 +59,28 @@ export const AnlassKatalogSchema = v.object({
 });
 export type AnlassKatalogFormInput = v.InferOutput<typeof AnlassKatalogSchema>;
 
+export const AnlassKatalogBulkAssignSchema = v.pipe(
+	v.object({
+		target_id: v.pipe(v.string(), v.uuid()),
+		source_id: v.nullable(v.pipe(v.string(), v.uuid())),
+		target_name: v.optional(
+			v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120)),
+		),
+		protokoll_ids: v.pipe(
+			v.array(v.pipe(v.string(), v.uuid())),
+			v.maxLength(500),
+		),
+		historical_ids: v.pipe(
+			v.array(v.pipe(v.string(), v.uuid())),
+			v.maxLength(500),
+		),
+	}),
+	v.check(
+		(input) => input.protokoll_ids.length + input.historical_ids.length > 0,
+		"Mindestens einen Eintrag auswählen",
+	),
+);
+
 export const VereinSettingsSchema = v.object({
 	vereinsname: v.pipe(
 		v.string(),

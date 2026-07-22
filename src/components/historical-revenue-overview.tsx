@@ -4,13 +4,13 @@ import { useRouter } from "@tanstack/react-router";
 import {
 	Ban,
 	CalendarDays,
+	ChevronDown,
 	ChevronUp,
 	History,
 	Info,
 	Loader2,
 	Plus,
 	Save,
-	TrendingUp,
 	TriangleAlert,
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
@@ -78,6 +78,15 @@ export type HistoricalRevenue = {
 	storno_grund?: string | null;
 };
 
+type ComparisonDetailEntry = {
+	id: string;
+	source: "protocol" | "historical";
+	date: string;
+	label: string;
+	reference: string;
+	revenueCent: number;
+};
+
 export function HistoricalRevenueOverview({
 	initialHistorical,
 	protocols,
@@ -107,11 +116,54 @@ export function HistoricalRevenueOverview({
 		() => new Map(anlassKatalog.map((k) => [k.id, k])),
 		[anlassKatalog],
 	);
-	const comparisons = useMemo(
-		() =>
-			buildComparisons(toComparisonEntries(historical, protocols), catalogById),
+	const comparisonEntries = useMemo(
+		() => toComparisonEntries(historical, protocols),
 		[historical, protocols, catalogById],
 	);
+	const comparisons = useMemo(
+		() => buildComparisons(comparisonEntries, catalogById),
+		[comparisonEntries, catalogById],
+	);
+	const detailsByGroup = useMemo(() => {
+		const groups = new Map<string, ComparisonDetailEntry[]>();
+		const historicalById = new Map(
+			historical.map((entry) => [entry.id, entry]),
+		);
+		const protocolsById = new Map(protocols.map((entry) => [entry.id, entry]));
+		for (const entry of comparisonEntries) {
+			const mappedId =
+				entry.katalogId && catalogById.has(entry.katalogId)
+					? entry.katalogId
+					: null;
+			const key = groupKeyFor(mappedId, entry.occasion);
+			const source =
+				entry.source === "protocol"
+					? protocolsById.get(entry.id)
+					: historicalById.get(entry.id);
+			if (!source) continue;
+			const detail: ComparisonDetailEntry =
+				entry.source === "protocol"
+					? {
+							id: entry.id,
+							source: "protocol",
+							date: entry.date,
+							label: (source as ProtokollRow).anlass,
+							reference: (source as ProtokollRow).belegnummer,
+							revenueCent: entry.revenueCent,
+						}
+					: {
+							id: entry.id,
+							source: "historical",
+							date: entry.date,
+							label: (source as HistoricalRevenue).anlass,
+							reference:
+								(source as HistoricalRevenue).quellreferenz ?? "Altunterlage",
+							revenueCent: entry.revenueCent,
+						};
+			groups.set(key, [...(groups.get(key) ?? []), detail]);
+		}
+		return groups;
+	}, [comparisonEntries, historical, protocols, catalogById]);
 	const visibleComparisons =
 		occasionFilter === "all"
 			? comparisons
@@ -468,7 +520,17 @@ export function HistoricalRevenueOverview({
 				{visibleComparisons.length > 0 ? (
 					<div className="grid gap-4 lg:grid-cols-2">
 						{visibleComparisons.map((group) => (
-							<ComparisonCard key={group.key} group={group} />
+							<ComparisonCard
+								key={group.key}
+								group={group}
+								entries={detailsByGroup.get(group.key) ?? []}
+								catalog={anlassKatalog}
+								canManage={canCreate}
+								onSaved={async () => {
+									await queryClient.invalidateQueries();
+									await router.invalidate();
+								}}
+							/>
 						))}
 					</div>
 				) : (
@@ -526,7 +588,7 @@ function AmountField({
 					onBlur={onBlur}
 					onChange={(event) => onChange(event.target.value)}
 					placeholder="0,00"
-					className="pr-12 text-right tabular-nums"
+					className="pr-14 text-right tabular-nums sm:pr-14"
 					required={required}
 				/>
 				<span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
@@ -537,7 +599,25 @@ function AmountField({
 	);
 }
 
-function ComparisonCard({ group }: { group: OccasionComparison }) {
+function ComparisonCard({
+	group,
+	entries,
+	catalog,
+	canManage,
+	onSaved,
+}: {
+	group: OccasionComparison;
+	entries: ComparisonDetailEntry[];
+	catalog: AnlassKatalogEntry[];
+	canManage: boolean;
+	onSaved: () => Promise<void>;
+}) {
+	const initialTarget = group.unmapped ? "" : group.key;
+	const [expanded, setExpanded] = useState(false);
+	const [selected, setSelected] = useState<Set<string>>(new Set());
+	const [targetId, setTargetId] = useState(initialTarget);
+	const [targetName, setTargetName] = useState(group.label);
+	const [saving, setSaving] = useState(false);
 	const years = Array.from(group.years.values()).sort(
 		(a, b) => b.year - a.year,
 	);
@@ -548,6 +628,45 @@ function ComparisonCard({ group }: { group: OccasionComparison }) {
 		previous && previous.revenueCent !== 0
 			? ((delta ?? 0) / previous.revenueCent) * 100
 			: null;
+
+	function selectTarget(id: string) {
+		setTargetId(id);
+		setTargetName(catalog.find((entry) => entry.id === id)?.name ?? "");
+	}
+
+	async function applyBulkEdit() {
+		if (!targetId || selected.size === 0) return;
+		const selectedEntries = entries.filter((entry) => selected.has(entry.id));
+		setSaving(true);
+		try {
+			const result = await orpcClient.anlassKatalog.bulkAssign({
+				target_id: targetId,
+				source_id: group.unmapped ? null : group.key,
+				target_name: targetName.trim() || undefined,
+				protokoll_ids: selectedEntries
+					.filter((entry) => entry.source === "protocol")
+					.map((entry) => entry.id),
+				historical_ids: selectedEntries
+					.filter((entry) => entry.source === "historical")
+					.map((entry) => entry.id),
+			});
+			setTargetName(result.entry.name);
+			setSelected(new Set());
+			const changed = result.protocols + result.historical;
+			if (result.skipped > 0) {
+				toast.warning(
+					`${changed} Einträge zugeordnet. ${result.skipped} wurden zwischenzeitlich geändert.`,
+				);
+			} else {
+				toast.success(`${changed} Einträge zugeordnet`);
+			}
+			await onSaved();
+		} catch (error) {
+			toast.error(orpcMessage(error, "Zuordnung fehlgeschlagen"));
+		} finally {
+			setSaving(false);
+		}
+	}
 
 	return (
 		<Card className="min-w-0">
@@ -571,9 +690,20 @@ function ComparisonCard({ group }: { group: OccasionComparison }) {
 							</span>
 						</div>
 					</div>
-					<span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-						<TrendingUp className="h-4 w-4" />
-					</span>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon-sm"
+						aria-label={expanded ? "Einträge schließen" : "Einträge anzeigen"}
+						aria-expanded={expanded}
+						onClick={() => setExpanded((value) => !value)}
+					>
+						{expanded ? (
+							<ChevronUp className="h-4 w-4" />
+						) : (
+							<ChevronDown className="h-4 w-4" />
+						)}
+					</Button>
 				</div>
 				{delta != null ? (
 					<div
@@ -637,6 +767,132 @@ function ComparisonCard({ group }: { group: OccasionComparison }) {
 						</div>
 					</div>
 				))}
+				<Button
+					type="button"
+					variant="ghost"
+					size="sm"
+					className="w-full"
+					onClick={() => setExpanded((value) => !value)}
+				>
+					{expanded
+						? "Einträge schließen"
+						: `${entries.length} Einträge anzeigen`}
+					{expanded ? (
+						<ChevronUp className="ml-2 h-4 w-4" />
+					) : (
+						<ChevronDown className="ml-2 h-4 w-4" />
+					)}
+				</Button>
+				{expanded ? (
+					<div className="space-y-3 border-t border-border/60 pt-3">
+						<div className="flex items-center justify-between gap-2">
+							<p className="text-xs font-semibold">Zugeordnete Einträge</p>
+							{canManage ? (
+								<button
+									type="button"
+									className="text-xs font-medium text-primary hover:underline"
+									onClick={() =>
+										setSelected(
+											selected.size === entries.length
+												? new Set()
+												: new Set(entries.map((entry) => entry.id)),
+										)
+									}
+								>
+									{selected.size === entries.length
+										? "Auswahl aufheben"
+										: "Alle auswählen"}
+								</button>
+							) : null}
+						</div>
+						<div className="max-h-64 space-y-1 overflow-y-auto">
+							{[...entries]
+								.sort((a, b) => b.date.localeCompare(a.date))
+								.map((entry) => (
+									<div
+										key={`${entry.source}-${entry.id}`}
+										className="grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-lg bg-muted/30 px-2.5 py-2 text-xs"
+									>
+										{canManage ? (
+											<input
+												type="checkbox"
+												aria-label={`${entry.label} auswählen`}
+												checked={selected.has(entry.id)}
+												onChange={(event) => {
+													const next = new Set(selected);
+													if (event.target.checked) next.add(entry.id);
+													else next.delete(entry.id);
+													setSelected(next);
+												}}
+												className="h-4 w-4 accent-primary"
+											/>
+										) : (
+											<span className="h-1.5 w-1.5 rounded-full bg-primary" />
+										)}
+										<span className="min-w-0">
+											<span className="block truncate font-medium">
+												{entry.label}
+											</span>
+											<span className="text-muted-foreground">
+												{formatDateDe(entry.date)} · {entry.reference}
+											</span>
+										</span>
+										<Money cent={entry.revenueCent} />
+									</div>
+								))}
+						</div>
+						{canManage ? (
+							<div className="space-y-3 rounded-xl border border-primary/20 bg-primary/[0.03] p-3">
+								<p className="text-xs text-muted-foreground">
+									Ausgewählte Einträge einem Katalog-Anlass zuordnen. Der
+									ursprüngliche Belegtext bleibt aus Gründen der
+									Nachvollziehbarkeit erhalten.
+								</p>
+								<div className="grid gap-2 sm:grid-cols-2">
+									<div className="space-y-1.5">
+										<Label>Ziel-Anlass</Label>
+										<Select value={targetId} onValueChange={selectTarget}>
+											<SelectTrigger className="w-full">
+												<SelectValue placeholder="Anlass wählen" />
+											</SelectTrigger>
+											<SelectContent>
+												{catalog.map((entry) => (
+													<SelectItem key={entry.id} value={entry.id}>
+														{entry.name}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+									</div>
+									<div className="space-y-1.5">
+										<Label htmlFor={`bulk-name-${group.key}`}>
+											Katalogname
+										</Label>
+										<Input
+											id={`bulk-name-${group.key}`}
+											value={targetName}
+											onChange={(event) => setTargetName(event.target.value)}
+											maxLength={120}
+											disabled={!targetId}
+										/>
+									</div>
+								</div>
+								<Button
+									type="button"
+									size="sm"
+									className="w-full"
+									disabled={!targetId || selected.size === 0 || saving}
+									onClick={() => void applyBulkEdit()}
+								>
+									{saving ? (
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									) : null}
+									{selected.size} ausgewählte übernehmen
+								</Button>
+							</div>
+						) : null}
+					</div>
+				) : null}
 			</CardContent>
 		</Card>
 	);

@@ -3,6 +3,23 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.18.0 - 2026-07-22
+
+- Neue Kassen und Anlässe lassen sich von Admins direkt beim Erfassen eines
+  Kassenzählprotokolls anlegen und werden sofort ausgewählt. Ein kurzer Hinweis
+  erklärt, warum Anlässe für verlässliche Jahresvergleiche aus dem festen
+  Katalog statt aus einem Freitextfeld kommen.
+- Anlass-Karten im Umsatzvergleich lassen sich aufklappen. Admins können mehrere
+  Protokolle und Altunterlagen auswählen, gemeinsam einem Katalog-Anlass
+  zuordnen und dessen Namen ändern. Die ursprünglichen Belegtexte bleiben für
+  die Nachvollziehbarkeit unverändert.
+- Der Umsatzexport steht zusätzlich als echte Excel-Arbeitsmappe mit Filtern,
+  formatierten Beträgen und fixierter Kopfzeile bereit. Die CSV-Variante bleibt
+  separat erhalten.
+- Suchsymbol und Suchtext im Audit-Log überlappen nicht mehr. Das Symbol wird
+  bei einer Eingabe ausgeblendet. In der historischen Umsatzmaske haben Betrag
+  und Währungsangabe jetzt auf allen Bildschirmgrößen ausreichend Abstand.
+
 ## 1.17.0 - 2026-07-21
 
 - Vorjahresvergleich rechnet jetzt über den Anlass-Katalog statt über den

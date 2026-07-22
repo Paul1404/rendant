@@ -61,6 +61,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
 	"umsaetze.cancelled": "Historischen Umsatz storniert",
 	"exports.protokolle_csv": "Protokolle exportiert",
 	"exports.umsaetze_csv": "Umsätze exportiert",
+	"exports.umsaetze_xlsx": "Umsätze als Excel exportiert",
 	"exports.ust_csv": "USt. exportiert",
 	"exports.backup_json": "Datensicherung exportiert",
 	"settings.belegnummer_changed": "Belegnummern geändert",
@@ -71,6 +72,10 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
 	"kassen.created": "Kasse angelegt",
 	"kassen.updated": "Kasse geändert",
 	"kassen.deleted": "Kasse gelöscht",
+	"anlass.created": "Anlass angelegt",
+	"anlass.updated": "Anlass geändert",
+	"anlass.deleted": "Anlass gelöscht",
+	"anlass.bulk_assigned": "Anlässe gesammelt zugeordnet",
 };
 
 export function auditActionLabel(action: string): string {

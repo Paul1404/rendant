@@ -107,13 +107,14 @@ function AuditPage() {
 						className="flex flex-col gap-3 sm:flex-row sm:items-center"
 					>
 						<div className="relative min-w-0 flex-1">
-							<Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 							<Input
 								name="q"
+								type="search"
 								defaultValue={search.q}
 								placeholder="Person, Ereignis oder Objekt suchen"
-								className="pl-9"
+								className="peer pl-10 sm:pl-10"
 							/>
+							<Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity peer-placeholder-shown:opacity-100" />
 						</div>
 						<select
 							name="category"

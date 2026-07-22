@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Settings, Wallet } from "lucide-react";
+import { createFileRoute } from "@tanstack/react-router";
+import { Wallet } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import {
 	ProtokollForm,
@@ -21,7 +21,7 @@ export const Route = createFileRoute("/protokolle/neu")({
 				: undefined,
 	}),
 	loaderDeps: ({ search }) => ({ duplicate: search.duplicate }),
-	loader: async ({ deps }) => {
+	loader: async ({ context, deps }) => {
 		const [belegnummerRes, basisRes, registers, anlassKatalog] =
 			await Promise.all([
 				orpcClient.protokolle.nextBelegnummer(),
@@ -58,6 +58,7 @@ export const Route = createFileRoute("/protokolle/neu")({
 			anlassKatalog,
 			initialValues,
 			duplicateBelegnummer,
+			canManageAnlassKatalog: context.user.role === "admin",
 		};
 	},
 	head: () => ({ meta: [{ title: "Neues Protokoll · SVUFO" }] }),
@@ -73,6 +74,7 @@ function NewProtokollPage() {
 		anlassKatalog,
 		initialValues,
 		duplicateBelegnummer,
+		canManageAnlassKatalog,
 	} = Route.useLoaderData();
 
 	return (
@@ -109,35 +111,13 @@ function NewProtokollPage() {
 				</div>
 			) : null}
 
-			{registers.length === 0 ? (
-				<div className="flex flex-col gap-3 rounded-xl border border-border/70 bg-card/40 p-4 sm:flex-row sm:items-center sm:justify-between">
-					<div className="flex gap-3">
-						<Wallet className="h-5 w-5 shrink-0 text-muted-foreground" />
-						<div className="space-y-1">
-							<p className="text-sm font-medium text-foreground">
-								Noch keine Kasse hinterlegt
-							</p>
-							<p className="text-sm text-muted-foreground">
-								Lege deine Kassen einmalig an, um Kassennummer, Bezeichnung und
-								Wechselgeld künftig mit einem Klick zu übernehmen.
-							</p>
-						</div>
-					</div>
-					<Link
-						to="/protokolle/einstellungen"
-						className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
-					>
-						<Settings className="h-3.5 w-3.5" />
-						Einstellungen öffnen
-					</Link>
-				</div>
-			) : null}
-
 			<ProtokollForm
 				belegnummerPreview={belegnummer}
 				umsatzUstBasisDefault={umsatzUstBasisDefault}
 				registers={registers}
 				anlassKatalog={anlassKatalog}
+				canManageAnlassKatalog={canManageAnlassKatalog}
+				canManageRegisters={canManageAnlassKatalog}
 				initialValues={initialValues}
 			/>
 		</div>

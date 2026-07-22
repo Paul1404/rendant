@@ -30,7 +30,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { AnlassKatalogEntry } from "@/lib/anlass";
+import type { AnlassKatalogEntry, AnlassTyp } from "@/lib/anlass";
 import { WECHSELGELD_DEFAULT_CENT } from "@/lib/constants";
 import { todayIsoDate } from "@/lib/date";
 import {
@@ -187,18 +187,32 @@ export function ProtokollForm({
 	umsatzUstBasisDefault,
 	registers = [],
 	anlassKatalog = [],
+	canManageAnlassKatalog = false,
+	canManageRegisters = false,
 	initialValues,
 }: {
 	belegnummerPreview: string;
 	umsatzUstBasisDefault: UmsatzUstBasis;
 	registers?: CashRegisterPreset[];
 	anlassKatalog?: AnlassKatalogEntry[];
+	canManageAnlassKatalog?: boolean;
+	canManageRegisters?: boolean;
 	initialValues?: ProtokollInitialValues;
 }) {
+	const [availableRegisters, setAvailableRegisters] = useState(registers);
+	const [availableKatalog, setAvailableKatalog] = useState(anlassKatalog);
+	const [showNewRegister, setShowNewRegister] = useState(false);
+	const [newRegisterNumber, setNewRegisterNumber] = useState("");
+	const [newRegisterName, setNewRegisterName] = useState("");
+	const [newRegisterChange, setNewRegisterChange] = useState("160,00");
+	const [showNewAnlass, setShowNewAnlass] = useState(false);
+	const [newAnlassName, setNewAnlassName] = useState("");
+	const [newAnlassTyp, setNewAnlassTyp] = useState<AnlassTyp>("wiederkehrend");
+	const [creatingPreset, setCreatingPreset] = useState(false);
 	// Active catalog entries drive the Anlass picker. An entry that a stored
 	// protokoll still references but that was since deactivated is added back so
 	// the duplicate flow can preselect it.
-	const activeKatalog = anlassKatalog.filter(
+	const activeKatalog = availableKatalog.filter(
 		(k) => k.aktiv || k.id === initialValues?.anlass_katalog_id,
 	);
 	const hasKatalog = activeKatalog.length > 0;
@@ -212,12 +226,12 @@ export function ProtokollForm({
 	// register.
 	const initialPreset = (() => {
 		if (initialValues?.kassennummer) {
-			const match = registers.find(
+			const match = availableRegisters.find(
 				(r) => r.kassennummer === initialValues.kassennummer,
 			);
 			if (match) return match;
 		}
-		return registers.length === 1 ? registers[0] : null;
+		return availableRegisters.length === 1 ? availableRegisters[0] : null;
 	})();
 
 	const initialKassennummer =
@@ -284,10 +298,14 @@ export function ProtokollForm({
 			if (lastGezVon && !gezaehltVon) setGezaehltVon(lastGezVon);
 			const lastGepVon = getLocalPref(LOCAL_PREF_KEYS.lastGeprueftVon);
 			if (lastGepVon && !gepruefftVon) setGepruefftVon(lastGepVon);
-			if (!selectedRegisterId && registers.length > 1 && !initialValues) {
+			if (
+				!selectedRegisterId &&
+				availableRegisters.length > 1 &&
+				!initialValues
+			) {
 				const lastRegId = getLocalPref(LOCAL_PREF_KEYS.lastRegisterId);
 				if (lastRegId) {
-					const reg = registers.find((r) => r.id === lastRegId);
+					const reg = availableRegisters.find((r) => r.id === lastRegId);
 					if (reg) applyRegister(reg);
 				}
 			}
@@ -306,6 +324,71 @@ export function ProtokollForm({
 
 	function clearRegister() {
 		setSelectedRegisterId(null);
+	}
+
+	async function createRegisterInline() {
+		const kassennummer = newRegisterNumber.trim();
+		const kassenbezeichnung = newRegisterName.trim();
+		const wechselgeldCent = parseGermanAmount(newRegisterChange);
+		if (!kassennummer || !/^[A-Za-z0-9._\-/]+$/.test(kassennummer)) {
+			toast.error("Bitte eine gültige Kassennummer angeben");
+			return;
+		}
+		if (!kassenbezeichnung) {
+			toast.error("Bitte eine Kassenbezeichnung angeben");
+			return;
+		}
+		if (wechselgeldCent == null || wechselgeldCent < 0) {
+			toast.error("Wechselgeld ist ungültig");
+			return;
+		}
+		setCreatingPreset(true);
+		try {
+			const data = await orpcClient.registers.create({
+				kassennummer,
+				kassenbezeichnung,
+				wechselgeld_cent: wechselgeldCent,
+			});
+			setAvailableRegisters((items) => [...items, data.register]);
+			applyRegister(data.register);
+			setShowNewRegister(false);
+			setNewRegisterNumber("");
+			setNewRegisterName("");
+			setNewRegisterChange("160,00");
+			toast.success("Kasse angelegt und ausgewählt");
+			await queryClient.invalidateQueries();
+		} catch (error) {
+			toast.error(orpcMessage(error, "Kasse konnte nicht angelegt werden"));
+		} finally {
+			setCreatingPreset(false);
+		}
+	}
+
+	async function createAnlassInline() {
+		const name = newAnlassName.trim();
+		if (!name) {
+			toast.error("Bitte einen Namen für den Anlass angeben");
+			return;
+		}
+		setCreatingPreset(true);
+		try {
+			const data = await orpcClient.anlassKatalog.create({
+				name,
+				typ: newAnlassTyp,
+				aktiv: true,
+			});
+			setAvailableKatalog((items) => [...items, data.entry]);
+			setAnlassKatalogId(data.entry.id);
+			setShowNewAnlass(false);
+			setNewAnlassName("");
+			setNewAnlassTyp("wiederkehrend");
+			toast.success("Anlass angelegt und ausgewählt");
+			await queryClient.invalidateQueries();
+		} catch (error) {
+			toast.error(orpcMessage(error, "Anlass konnte nicht angelegt werden"));
+		} finally {
+			setCreatingPreset(false);
+		}
 	}
 
 	const lastAusgabeRef = useRef<HTMLInputElement | null>(null);
@@ -483,7 +566,7 @@ export function ProtokollForm({
 			// registers; if it has been deleted in the meantime, drop the link
 			// but keep the textual kassen-fields the user already had.
 			if (d.selectedRegisterId) {
-				const stillExists = registers.some(
+				const stillExists = availableRegisters.some(
 					(r) => r.id === d.selectedRegisterId,
 				);
 				setSelectedRegisterId(stillExists ? d.selectedRegisterId : null);
@@ -506,7 +589,7 @@ export function ProtokollForm({
 			gezaehltVon: gezaehltVon.trim(),
 			geprueftVon: gepruefftVon.trim(),
 			presetWechselgeldCent: selectedRegisterId
-				? (registers.find((r) => r.id === selectedRegisterId)
+				? (availableRegisters.find((r) => r.id === selectedRegisterId)
 						?.wechselgeld_cent ?? null)
 				: null,
 			datum,
@@ -521,7 +604,7 @@ export function ProtokollForm({
 		gezaehltVon,
 		gepruefftVon,
 		selectedRegisterId,
-		registers,
+		availableRegisters,
 		datum,
 	]);
 
@@ -767,14 +850,14 @@ export function ProtokollForm({
 									/>
 								</div>
 							</div>
-							{registers.length > 0 ? (
-								<div className="space-y-2">
+							{availableRegisters.length > 0 || canManageRegisters ? (
+								<div className="space-y-3">
 									<Label className="inline-flex items-center gap-1.5">
 										<Wallet className="h-3.5 w-3.5 text-muted-foreground" />
 										Kasse wählen
 									</Label>
 									<div className="flex flex-wrap gap-2">
-										{registers.map((r) => {
+										{availableRegisters.map((r) => {
 											const active = selectedRegisterId === r.id;
 											return (
 												<button
@@ -800,6 +883,16 @@ export function ProtokollForm({
 												</button>
 											);
 										})}
+										{canManageRegisters ? (
+											<button
+												type="button"
+												onClick={() => setShowNewRegister((value) => !value)}
+												className="rounded-lg border border-dashed border-primary/40 px-3 py-1.5 text-left text-xs font-medium text-primary hover:bg-primary/5"
+											>
+												<Plus className="mr-1 inline h-3.5 w-3.5" />
+												Neue Kasse
+											</button>
+										) : null}
 										{selectedRegisterId ? (
 											<button
 												type="button"
@@ -810,6 +903,59 @@ export function ProtokollForm({
 											</button>
 										) : null}
 									</div>
+									{showNewRegister ? (
+										<div className="grid gap-3 rounded-xl border border-primary/20 bg-primary/[0.03] p-3 sm:grid-cols-3">
+											<div className="space-y-1.5">
+												<Label htmlFor="new-register-number">
+													Kassennummer
+												</Label>
+												<Input
+													id="new-register-number"
+													value={newRegisterNumber}
+													onChange={(event) =>
+														setNewRegisterNumber(event.target.value)
+													}
+													maxLength={50}
+													autoFocus
+													placeholder="z. B. K-04"
+												/>
+											</div>
+											<div className="space-y-1.5">
+												<Label htmlFor="new-register-name">Bezeichnung</Label>
+												<Input
+													id="new-register-name"
+													value={newRegisterName}
+													onChange={(event) =>
+														setNewRegisterName(event.target.value)
+													}
+													maxLength={120}
+													placeholder="z. B. Außenstand"
+												/>
+											</div>
+											<div className="space-y-1.5">
+												<Label htmlFor="new-register-change">Wechselgeld</Label>
+												<div className="flex gap-2">
+													<Input
+														id="new-register-change"
+														inputMode="decimal"
+														value={newRegisterChange}
+														onChange={(event) =>
+															setNewRegisterChange(event.target.value)
+														}
+														className="text-right tabular-nums"
+													/>
+													<Button
+														type="button"
+														size="sm"
+														onClick={() => void createRegisterInline()}
+														disabled={creatingPreset}
+													>
+														Speichern
+													</Button>
+												</div>
+											</div>
+										</div>
+									) : null}
 									<p className="text-[11px] text-muted-foreground">
 										Wählt eine Kasse aus, übernimmt Kassennummer,
 										Kassenbezeichnung und Wechselgeld.
@@ -853,7 +999,13 @@ export function ProtokollForm({
 										<Label htmlFor="anlass-katalog">Anlass</Label>
 										<Select
 											value={anlassKatalogId ?? ""}
-											onValueChange={(val) => setAnlassKatalogId(val || null)}
+											onValueChange={(val) => {
+												if (val === "__new_anlass__") {
+													setShowNewAnlass(true);
+													return;
+												}
+												setAnlassKatalogId(val || null);
+											}}
 										>
 											<SelectTrigger id="anlass-katalog" className="w-full">
 												<SelectValue placeholder="Anlass wählen" />
@@ -864,9 +1016,57 @@ export function ProtokollForm({
 														{k.name}
 													</SelectItem>
 												))}
+												{canManageAnlassKatalog ? (
+													<SelectItem value="__new_anlass__">
+														+ Neuen Anlass anlegen
+													</SelectItem>
+												) : null}
 											</SelectContent>
 										</Select>
 									</div>
+									{showNewAnlass ? (
+										<div className="grid gap-3 rounded-xl border border-primary/20 bg-primary/[0.03] p-3 sm:col-span-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end">
+											<div className="space-y-1.5">
+												<Label htmlFor="new-anlass-name">Neuer Anlass</Label>
+												<Input
+													id="new-anlass-name"
+													value={newAnlassName}
+													onChange={(event) =>
+														setNewAnlassName(event.target.value)
+													}
+													maxLength={120}
+													autoFocus
+													placeholder="z. B. Schafkopfturnier"
+												/>
+											</div>
+											<div className="flex rounded-lg border border-input bg-background p-0.5">
+												{(["wiederkehrend", "einmalig"] as const).map((typ) => (
+													<button
+														key={typ}
+														type="button"
+														aria-pressed={newAnlassTyp === typ}
+														onClick={() => setNewAnlassTyp(typ)}
+														className={cn(
+															"rounded-md px-2.5 py-1.5 text-xs font-medium",
+															newAnlassTyp === typ
+																? "bg-primary/10 text-primary"
+																: "text-muted-foreground",
+														)}
+													>
+														{typ}
+													</button>
+												))}
+											</div>
+											<Button
+												type="button"
+												size="sm"
+												onClick={() => void createAnlassInline()}
+												disabled={creatingPreset}
+											>
+												Speichern
+											</Button>
+										</div>
+									) : null}
 									<div className="space-y-2">
 										<Label htmlFor="anlass-zusatz">
 											Zusatz{" "}
@@ -882,6 +1082,15 @@ export function ProtokollForm({
 											placeholder="z. B. gegen Grettstadt"
 										/>
 									</div>
+									<p className="text-xs text-muted-foreground sm:col-span-2">
+										Der feste Katalog verhindert unterschiedliche Schreibweisen
+										und ordnet denselben Anlass im Jahresvergleich richtig zu.
+										Konkrete Angaben wie Gegner oder Termin gehören in den
+										Zusatz.
+										{canManageAnlassKatalog
+											? " Fehlt ein Anlass, lege ihn über die Auswahl neu an."
+											: " Fehlende Anlässe kann ein Admin im Katalog ergänzen."}
+									</p>
 								</div>
 							) : (
 								<div className="space-y-2">
@@ -895,9 +1104,69 @@ export function ProtokollForm({
 										placeholder="z.B. Heimspiel 1. Mannschaft"
 									/>
 									<p className="text-xs text-muted-foreground">
-										Tipp: Lege unter Einstellungen &gt; Anlässe einen festen
-										Katalog an, damit der Jahresvergleich zusammenpasst.
+										Ein fester Katalog verhindert unterschiedliche Schreibweisen
+										und macht den Jahresvergleich verlässlich.
 									</p>
+									{canManageAnlassKatalog ? (
+										<>
+											<Button
+												type="button"
+												variant="outline"
+												size="sm"
+												onClick={() => setShowNewAnlass((value) => !value)}
+											>
+												<Plus className="mr-2 h-4 w-4" />
+												Ersten Anlass anlegen
+											</Button>
+											{showNewAnlass ? (
+												<div className="grid gap-3 rounded-xl border border-primary/20 bg-primary/[0.03] p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end">
+													<div className="space-y-1.5">
+														<Label htmlFor="first-anlass-name">
+															Neuer Anlass
+														</Label>
+														<Input
+															id="first-anlass-name"
+															value={newAnlassName}
+															onChange={(event) =>
+																setNewAnlassName(event.target.value)
+															}
+															maxLength={120}
+															autoFocus
+															placeholder="z. B. Biergarten"
+														/>
+													</div>
+													<div className="flex rounded-lg border border-input bg-background p-0.5">
+														{(["wiederkehrend", "einmalig"] as const).map(
+															(typ) => (
+																<button
+																	key={typ}
+																	type="button"
+																	aria-pressed={newAnlassTyp === typ}
+																	onClick={() => setNewAnlassTyp(typ)}
+																	className={cn(
+																		"rounded-md px-2.5 py-1.5 text-xs font-medium",
+																		newAnlassTyp === typ
+																			? "bg-primary/10 text-primary"
+																			: "text-muted-foreground",
+																	)}
+																>
+																	{typ}
+																</button>
+															),
+														)}
+													</div>
+													<Button
+														type="button"
+														size="sm"
+														onClick={() => void createAnlassInline()}
+														disabled={creatingPreset}
+													>
+														Speichern
+													</Button>
+												</div>
+											) : null}
+										</>
+									) : null}
 								</div>
 							)}
 							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

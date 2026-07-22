@@ -2,6 +2,7 @@ import {
 	Braces,
 	ChartNoAxesColumnIncreasing,
 	Download,
+	FileSpreadsheet,
 	FileText,
 	Percent,
 } from "lucide-react";
@@ -78,8 +79,17 @@ const EXPORTS: ReadonlyArray<{
 	button: string;
 }> = [
 	{
+		id: "revenue-xlsx",
+		title: "Umsätze (Excel)",
+		description:
+			"Echte Excel-Arbeitsmappe mit Filtern, formatierten Beträgen und Kassenzählprotokollen plus historischen Werten.",
+		path: "/api/export/revenue/xlsx",
+		icon: FileSpreadsheet,
+		button: "Excel herunterladen",
+	},
+	{
 		id: "revenue",
-		title: "Umsätze für Excel (CSV)",
+		title: "Umsätze (CSV)",
 		description:
 			"Kassenzählprotokolle und historische Werte in einer gemeinsamen Umsatzliste mit Herkunft und Status.",
 		path: "/api/export/revenue",

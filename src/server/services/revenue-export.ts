@@ -9,10 +9,10 @@ export type RevenueExport = {
 	totalCent: number;
 };
 
-export async function exportRevenueCsv(
+export async function loadRevenueExportRows(
 	von: string,
 	bis: string,
-): Promise<RevenueExport> {
+): Promise<RevenueExportRow[]> {
 	const [protocolRows, historicalRows] = await Promise.all([
 		db
 			.select({
@@ -52,7 +52,7 @@ export async function exportRevenueCsv(
 			),
 	]);
 
-	const rows: RevenueExportRow[] = [
+	return [
 		...protocolRows.map((row) => ({
 			date: row.date,
 			occasion: row.occasion,
@@ -82,6 +82,13 @@ export async function exportRevenueCsv(
 			a.occasion.localeCompare(b.occasion, "de-DE") ||
 			a.source.localeCompare(b.source, "de-DE"),
 	);
+}
+
+export async function exportRevenueCsv(
+	von: string,
+	bis: string,
+): Promise<RevenueExport> {
+	const rows = await loadRevenueExportRows(von, bis);
 
 	const csv = revenueCsvDocument(rows);
 

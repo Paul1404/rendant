@@ -27,6 +27,7 @@ import { Route as ApiExportJsonRouteImport } from './routes/api/export.json'
 import { Route as ApiExportRevenueRouteImport } from './routes/api/export.revenue'
 import { Route as ApiExportUstRouteImport } from './routes/api/export.ust'
 import { Route as ApiRpcSplatRouteImport } from './routes/api/rpc/$'
+import { Route as ApiExportRevenueXlsxRouteImport } from './routes/api/export.revenue.xlsx'
 import { Route as ApiProtokolleIdPdfRouteImport } from './routes/api/protokolle/$id/pdf'
 import { Route as ApiProtokolleIdStornoPdfRouteImport } from './routes/api/protokolle/$id/storno-pdf'
 
@@ -120,6 +121,11 @@ const ApiRpcSplatRoute = ApiRpcSplatRouteImport.update({
   path: '/api/rpc/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiExportRevenueXlsxRoute = ApiExportRevenueXlsxRouteImport.update({
+  id: '/xlsx',
+  path: '/xlsx',
+  getParentRoute: () => ApiExportRevenueRoute,
+} as any)
 const ApiProtokolleIdPdfRoute = ApiProtokolleIdPdfRouteImport.update({
   id: '/api/protokolle/$id/pdf',
   path: '/api/protokolle/$id/pdf',
@@ -148,9 +154,10 @@ export interface FileRoutesByFullPath {
   '/protokolle/': typeof ProtokolleIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/export/json': typeof ApiExportJsonRoute
-  '/api/export/revenue': typeof ApiExportRevenueRoute
+  '/api/export/revenue': typeof ApiExportRevenueRouteWithChildren
   '/api/export/ust': typeof ApiExportUstRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
+  '/api/export/revenue/xlsx': typeof ApiExportRevenueXlsxRoute
   '/api/protokolle/$id/pdf': typeof ApiProtokolleIdPdfRoute
   '/api/protokolle/$id/storno-pdf': typeof ApiProtokolleIdStornoPdfRoute
 }
@@ -169,9 +176,10 @@ export interface FileRoutesByTo {
   '/protokolle': typeof ProtokolleIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/export/json': typeof ApiExportJsonRoute
-  '/api/export/revenue': typeof ApiExportRevenueRoute
+  '/api/export/revenue': typeof ApiExportRevenueRouteWithChildren
   '/api/export/ust': typeof ApiExportUstRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
+  '/api/export/revenue/xlsx': typeof ApiExportRevenueXlsxRoute
   '/api/protokolle/$id/pdf': typeof ApiProtokolleIdPdfRoute
   '/api/protokolle/$id/storno-pdf': typeof ApiProtokolleIdStornoPdfRoute
 }
@@ -192,9 +200,10 @@ export interface FileRoutesById {
   '/protokolle/': typeof ProtokolleIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/export/json': typeof ApiExportJsonRoute
-  '/api/export/revenue': typeof ApiExportRevenueRoute
+  '/api/export/revenue': typeof ApiExportRevenueRouteWithChildren
   '/api/export/ust': typeof ApiExportUstRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
+  '/api/export/revenue/xlsx': typeof ApiExportRevenueXlsxRoute
   '/api/protokolle/$id/pdf': typeof ApiProtokolleIdPdfRoute
   '/api/protokolle/$id/storno-pdf': typeof ApiProtokolleIdStornoPdfRoute
 }
@@ -219,6 +228,7 @@ export interface FileRouteTypes {
     | '/api/export/revenue'
     | '/api/export/ust'
     | '/api/rpc/$'
+    | '/api/export/revenue/xlsx'
     | '/api/protokolle/$id/pdf'
     | '/api/protokolle/$id/storno-pdf'
   fileRoutesByTo: FileRoutesByTo
@@ -240,6 +250,7 @@ export interface FileRouteTypes {
     | '/api/export/revenue'
     | '/api/export/ust'
     | '/api/rpc/$'
+    | '/api/export/revenue/xlsx'
     | '/api/protokolle/$id/pdf'
     | '/api/protokolle/$id/storno-pdf'
   id:
@@ -262,6 +273,7 @@ export interface FileRouteTypes {
     | '/api/export/revenue'
     | '/api/export/ust'
     | '/api/rpc/$'
+    | '/api/export/revenue/xlsx'
     | '/api/protokolle/$id/pdf'
     | '/api/protokolle/$id/storno-pdf'
   fileRoutesById: FileRoutesById
@@ -407,6 +419,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRpcSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/export/revenue/xlsx': {
+      id: '/api/export/revenue/xlsx'
+      path: '/xlsx'
+      fullPath: '/api/export/revenue/xlsx'
+      preLoaderRoute: typeof ApiExportRevenueXlsxRouteImport
+      parentRoute: typeof ApiExportRevenueRoute
+    }
     '/api/protokolle/$id/pdf': {
       id: '/api/protokolle/$id/pdf'
       path: '/api/protokolle/$id/pdf'
@@ -448,15 +467,26 @@ const ProtokolleRouteRouteWithChildren = ProtokolleRouteRoute._addFileChildren(
   ProtokolleRouteRouteChildren,
 )
 
+interface ApiExportRevenueRouteChildren {
+  ApiExportRevenueXlsxRoute: typeof ApiExportRevenueXlsxRoute
+}
+
+const ApiExportRevenueRouteChildren: ApiExportRevenueRouteChildren = {
+  ApiExportRevenueXlsxRoute: ApiExportRevenueXlsxRoute,
+}
+
+const ApiExportRevenueRouteWithChildren =
+  ApiExportRevenueRoute._addFileChildren(ApiExportRevenueRouteChildren)
+
 interface ApiExportRouteChildren {
   ApiExportJsonRoute: typeof ApiExportJsonRoute
-  ApiExportRevenueRoute: typeof ApiExportRevenueRoute
+  ApiExportRevenueRoute: typeof ApiExportRevenueRouteWithChildren
   ApiExportUstRoute: typeof ApiExportUstRoute
 }
 
 const ApiExportRouteChildren: ApiExportRouteChildren = {
   ApiExportJsonRoute: ApiExportJsonRoute,
-  ApiExportRevenueRoute: ApiExportRevenueRoute,
+  ApiExportRevenueRoute: ApiExportRevenueRouteWithChildren,
   ApiExportUstRoute: ApiExportUstRoute,
 }
 
