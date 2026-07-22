@@ -150,6 +150,12 @@ export function ExportForm() {
 
 	return (
 		<div className="space-y-8">
+			<div>
+				<h2 className="text-xl font-semibold tracking-tight">Export</h2>
+				<p className="mt-1 text-sm text-muted-foreground">
+					Der gewählte Zeitraum gilt für alle Downloads.
+				</p>
+			</div>
 			<Card variant="quiet">
 				<CardContent className="space-y-5 py-1">
 					<div className="space-y-2">
@@ -207,7 +213,7 @@ export function ExportForm() {
 					>
 						{invalidRange
 							? "Bis muss am oder nach Von liegen."
-							: "Der Zeitraum gilt für alle Downloads."}
+							: "Zeitraum auswählen oder eine Schnellauswahl verwenden."}
 					</p>
 				</CardContent>
 			</Card>

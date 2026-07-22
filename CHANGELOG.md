@@ -3,6 +3,18 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.21.0 - 2026-07-22
+
+- Die Seite heißt jetzt „Import & Export“. Admins können eine leere
+  Excel-Vorlage mit den aktuellen Umsatzgruppen herunterladen, historische
+  Umsätze darin ergänzen und die ausgefüllte Datei wieder hochladen.
+- Vor dem Import zeigt SVUFO alle Fehler mit Excel-Zeilennummern sowie Anzahl
+  und Summen der erkannten Einträge. Mögliche Dubletten werden hervorgehoben.
+  Erst nach einer ausdrücklichen Bestätigung werden alle Zeilen gemeinsam
+  gespeichert oder vollständig verworfen.
+- Ein erneuter Upload derselben Vorlage erzeugt keine doppelten Buchungen.
+  Vorlagen-Downloads, Prüfungen und ausgeführte Importe werden protokolliert.
+
 ## 1.20.0 - 2026-07-22
 
 - Umsatzgruppen lassen sich direkt in der Vergleichsansicht umbenennen, als

@@ -43,7 +43,7 @@ const NAV: NavItem[] = [
 		label: "Umsätze",
 		icon: ChartNoAxesColumnIncreasing,
 	},
-	{ href: "/protokolle/export", label: "Export", icon: Download },
+	{ href: "/protokolle/export", label: "Import & Export", icon: Download },
 	{
 		href: "/protokolle/audit",
 		label: "Audit-Log",

@@ -1,6 +1,6 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import type { HistoricalRevenueCreateInput } from "@/lib/schemas";
-import { db } from "@/server/db";
+import { type DbOrTx, db } from "@/server/db";
 import { anlassKatalog, historicalRevenues } from "@/server/db/schema";
 import type { AuthUser } from "@/server/orpc/base";
 
@@ -45,6 +45,7 @@ function matchesIdempotentRequest(
 	row: HistoricalRevenueRow,
 	input: HistoricalRevenueCreateInput,
 	actor: AuthUser,
+	allowDifferentActor: boolean,
 ): boolean {
 	return (
 		row.anlass_datum === input.anlass_datum &&
@@ -55,7 +56,7 @@ function matchesIdempotentRequest(
 		row.ausgaben_cent === input.ausgaben_cent &&
 		row.bemerkung === nullableText(input.bemerkung) &&
 		row.quellreferenz === nullableText(input.quellreferenz) &&
-		row.erstellt_von_user_id === actor.id
+		(allowDifferentActor || row.erstellt_von_user_id === actor.id)
 	);
 }
 
@@ -71,58 +72,75 @@ export async function listHistoricalRevenues(): Promise<
 		);
 }
 
+export async function createHistoricalRevenueWithDb(
+	database: DbOrTx,
+	input: HistoricalRevenueCreateInput,
+	actor: AuthUser,
+	options: { allowDifferentActor?: boolean } = {},
+): Promise<{ row: HistoricalRevenueRow; created: boolean }> {
+	const [umsatzgruppe] = await database
+		.select({ id: anlassKatalog.id, name: anlassKatalog.name })
+		.from(anlassKatalog)
+		.where(eq(anlassKatalog.id, input.anlass_katalog_id))
+		.limit(1)
+		.for("key share");
+	if (!umsatzgruppe) throw new HistoricalRevenueCatalogError();
+	const anlass = `${umsatzgruppe.name} · ${input.veranstaltungsbezeichnung}`;
+	if (anlass.length > 200) {
+		throw new HistoricalRevenueInputError(
+			"Veranstaltungsbezeichnung ist zusammen mit der Umsatzgruppe zu lang",
+		);
+	}
+
+	const inserted = await database
+		.insert(historicalRevenues)
+		.values({
+			idempotency_key: input.idempotency_key,
+			anlass_datum: input.anlass_datum,
+			anlass,
+			vergleichsgruppe: umsatzgruppe.name,
+			anlass_katalog_id: umsatzgruppe.id,
+			umsatz_cent: input.umsatz_cent,
+			ausgaben_cent: input.ausgaben_cent,
+			bemerkung: nullableText(input.bemerkung),
+			quellreferenz: nullableText(input.quellreferenz),
+			erstellt_von_user_id: actor.id,
+			erstellt_von_name: actor.name,
+			erstellt_von_email: actor.email,
+		})
+		.onConflictDoNothing({ target: historicalRevenues.idempotency_key })
+		.returning();
+	if (inserted[0]) return { row: inserted[0], created: true };
+
+	const [existing] = await database
+		.select()
+		.from(historicalRevenues)
+		.where(eq(historicalRevenues.idempotency_key, input.idempotency_key))
+		.limit(1);
+	if (
+		!existing ||
+		!matchesIdempotentRequest(
+			existing,
+			input,
+			actor,
+			options.allowDifferentActor ?? false,
+		)
+	) {
+		throw new HistoricalRevenueConflictError(
+			"Idempotenzschlüssel wurde bereits für andere Daten verwendet",
+			"idempotency_mismatch",
+		);
+	}
+	return { row: existing, created: false };
+}
+
 export async function createHistoricalRevenue(
 	input: HistoricalRevenueCreateInput,
 	actor: AuthUser,
 ): Promise<{ row: HistoricalRevenueRow; created: boolean }> {
-	return db.transaction(async (tx) => {
-		const [umsatzgruppe] = await tx
-			.select({ id: anlassKatalog.id, name: anlassKatalog.name })
-			.from(anlassKatalog)
-			.where(eq(anlassKatalog.id, input.anlass_katalog_id))
-			.limit(1)
-			.for("key share");
-		if (!umsatzgruppe) throw new HistoricalRevenueCatalogError();
-		const anlass = `${umsatzgruppe.name} · ${input.veranstaltungsbezeichnung}`;
-		if (anlass.length > 200) {
-			throw new HistoricalRevenueInputError(
-				"Veranstaltungsbezeichnung ist zusammen mit der Umsatzgruppe zu lang",
-			);
-		}
-
-		const inserted = await tx
-			.insert(historicalRevenues)
-			.values({
-				idempotency_key: input.idempotency_key,
-				anlass_datum: input.anlass_datum,
-				anlass,
-				vergleichsgruppe: umsatzgruppe.name,
-				anlass_katalog_id: umsatzgruppe.id,
-				umsatz_cent: input.umsatz_cent,
-				ausgaben_cent: input.ausgaben_cent,
-				bemerkung: nullableText(input.bemerkung),
-				quellreferenz: nullableText(input.quellreferenz),
-				erstellt_von_user_id: actor.id,
-				erstellt_von_name: actor.name,
-				erstellt_von_email: actor.email,
-			})
-			.onConflictDoNothing({ target: historicalRevenues.idempotency_key })
-			.returning();
-		if (inserted[0]) return { row: inserted[0], created: true };
-
-		const [existing] = await tx
-			.select()
-			.from(historicalRevenues)
-			.where(eq(historicalRevenues.idempotency_key, input.idempotency_key))
-			.limit(1);
-		if (!existing || !matchesIdempotentRequest(existing, input, actor)) {
-			throw new HistoricalRevenueConflictError(
-				"Idempotenzschlüssel wurde bereits für andere Daten verwendet",
-				"idempotency_mismatch",
-			);
-		}
-		return { row: existing, created: false };
-	});
+	return db.transaction((tx) =>
+		createHistoricalRevenueWithDb(tx, input, actor),
+	);
 }
 
 export async function cancelHistoricalRevenue(

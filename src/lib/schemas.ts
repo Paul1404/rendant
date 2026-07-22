@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { isIsoCalendarDate } from "@/lib/date";
+import { isIsoCalendarDate, todayIsoDate } from "@/lib/date";
 import { DENOMINATION_KEYS } from "@/lib/denominations";
 
 // Validation schemas in Valibot, shared between the oRPC procedures (server)
@@ -17,6 +17,14 @@ const isoCalendarDate = v.pipe(
 	v.string(),
 	v.regex(/^\d{4}-\d{2}-\d{2}$/),
 	v.check(isIsoCalendarDate, "Bitte ein gültiges Datum angeben"),
+);
+
+const historicalRevenueDate = v.pipe(
+	isoCalendarDate,
+	v.check(
+		(value) => value <= todayIsoDate(),
+		"Das Datum darf nicht in der Zukunft liegen",
+	),
 );
 
 const countsEntries = Object.fromEntries(
@@ -252,7 +260,7 @@ const historicalRevenueOptionalText = (maxLength: number) =>
 
 export const HistoricalRevenueCreateSchema = v.object({
 	idempotency_key: v.pipe(v.string(), v.uuid()),
-	anlass_datum: isoCalendarDate,
+	anlass_datum: historicalRevenueDate,
 	anlass_katalog_id: v.pipe(v.string(), v.uuid()),
 	veranstaltungsbezeichnung: v.pipe(
 		v.string(),

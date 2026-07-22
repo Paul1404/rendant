@@ -1,21 +1,28 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ExportForm } from "@/components/export-form";
+import { HistoricalRevenueImport } from "@/components/historical-revenue-import";
 import { PageHeader } from "@/components/page-header";
 
 export const Route = createFileRoute("/protokolle/export")({
-	head: () => ({ meta: [{ title: "Export & Auswertungen · SVUFO" }] }),
+	head: () => ({ meta: [{ title: "Import & Export · SVUFO" }] }),
 	component: ExportPage,
 });
 
 function ExportPage() {
+	const { user } = Route.useRouteContext();
 	return (
 		<div className="space-y-8">
 			<PageHeader
 				eyebrow="Buchhaltung"
-				title="Export & Auswertungen"
-				description="Belege, USt-Auswertung und Backup eines Zeitraums herunterladen. Ein Zeitraum gilt für alle Exporte."
+				title="Import & Export"
+				description={
+					user.role === "admin"
+						? "Historische Umsätze aus Excel übernehmen sowie Belege, Auswertungen und Sicherungen herunterladen."
+						: "Belege, Auswertungen und Sicherungen herunterladen."
+				}
 			/>
-			<div className="mx-auto max-w-4xl">
+			<div className="mx-auto max-w-4xl space-y-8">
+				{user.role === "admin" ? <HistoricalRevenueImport /> : null}
 				<ExportForm />
 			</div>
 		</div>

@@ -56,6 +56,12 @@ eintragen und Rolle wählen. Der erzeugte Link ist 7 Tage gültig; die
 eingeladene Person setzt darüber Name und Passwort. Admins können Rollen
 bestehender Konten später ändern sowie Konten sperren und wieder entsperren.
 
+## Historische Umsätze importieren
+
+Admins können unter **Import & Export** eine leere Excel-Vorlage mit den
+aktuellen Umsatzgruppen herunterladen. Die ausgefüllte XLSX-Datei wird vor dem
+Import vollständig geprüft und anschließend atomar übernommen.
+
 ## Deploy auf Railway
 
 Railway baut über den committeten `Dockerfile` (Bun, Multi-Stage, Output nach

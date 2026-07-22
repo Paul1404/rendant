@@ -15,7 +15,7 @@ import { orpc } from "@/lib/orpc";
 const NAV_ITEMS = [
 	{ to: "/protokolle", label: "Protokolle", icon: List },
 	{ to: "/protokolle/neu", label: "Neues Protokoll", icon: Plus },
-	{ to: "/protokolle/export", label: "Export", icon: Download },
+	{ to: "/protokolle/export", label: "Import & Export", icon: Download },
 	{
 		to: "/protokolle/audit",
 		label: "Audit-Log",
