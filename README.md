@@ -1,88 +1,281 @@
 # SVUFO
 
-Webapp zur digitalen Erfassung von Kassenzählprotokollen für einen Verein.
-Ersetzt die bisherige Excel-Liste. Output ist ein PDF-Beleg, der manuell in
-DATEV Unternehmen Online hochgeladen wird. Vereinsname und Logo sind über
-Umgebungsvariablen konfigurierbar.
+SVUFO ist eine interne Webanwendung für die digitale Erfassung, Auswertung und
+nachvollziehbare Ablage von Kassenzählprotokollen eines Vereins.
 
-## Features
+Die Anwendung bildet den Ablauf von der Kassenaufnahme bis zum PDF-Beleg ab.
+Sie verwaltet Kassen und Umsatzgruppen, berechnet Einnahmen und Umsatzsteuer,
+vergleicht Veranstaltungen über mehrere Jahre und übernimmt historische
+Umsätze aus Excel. Eine direkte DATEV-Anbindung gibt es nicht. PDF- und
+CSV-Dateien werden für die weitere Übergabe an Buchhaltung oder Steuerberatung
+heruntergeladen.
 
-- Login per E-Mail und Passwort (better-auth). Offene Registrierung ist
-  deaktiviert: ein Admin lädt weitere Personen per Einmal-Link ein.
-- Erfassung Kopfdaten, Stückelung (15 Denominationen), betriebliche Ausgaben
-- USt.-Satz pro Ausgabe (0 %, 7 %, 19 %, frei wählbar)
-- Anfangsbestand (Wechselgeld) mit Default 160,00 EUR änderbar
-- Konfigurierbare Belegnummer-Vergabe pro Jahr (z.B. `2026-0001`)
-- Automatische Berechnung von Gezählt, Bestand, Tageseinnahmen netto
-- PDF-Generierung nach jedem Speichern, Upload nach S3 (Tigris)
-- SHA256-Prüfsumme der Daten in DB und auf der Detailseite
-- Storno-Workflow (GoBD-konform): Originalbeleg bleibt unveränderlich,
-  zusätzliches Storno-PDF mit Wasserzeichen
-- CSV-Export aller Protokolle eines Zeitraums für den Steuerberater
-- Healthcheck `/api/health` mit DB-Ping
+## Arbeitsbereiche
 
-## Stack
+| Bereich | Inhalt | Zugriff |
+| --- | --- | --- |
+| Protokolle | Dashboard, Suche, Zeitfilter und Belegliste | Alle angemeldeten Benutzer |
+| Neu | Vollständige Erfassung eines Kassenzählprotokolls | Alle angemeldeten Benutzer |
+| Umsätze | Vorjahresvergleich, Altunterlagen und Pflege der Zuordnungen | Vergleich für alle, Änderungen nur für Admins |
+| Import & Export | Excel-Import, XLSX, CSV, USt-Auswertung und JSON-Sicherung | Exporte für alle, Import nur für Admins |
+| Audit-Log | Filterbare Ereignisspur aller relevanten Vorgänge | Nur Admins |
+| Einstellungen | Eigene Benachrichtigungen sowie zentrale Verwaltung | Persönliche Einstellung für alle, Verwaltung nur für Admins |
 
-- TanStack Start (Vite) + TanStack Router, Query und Form
-- oRPC v1 als type-safe API-Layer, Valibot für Validierung
-- better-auth (mit `tanstackStartCookies` und admin-Plugin)
-- Drizzle ORM auf PostgreSQL
-- `@react-pdf/renderer` für PDFs, `@aws-sdk/client-s3` für Tigris
-- Tailwind v4, shadcn/ui (radix-ui), lucide-react, sonner
-- Bun als Runtime und Paketmanager, Biome für Lint/Format, Vitest für Tests
+## Funktionsumfang
+
+### Kassenzählprotokolle
+
+- Erfassung von Kasse, Umsatzgruppe, Veranstaltungsbezeichnung, Datum sowie
+  zählender und optional prüfender Person
+- Bargeldzählung über 15 Münz- und Scheinstückelungen
+- Kassenabhängiger Anfangsbestand, Kartenzahlungen und betriebliche Ausgaben
+- Umsatzsteuer je Ausgabe mit 0 %, 7 %, 19 % oder einem eigenen Satz
+- Optionale Aufteilung des Umsatzes nach Umsatzsteuersätzen
+- Automatische Berechnung von Endbestand, Ausgaben, Barumsatz und Gesamtumsatz
+- Konfigurierbare, transaktional vergebene Belegnummern pro Kalenderjahr
+- Lokaler Formularentwurf zum Schutz vor versehentlich verlorenen Eingaben
+- Plausibilitätshinweise bei fehlender Stückelung, ungewöhnlichem Wechselgeld,
+  alten oder zukünftigen Datumsangaben und identischen Namen im
+  Vier-Augen-Prinzip
+- Detailansicht mit Ersteller, Originaldaten, Ausgaben, USt-Aufteilung,
+  PDF-Status und Prüfsummen
+
+### Belege und Korrekturen
+
+- PDF-Erzeugung nach dem Speichern und Ablage in einem S3-kompatiblen Bucket
+- SHA-256-Prüfsumme für jeden erzeugten PDF-Beleg
+- Nachträgliche Regeneration eines fehlgeschlagenen oder fehlenden PDFs
+- Atomarer Storno-Ablauf mit Begründung und zusätzlichem Storno-PDF
+- Unverändertes Originalprotokoll und erhaltene Belegnummer bei einer
+  Stornierung
+
+### Dashboard
+
+- Kennzahlen für Umsatz, Ausgaben und Überschuss
+- Vergleich mit dem vorherigen Zeitraum und kontextbezogene Entwicklung
+- Umsatzverlauf nach Tag, Woche oder Monat
+- Aufteilung von Bar- und Kartenzahlungen sowie Umsatz nach Umsatzgruppen
+- Umsatzsteuer, Vorsteuer aus Ausgaben und daraus berechnete Zahllast
+- Suche sowie Filter nach Zeitraum, Kalenderjahr und Storno-Status
+- Jahresauswahl für abgeschlossene Geschäftsjahre und Auswertungen der
+  Jahreshauptversammlung
+- Automatische Aktualisierung beim erneuten Fokussieren des Fensters und
+  spätestens alle 15 Sekunden
+
+### Umsätze und Vorjahresvergleich
+
+Der Umsatzbereich verbindet aktuelle Kassenzählprotokolle mit Zahlen aus
+Altunterlagen. Er verwendet zwei getrennte Angaben:
+
+- Die `Umsatzgruppe` ist die stabile Kategorie, zum Beispiel `Heimspiel` oder
+  `Biergarten`. Sie verbindet vergleichbare Veranstaltungen über Jahre.
+- Die `Veranstaltungsbezeichnung` beschreibt den konkreten Termin, zum Beispiel
+  `Heimspiel gegen Grettstadt`. Der Originaltext bleibt am Beleg erhalten.
+
+Die Vergleichskarten zeigen für jede Umsatzgruppe:
+
+- Umsatz und Ergebnis je Kalenderjahr
+- absolute und prozentuale Veränderung zum Vorjahr
+- Anzahl und Herkunft der enthaltenen Protokolle und Altunterlagen
+- bei wiederkehrenden Gruppen die Anzahl unterschiedlicher Termine und den
+  durchschnittlichen Umsatz pro Termin
+- bei einmaligen Gruppen den direkten Vergleich der Jahressummen
+
+Mehrere Kassenprotokolle derselben Umsatzgruppe am selben Tag zählen dabei als
+ein realer Termin. Nicht zugeordnete ältere Freitexte bleiben über eine
+normalisierte Ersatzgruppe auswertbar, bis ein Admin sie zuordnet.
+
+Admins können historische Umsätze einzeln mit Datum, Umsatzgruppe,
+Veranstaltungsbezeichnung, Umsatz, Ausgaben, Quellreferenz und Bemerkung
+erfassen. Ein Hinweis meldet bereits vorhandene Protokolle oder Altunterlagen
+für denselben Tag und dieselbe Gruppe, ohne eine bewusst gewünschte Erfassung
+zu blockieren. Historische Werte fließen in Dashboard und Umsatzvergleich ein,
+aber bewusst nicht in die Umsatzsteuer-Auswertung.
+
+Admins können außerdem:
+
+- Umsatzgruppen direkt in der Vergleichskarte umbenennen
+- zwischen `wiederkehrend` und `einmalig` wechseln
+- Gruppen für neue Erfassungen aktivieren oder deaktivieren
+- mehrere Protokolle und Altunterlagen gemeinsam einer Zielgruppe zuordnen
+- den Zielnamen bei der Zuordnung mitpflegen
+- historische Umsätze mit einer Begründung stornieren
+
+Eine Sammelzuordnung ist transaktional und berücksichtigt zwischenzeitliche
+Änderungen. Übersprungene Einträge werden gemeldet. Die fachliche Zuordnung
+ändert sich, der ursprüngliche Belegtext bleibt zur Nachvollziehbarkeit
+erhalten. Stornierte Altunterlagen bleiben sichtbar, werden aber aus Dashboard
+und Vergleich entfernt.
+
+### Import und Export
+
+- Excel-Vorlage für historische Umsätze mit den aktuell gepflegten
+  Umsatzgruppen
+- Zweistufiger Excel-Import mit Prüfung, Vorschau, Zeilenfehlern,
+  Summen, Dublettenhinweisen und ausdrücklicher Bestätigung
+- Atomare und idempotente Übernahme von höchstens 500 Zeilen und 5 MB pro Datei
+- Keine Teilimporte. Eine fehlerhafte Zeile verhindert die gesamte Übernahme
+- Ein erneuter Upload derselben Vorlagendatei erzeugt keine doppelten Einträge
+- Bereits importierte Zeilen können nicht durch eine nachträglich veränderte
+  Datei überschrieben werden
+- Gemeinsamer Umsatzexport aus Protokollen und historischen Werten als XLSX
+  oder CSV
+- XLSX mit Autofilter, fixierter Kopfzeile und formatierten Datums- und
+  Währungszellen
+- Protokoll-CSV, Umsatzsteuer-CSV und vollständige JSON-Sicherung für einen
+  gewählten Zeitraum
+- Geschützte Downloads ohne Browser-Cache und mit abgesicherten CSV-Inhalten
+
+### Benutzer, Einstellungen und Nachvollziehbarkeit
+
+- Anmeldung per E-Mail und Passwort, ohne öffentliche Registrierung
+- Rollen `admin` und `user`
+- Einladungslinks für neue Konten sowie Sperren, Entsperren und Rollenwechsel
+  durch Admins
+- Einladungen sind sieben Tage gültig und können vor Annahme widerrufen werden
+- Schutz vor dem Sperren des eigenen Kontos und vor dem Entfernen des letzten
+  aktiven Admins
+- Append-only Audit-Log für Anmeldungen, Einladungen, Buchungsvorgänge,
+  Downloads, Importe und administrative Änderungen
+- Suche, Kategoriefilter, Seitenwechsel und aufklappbare Metadaten im Audit-Log
+- Verwaltung von Vereinsstammdaten, Kassen, Umsatzgruppen, Belegnummern und
+  Umsatzsteuer-Standardwerten in der Anwendung
+- Optionale E-Mail-Benachrichtigung bei neuen Protokollen. SMTP-Zugangsdaten
+  werden in der Anwendung gepflegt und verschlüsselt gespeichert
+- Individuelle Benachrichtigungswahl je Konto sowie zusätzliche externe
+  Empfänger. Die Benachrichtigung enthält bewusst keine Geldbeträge
+- Versand einer Test-E-Mail aus den Einstellungen
+- Responsive Oberfläche, Tastaturbedienung, Dark Mode und Befehlspalette
+- Anklickbare Versionsmarke mit den aus `CHANGELOG.md` erzeugten
+  Versionshinweisen
+
+## Technischer Aufbau
+
+- TanStack Start und TanStack Router mit React 19
+- TanStack Query und TanStack Form
+- oRPC mit Valibot für die typisierte Server-Schnittstelle
+- better-auth mit Passwortanmeldung und Admin-Funktionen
+- Drizzle ORM und PostgreSQL
+- `@react-pdf/renderer` für Belege
+- AWS SDK für S3-kompatiblen Objektspeicher
+- ExcelJS für XLSX-Import und -Export
+- Tailwind CSS 4, Radix UI und lucide-react
+- Bun für Laufzeit und Paketverwaltung
+- Biome, TypeScript und Vitest für die Qualitätssicherung
+
+Servercode liegt ausschließlich unter `src/server/` und wird über geschützte
+oRPC-Prozeduren oder Server-Routen aufgerufen. Finanzielle Schreibvorgänge
+verwenden Transaktionen, Datenbankbedingungen und eindeutige Constraints, damit
+auch parallele Zugriffe mehrerer Benutzer oder App-Instanzen konsistent bleiben.
 
 ## Lokale Entwicklung
 
+Voraussetzungen:
+
+- Bun
+- PostgreSQL
+- Für den vollständigen PDF-Ablauf ein S3-kompatibler Bucket
+
+Einrichtung:
+
 ```bash
-bun install
-cp .env.example .env       # DATABASE_URL, BETTER_AUTH_SECRET, ADMIN_*, S3-Variablen eintragen
-bun run db:migrate         # Schema anlegen
-bun run db:migrate:prod    # Admin aus ADMIN_EMAIL/ADMIN_PASSWORD anlegen (idempotent)
-bun run dev                # http://localhost:3000
+bun install --frozen-lockfile
+cp .env.example .env
 ```
 
-Weitere Skripte:
+Mindestens `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`,
+`ADMIN_EMAIL` und `ADMIN_PASSWORD` in `.env` setzen. Für PDF-Speicherung und
+das Herunterladen zusätzlich die S3-Variablen konfigurieren. Danach:
 
-- `bun run test` – Vitest
-- `bun run check` – Biome Lint + Format
-- `bun run build` – Produktions-Build nach `.output/`
-- `bun run db:generate` – neue Drizzle-Migration aus Schema-Änderungen
-- `bun run auth:generate` – better-auth Schema neu erzeugen
+```bash
+bun run db:migrate:prod
+bun run dev
+```
 
-## Benutzer einladen
+Die Anwendung läuft unter <http://localhost:3000>. Der Migrator wendet alle
+offenen Drizzle-Migrationen an, legt die globalen Einstellungen an und erzeugt
+den initialen Admin idempotent aus den `ADMIN_*`-Variablen.
 
-Als Admin unter **Einstellungen → Benutzer & Einladungen** eine E-Mail
-eintragen und Rolle wählen. Der erzeugte Link ist 7 Tage gültig; die
-eingeladene Person setzt darüber Name und Passwort. Admins können Rollen
-bestehender Konten später ändern sowie Konten sperren und wieder entsperren.
+## Konfiguration
 
-## Historische Umsätze importieren
+Die vollständige Vorlage mit Kommentaren steht in [`.env.example`](.env.example).
 
-Admins können unter **Import & Export** eine leere Excel-Vorlage mit den
-aktuellen Umsatzgruppen herunterladen. Die ausgefüllte XLSX-Datei wird vor dem
-Import vollständig geprüft und anschließend atomar übernommen.
+| Variable | Zweck | Erforderlich |
+| --- | --- | --- |
+| `DATABASE_URL` | PostgreSQL-Verbindung | Ja |
+| `BETTER_AUTH_SECRET` | Schlüssel für Sitzungen und verschlüsselte SMTP-Zugangsdaten | Ja |
+| `BETTER_AUTH_URL` | Öffentliche Basis-URL für Cookies, Weiterleitungen, Einladungen und E-Mail-Links | Ja |
+| `ADMIN_EMAIL` | E-Mail des initialen Admins | Für die Ersteinrichtung |
+| `ADMIN_PASSWORD` | Passwort des initialen Admins | Für die Ersteinrichtung |
+| `ADMIN_NAME` | Anzeigename des initialen Admins | Nein, Standard ist `Admin` |
+| `AWS_ACCESS_KEY_ID` | Zugriff auf den S3-kompatiblen Bucket | Für PDFs |
+| `AWS_SECRET_ACCESS_KEY` | Geheimnis für den Bucket-Zugriff | Für PDFs |
+| `AWS_DEFAULT_REGION` | Bucket-Region | Nein, Standard ist `auto` |
+| `AWS_ENDPOINT_URL_S3` | Endpunkt des S3-kompatiblen Speichers | Abhängig vom Anbieter |
+| `S3_BUCKET_NAME` | Name des PDF-Buckets | Für PDFs |
+| `VEREINSNAME` | Fallback bis Vereinsstammdaten in der App gespeichert wurden | Nein |
+| `LFIO_INGEST_TOKEN` | Aktiviert die optionale LFIO-Telemetrie | Nein |
 
-## Deploy auf Railway
+Die weiteren `LFIO_*`-Variablen steuern Intervall, Zeitlimits und
+Schwellenwerte der optionalen Telemetrie. SMTP-Server, Absender und Empfänger
+werden nicht als Umgebungsvariablen gesetzt, sondern durch einen Admin unter
+`Einstellungen > E-Mail-Benachrichtigungen` verwaltet.
 
-Railway baut über den committeten `Dockerfile` (Bun, Multi-Stage, Output nach
-`.output/`). Konfiguration in `railway.toml`:
+## Nützliche Befehle
 
-- `preDeployCommand` führt `bun run db:migrate:prod` aus (Migrationen + Admin-Seed)
-- `startCommand` startet `bun .output/server/index.mjs`
-- Healthcheck auf `/api/health`
+```bash
+bun run check          # Biome prüfen
+bunx tsc --noEmit      # TypeScript prüfen
+bun run test           # Vitest ausführen
+bun run build          # Produktions-Build nach .output/ erzeugen
+bun .output/server/index.mjs
 
-### Einrichtung
+bun run db:generate    # Drizzle-Migration aus Schemaänderungen erzeugen
+bun run db:migrate     # offene Migrationen für die Entwicklung anwenden
+bun run db:migrate:prod # Migrationen, Einstellungen und Admin-Seed anwenden
+bun run auth:generate  # better-auth Schema neu erzeugen
+```
 
-1. Postgres- und Bucket-Plugin im Railway-Projekt hinzufügen (liefern
-   `DATABASE_URL` bzw. `AWS_*` automatisch).
-2. Service-Variablen setzen: `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`,
-   `APP_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`, `S3_BUCKET_NAME`,
-   `VEREINSNAME`, `LOGO_URL`. Siehe `.env.example`.
-3. Domain zuweisen, HTTPS ist automatisch.
+`bun run db:push` ist ausschließlich für kurzlebige lokale Entwicklung
+vorgesehen. Produktionsdatenbanken werden immer über committete Migrationen
+aktualisiert.
 
-## Hinweise
+## Deployment auf Railway
 
-- Geldbeträge werden grundsätzlich als `integer` Cent gespeichert. Konvertierung
-  passiert nur am Form-Input und bei der Anzeige.
-- Stornierte Belege werden NICHT gelöscht (Aufbewahrungspflicht). Die
-  Belegnummern-Sequenz bleibt lückenlos.
+Das Repository enthält einen mehrstufigen [`Dockerfile`](Dockerfile) und die
+Railway-Konfiguration in [`railway.toml`](railway.toml). Railway führt vor jedem
+Start `bun src/server/db/migrate.ts` aus, startet anschließend den Nitro-Server
+mit `bun .output/server/index.mjs` und prüft `/api/health`.
+
+Für eine neue Umgebung:
+
+1. Einen PostgreSQL-Dienst und einen S3-kompatiblen Bucket im Railway-Projekt
+   bereitstellen.
+2. `DATABASE_URL` als Referenz auf den PostgreSQL-Dienst setzen.
+3. Die Bucket-Zugangsdaten und `S3_BUCKET_NAME` setzen.
+4. `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` und die initialen `ADMIN_*`-Werte
+   konfigurieren.
+5. Eine Domain zuweisen. `BETTER_AUTH_URL` muss exakt auf deren öffentliche
+   Origin zeigen.
+6. Deployment starten und den Healthcheck unter `/api/health` prüfen.
+
+Der Healthcheck testet die Datenbank und antwortet bei einem Ausfall mit HTTP
+503. Mit `LFIO_INGEST_TOKEN` sendet die Anwendung zusätzlich Betriebsmetriken
+für API, PostgreSQL, Laufzeit und Bucket an LFIO.
+
+## Datenmodell und Betriebsgrenzen
+
+- Geldbeträge werden als ganzzahlige Cent-Werte gespeichert.
+- Datumsbezogene Auswertungen verwenden den Berliner Kalendertag.
+- Belegnummern werden erst innerhalb der Schreibtransaktion verbindlich
+  vergeben. Eine vorher angezeigte Nummer ist nur eine Vorschau.
+- Audit-Einträge können durch die Anwendung weder verändert noch gelöscht
+  werden.
+- PDF- und E-Mail-Erzeugung sind externe Folgeaktionen. Ein Fehler dabei legt
+  kein zweites Protokoll an und ein fehlendes PDF kann erneut erzeugt werden.
+- SVUFO ersetzt keine steuerliche oder rechtliche Prüfung und besitzt keine
+  direkte Schnittstelle zu DATEV Unternehmen Online.
+
+## Lizenz
+
+[MIT](LICENSE)
