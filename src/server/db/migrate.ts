@@ -16,14 +16,13 @@ async function ensureSettingsRow(): Promise<void> {
 		.onConflictDoNothing({ target: appSettings.id });
 }
 
-async function ensureAdminUser(): Promise<void> {
+type AdminSeedStatus = "disabled" | "created" | "linked" | "unchanged";
+
+async function ensureAdminUser(): Promise<AdminSeedStatus> {
 	const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
 	const password = process.env.ADMIN_PASSWORD;
 	if (!email || !password) {
-		logger.warn(
-			"ADMIN_EMAIL/ADMIN_PASSWORD nicht gesetzt, Admin-Seed uebersprungen",
-		);
-		return;
+		return "disabled";
 	}
 
 	const result = await ensureCredentialUser({
@@ -33,26 +32,30 @@ async function ensureAdminUser(): Promise<void> {
 		password,
 	});
 	if (result.created) {
-		logger.info("Admin angelegt", { email });
-	} else if (result.linked) {
-		logger.info("Admin-Zugang vervollstaendigt", { email });
-	} else {
-		logger.info("Admin existiert bereits, Seed uebersprungen", { email });
+		return "created";
 	}
+	if (result.linked) return "linked";
+	return "unchanged";
 }
 
 async function main(): Promise<void> {
-	logger.info("Migrationen werden angewendet");
+	const startedAt = performance.now();
 	await migrate(db, { migrationsFolder: "./drizzle" });
-	logger.info("Migrationen ok");
 	await ensureSettingsRow();
-	await ensureAdminUser();
+	const adminSeed = await ensureAdminUser();
 	await pool.end();
-	logger.info("Migration fertig");
+	logger.info("Database migration completed", {
+		event: "database.migration.completed",
+		durationMs: Math.round(performance.now() - startedAt),
+		adminSeed,
+	});
 }
 
-main().catch((err) => {
-	logger.error("Migration fehlgeschlagen", { err });
-	process.exitCode = 1;
-	pool.end().finally(() => process.exit(1));
+main().catch(async (err) => {
+	logger.error("Database migration failed", {
+		event: "database.migration.failed",
+		err,
+	});
+	await pool.end().catch(() => undefined);
+	process.exit(1);
 });

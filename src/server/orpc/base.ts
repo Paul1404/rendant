@@ -12,6 +12,7 @@ export type ORPCContext = {
 	user: AuthUser | null;
 	headers: Headers;
 	clientIp: string;
+	requestId: string;
 };
 
 const base = os.$context<ORPCContext>();
@@ -19,15 +20,25 @@ const base = os.$context<ORPCContext>();
 // Outermost middleware: log unhandled (unexpected) errors with context, and
 // debug-log expected ORPCErrors. Keeps error logging in one place instead of
 // scattered through procedures.
-const logging = base.middleware(async ({ next, path }) => {
+const logging = base.middleware(async ({ context, next, path }) => {
 	try {
 		return await next();
 	} catch (err) {
 		const procedure = Array.isArray(path) ? path.join(".") : undefined;
 		if (err instanceof ORPCError) {
-			logger.debug("orpc procedure rejected", { procedure, code: err.code });
+			logger.debug("orpc procedure rejected", {
+				event: "orpc.request.rejected",
+				requestId: context.requestId,
+				procedure,
+				code: err.code,
+			});
 		} else {
-			logger.error("orpc procedure failed", { procedure, err });
+			logger.error("orpc procedure failed", {
+				event: "orpc.request.failed",
+				requestId: context.requestId,
+				procedure,
+				err,
+			});
 		}
 		throw err;
 	}

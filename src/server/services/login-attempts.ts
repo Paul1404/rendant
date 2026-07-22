@@ -6,16 +6,31 @@ import {
 } from "@/lib/constants";
 import { db } from "@/server/db";
 import { loginAttempts } from "@/server/db/schema";
+import { logger } from "@/server/logger";
+
+let cleanupFailureReported = false;
 
 export async function recordLoginAttempt(
 	ip: string,
 	erfolgreich: boolean,
 ): Promise<void> {
 	await db.insert(loginAttempts).values({ ip, erfolgreich });
-	await db
-		.delete(loginAttempts)
-		.where(lt(loginAttempts.versucht_am, sql`now() - interval '24 hours'`))
-		.catch(() => {});
+	try {
+		await db
+			.delete(loginAttempts)
+			.where(lt(loginAttempts.versucht_am, sql`now() - interval '24 hours'`));
+		cleanupFailureReported = false;
+	} catch (err) {
+		// The login result remains authoritative if housekeeping fails. Emit only
+		// once per failure period so an attack cannot flood operational logs.
+		if (!cleanupFailureReported) {
+			logger.warn("Login attempt cleanup failed", {
+				event: "auth.login_attempt_cleanup.failed",
+				err,
+			});
+			cleanupFailureReported = true;
+		}
+	}
 }
 
 export function isLoginLimitedByCounts(

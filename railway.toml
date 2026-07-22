@@ -7,7 +7,9 @@ dockerfilePath = "Dockerfile"
 [deploy]
 # Runs in a separate container clone with the same env BEFORE the app starts:
 # applies Drizzle migrations and seeds the admin account on first deploy.
-preDeployCommand = ["bun run db:migrate:prod"]
+# Invoke the migrator directly so Bun does not print the package-script command
+# as an extra log line. Railway still aborts the deployment on a non-zero exit.
+preDeployCommand = ["bun src/server/db/migrate.ts"]
 startCommand = "bun .output/server/index.mjs"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 60

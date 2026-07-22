@@ -105,9 +105,10 @@ export async function recordAuditEvent(input: RecordAuditInput): Promise<void> {
 export function requestAuditContext(context: {
 	headers: Headers;
 	clientIp: string;
+	requestId?: string;
 }): RecordAuditInput["request"] {
 	return {
-		id: context.headers.get("x-request-id"),
+		id: context.requestId ?? context.headers.get("x-request-id"),
 		ip: context.clientIp,
 		userAgent: context.headers.get("user-agent"),
 	};

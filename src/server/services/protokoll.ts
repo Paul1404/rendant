@@ -479,10 +479,31 @@ export async function deleteAllPdfsForProtokoll(
 	protokoll: ProtokollRow,
 ): Promise<void> {
 	if (protokoll.pdf_s3_key) {
-		await deletePdf(protokoll.pdf_s3_key).catch(() => {});
+		await deletePdfBestEffort(protokoll.pdf_s3_key, protokoll.id, "original");
 	}
 	if (protokoll.storno_pdf_s3_key) {
-		await deletePdf(protokoll.storno_pdf_s3_key).catch(() => {});
+		await deletePdfBestEffort(
+			protokoll.storno_pdf_s3_key,
+			protokoll.id,
+			"cancellation",
+		);
+	}
+}
+
+async function deletePdfBestEffort(
+	key: string,
+	protokollId: string,
+	documentType: "original" | "cancellation",
+): Promise<void> {
+	try {
+		await deletePdf(key);
+	} catch (err) {
+		logger.warn("Obsolete PDF cleanup failed", {
+			event: "storage.pdf_cleanup.failed",
+			protokollId,
+			documentType,
+			err,
+		});
 	}
 }
 
@@ -538,7 +559,7 @@ export async function regenerateProtokollPdf(id: string): Promise<void> {
 	}
 
 	if (protokoll.pdf_s3_key && protokoll.pdf_s3_key !== mainKey) {
-		await deletePdf(protokoll.pdf_s3_key).catch(() => {});
+		await deletePdfBestEffort(protokoll.pdf_s3_key, protokoll.id, "original");
 	}
 	if (
 		stornoUpdated &&
@@ -546,6 +567,10 @@ export async function regenerateProtokollPdf(id: string): Promise<void> {
 		protokoll.storno_pdf_s3_key &&
 		protokoll.storno_pdf_s3_key !== stornoKey
 	) {
-		await deletePdf(protokoll.storno_pdf_s3_key).catch(() => {});
+		await deletePdfBestEffort(
+			protokoll.storno_pdf_s3_key,
+			protokoll.id,
+			"cancellation",
+		);
 	}
 }

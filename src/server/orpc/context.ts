@@ -1,4 +1,5 @@
 import { auth } from "@/server/auth";
+import { requestIdFromHeaders } from "@/server/request-id";
 import type { ORPCContext } from "./base";
 
 export function clientIpFromHeaders(headers: Headers): string {
@@ -21,11 +22,14 @@ export function clientIpFromHeaders(headers: Headers): string {
 export async function createORPCContext(
 	request: Request,
 ): Promise<ORPCContext> {
+	const requestId = requestIdFromHeaders(request.headers);
+	const headers = new Headers(request.headers);
+	headers.set("x-request-id", requestId);
 	// Authorization must reflect role changes, bans, and session revocations
 	// immediately. The general cookie cache is useful for page rendering, but an
 	// oRPC mutation must never trust a cached role after the DB session was removed.
 	const session = await auth.api.getSession({
-		headers: request.headers,
+		headers,
 		query: { disableCookieCache: true },
 	});
 	const user = session?.user
@@ -38,7 +42,8 @@ export async function createORPCContext(
 		: null;
 	return {
 		user,
-		headers: request.headers,
-		clientIp: clientIpFromHeaders(request.headers),
+		headers,
+		clientIp: clientIpFromHeaders(headers),
+		requestId,
 	};
 }

@@ -3,6 +3,18 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.21.1 - 2026-07-22
+
+- Das Produktionsimage verwendet eine gepinnte Bun-Alpine-Basis und läuft als
+  unprivilegierter Benutzer. Abhängigkeiten und Migrationen bleiben vollständig
+  im Image enthalten.
+- Deployment-Logs fassen Migration und optionalen Admin-Seed in einem
+  strukturierten Ergebnis zusammen. Alle Server-Logs enthalten jetzt Dienst,
+  Version und Umgebung, ohne Zugangsdaten auszugeben.
+- Unerwartete API-Fehler lassen sich über eine Request-ID bis zur Antwort und
+  zum Audit-Eintrag verfolgen. Fehlgeschlagene Hintergrundbereinigungen für
+  Login-Versuche und alte PDFs werden begrenzt und strukturiert protokolliert.
+
 ## 1.21.0 - 2026-07-22
 
 - Die Seite heißt jetzt „Import & Export“. Admins können eine leere

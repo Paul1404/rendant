@@ -3,6 +3,8 @@
 // gate output via LOG_LEVEL; sensitive keys are redacted. Never log secrets or
 // raw Postgres NOTICE chatter.
 
+import packageJson from "../../package.json";
+
 type Level = "debug" | "info" | "warn" | "error";
 
 const LEVEL_WEIGHT: Record<Level, number> = {
@@ -20,7 +22,17 @@ function threshold(): number {
 	return isProd ? LEVEL_WEIGHT.info : LEVEL_WEIGHT.debug;
 }
 
-const REDACT = /pass|secret|token|cookie|authorization|apikey|api_key|key$/i;
+const REDACT =
+	/pass|secret|token|cookie|authorization|credential|connection.?string|database.?url|private.?key|api.?key/i;
+
+const BASE_CONTEXT: LogContext = {
+	service: "svufo",
+	version: packageJson.version,
+	environment: process.env.NODE_ENV ?? "development",
+	...(process.env.RAILWAY_DEPLOYMENT_ID
+		? { deploymentId: process.env.RAILWAY_DEPLOYMENT_ID }
+		: {}),
+};
 
 export type LogContext = Record<string, unknown>;
 
@@ -88,4 +100,4 @@ function make(base: LogContext): Logger {
 	};
 }
 
-export const logger = make({});
+export const logger = make(BASE_CONTEXT);

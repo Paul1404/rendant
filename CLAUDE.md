@@ -205,7 +205,12 @@ Assume concurrent users and multiple Railway instances for every shared write.
 
 ## Dockerfile (Bun + Railway)
 
-Multi-stage build is required. The runtime stage must always include `node_modules` -- never rely on Bun auto-install in production. Bun auto-install does not resolve peer/optional-peer dependencies correctly (e.g. `kysely` from `@better-auth/kysely-adapter`, `better-call` from `@better-auth/core`).
+Multi-stage build is required. Use the official pinned `oven/bun:<patch>-alpine`
+image in every stage and run the final stage as the built-in `bun` user.
+Dependabot keeps the pinned patch current. The runtime stage must always include
+`node_modules` -- never rely on Bun auto-install in production. Bun auto-install
+does not resolve peer/optional-peer dependencies correctly (e.g. `kysely` from
+`@better-auth/kysely-adapter`, `better-call` from `@better-auth/core`).
 
 Required stages:
 1. `builder` -- install all deps + build

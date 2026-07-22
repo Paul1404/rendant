@@ -11,7 +11,9 @@ async function handle({ request }: { request: Request }) {
 		prefix: "/api/rpc",
 		context,
 	});
-	return response ?? new Response("Not Found", { status: 404 });
+	const result = response ?? new Response("Not Found", { status: 404 });
+	result.headers.set("x-request-id", context.requestId);
+	return result;
 }
 
 export const Route = createFileRoute("/api/rpc/$")({
