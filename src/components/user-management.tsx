@@ -3,8 +3,9 @@ import {
 	Check,
 	Copy,
 	Loader2,
+	Lock,
+	LockOpen,
 	Mail,
-	ShieldCheck,
 	Trash2,
 	UserPlus,
 } from "lucide-react";
@@ -30,6 +31,7 @@ type UserRow = {
 	email: string;
 	name: string;
 	role: string | null;
+	banned: boolean | null;
 	createdAt: Date;
 	notifyProtokoll: boolean;
 };
@@ -46,9 +48,11 @@ type InviteRow = {
 export function UserManagement({
 	users,
 	invites,
+	currentUserId,
 }: {
 	users: UserRow[];
 	invites: InviteRow[];
+	currentUserId: string;
 }) {
 	const router = useRouter();
 	const [pending, start] = useTransition();
@@ -133,6 +137,59 @@ export function UserManagement({
 				await router.invalidate();
 			} catch (err) {
 				toast.error(orpcMessage(err, "Speichern fehlgeschlagen"));
+			}
+		});
+	}
+
+	function changeRole(user: UserRow, nextRole: "user" | "admin") {
+		if (
+			user.role === "admin" &&
+			nextRole === "user" &&
+			!window.confirm(
+				`Admin-Rolle von ${user.name} wirklich entfernen? Die Person wird sofort abgemeldet.`,
+			)
+		) {
+			return;
+		}
+		start(async () => {
+			try {
+				await orpcClient.users.setRole({ id: user.id, role: nextRole });
+				toast.success(
+					nextRole === "admin"
+						? "Admin-Rolle vergeben"
+						: "Admin-Rolle entfernt",
+				);
+				await router.invalidate();
+			} catch (err) {
+				toast.error(orpcMessage(err, "Rolle konnte nicht geändert werden"));
+			}
+		});
+	}
+
+	function changeBlocked(user: UserRow) {
+		const nextBlocked = !user.banned;
+		if (
+			nextBlocked &&
+			!window.confirm(
+				`${user.name} wirklich sperren? Die Person wird sofort abgemeldet und kann sich nicht mehr anmelden.`,
+			)
+		) {
+			return;
+		}
+		start(async () => {
+			try {
+				await orpcClient.users.setBanned({ id: user.id, banned: nextBlocked });
+				toast.success(nextBlocked ? "Konto gesperrt" : "Konto entsperrt");
+				await router.invalidate();
+			} catch (err) {
+				toast.error(
+					orpcMessage(
+						err,
+						nextBlocked
+							? "Konto konnte nicht gesperrt werden"
+							: "Konto konnte nicht entsperrt werden",
+					),
+				);
 			}
 		});
 	}
@@ -270,43 +327,81 @@ export function UserManagement({
 					<CardTitle className="text-base">Konten</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-2">
-					{users.map((u) => (
-						<div
-							key={u.id}
-							className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card p-3 sm:flex-row sm:items-center sm:justify-between"
-						>
-							<div className="min-w-0">
-								<p className="truncate text-sm font-medium text-foreground">
-									{u.name}
-								</p>
-								<p className="truncate text-[11px] text-muted-foreground">
-									{u.email}
-								</p>
+					{users.map((u) => {
+						const isSelf = u.id === currentUserId;
+						return (
+							<div
+								key={u.id}
+								className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card p-3 lg:flex-row lg:items-center lg:justify-between"
+							>
+								<div className="min-w-0">
+									<div className="flex items-center gap-2">
+										<p className="truncate text-sm font-medium text-foreground">
+											{u.name}
+										</p>
+										{isSelf ? (
+											<span className="text-[11px] text-muted-foreground">
+												Du
+											</span>
+										) : null}
+										{u.banned ? (
+											<span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">
+												Gesperrt
+											</span>
+										) : null}
+									</div>
+									<p className="truncate text-[11px] text-muted-foreground">
+										{u.email}
+									</p>
+								</div>
+								<div className="flex flex-wrap items-center justify-between gap-3 lg:justify-end">
+									<label className="flex cursor-pointer items-center gap-2 text-[11px] text-muted-foreground">
+										<input
+											type="checkbox"
+											checked={u.notifyProtokoll}
+											disabled={pending || Boolean(u.banned)}
+											onChange={(e) => setNotify(u.id, e.target.checked)}
+											className="h-3.5 w-3.5 rounded border-input accent-primary"
+										/>
+										E-Mail bei neuem Protokoll
+									</label>
+									<Select
+										value={u.role === "admin" ? "admin" : "user"}
+										onValueChange={(value) =>
+											changeRole(u, value as "user" | "admin")
+										}
+										disabled={pending || isSelf || Boolean(u.banned)}
+									>
+										<SelectTrigger
+											className="h-8 w-28 text-xs"
+											aria-label={`Rolle von ${u.name}`}
+										>
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="user">Benutzer</SelectItem>
+											<SelectItem value="admin">Admin</SelectItem>
+										</SelectContent>
+									</Select>
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										disabled={pending || isSelf}
+										onClick={() => changeBlocked(u)}
+										aria-label={`${u.name} ${u.banned ? "entsperren" : "sperren"}`}
+									>
+										{u.banned ? (
+											<LockOpen className="mr-1.5 h-3.5 w-3.5" />
+										) : (
+											<Lock className="mr-1.5 h-3.5 w-3.5" />
+										)}
+										{u.banned ? "Entsperren" : "Sperren"}
+									</Button>
+								</div>
 							</div>
-							<div className="flex items-center justify-between gap-3 sm:justify-end">
-								<label className="flex cursor-pointer items-center gap-2 text-[11px] text-muted-foreground">
-									<input
-										type="checkbox"
-										checked={u.notifyProtokoll}
-										disabled={pending}
-										onChange={(e) => setNotify(u.id, e.target.checked)}
-										className="h-3.5 w-3.5 rounded border-input accent-primary"
-									/>
-									E-Mail bei neuem Protokoll
-								</label>
-								{u.role === "admin" ? (
-									<span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
-										<ShieldCheck className="h-3 w-3" />
-										Admin
-									</span>
-								) : (
-									<span className="text-[11px] text-muted-foreground">
-										Benutzer
-									</span>
-								)}
-							</div>
-						</div>
-					))}
+						);
+					})}
 				</CardContent>
 			</Card>
 		</div>

@@ -1,7 +1,11 @@
-import { and, gte, lte } from "drizzle-orm";
+import { and, eq, gte, lte } from "drizzle-orm";
 import { type RevenueExportRow, revenueCsvDocument } from "@/lib/revenue-csv";
 import { db } from "@/server/db";
-import { historicalRevenues, protokolle } from "@/server/db/schema";
+import {
+	anlassKatalog,
+	historicalRevenues,
+	protokolle,
+} from "@/server/db/schema";
 
 export type RevenueExport = {
 	csv: string;
@@ -18,6 +22,7 @@ export async function loadRevenueExportRows(
 			.select({
 				date: protokolle.anlass_datum,
 				occasion: protokolle.anlass,
+				comparisonGroup: anlassKatalog.name,
 				revenueCashCent: protokolle.tageseinnahmen_cent,
 				revenueCardCent: protokolle.kartenzahlung_cent,
 				expensesCent: protokolle.ausgaben_cent,
@@ -26,6 +31,10 @@ export async function loadRevenueExportRows(
 				note: protokolle.bemerkung,
 			})
 			.from(protokolle)
+			.leftJoin(
+				anlassKatalog,
+				eq(protokolle.anlass_katalog_id, anlassKatalog.id),
+			)
 			.where(
 				and(
 					gte(protokolle.anlass_datum, von),
@@ -36,7 +45,8 @@ export async function loadRevenueExportRows(
 			.select({
 				date: historicalRevenues.anlass_datum,
 				occasion: historicalRevenues.anlass,
-				comparisonGroup: historicalRevenues.vergleichsgruppe,
+				comparisonGroup: anlassKatalog.name,
+				legacyComparisonGroup: historicalRevenues.vergleichsgruppe,
 				revenueCent: historicalRevenues.umsatz_cent,
 				expensesCent: historicalRevenues.ausgaben_cent,
 				reference: historicalRevenues.quellreferenz,
@@ -44,6 +54,10 @@ export async function loadRevenueExportRows(
 				note: historicalRevenues.bemerkung,
 			})
 			.from(historicalRevenues)
+			.leftJoin(
+				anlassKatalog,
+				eq(historicalRevenues.anlass_katalog_id, anlassKatalog.id),
+			)
 			.where(
 				and(
 					gte(historicalRevenues.anlass_datum, von),
@@ -56,7 +70,7 @@ export async function loadRevenueExportRows(
 		...protocolRows.map((row) => ({
 			date: row.date,
 			occasion: row.occasion,
-			comparisonGroup: row.occasion,
+			comparisonGroup: row.comparisonGroup ?? row.occasion,
 			revenueCent:
 				Number(row.revenueCashCent) + Number(row.revenueCardCent ?? 0),
 			expensesCent: Number(row.expensesCent),
@@ -68,7 +82,7 @@ export async function loadRevenueExportRows(
 		...historicalRows.map((row) => ({
 			date: row.date,
 			occasion: row.occasion,
-			comparisonGroup: row.comparisonGroup,
+			comparisonGroup: row.comparisonGroup ?? row.legacyComparisonGroup,
 			revenueCent: Number(row.revenueCent),
 			expensesCent: Number(row.expensesCent),
 			source: "Altunterlage" as const,

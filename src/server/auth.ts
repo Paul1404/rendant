@@ -48,7 +48,9 @@ export const auth = betterAuth({
 	session: {
 		expiresIn: 60 * 60 * 24 * 7, // 7 days
 		updateAge: 60 * 60 * 24, // refresh once per day
-		cookieCache: { enabled: true, maxAge: 5 * 60 },
+		// Authorization is checked against the database on every request so role
+		// changes, bans, and session revocations take effect immediately.
+		cookieCache: { enabled: false },
 	},
 	advanced: {
 		cookiePrefix: "svufo",

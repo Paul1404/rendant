@@ -31,9 +31,9 @@ function proto(p: {
 }
 
 const CATALOG: AnlassKatalogEntry[] = [
-	{ id: "b", name: "Biergarten", typ: "wiederkehrend", aktiv: true, reihenfolge: 0 },
-	{ id: "k", name: "Korbball", typ: "wiederkehrend", aktiv: true, reihenfolge: 1 },
-	{ id: "s", name: "Sommerfest", typ: "einmalig", aktiv: true, reihenfolge: 2 },
+	{ id: "b", name: "Biergarten", typ: "wiederkehrend", aktiv: true, reihenfolge: 0, updatedAt: "2026-07-22T00:00:00.000Z" },
+	{ id: "k", name: "Korbball", typ: "wiederkehrend", aktiv: true, reihenfolge: 1, updatedAt: "2026-07-22T00:00:00.000Z" },
+	{ id: "s", name: "Sommerfest", typ: "einmalig", aktiv: true, reihenfolge: 2, updatedAt: "2026-07-22T00:00:00.000Z" },
 ];
 const byId = new Map(CATALOG.map((k) => [k.id, k]));
 

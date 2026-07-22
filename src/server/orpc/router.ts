@@ -1,5 +1,5 @@
 import { ORPCError } from "@orpc/server";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import * as v from "valibot";
 import { AUDIT_CATEGORIES } from "@/lib/audit";
 import {
@@ -20,7 +20,10 @@ import {
 	VereinSettingsSchema,
 } from "@/lib/schemas";
 import { db } from "@/server/db";
-import { user as userTable } from "@/server/db/auth-schema";
+import {
+	session as sessionTable,
+	user as userTable,
+} from "@/server/db/auth-schema";
 import {
 	AnlassKatalogConcurrencyError,
 	bulkAssignKatalog,
@@ -552,16 +555,21 @@ const anlassKatalog = {
 		.input(
 			v.object({
 				id: v.pipe(v.string(), v.minLength(1)),
+				expected_updated_at: v.pipe(v.string(), v.minLength(1)),
 				...AnlassKatalogSchema.entries,
 			}),
 		)
 		.handler(async ({ input, context }) => {
 			try {
-				const entry = await updateKatalog(input.id, {
-					name: input.name,
-					typ: input.typ,
-					aktiv: input.aktiv,
-				});
+				const entry = await updateKatalog(
+					input.id,
+					{
+						name: input.name,
+						typ: input.typ,
+						aktiv: input.aktiv,
+					},
+					input.expected_updated_at,
+				);
 				if (!entry) {
 					throw new ORPCError("NOT_FOUND", {
 						message: "Umsatzgruppe nicht gefunden",
@@ -577,6 +585,9 @@ const anlassKatalog = {
 				});
 				return { entry };
 			} catch (e) {
+				if (e instanceof AnlassKatalogConcurrencyError) {
+					throw new ORPCError("CONFLICT", { message: e.message });
+				}
 				if ((e as { code?: string }).code === "23505") {
 					throw new ORPCError("CONFLICT", {
 						message: "Umsatzgruppe mit diesem Namen existiert bereits",
@@ -706,6 +717,7 @@ const users = {
 				email: userTable.email,
 				name: userTable.name,
 				role: userTable.role,
+				banned: userTable.banned,
 				createdAt: userTable.createdAt,
 				notifyProtokoll: userTable.notifyProtokoll,
 			})
@@ -713,6 +725,151 @@ const users = {
 			.orderBy(desc(userTable.createdAt));
 		return rows;
 	}),
+
+	setRole: adminOnly
+		.input(
+			v.object({
+				id: v.pipe(v.string(), v.minLength(1)),
+				role: v.picklist(["user", "admin"]),
+			}),
+		)
+		.handler(async ({ input, context }) => {
+			if (input.id === context.user.id && input.role !== "admin") {
+				throw new ORPCError("BAD_REQUEST", {
+					message: "Die eigene Admin-Rolle kann nicht entfernt werden",
+				});
+			}
+			const changed = await db.transaction(async (tx) => {
+				await tx.execute(
+					sql`select pg_advisory_xact_lock(hashtext('svufo:user-access-admin'))`,
+				);
+				const [target] = await tx
+					.select({
+						id: userTable.id,
+						email: userTable.email,
+						role: userTable.role,
+						banned: userTable.banned,
+					})
+					.from(userTable)
+					.where(eq(userTable.id, input.id))
+					.limit(1)
+					.for("update");
+				if (!target) return null;
+				if (
+					target.role === "admin" &&
+					input.role !== "admin" &&
+					!target.banned
+				) {
+					const [admins] = await tx
+						.select({ count: sql<number>`count(*)` })
+						.from(userTable)
+						.where(
+							and(
+								eq(userTable.role, "admin"),
+								sql`${userTable.banned} is not true`,
+							),
+						);
+					if (Number(admins?.count ?? 0) <= 1) {
+						throw new ORPCError("CONFLICT", {
+							message: "Der letzte aktive Admin kann nicht herabgestuft werden",
+						});
+					}
+				}
+				await tx
+					.update(userTable)
+					.set({ role: input.role, updatedAt: new Date() })
+					.where(eq(userTable.id, input.id));
+				await tx.delete(sessionTable).where(eq(sessionTable.userId, input.id));
+				return { ...target, role: input.role };
+			});
+			if (!changed) {
+				throw new ORPCError("NOT_FOUND", { message: "Konto nicht gefunden" });
+			}
+			await recordAuditEvent({
+				category: "users",
+				action: "users.role_changed",
+				actor: context.user,
+				subject: { type: "user", id: changed.id, label: changed.email },
+				request: requestAuditContext(context),
+				metadata: { role: changed.role },
+			});
+			return { ok: true as const, role: changed.role };
+		}),
+
+	setBanned: adminOnly
+		.input(
+			v.object({
+				id: v.pipe(v.string(), v.minLength(1)),
+				banned: v.boolean(),
+			}),
+		)
+		.handler(async ({ input, context }) => {
+			if (input.id === context.user.id && input.banned) {
+				throw new ORPCError("BAD_REQUEST", {
+					message: "Das eigene Konto kann nicht gesperrt werden",
+				});
+			}
+			const changed = await db.transaction(async (tx) => {
+				await tx.execute(
+					sql`select pg_advisory_xact_lock(hashtext('svufo:user-access-admin'))`,
+				);
+				const [target] = await tx
+					.select({
+						id: userTable.id,
+						email: userTable.email,
+						role: userTable.role,
+						banned: userTable.banned,
+					})
+					.from(userTable)
+					.where(eq(userTable.id, input.id))
+					.limit(1)
+					.for("update");
+				if (!target) return null;
+				if (input.banned && target.role === "admin" && !target.banned) {
+					const [admins] = await tx
+						.select({ count: sql<number>`count(*)` })
+						.from(userTable)
+						.where(
+							and(
+								eq(userTable.role, "admin"),
+								sql`${userTable.banned} is not true`,
+							),
+						);
+					if (Number(admins?.count ?? 0) <= 1) {
+						throw new ORPCError("CONFLICT", {
+							message: "Der letzte aktive Admin kann nicht gesperrt werden",
+						});
+					}
+				}
+				await tx
+					.update(userTable)
+					.set({
+						banned: input.banned,
+						banReason: input.banned ? "Durch Administrator gesperrt" : null,
+						banExpires: null,
+						updatedAt: new Date(),
+					})
+					.where(eq(userTable.id, input.id));
+				if (input.banned) {
+					await tx
+						.delete(sessionTable)
+						.where(eq(sessionTable.userId, input.id));
+				}
+				return { ...target, banned: input.banned };
+			});
+			if (!changed) {
+				throw new ORPCError("NOT_FOUND", { message: "Konto nicht gefunden" });
+			}
+			await recordAuditEvent({
+				category: "users",
+				action: input.banned ? "users.blocked" : "users.unblocked",
+				actor: context.user,
+				subject: { type: "user", id: changed.id, label: changed.email },
+				request: requestAuditContext(context),
+				metadata: { role: changed.role },
+			});
+			return { ok: true as const, banned: changed.banned };
+		}),
 
 	// Admin override of another account's notification preference.
 	setNotify: adminOnly

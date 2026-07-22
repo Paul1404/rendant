@@ -47,6 +47,7 @@ export const Route = createFileRoute("/protokolle/einstellungen")({
 			orpcClient.profile.getNotify(),
 		]);
 		return {
+			currentUserId: context.user.id,
 			settings: belegnummer.settings,
 			preview: belegnummer.preview,
 			umsatzUstBasis: basis.umsatz_ust_basis,
@@ -65,6 +66,7 @@ export const Route = createFileRoute("/protokolle/einstellungen")({
 
 function EinstellungenPage() {
 	const {
+		currentUserId,
 		settings,
 		preview,
 		umsatzUstBasis,
@@ -95,14 +97,16 @@ function EinstellungenPage() {
 				</section>
 			) : null}
 
-			<section className="mx-auto max-w-3xl space-y-4">
-				<SectionHeading
-					icon={Wallet}
-					title="Kassen"
-					description="Vorlagen für Kassennummer, Kassenbezeichnung und Anfangsbestand (Wechselgeld). Beim Erfassen eines Protokolls lassen sich diese Werte mit einem Klick übernehmen."
-				/>
-				<CashRegistersForm initial={registers} />
-			</section>
+			{admin ? (
+				<section className="mx-auto max-w-3xl space-y-4">
+					<SectionHeading
+						icon={Wallet}
+						title="Kassen"
+						description="Vorlagen für Kassennummer, Kassenbezeichnung und Anfangsbestand (Wechselgeld). Beim Erfassen eines Protokolls lassen sich diese Werte mit einem Klick übernehmen. Nur für Admins."
+					/>
+					<CashRegistersForm initial={registers} />
+				</section>
+			) : null}
 
 			{admin ? (
 				<section className="mx-auto max-w-3xl space-y-4">
@@ -115,23 +119,30 @@ function EinstellungenPage() {
 				</section>
 			) : null}
 
-			<section className="mx-auto max-w-3xl space-y-4">
-				<SectionHeading
-					icon={Hash}
-					title="Belegnummer-Format"
-					description="Aussehen der Belegnummer für neue Protokolle. Wir empfehlen, das Format während eines Geschäftsjahres nicht mehr zu ändern. Das Finanzamt verlangt sonst eine Begründung für einen Formatwechsel mitten im Jahr."
-				/>
-				<BelegnummerSettingsForm initial={settings} serverPreview={preview} />
-			</section>
+			{admin ? (
+				<>
+					<section className="mx-auto max-w-3xl space-y-4">
+						<SectionHeading
+							icon={Hash}
+							title="Belegnummer-Format"
+							description="Aussehen der Belegnummer für neue Protokolle. Wir empfehlen, das Format während eines Geschäftsjahres nicht mehr zu ändern. Das Finanzamt verlangt sonst eine Begründung für einen Formatwechsel mitten im Jahr. Nur für Admins."
+						/>
+						<BelegnummerSettingsForm
+							initial={settings}
+							serverPreview={preview}
+						/>
+					</section>
 
-			<section className="mx-auto max-w-3xl space-y-4">
-				<SectionHeading
-					icon={Receipt}
-					title="USt.-Aufteilung"
-					description="Standard, ob die Aufteilung des Umsatzes nach USt.-Sätzen auf die Tageseinnahmen vor oder nach Kartenzahlung bezogen wird."
-				/>
-				<UmsatzUstBasisForm initial={umsatzUstBasis} />
-			</section>
+					<section className="mx-auto max-w-3xl space-y-4">
+						<SectionHeading
+							icon={Receipt}
+							title="USt.-Aufteilung"
+							description="Standard, ob die Aufteilung des Umsatzes nach USt.-Sätzen auf die Tageseinnahmen vor oder nach Kartenzahlung bezogen wird. Nur für Admins."
+						/>
+						<UmsatzUstBasisForm initial={umsatzUstBasis} />
+					</section>
+				</>
+			) : null}
 
 			<section className="mx-auto max-w-3xl space-y-4">
 				<SectionHeading
@@ -160,7 +171,11 @@ function EinstellungenPage() {
 						title="Benutzer & Einladungen"
 						description="Lade weitere Personen ein und verwalte bestehende Konten. Nur für Admins sichtbar."
 					/>
-					<UserManagement users={admin.users} invites={admin.invites} />
+					<UserManagement
+						users={admin.users}
+						invites={admin.invites}
+						currentUserId={currentUserId}
+					/>
 				</section>
 			) : null}
 		</div>

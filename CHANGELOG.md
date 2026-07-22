@@ -3,6 +3,23 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.20.0 - 2026-07-22
+
+- Umsatzgruppen lassen sich direkt in der Vergleichsansicht umbenennen, als
+  wiederkehrend oder einmalig einstufen und für neue Erfassungen aktivieren
+  oder deaktivieren.
+- Admins können die Rolle bestehender Konten ändern sowie Konten sperren und
+  wieder entsperren. Selbstsperren und das Entfernen des letzten aktiven Admins
+  werden verhindert, gesperrte Konten verlieren sofort den Zugriff.
+- Dublettenhinweise und Umsatzexporte verwenden zuverlässig die stabile
+  Umsatzgruppe. Umbenennungen und Neuzuordnungen erscheinen dadurch sofort
+  korrekt in Listen, CSV- und Excel-Dateien.
+- Nicht-Admins sehen keine Admin-Formulare mehr, deren Speichern serverseitig
+  ohnehin abgelehnt würde.
+- Gleichzeitige Änderungen derselben Umsatzgruppe überschreiben sich nicht
+  mehr unbemerkt. Die zweite Person erhält einen Konflikthinweis und kann die
+  aktuellen Daten neu laden.
+
 ## 1.19.0 - 2026-07-22
 
 - Neue Protokolle zeigen standardmäßig nur „Gezählt von“. Eine separate

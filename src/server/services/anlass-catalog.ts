@@ -22,6 +22,7 @@ function rowToEntry(row: Row): AnlassKatalogEntry {
 		typ: row.typ === "einmalig" ? "einmalig" : "wiederkehrend",
 		aktiv: row.aktiv,
 		reihenfolge: Number(row.reihenfolge),
+		updatedAt: row.updated_at.toISOString(),
 	};
 }
 
@@ -56,19 +57,31 @@ export async function createKatalog(
 export async function updateKatalog(
 	id: string,
 	input: AnlassKatalogInput,
+	expectedUpdatedAt: string,
 ): Promise<AnlassKatalogEntry | null> {
-	const rows = await db
-		.update(anlassKatalog)
-		.set({
-			name: input.name,
-			typ: input.typ,
-			aktiv: input.aktiv,
-			updated_at: new Date(),
-		})
-		.where(eq(anlassKatalog.id, id))
-		.returning();
-	if (rows.length === 0) return null;
-	return rowToEntry(rows[0]);
+	return db.transaction(async (tx) => {
+		const [current] = await tx
+			.select()
+			.from(anlassKatalog)
+			.where(eq(anlassKatalog.id, id))
+			.limit(1)
+			.for("update");
+		if (!current) return null;
+		if (current.updated_at.toISOString() !== expectedUpdatedAt) {
+			throw new AnlassKatalogConcurrencyError();
+		}
+		const [updated] = await tx
+			.update(anlassKatalog)
+			.set({
+				name: input.name,
+				typ: input.typ,
+				aktiv: input.aktiv,
+				updated_at: new Date(),
+			})
+			.where(eq(anlassKatalog.id, id))
+			.returning();
+		return updated ? rowToEntry(updated) : null;
+	});
 }
 
 export async function deleteKatalog(

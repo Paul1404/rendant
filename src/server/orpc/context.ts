@@ -21,7 +21,13 @@ export function clientIpFromHeaders(headers: Headers): string {
 export async function createORPCContext(
 	request: Request,
 ): Promise<ORPCContext> {
-	const session = await auth.api.getSession({ headers: request.headers });
+	// Authorization must reflect role changes, bans, and session revocations
+	// immediately. The general cookie cache is useful for page rendering, but an
+	// oRPC mutation must never trust a cached role after the DB session was removed.
+	const session = await auth.api.getSession({
+		headers: request.headers,
+		query: { disableCookieCache: true },
+	});
 	const user = session?.user
 		? {
 				id: session.user.id,

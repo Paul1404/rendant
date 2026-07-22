@@ -93,10 +93,15 @@ export function AnlassCatalogForm({
 			return;
 		}
 		const id = editingId;
+		const expectedUpdatedAt = entries.find(
+			(entry) => entry.id === id,
+		)?.updatedAt;
+		if (!expectedUpdatedAt) return;
 		start(async () => {
 			try {
 				const data = await orpcClient.anlassKatalog.update({
 					id,
+					expected_updated_at: expectedUpdatedAt,
 					name: editDraft.name.trim(),
 					typ: editDraft.typ,
 					aktiv: editDraft.aktiv,

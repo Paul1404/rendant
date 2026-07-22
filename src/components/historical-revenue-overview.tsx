@@ -9,9 +9,11 @@ import {
 	History,
 	Info,
 	Loader2,
+	Pencil,
 	Plus,
 	Save,
 	TriangleAlert,
+	X,
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -168,16 +170,22 @@ export function HistoricalRevenueOverview({
 		occasionFilter === "all"
 			? comparisons
 			: comparisons.filter((group) => group.key === occasionFilter);
-	function duplicateSources(date: string, comparisonGroup: string): string[] {
+	function duplicateSources(
+		date: string,
+		comparisonGroupId: string,
+		comparisonGroup: string,
+	): string[] {
 		const key = occasionKey(comparisonGroup);
-		if (!date || !key) return [];
+		if (!date || !comparisonGroupId || !key) return [];
 		const sources: string[] = [];
 		if (
 			historical.some(
 				(entry) =>
 					!entry.storniert_am &&
 					entry.anlass_datum === date &&
-					occasionKey(entry.vergleichsgruppe) === key,
+					(entry.anlass_katalog_id === comparisonGroupId ||
+						(!entry.anlass_katalog_id &&
+							occasionKey(entry.vergleichsgruppe) === key)),
 			)
 		) {
 			sources.push("historischer Eintrag");
@@ -187,7 +195,9 @@ export function HistoricalRevenueOverview({
 				(protocol) =>
 					!protocol.storniert_am &&
 					protocol.anlass_datum === date &&
-					occasionKey(protocol.anlass) === key,
+					(protocol.anlass_katalog_id === comparisonGroupId ||
+						(!protocol.anlass_katalog_id &&
+							occasionKey(protocol.anlass) === key)),
 			)
 		) {
 			sources.push("Kassenzählprotokoll");
@@ -426,7 +436,11 @@ export function HistoricalRevenueOverview({
 							>
 								{([date, revenueGroupId]) => {
 									const groupName = catalogById.get(revenueGroupId)?.name ?? "";
-									const duplicates = duplicateSources(date, groupName);
+									const duplicates = duplicateSources(
+										date,
+										revenueGroupId,
+										groupName,
+									);
 									return duplicates.length > 0 ? (
 										<div
 											className="flex gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 sm:col-span-2 lg:col-span-12 dark:text-amber-200"
@@ -541,6 +555,7 @@ export function HistoricalRevenueOverview({
 			{historical.length > 0 ? (
 				<HistoricalEntries
 					entries={historical}
+					catalogById={catalogById}
 					canCancel={canCreate}
 					onCanceled={(id, reason) =>
 						setHistorical((entries) =>
@@ -618,6 +633,13 @@ function ComparisonCard({
 	const [targetId, setTargetId] = useState(initialTarget);
 	const [targetName, setTargetName] = useState(group.label);
 	const [saving, setSaving] = useState(false);
+	const [editingGroup, setEditingGroup] = useState(false);
+	const catalogEntry = group.unmapped
+		? null
+		: (catalog.find((entry) => entry.id === group.key) ?? null);
+	const [editName, setEditName] = useState(catalogEntry?.name ?? group.label);
+	const [editType, setEditType] = useState(catalogEntry?.typ ?? group.typ);
+	const [editActive, setEditActive] = useState(catalogEntry?.aktiv ?? true);
 	const years = Array.from(group.years.values()).sort(
 		(a, b) => b.year - a.year,
 	);
@@ -632,6 +654,37 @@ function ComparisonCard({
 	function selectTarget(id: string) {
 		setTargetId(id);
 		setTargetName(catalog.find((entry) => entry.id === id)?.name ?? "");
+	}
+
+	function startGroupEdit() {
+		if (!catalogEntry) return;
+		setEditName(catalogEntry.name);
+		setEditType(catalogEntry.typ);
+		setEditActive(catalogEntry.aktiv);
+		setEditingGroup(true);
+	}
+
+	async function saveGroup() {
+		if (!catalogEntry || !editName.trim()) return;
+		setSaving(true);
+		try {
+			await orpcClient.anlassKatalog.update({
+				id: catalogEntry.id,
+				expected_updated_at: catalogEntry.updatedAt,
+				name: editName.trim(),
+				typ: editType,
+				aktiv: editActive,
+			});
+			setEditingGroup(false);
+			toast.success("Umsatzgruppe aktualisiert");
+			await onSaved();
+		} catch (error) {
+			toast.error(
+				orpcMessage(error, "Umsatzgruppe konnte nicht gespeichert werden"),
+			);
+		} finally {
+			setSaving(false);
+		}
 	}
 
 	async function applyBulkEdit() {
@@ -690,20 +743,33 @@ function ComparisonCard({
 							</span>
 						</div>
 					</div>
-					<Button
-						type="button"
-						variant="ghost"
-						size="icon-sm"
-						aria-label={expanded ? "Einträge schließen" : "Einträge anzeigen"}
-						aria-expanded={expanded}
-						onClick={() => setExpanded((value) => !value)}
-					>
-						{expanded ? (
-							<ChevronUp className="h-4 w-4" />
-						) : (
-							<ChevronDown className="h-4 w-4" />
-						)}
-					</Button>
+					<div className="flex items-center gap-1">
+						{canManage && catalogEntry ? (
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon-sm"
+								aria-label="Umsatzgruppe bearbeiten"
+								onClick={startGroupEdit}
+							>
+								<Pencil className="h-4 w-4" />
+							</Button>
+						) : null}
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon-sm"
+							aria-label={expanded ? "Einträge schließen" : "Einträge anzeigen"}
+							aria-expanded={expanded}
+							onClick={() => setExpanded((value) => !value)}
+						>
+							{expanded ? (
+								<ChevronUp className="h-4 w-4" />
+							) : (
+								<ChevronDown className="h-4 w-4" />
+							)}
+						</Button>
+					</div>
 				</div>
 				{delta != null ? (
 					<div
@@ -726,6 +792,77 @@ function ComparisonCard({
 				) : null}
 			</CardHeader>
 			<CardContent className="space-y-2">
+				{editingGroup && catalogEntry ? (
+					<div className="space-y-3 rounded-xl border border-primary/20 bg-primary/[0.03] p-3">
+						<div className="grid gap-3 sm:grid-cols-2">
+							<div className="space-y-1.5">
+								<Label htmlFor={`group-name-${group.key}`}>Name</Label>
+								<Input
+									id={`group-name-${group.key}`}
+									value={editName}
+									onChange={(event) => setEditName(event.target.value)}
+									maxLength={120}
+									autoFocus
+								/>
+							</div>
+							<div className="space-y-1.5">
+								<Label>Auswertung</Label>
+								<div className="flex rounded-lg border border-input bg-background p-0.5">
+									{(["wiederkehrend", "einmalig"] as const).map((type) => (
+										<button
+											key={type}
+											type="button"
+											aria-pressed={editType === type}
+											onClick={() => setEditType(type)}
+											className={cn(
+												"flex-1 rounded-md px-2.5 py-1.5 text-xs font-medium",
+												editType === type
+													? "bg-primary/10 text-primary"
+													: "text-muted-foreground",
+											)}
+										>
+											{type}
+										</button>
+									))}
+								</div>
+							</div>
+						</div>
+						<label className="flex items-center gap-2 text-xs text-foreground">
+							<input
+								type="checkbox"
+								checked={editActive}
+								onChange={(event) => setEditActive(event.target.checked)}
+								className="h-4 w-4 accent-primary"
+							/>
+							Aktiv und bei neuen Erfassungen auswählbar
+						</label>
+						<div className="flex justify-end gap-2">
+							<Button
+								type="button"
+								variant="ghost"
+								size="sm"
+								onClick={() => setEditingGroup(false)}
+								disabled={saving}
+							>
+								<X className="mr-1 h-4 w-4" />
+								Abbrechen
+							</Button>
+							<Button
+								type="button"
+								size="sm"
+								onClick={() => void saveGroup()}
+								disabled={saving || !editName.trim()}
+							>
+								{saving ? (
+									<Loader2 className="mr-1 h-4 w-4 animate-spin" />
+								) : (
+									<Save className="mr-1 h-4 w-4" />
+								)}
+								Speichern
+							</Button>
+						</div>
+					</div>
+				) : null}
 				{years.map((year) => (
 					<div
 						key={year.year}
@@ -915,10 +1052,12 @@ function sourceSummary(year: OccasionYear): string {
 
 function HistoricalEntries({
 	entries,
+	catalogById,
 	canCancel,
 	onCanceled,
 }: {
 	entries: HistoricalRevenue[];
+	catalogById: Map<string, AnlassKatalogEntry>;
 	canCancel: boolean;
 	onCanceled: (id: string, reason: string) => void;
 }) {
@@ -958,7 +1097,10 @@ function HistoricalEntries({
 								</Badge>
 							</div>
 							<p className="mt-1 text-xs text-muted-foreground">
-								Umsatzgruppe: {entry.vergleichsgruppe}
+								Umsatzgruppe:{" "}
+								{(entry.anlass_katalog_id
+									? catalogById.get(entry.anlass_katalog_id)?.name
+									: null) ?? entry.vergleichsgruppe}
 								{entry.quellreferenz ? ` · Quelle: ${entry.quellreferenz}` : ""}
 							</p>
 							{entry.storniert_am ? (

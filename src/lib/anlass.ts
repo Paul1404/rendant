@@ -9,6 +9,7 @@ export type AnlassKatalogEntry = {
 	typ: AnlassTyp;
 	aktiv: boolean;
 	reihenfolge: number;
+	updatedAt: string;
 };
 
 // Normalizes a free-text anlass to a stable key: trim, collapse inner whitespace,

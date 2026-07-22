@@ -53,7 +53,8 @@ Weitere Skripte:
 
 Als Admin unter **Einstellungen → Benutzer & Einladungen** eine E-Mail
 eintragen und Rolle wählen. Der erzeugte Link ist 7 Tage gültig; die
-eingeladene Person setzt darüber Name und Passwort.
+eingeladene Person setzt darüber Name und Passwort. Admins können Rollen
+bestehender Konten später ändern sowie Konten sperren und wieder entsperren.
 
 ## Deploy auf Railway
 
