@@ -3,6 +3,10 @@ import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import { db } from "@/server/db";
 import { user as userTable } from "@/server/db/auth-schema";
 import { invitations } from "@/server/db/schema";
+import {
+	type RecordAuditInput,
+	recordAuditEventStrict,
+} from "@/server/services/audit";
 import { ensureCredentialUser } from "@/server/services/auth-accounts";
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -45,6 +49,7 @@ export async function createInvite(opts: {
 	email: string;
 	role: "user" | "admin";
 	invitedBy: string | null;
+	audit: Omit<RecordAuditInput, "category" | "action" | "subject">;
 }): Promise<InviteWithLink> {
 	const email = opts.email.trim().toLowerCase();
 	return db.transaction(async (tx) => {
@@ -92,16 +97,37 @@ export async function createInvite(opts: {
 				expires_at: new Date(Date.now() + INVITE_TTL_MS),
 			})
 			.returning();
-		return { ...rowToInvite(rows[0]), token };
+		const invite = { ...rowToInvite(rows[0]), token };
+		await recordAuditEventStrict(tx, {
+			...opts.audit,
+			category: "users",
+			action: "users.invite_created",
+			subject: { type: "invite", id: invite.id, label: invite.email },
+			metadata: { ...opts.audit.metadata, role: invite.role },
+		});
+		return invite;
 	});
 }
 
-export async function revokeInvite(id: string): Promise<Invite | null> {
-	const rows = await db
-		.delete(invitations)
-		.where(and(eq(invitations.id, id), isNull(invitations.accepted_at)))
-		.returning();
-	return rows[0] ? rowToInvite(rows[0]) : null;
+export async function revokeInvite(
+	id: string,
+	audit: Omit<RecordAuditInput, "category" | "action" | "subject">,
+): Promise<Invite | null> {
+	return db.transaction(async (tx) => {
+		const rows = await tx
+			.delete(invitations)
+			.where(and(eq(invitations.id, id), isNull(invitations.accepted_at)))
+			.returning();
+		if (!rows[0]) return null;
+		const invite = rowToInvite(rows[0]);
+		await recordAuditEventStrict(tx, {
+			...audit,
+			category: "users",
+			action: "users.invite_revoked",
+			subject: { type: "invite", id: invite.id, label: invite.email },
+		});
+		return invite;
+	});
 }
 
 export async function getValidInvite(token: string): Promise<Invite | null> {
@@ -123,6 +149,7 @@ export async function acceptInvite(opts: {
 	token: string;
 	name: string;
 	password: string;
+	audit: Omit<RecordAuditInput, "category" | "action" | "actor" | "subject">;
 }): Promise<{
 	userId: string;
 	email: string;
@@ -167,6 +194,27 @@ export async function acceptInvite(opts: {
 		if (rows.length === 0) {
 			throw new Error("Einladung konnte nicht angenommen werden");
 		}
+		await recordAuditEventStrict(tx, {
+			...opts.audit,
+			category: "users",
+			action: "users.invite_accepted",
+			actor: {
+				id: credentialUser.id,
+				email: inviteRow.email,
+				name: opts.name.trim(),
+				role: inviteRow.role,
+			},
+			subject: {
+				type: "user",
+				id: credentialUser.id,
+				label: inviteRow.email,
+			},
+			metadata: {
+				...opts.audit.metadata,
+				invite_id: inviteRow.id,
+				role: inviteRow.role,
+			},
+		});
 		return {
 			userId: credentialUser.id,
 			email: inviteRow.email,

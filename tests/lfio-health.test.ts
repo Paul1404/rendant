@@ -85,3 +85,58 @@ describe("container memory helpers", () => {
 		expect(calculateMemoryPct(2048, 1024)).toBe(100);
 	});
 });
+
+describe("bucket inventory gating", () => {
+	it("runs immediately, then only after the separate inventory interval", async () => {
+		const { isBucketInventoryDue } = await import(
+			"@/server/services/lfio-health"
+		);
+		const day = 24 * 60 * 60 * 1_000;
+
+		expect(isBucketInventoryDue(undefined, 1_000, day)).toBe(true);
+		expect(isBucketInventoryDue(1_000, 1_000 + day - 1, day)).toBe(false);
+		expect(isBucketInventoryDue(1_000, 1_000 + day, day)).toBe(true);
+	});
+
+	it("caps pagination and reports whether the inventory is complete", async () => {
+		const { collectBoundedBucketInventory } = await import(
+			"@/server/services/lfio-health"
+		);
+		let calls = 0;
+		const inventory = await collectBoundedBucketInventory(async () => {
+			calls += 1;
+			return {
+				Contents: [{ Size: 10 }, { Size: 20 }],
+				NextContinuationToken: `page-${calls + 1}`,
+			};
+		}, 3);
+
+		expect(calls).toBe(3);
+		expect(inventory).toEqual({
+			objectCount: 6,
+			totalSizeBytes: 90,
+			pages: 3,
+			complete: false,
+		});
+	});
+
+	it("marks a final page as complete", async () => {
+		const { collectBoundedBucketInventory } = await import(
+			"@/server/services/lfio-health"
+		);
+		let calls = 0;
+		const inventory = await collectBoundedBucketInventory(async () => {
+			calls += 1;
+			return calls === 1
+				? { Contents: [{ Size: 5 }], NextContinuationToken: "next" }
+				: { Contents: [{ Size: 7 }] };
+		}, 10);
+
+		expect(inventory).toMatchObject({
+			objectCount: 2,
+			totalSizeBytes: 12,
+			pages: 2,
+			complete: true,
+		});
+	});
+});

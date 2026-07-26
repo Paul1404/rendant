@@ -1,6 +1,6 @@
 {
   "name": "svufo",
-	"version": "1.21.1",
+	"version": "1.22.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -15,6 +15,7 @@
     "start": "node .output/server/index.mjs",
     "generate-routes": "tsr generate",
     "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "format": "biome format --write",
     "lint": "biome lint",
     "check": "biome check",

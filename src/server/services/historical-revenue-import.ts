@@ -2,6 +2,10 @@ import { and, inArray, isNull } from "drizzle-orm";
 import { db } from "@/server/db";
 import { historicalRevenues } from "@/server/db/schema";
 import type { AuthUser } from "@/server/orpc/base";
+import {
+	type RecordAuditInput,
+	recordAuditEventStrict,
+} from "@/server/services/audit";
 import { createHistoricalRevenueWithDb } from "@/server/services/historical-revenue";
 import type { RevenueImportRow } from "@/server/services/revenue-import-xlsx";
 
@@ -99,6 +103,7 @@ export async function findPotentialHistoricalRevenueDuplicates(
 export async function importHistoricalRevenues(
 	rows: RevenueImportRow[],
 	actor: AuthUser,
+	audit: Omit<RecordAuditInput, "category" | "action" | "actor">,
 ): Promise<HistoricalRevenueImportResult> {
 	return db.transaction(async (tx) => {
 		let created = 0;
@@ -110,6 +115,18 @@ export async function importHistoricalRevenues(
 			if (result.created) created += 1;
 			else skipped += 1;
 		}
+		await recordAuditEventStrict(tx, {
+			...audit,
+			category: "umsaetze",
+			action: "umsaetze.imported",
+			actor,
+			metadata: {
+				...audit.metadata,
+				zeilen: rows.length,
+				angelegt: created,
+				übersprungen: skipped,
+			},
+		});
 		return { created, skipped };
 	});
 }

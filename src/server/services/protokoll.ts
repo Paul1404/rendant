@@ -1,4 +1,5 @@
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { createHash } from "node:crypto";
+import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { S3_PREFIX } from "@/lib/constants";
 import { currentYearBerlin, formatFilenameStamp } from "@/lib/date";
 import { DENOMINATIONS, type DenominationCounts } from "@/lib/denominations";
@@ -17,6 +18,10 @@ import {
 	protokollUmsatzUst,
 } from "@/server/db/schema";
 import { logger } from "@/server/logger";
+import {
+	type RecordAuditInput,
+	recordAuditEventStrict,
+} from "@/server/services/audit";
 import { nextBelegnummerInTx } from "@/server/services/belegnummer";
 import { sendProtokollNotification } from "@/server/services/email";
 import { renderProtokollPdf } from "@/server/services/pdf";
@@ -24,7 +29,12 @@ import { deletePdf, uploadPdf } from "@/server/services/s3";
 import { getVereinStammdaten } from "@/server/services/settings";
 
 type DbProtokoll = typeof protokolle.$inferSelect;
-type AuditActor = { id: string; name: string; email: string };
+type AuditActor = {
+	id: string;
+	name: string;
+	email: string;
+	role?: string | null;
+};
 const POSTGRES_INTEGER_MAX = 2_147_483_647;
 const POSTGRES_INTEGER_MIN = -2_147_483_648;
 
@@ -146,7 +156,28 @@ export async function getProtokoll(
 	};
 }
 
-export type CreateResult = { id: string; belegnummer: string; anlass: string };
+export type CreateResult = {
+	id: string;
+	belegnummer: string;
+	anlass: string;
+	created: boolean;
+};
+
+export class ProtokollIdempotencyConflictError extends Error {
+	constructor() {
+		super("Idempotenzschlüssel wurde bereits für andere Daten verwendet");
+		this.name = "ProtokollIdempotencyConflictError";
+	}
+}
+
+export function protokollIdempotencyPayloadHash(
+	input: CreateProtokollInput,
+	actor: AuditActor,
+): string {
+	return createHash("sha256")
+		.update(JSON.stringify({ actor_id: actor.id, input }))
+		.digest("hex");
+}
 
 export function deriveProtokollAccounting(input: CreateProtokollInput): {
 	counts: DenominationCounts;
@@ -227,6 +258,7 @@ export function deriveProtokollAccounting(input: CreateProtokollInput): {
 export async function createProtokoll(
 	input: CreateProtokollInput,
 	actor: AuditActor,
+	audit: Omit<RecordAuditInput, "category" | "action" | "actor" | "subject">,
 ): Promise<CreateResult> {
 	const {
 		counts,
@@ -238,6 +270,7 @@ export async function createProtokoll(
 
 	const year = currentYearBerlin();
 	const customBelegnummer = input.belegnummer?.trim() || null;
+	const payloadHash = protokollIdempotencyPayloadHash(input, actor);
 	const maxRetries = customBelegnummer ? 1 : 3;
 	let attempt = 0;
 	let created: {
@@ -245,12 +278,39 @@ export async function createProtokoll(
 		belegnummer: string;
 		erstellt_am: Date;
 		anlass: string;
+		created: boolean;
 	} | null = null;
 
 	while (attempt < maxRetries) {
 		attempt++;
 		try {
 			created = await db.transaction(async (tx) => {
+				await tx.execute(
+					sql`select pg_advisory_xact_lock(hashtextextended(${input.idempotency_key}, 0))`,
+				);
+				const [replayed] = await tx
+					.select({
+						id: protokolle.id,
+						belegnummer: protokolle.belegnummer,
+						erstellt_am: protokolle.erstellt_am,
+						anlass: protokolle.anlass,
+						payloadHash: protokolle.idempotency_payload_sha256,
+					})
+					.from(protokolle)
+					.where(eq(protokolle.idempotency_key, input.idempotency_key))
+					.limit(1);
+				if (replayed) {
+					if (replayed.payloadHash !== payloadHash) {
+						throw new ProtokollIdempotencyConflictError();
+					}
+					return {
+						id: replayed.id,
+						belegnummer: replayed.belegnummer,
+						erstellt_am: replayed.erstellt_am,
+						anlass: replayed.anlass,
+						created: false,
+					};
+				}
 				let anlass = input.veranstaltungsbezeichnung;
 				if (input.anlass_katalog_id) {
 					const [umsatzgruppe] = await tx
@@ -274,6 +334,8 @@ export async function createProtokoll(
 				const protoRows = await tx
 					.insert(protokolle)
 					.values({
+						idempotency_key: input.idempotency_key,
+						idempotency_payload_sha256: payloadHash,
 						belegnummer,
 						erstellt_von_user_id: actor.id,
 						erstellt_von_name: actorName(actor),
@@ -324,7 +386,24 @@ export async function createProtokoll(
 						})),
 					);
 				}
-				return proto;
+				await recordAuditEventStrict(tx, {
+					...audit,
+					category: "protokolle",
+					action: "protokolle.created",
+					actor: { ...actor, role: actor.role ?? "user" },
+					subject: {
+						type: "protokoll",
+						id: proto.id,
+						label: proto.belegnummer,
+					},
+					metadata: {
+						...audit.metadata,
+						anlass: proto.anlass,
+						anlass_datum: input.anlass_datum,
+						kassennummer: input.kassennummer,
+					},
+				});
+				return { ...proto, created: true };
 			});
 			break;
 		} catch (e) {
@@ -339,6 +418,14 @@ export async function createProtokoll(
 
 	if (!created) {
 		throw new Error("Konnte Belegnummer nicht eindeutig vergeben");
+	}
+	if (!created.created) {
+		return {
+			id: created.id,
+			belegnummer: created.belegnummer,
+			anlass: created.anlass,
+			created: false,
+		};
 	}
 
 	// The protokoll now exists. PDF render + S3 upload may fail; if they do we
@@ -397,6 +484,7 @@ export async function createProtokoll(
 		id: created.id,
 		belegnummer: created.belegnummer,
 		anlass: created.anlass,
+		created: true,
 	};
 }
 
@@ -432,6 +520,7 @@ export async function stornoProtokoll(
 	id: string,
 	input: StornoInput,
 	actor: AuditActor,
+	audit: Omit<RecordAuditInput, "category" | "action" | "actor" | "subject">,
 ): Promise<void> {
 	const detail = await getProtokoll(id);
 	if (!detail) throw new Error("Protokoll nicht gefunden");
@@ -439,16 +528,33 @@ export async function stornoProtokoll(
 		throw new Error("Protokoll ist bereits storniert");
 	}
 	const stornoAm = new Date();
-	const claimed = await db
-		.update(protokolle)
-		.set({
-			storniert_am: stornoAm,
-			storniert_von_user_id: actor.id,
-			storniert_von_name: actorName(actor),
-			storno_grund: input.storno_grund,
-		})
-		.where(and(eq(protokolle.id, id), isNull(protokolle.storniert_am)))
-		.returning({ id: protokolle.id });
+	const claimed = await db.transaction(async (tx) => {
+		const rows = await tx
+			.update(protokolle)
+			.set({
+				storniert_am: stornoAm,
+				storniert_von_user_id: actor.id,
+				storniert_von_name: actorName(actor),
+				storno_grund: input.storno_grund,
+			})
+			.where(and(eq(protokolle.id, id), isNull(protokolle.storniert_am)))
+			.returning({ id: protokolle.id });
+		if (rows.length > 0) {
+			await recordAuditEventStrict(tx, {
+				...audit,
+				category: "protokolle",
+				action: "protokolle.cancelled",
+				actor: { ...actor, role: actor.role ?? "user" },
+				subject: {
+					type: "protokoll",
+					id,
+					label: detail.protokoll.belegnummer,
+				},
+				metadata: { ...audit.metadata, grund: input.storno_grund },
+			});
+		}
+		return rows;
+	});
 
 	if (claimed.length === 0) {
 		throw new Error("Protokoll ist bereits storniert");

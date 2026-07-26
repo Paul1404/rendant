@@ -6,6 +6,10 @@
 import { and, eq, isNull, ne, or } from "drizzle-orm";
 import { db } from "@/server/db";
 import { user as userTable } from "@/server/db/auth-schema";
+import {
+	type RecordAuditInput,
+	recordAuditEventStrict,
+} from "@/server/services/audit";
 
 export async function getUserNotifyPref(userId: string): Promise<boolean> {
 	const rows = await db
@@ -21,13 +25,26 @@ export async function getUserNotifyPref(userId: string): Promise<boolean> {
 export async function setUserNotifyPref(
 	userId: string,
 	notify: boolean,
+	audit: RecordAuditInput,
 ): Promise<boolean> {
-	const rows = await db
-		.update(userTable)
-		.set({ notifyProtokoll: notify })
-		.where(eq(userTable.id, userId))
-		.returning({ id: userTable.id });
-	return rows.length > 0;
+	return db.transaction(async (tx) => {
+		const rows = await tx
+			.update(userTable)
+			.set({ notifyProtokoll: notify })
+			.where(eq(userTable.id, userId))
+			.returning({ id: userTable.id, email: userTable.email });
+		if (!rows[0]) return false;
+		await recordAuditEventStrict(tx, {
+			...audit,
+			subject: {
+				type: "user",
+				id: rows[0].id,
+				label: rows[0].email,
+			},
+			metadata: { ...audit.metadata, notify },
+		});
+		return true;
+	});
 }
 
 // E-mail addresses of every user who is opted in and not banned. Banned is a

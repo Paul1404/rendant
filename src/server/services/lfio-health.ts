@@ -59,11 +59,24 @@ type RuntimeMemory = {
 	source: "cgroup" | "process" | "host";
 };
 
+type BucketInventory = {
+	objectCount: number;
+	totalSizeBytes: number;
+	collectedAt: string;
+};
+
+type BucketInventoryState = {
+	lastAttemptAtMs?: number;
+	snapshot?: BucketInventory;
+};
+
 declare global {
 	// eslint-disable-next-line no-var
 	var __svufoLfioReporter: ReturnType<typeof setInterval> | undefined;
 	// eslint-disable-next-line no-var
 	var __svufoLfioReporterInFlight: boolean | undefined;
+	// eslint-disable-next-line no-var
+	var __svufoBucketInventoryState: BucketInventoryState | undefined;
 }
 
 const LFIO_INGEST_URL = "https://lfio.pdcd.net/api/ingest";
@@ -71,6 +84,8 @@ const DEFAULT_INTERVAL_MS = 60_000;
 const DEFAULT_PROBE_TIMEOUT_MS = 10_000;
 const DEFAULT_DEGRADE_SAMPLES = 3;
 const DEFAULT_RECOVER_SAMPLES = 2;
+const DEFAULT_BUCKET_INVENTORY_INTERVAL_MS = 24 * 60 * 60 * 1_000;
+const DEFAULT_BUCKET_INVENTORY_MAX_PAGES = 100;
 
 const log = logger.child({ integration: "lfio" });
 const gates = new Map<string, HysteresisGate>();
@@ -121,6 +136,66 @@ function reportIntervalMs(): number {
 
 function probeTimeoutMs(): number {
 	return envNumber("LFIO_PROBE_TIMEOUT_MS", DEFAULT_PROBE_TIMEOUT_MS, 1_000);
+}
+
+function bucketInventoryIntervalMs(): number {
+	return envNumber(
+		"LFIO_BUCKET_INVENTORY_INTERVAL_MS",
+		DEFAULT_BUCKET_INVENTORY_INTERVAL_MS,
+		60_000,
+	);
+}
+
+function bucketInventoryMaxPages(): number {
+	return Math.floor(
+		envNumber(
+			"LFIO_BUCKET_INVENTORY_MAX_PAGES",
+			DEFAULT_BUCKET_INVENTORY_MAX_PAGES,
+			1,
+		),
+	);
+}
+
+export function isBucketInventoryDue(
+	lastAttemptAtMs: number | undefined,
+	nowMs: number,
+	intervalMs: number,
+): boolean {
+	return lastAttemptAtMs === undefined || nowMs - lastAttemptAtMs >= intervalMs;
+}
+
+export async function collectBoundedBucketInventory(
+	fetchPage: (continuationToken?: string) => Promise<{
+		Contents?: Array<{ Size?: number }>;
+		NextContinuationToken?: string;
+	}>,
+	maxPages: number,
+): Promise<{
+	objectCount: number;
+	totalSizeBytes: number;
+	pages: number;
+	complete: boolean;
+}> {
+	let continuationToken: string | undefined;
+	let objectCount = 0;
+	let totalSizeBytes = 0;
+	let pages = 0;
+	do {
+		const page = await fetchPage(continuationToken);
+		pages += 1;
+		for (const object of page.Contents ?? []) {
+			objectCount += 1;
+			totalSizeBytes += object.Size ?? 0;
+		}
+		continuationToken = page.NextContinuationToken;
+	} while (continuationToken && pages < maxPages);
+
+	return {
+		objectCount,
+		totalSizeBytes,
+		pages,
+		complete: continuationToken === undefined,
+	};
 }
 
 function threshold(name: string, fallback: number): number {
@@ -606,27 +681,52 @@ async function collectBucketPayload(): Promise<LfioPayload | undefined> {
 			client.send(new HeadBucketCommand({ Bucket: bucket })),
 		);
 
-		let continuationToken: string | undefined;
-		let objectCount = 0;
-		let totalSizeBytes = 0;
-
-		do {
-			const page = await withTimeout(
-				"bucket list",
-				client.send(
-					new ListObjectsV2Command({
-						Bucket: bucket,
-						ContinuationToken: continuationToken,
-					}),
-				),
-			);
-
-			for (const object of page.Contents ?? []) {
-				objectCount += 1;
-				totalSizeBytes += object.Size ?? 0;
+		const nowMs = Date.now();
+		const inventoryState = globalThis.__svufoBucketInventoryState ?? {};
+		globalThis.__svufoBucketInventoryState = inventoryState;
+		let inventoryComplete: boolean | undefined;
+		if (
+			isBucketInventoryDue(
+				inventoryState.lastAttemptAtMs,
+				nowMs,
+				bucketInventoryIntervalMs(),
+			)
+		) {
+			// Record the attempt before listing so a failed or truncated inventory is
+			// not retried every minute and turned into monitoring load.
+			inventoryState.lastAttemptAtMs = nowMs;
+			try {
+				const inventory = await collectBoundedBucketInventory(
+					(continuationToken) =>
+						withTimeout(
+							"bucket list",
+							client.send(
+								new ListObjectsV2Command({
+									Bucket: bucket,
+									ContinuationToken: continuationToken,
+								}),
+							),
+						),
+					bucketInventoryMaxPages(),
+				);
+				inventoryComplete = inventory.complete;
+				if (inventory.complete) {
+					inventoryState.snapshot = {
+						objectCount: inventory.objectCount,
+						totalSizeBytes: inventory.totalSizeBytes,
+						collectedAt: new Date(nowMs).toISOString(),
+					};
+				} else {
+					log.warn("LFIO bucket inventory page limit reached", {
+						pages: inventory.pages,
+					});
+				}
+			} catch (err) {
+				inventoryComplete = false;
+				log.warn("LFIO bucket inventory failed", { err });
 			}
-			continuationToken = page.NextContinuationToken;
-		} while (continuationToken);
+		}
+		const inventory = inventoryState.snapshot;
 
 		const latencyMs = Math.round(performance.now() - started);
 		const breaches =
@@ -642,11 +742,17 @@ async function collectBucketPayload(): Promise<LfioPayload | undefined> {
 			message: status.message,
 			latencyMs,
 			metrics: metrics([
-				metric("objectCount", "Objects", objectCount, "count", "Bucket"),
+				metric(
+					"objectCount",
+					"Objects",
+					inventory?.objectCount,
+					"count",
+					"Bucket",
+				),
 				metric(
 					"totalSizeBytes",
 					"Total size",
-					totalSizeBytes,
+					inventory?.totalSizeBytes,
 					"bytes",
 					"Bucket",
 				),
@@ -655,6 +761,8 @@ async function collectBucketPayload(): Promise<LfioPayload | undefined> {
 				bucket,
 				endpoint: process.env.AWS_ENDPOINT_URL_S3,
 				region: process.env.AWS_DEFAULT_REGION ?? "auto",
+				inventoryCollectedAt: inventory?.collectedAt,
+				inventoryComplete,
 			},
 		};
 	} catch (err) {

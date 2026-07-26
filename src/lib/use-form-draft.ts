@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useBlocker } from "@tanstack/react-router";
+import { useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 function storage(): Storage | null {
@@ -77,9 +78,41 @@ export function useFormDraft<T>(
 	const enabled = opts.enabled !== false;
 	const restoredRef = useRef(false);
 	const onRestoreRef = useRef(opts.onRestore);
+	const latestRef = useRef({ key, snapshot, dirty: opts.dirty, enabled });
+	latestRef.current = { key, snapshot, dirty: opts.dirty, enabled };
+
+	const flushLatestDraft = useCallback(() => {
+		const latest = latestRef.current;
+		if (latest.enabled && latest.dirty) {
+			writeDraft(latest.key, latest.snapshot);
+		}
+	}, []);
+
+	const shouldBlockNavigation = useCallback(() => {
+		const latest = latestRef.current;
+		if (!latest.enabled || !latest.dirty) return false;
+		flushLatestDraft();
+		return !window.confirm(
+			"Nicht gespeicherte Eingaben verlassen? Dein Entwurf bleibt gespeichert.",
+		);
+	}, [flushLatestDraft]);
+
+	useBlocker({
+		shouldBlockFn: shouldBlockNavigation,
+		// Keep the existing beforeunload handler below. It also flushes the latest
+		// snapshot before the browser shows its native confirmation prompt.
+		enableBeforeUnload: false,
+		disabled: !enabled || !opts.dirty,
+	});
+
 	useEffect(() => {
 		onRestoreRef.current = opts.onRestore;
 	});
+
+	// A route transition can unmount the form before the debounced write fires.
+	// Flush from a dedicated unmount-only effect so ordinary snapshot changes do
+	// not defeat the debounce.
+	useEffect(() => () => flushLatestDraft(), [flushLatestDraft]);
 
 	// Show restore toast once on mount.
 	useEffect(() => {
@@ -122,15 +155,21 @@ export function useFormDraft<T>(
 		if (!enabled) return;
 		if (!opts.dirty) return;
 		const handler = (e: BeforeUnloadEvent) => {
+			flushLatestDraft();
 			e.preventDefault();
 			// Legacy browsers (Chrome <51) need returnValue set.
 			e.returnValue = "";
 		};
 		window.addEventListener("beforeunload", handler);
 		return () => window.removeEventListener("beforeunload", handler);
-	}, [opts.dirty, enabled]);
+	}, [opts.dirty, enabled, flushLatestDraft]);
 
 	return {
-		clearDraft: () => removeDraft(key),
+		clearDraft: () => {
+			// Successful saves clear the draft immediately before navigating. Mark the
+			// latest snapshot clean too so the unmount flush cannot recreate it.
+			latestRef.current.dirty = false;
+			removeDraft(latestRef.current.key);
+		},
 	};
 }

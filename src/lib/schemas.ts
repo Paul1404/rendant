@@ -113,6 +113,7 @@ export const VereinSettingsSchema = v.object({
 export type VereinSettingsInput = v.InferOutput<typeof VereinSettingsSchema>;
 
 export const CreateProtokollSchema = v.object({
+	idempotency_key: v.pipe(v.string(), v.uuid()),
 	belegnummer: v.optional(
 		v.pipe(
 			v.string(),

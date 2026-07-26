@@ -5,12 +5,16 @@ import {
 	CreateProtokollSchema,
 	type CreateProtokollInput,
 } from "@/lib/schemas";
-import { deriveProtokollAccounting } from "@/server/services/protokoll";
+import {
+	deriveProtokollAccounting,
+	protokollIdempotencyPayloadHash,
+} from "@/server/services/protokoll";
 
 function baseInput(
   overrides: Partial<CreateProtokollInput> = {},
 ): CreateProtokollInput {
-  return {
+	  return {
+	    idempotency_key: "019f84bc-9383-7301-95e6-c23483cfb28b",
     ...emptyCounts(),
     anlass_datum: "2026-06-21",
     kassennummer: "K1",
@@ -53,6 +57,30 @@ describe("deriveProtokollAccounting", () => {
 			veranstaltungsbezeichnung: "   ",
 		});
 		expect(result.success).toBe(false);
+	});
+
+	it("requires a UUID idempotency key", () => {
+		const result = v.safeParse(CreateProtokollSchema, {
+			...baseInput(),
+			idempotency_key: "retry-1",
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it("binds idempotent replays to the actor and complete payload", () => {
+		const input = baseInput();
+		const actor = { id: "user-1", name: "Anna", email: "a@example.test" };
+		const first = protokollIdempotencyPayloadHash(input, actor);
+		expect(protokollIdempotencyPayloadHash(input, actor)).toBe(first);
+		expect(
+			protokollIdempotencyPayloadHash(
+				{ ...input, bemerkung: "Geändert" },
+				actor,
+			),
+		).not.toBe(first);
+		expect(
+			protokollIdempotencyPayloadHash(input, { ...actor, id: "user-2" }),
+		).not.toBe(first);
 	});
 
   it("derives counted cash, bestand, and takings", () => {

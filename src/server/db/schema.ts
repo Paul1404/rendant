@@ -20,6 +20,10 @@ export const protokolle = pgTable(
 	"protokolle",
 	{
 		id: uuid("id").primaryKey().defaultRandom(),
+		// Nullable only for rows created before idempotency was introduced. Every
+		// new write supplies both values and the unique key protects replays.
+		idempotency_key: uuid("idempotency_key").unique(),
+		idempotency_payload_sha256: text("idempotency_payload_sha256"),
 		belegnummer: text("belegnummer").notNull().unique(),
 		erstellt_von_user_id: text("erstellt_von_user_id"),
 		erstellt_von_name: text("erstellt_von_name"),

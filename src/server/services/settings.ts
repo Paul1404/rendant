@@ -2,6 +2,10 @@ import { eq } from "drizzle-orm";
 import type { VereinStammdaten } from "@/lib/verein";
 import { db } from "@/server/db";
 import { appSettings } from "@/server/db/schema";
+import {
+	type RecordAuditInput,
+	recordAuditEventStrict,
+} from "@/server/services/audit";
 
 export type YearFormat = "long" | "short";
 export type Separator = "-" | "/" | "." | "_";
@@ -60,23 +64,27 @@ export async function getBelegnummerSettings(): Promise<BelegnummerSettings> {
 
 export async function updateBelegnummerSettings(
 	patch: BelegnummerSettings,
+	audit: RecordAuditInput,
 ): Promise<BelegnummerSettings> {
-	const rows = await db
-		.update(appSettings)
-		.set({
-			belegnummer_min_digits: patch.min_digits,
-			belegnummer_prefix: patch.prefix,
-			belegnummer_include_year: patch.include_year,
-			belegnummer_year_format: patch.year_format,
-			belegnummer_separator: patch.separator,
-			updated_at: new Date(),
-		})
-		.where(eq(appSettings.id, 1))
-		.returning();
-	if (rows.length === 0) {
-		throw new Error("Einstellungen konnten nicht aktualisiert werden");
-	}
-	return rowToSettings(rows[0]);
+	return db.transaction(async (tx) => {
+		const rows = await tx
+			.update(appSettings)
+			.set({
+				belegnummer_min_digits: patch.min_digits,
+				belegnummer_prefix: patch.prefix,
+				belegnummer_include_year: patch.include_year,
+				belegnummer_year_format: patch.year_format,
+				belegnummer_separator: patch.separator,
+				updated_at: new Date(),
+			})
+			.where(eq(appSettings.id, 1))
+			.returning();
+		if (rows.length === 0) {
+			throw new Error("Einstellungen konnten nicht aktualisiert werden");
+		}
+		await recordAuditEventStrict(tx, audit);
+		return rowToSettings(rows[0]);
+	});
 }
 
 export async function getUmsatzUstBasisDefault(): Promise<UmsatzUstBasis> {
@@ -87,16 +95,20 @@ export async function getUmsatzUstBasisDefault(): Promise<UmsatzUstBasis> {
 
 export async function updateUmsatzUstBasisDefault(
 	basis: UmsatzUstBasis,
+	audit: RecordAuditInput,
 ): Promise<UmsatzUstBasis> {
-	const rows = await db
-		.update(appSettings)
-		.set({ umsatz_ust_basis: basis, updated_at: new Date() })
-		.where(eq(appSettings.id, 1))
-		.returning();
-	if (rows.length === 0) {
-		throw new Error("Einstellungen konnten nicht aktualisiert werden");
-	}
-	return normalizeUmsatzUstBasis(rows[0].umsatz_ust_basis);
+	return db.transaction(async (tx) => {
+		const rows = await tx
+			.update(appSettings)
+			.set({ umsatz_ust_basis: basis, updated_at: new Date() })
+			.where(eq(appSettings.id, 1))
+			.returning();
+		if (rows.length === 0) {
+			throw new Error("Einstellungen konnten nicht aktualisiert werden");
+		}
+		await recordAuditEventStrict(tx, audit);
+		return normalizeUmsatzUstBasis(rows[0].umsatz_ust_basis);
+	});
 }
 
 // Club name powering the app's "läuft für ..." attribution and the PDF header.
@@ -142,25 +154,29 @@ export async function getVereinStammdaten(): Promise<VereinStammdaten> {
 
 export async function updateVereinStammdaten(
 	patch: VereinStammdaten,
+	audit: RecordAuditInput,
 ): Promise<VereinStammdaten> {
-	const rows = await db
-		.update(appSettings)
-		.set({
-			vereinsname: patch.name.trim(),
-			verein_strasse: patch.strasse.trim(),
-			verein_plz: patch.plz.trim(),
-			verein_ort: patch.ort.trim(),
-			verein_vorstand: patch.vorstand.trim(),
-			verein_registergericht: patch.registergericht.trim(),
-			verein_registernummer: patch.registernummer.trim(),
-			updated_at: new Date(),
-		})
-		.where(eq(appSettings.id, 1))
-		.returning();
-	if (rows.length === 0) {
-		throw new Error("Einstellungen konnten nicht aktualisiert werden");
-	}
-	return rowToStammdaten(rows[0]);
+	return db.transaction(async (tx) => {
+		const rows = await tx
+			.update(appSettings)
+			.set({
+				vereinsname: patch.name.trim(),
+				verein_strasse: patch.strasse.trim(),
+				verein_plz: patch.plz.trim(),
+				verein_ort: patch.ort.trim(),
+				verein_vorstand: patch.vorstand.trim(),
+				verein_registergericht: patch.registergericht.trim(),
+				verein_registernummer: patch.registernummer.trim(),
+				updated_at: new Date(),
+			})
+			.where(eq(appSettings.id, 1))
+			.returning();
+		if (rows.length === 0) {
+			throw new Error("Einstellungen konnten nicht aktualisiert werden");
+		}
+		await recordAuditEventStrict(tx, audit);
+		return rowToStammdaten(rows[0]);
+	});
 }
 
 export function formatBelegnummerWithSettings(

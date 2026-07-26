@@ -6,6 +6,10 @@ import {
 	historicalRevenues,
 	protokolle,
 } from "@/server/db/schema";
+import {
+	type RecordAuditInput,
+	recordAuditEventStrict,
+} from "@/server/services/audit";
 
 export type AnlassKatalogInput = {
 	name: string;
@@ -36,28 +40,38 @@ export async function listKatalog(): Promise<AnlassKatalogEntry[]> {
 
 export async function createKatalog(
 	input: AnlassKatalogInput,
+	audit: RecordAuditInput,
 ): Promise<AnlassKatalogEntry> {
-	const maxRow = await db
-		.select({ max: sql<number | null>`max(${anlassKatalog.reihenfolge})` })
-		.from(anlassKatalog);
-	const currentMax = maxRow[0]?.max;
-	const nextOrder = currentMax == null ? 0 : Number(currentMax) + 1;
-	const rows = await db
-		.insert(anlassKatalog)
-		.values({
-			name: input.name,
-			typ: input.typ,
-			aktiv: input.aktiv,
-			reihenfolge: nextOrder,
-		})
-		.returning();
-	return rowToEntry(rows[0]);
+	return db.transaction(async (tx) => {
+		const maxRow = await tx
+			.select({ max: sql<number | null>`max(${anlassKatalog.reihenfolge})` })
+			.from(anlassKatalog);
+		const currentMax = maxRow[0]?.max;
+		const nextOrder = currentMax == null ? 0 : Number(currentMax) + 1;
+		const [row] = await tx
+			.insert(anlassKatalog)
+			.values({
+				name: input.name,
+				typ: input.typ,
+				aktiv: input.aktiv,
+				reihenfolge: nextOrder,
+			})
+			.returning();
+		const entry = rowToEntry(row);
+		await recordAuditEventStrict(tx, {
+			...audit,
+			subject: { type: "anlass", id: entry.id, label: entry.name },
+			metadata: { ...audit.metadata, typ: entry.typ, aktiv: entry.aktiv },
+		});
+		return entry;
+	});
 }
 
 export async function updateKatalog(
 	id: string,
 	input: AnlassKatalogInput,
 	expectedUpdatedAt: string,
+	audit: RecordAuditInput,
 ): Promise<AnlassKatalogEntry | null> {
 	return db.transaction(async (tx) => {
 		const [current] = await tx
@@ -80,12 +94,20 @@ export async function updateKatalog(
 			})
 			.where(eq(anlassKatalog.id, id))
 			.returning();
-		return updated ? rowToEntry(updated) : null;
+		if (!updated) return null;
+		const entry = rowToEntry(updated);
+		await recordAuditEventStrict(tx, {
+			...audit,
+			subject: { type: "anlass", id: entry.id, label: entry.name },
+			metadata: { ...audit.metadata, typ: entry.typ, aktiv: entry.aktiv },
+		});
+		return entry;
 	});
 }
 
 export async function deleteKatalog(
 	id: string,
+	audit: RecordAuditInput,
 ): Promise<
 	| { status: "deleted"; entry: AnlassKatalogEntry }
 	| { status: "referenced"; references: number }
@@ -122,19 +144,26 @@ export async function deleteKatalog(
 			.delete(anlassKatalog)
 			.where(eq(anlassKatalog.id, id))
 			.returning();
-		return rows[0]
-			? { status: "deleted" as const, entry: rowToEntry(rows[0]) }
-			: { status: "not_found" as const };
+		if (!rows[0]) return { status: "not_found" as const };
+		const entry = rowToEntry(rows[0]);
+		await recordAuditEventStrict(tx, {
+			...audit,
+			subject: { type: "anlass", id: entry.id, label: entry.name },
+		});
+		return { status: "deleted" as const, entry };
 	});
 }
 
-export async function bulkAssignKatalog(input: {
-	targetId: string;
-	sourceId: string | null;
-	targetName?: string;
-	protokollIds: string[];
-	historicalIds: string[];
-}): Promise<{
+export async function bulkAssignKatalog(
+	input: {
+		targetId: string;
+		sourceId: string | null;
+		targetName?: string;
+		protokollIds: string[];
+		historicalIds: string[];
+	},
+	audit: RecordAuditInput,
+): Promise<{
 	entry: AnlassKatalogEntry;
 	protocols: number;
 	historical: number;
@@ -193,7 +222,7 @@ export async function bulkAssignKatalog(input: {
 					.returning({ id: historicalRevenues.id })
 			: [];
 
-		return {
+		const result = {
 			entry,
 			protocols: protocolRows.length,
 			historical: historicalRows.length,
@@ -203,6 +232,17 @@ export async function bulkAssignKatalog(input: {
 				protocolRows.length -
 				historicalRows.length,
 		};
+		await recordAuditEventStrict(tx, {
+			...audit,
+			subject: { type: "anlass", id: entry.id, label: entry.name },
+			metadata: {
+				...audit.metadata,
+				protokolle: result.protocols,
+				altunterlagen: result.historical,
+				übersprungen: result.skipped,
+			},
+		});
+		return result;
 	});
 }
 

@@ -85,6 +85,20 @@
       "when": 1784643881236,
       "tag": "0011_familiar_tenebrous",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1785044440489,
+      "tag": "0012_protocol_idempotency",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1785044443832,
+      "tag": "0013_audit_append_only",
+      "breakpoints": true
     }
   ]
 }

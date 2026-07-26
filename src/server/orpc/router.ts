@@ -35,6 +35,7 @@ import {
 import {
 	listAuditEvents,
 	recordAuditEvent,
+	recordAuditEventStrict,
 	requestAuditContext,
 } from "@/server/services/audit";
 import { previewNextBelegnummer } from "@/server/services/belegnummer";
@@ -74,6 +75,7 @@ import {
 	createProtokoll,
 	getProtokoll,
 	listProtokolle,
+	ProtokollIdempotencyConflictError,
 	regenerateProtokollPdf,
 	stornoProtokoll,
 } from "@/server/services/protokoll";
@@ -136,25 +138,14 @@ const protokolle = {
 		.input(CreateProtokollSchema)
 		.handler(async ({ input, context }) => {
 			try {
-				const created = await createProtokoll(input, context.user);
-				await recordAuditEvent({
-					category: "protokolle",
-					action: "protokolle.created",
-					actor: context.user,
-					subject: {
-						type: "protokoll",
-						id: created.id,
-						label: created.belegnummer,
-					},
+				const created = await createProtokoll(input, context.user, {
 					request: requestAuditContext(context),
-					metadata: {
-						anlass: created.anlass,
-						anlass_datum: input.anlass_datum,
-						kassennummer: input.kassennummer,
-					},
 				});
 				return created;
 			} catch (e) {
+				if (e instanceof ProtokollIdempotencyConflictError) {
+					throw new ORPCError("CONFLICT", { message: e.message });
+				}
 				const msg = (e as Error).message;
 				if (msg === "Belegnummer bereits vergeben") {
 					throw new ORPCError("CONFLICT", { message: msg });
@@ -184,24 +175,12 @@ const protokolle = {
 		)
 		.handler(async ({ input, context }) => {
 			try {
-				const detail = await getProtokoll(input.id);
 				await stornoProtokoll(
 					input.id,
 					{ storno_grund: input.storno_grund },
 					context.user,
+					{ request: requestAuditContext(context) },
 				);
-				await recordAuditEvent({
-					category: "protokolle",
-					action: "protokolle.cancelled",
-					actor: context.user,
-					subject: {
-						type: "protokoll",
-						id: input.id,
-						label: detail?.protokoll.belegnummer,
-					},
-					request: requestAuditContext(context),
-					metadata: { grund: input.storno_grund },
-				});
 				return { ok: true };
 			} catch (e) {
 				const msg = (e as Error).message;
@@ -253,27 +232,33 @@ const settings = {
 	updateBelegnummer: adminOnly
 		.input(BelegnummerSettingsSchema)
 		.handler(async ({ input, context }) => {
-			const updated = await updateBelegnummerSettings({
-				min_digits: input.min_digits,
-				prefix: input.prefix,
-				include_year: input.include_year,
-				year_format: input.year_format,
-				separator: input.separator,
-			});
-			await recordAuditEvent({
-				category: "settings",
-				action: "settings.belegnummer_changed",
-				actor: context.user,
-				subject: { type: "settings", id: "belegnummer", label: "Belegnummern" },
-				request: requestAuditContext(context),
-				metadata: {
-					prefix: input.prefix,
+			const updated = await updateBelegnummerSettings(
+				{
 					min_digits: input.min_digits,
+					prefix: input.prefix,
 					include_year: input.include_year,
 					year_format: input.year_format,
 					separator: input.separator,
 				},
-			});
+				{
+					category: "settings",
+					action: "settings.belegnummer_changed",
+					actor: context.user,
+					subject: {
+						type: "settings",
+						id: "belegnummer",
+						label: "Belegnummern",
+					},
+					request: requestAuditContext(context),
+					metadata: {
+						prefix: input.prefix,
+						min_digits: input.min_digits,
+						include_year: input.include_year,
+						year_format: input.year_format,
+						separator: input.separator,
+					},
+				},
+			);
 			return { settings: updated, preview: await previewNextBelegnummer() };
 		}),
 
@@ -286,15 +271,19 @@ const settings = {
 		.handler(async ({ input, context }) => {
 			const umsatz_ust_basis = await updateUmsatzUstBasisDefault(
 				input.umsatz_ust_basis,
+				{
+					category: "settings",
+					action: "settings.ust_basis_changed",
+					actor: context.user,
+					subject: {
+						type: "settings",
+						id: "ust_basis",
+						label: "USt.-Grundlage",
+					},
+					request: requestAuditContext(context),
+					metadata: { umsatz_ust_basis: input.umsatz_ust_basis },
+				},
 			);
-			await recordAuditEvent({
-				category: "settings",
-				action: "settings.ust_basis_changed",
-				actor: context.user,
-				subject: { type: "settings", id: "ust_basis", label: "USt.-Grundlage" },
-				request: requestAuditContext(context),
-				metadata: { umsatz_ust_basis },
-			});
 			return { umsatz_ust_basis };
 		}),
 
@@ -303,23 +292,25 @@ const settings = {
 	updateVerein: adminOnly
 		.input(VereinSettingsSchema)
 		.handler(async ({ input, context }) => {
-			const result = await updateVereinStammdaten({
-				name: input.vereinsname,
-				strasse: input.strasse,
-				plz: input.plz,
-				ort: input.ort,
-				vorstand: input.vorstand,
-				registergericht: input.registergericht,
-				registernummer: input.registernummer,
-			});
-			await recordAuditEvent({
-				category: "settings",
-				action: "settings.verein_changed",
-				actor: context.user,
-				subject: { type: "settings", id: "verein", label: input.vereinsname },
-				request: requestAuditContext(context),
-				metadata: { vereinsname: input.vereinsname },
-			});
+			const result = await updateVereinStammdaten(
+				{
+					name: input.vereinsname,
+					strasse: input.strasse,
+					plz: input.plz,
+					ort: input.ort,
+					vorstand: input.vorstand,
+					registergericht: input.registergericht,
+					registernummer: input.registernummer,
+				},
+				{
+					category: "settings",
+					action: "settings.verein_changed",
+					actor: context.user,
+					subject: { type: "settings", id: "verein", label: input.vereinsname },
+					request: requestAuditContext(context),
+					metadata: { vereinsname: input.vereinsname },
+				},
+			);
 			return result;
 		}),
 
@@ -329,34 +320,36 @@ const settings = {
 		.input(EmailSettingsSchema)
 		.handler(async ({ input, context }) => {
 			try {
-				const result = await updateEmailSettings({
-					enabled: input.enabled,
-					host: input.host,
-					port: input.port,
-					security: input.security,
-					user: input.user,
-					password: input.password,
-					clear_password: input.clear_password,
-					from: input.from,
-					notify_new_protokoll: input.notify_new_protokoll,
-					recipients: input.recipients,
-				});
-				await recordAuditEvent({
-					category: "settings",
-					action: "settings.email_changed",
-					actor: context.user,
-					subject: { type: "settings", id: "email", label: "E-Mail" },
-					request: requestAuditContext(context),
-					metadata: {
+				const result = await updateEmailSettings(
+					{
 						enabled: input.enabled,
 						host: input.host,
 						port: input.port,
 						security: input.security,
+						user: input.user,
+						password: input.password,
+						clear_password: input.clear_password,
 						from: input.from,
 						notify_new_protokoll: input.notify_new_protokoll,
-						password_changed: Boolean(input.password || input.clear_password),
+						recipients: input.recipients,
 					},
-				});
+					{
+						category: "settings",
+						action: "settings.email_changed",
+						actor: context.user,
+						subject: { type: "settings", id: "email", label: "E-Mail" },
+						request: requestAuditContext(context),
+						metadata: {
+							enabled: input.enabled,
+							host: input.host,
+							port: input.port,
+							security: input.security,
+							from: input.from,
+							notify_new_protokoll: input.notify_new_protokoll,
+							password_changed: Boolean(input.password || input.clear_password),
+						},
+					},
+				);
 				return result;
 			} catch (e) {
 				throw new ORPCError("BAD_REQUEST", { message: (e as Error).message });
@@ -393,18 +386,11 @@ const registers = {
 		.input(CashRegisterSchema)
 		.handler(async ({ input, context }) => {
 			try {
-				const register = await createCashRegister(input);
-				await recordAuditEvent({
+				const register = await createCashRegister(input, {
 					category: "kassen",
 					action: "kassen.created",
 					actor: context.user,
-					subject: {
-						type: "kasse",
-						id: register.id,
-						label: `${register.kassennummer} ${register.kassenbezeichnung}`,
-					},
 					request: requestAuditContext(context),
-					metadata: { wechselgeld_cent: register.wechselgeld_cent },
 				});
 				return { register };
 			} catch (e) {
@@ -426,26 +412,23 @@ const registers = {
 		)
 		.handler(async ({ input, context }) => {
 			try {
-				const register = await updateCashRegister(input.id, {
-					kassennummer: input.kassennummer,
-					kassenbezeichnung: input.kassenbezeichnung,
-					wechselgeld_cent: input.wechselgeld_cent,
-				});
+				const register = await updateCashRegister(
+					input.id,
+					{
+						kassennummer: input.kassennummer,
+						kassenbezeichnung: input.kassenbezeichnung,
+						wechselgeld_cent: input.wechselgeld_cent,
+					},
+					{
+						category: "kassen",
+						action: "kassen.updated",
+						actor: context.user,
+						request: requestAuditContext(context),
+					},
+				);
 				if (!register) {
 					throw new ORPCError("NOT_FOUND", { message: "Kasse nicht gefunden" });
 				}
-				await recordAuditEvent({
-					category: "kassen",
-					action: "kassen.updated",
-					actor: context.user,
-					subject: {
-						type: "kasse",
-						id: register.id,
-						label: `${register.kassennummer} ${register.kassenbezeichnung}`,
-					},
-					request: requestAuditContext(context),
-					metadata: { wechselgeld_cent: register.wechselgeld_cent },
-				});
 				return { register };
 			} catch (e) {
 				if ((e as { code?: string }).code === "23505") {
@@ -458,20 +441,14 @@ const registers = {
 		}),
 
 	remove: adminOnly.input(idInput).handler(async ({ input, context }) => {
-		const register = await deleteCashRegister(input.id);
-		if (!register)
-			throw new ORPCError("NOT_FOUND", { message: "Kasse nicht gefunden" });
-		await recordAuditEvent({
+		const register = await deleteCashRegister(input.id, {
 			category: "kassen",
 			action: "kassen.deleted",
 			actor: context.user,
-			subject: {
-				type: "kasse",
-				id: register.id,
-				label: `${register.kassennummer} ${register.kassenbezeichnung}`,
-			},
 			request: requestAuditContext(context),
 		});
+		if (!register)
+			throw new ORPCError("NOT_FOUND", { message: "Kasse nicht gefunden" });
 		return { ok: true };
 	}),
 };
@@ -485,14 +462,11 @@ const anlassKatalog = {
 		.input(AnlassKatalogSchema)
 		.handler(async ({ input, context }) => {
 			try {
-				const entry = await createKatalog(input);
-				await recordAuditEvent({
+				const entry = await createKatalog(input, {
 					category: "anlass",
 					action: "anlass.created",
 					actor: context.user,
-					subject: { type: "anlass", id: entry.id, label: entry.name },
 					request: requestAuditContext(context),
-					metadata: { typ: entry.typ, aktiv: entry.aktiv },
 				});
 				return { entry };
 			} catch (e) {
@@ -509,34 +483,26 @@ const anlassKatalog = {
 		.input(AnlassKatalogBulkAssignSchema)
 		.handler(async ({ input, context }) => {
 			try {
-				const result = await bulkAssignKatalog({
-					targetId: input.target_id,
-					sourceId: input.source_id,
-					targetName: input.target_name,
-					protokollIds: input.protokoll_ids,
-					historicalIds: input.historical_ids,
-				});
+				const result = await bulkAssignKatalog(
+					{
+						targetId: input.target_id,
+						sourceId: input.source_id,
+						targetName: input.target_name,
+						protokollIds: input.protokoll_ids,
+						historicalIds: input.historical_ids,
+					},
+					{
+						category: "anlass",
+						action: "anlass.bulk_assigned",
+						actor: context.user,
+						request: requestAuditContext(context),
+					},
+				);
 				if (!result) {
 					throw new ORPCError("NOT_FOUND", {
 						message: "Ziel-Umsatzgruppe nicht gefunden",
 					});
 				}
-				await recordAuditEvent({
-					category: "anlass",
-					action: "anlass.bulk_assigned",
-					actor: context.user,
-					subject: {
-						type: "anlass",
-						id: result.entry.id,
-						label: result.entry.name,
-					},
-					request: requestAuditContext(context),
-					metadata: {
-						protokolle: result.protocols,
-						altunterlagen: result.historical,
-						übersprungen: result.skipped,
-					},
-				});
 				return result;
 			} catch (error) {
 				if (error instanceof AnlassKatalogConcurrencyError) {
@@ -569,20 +535,18 @@ const anlassKatalog = {
 						aktiv: input.aktiv,
 					},
 					input.expected_updated_at,
+					{
+						category: "anlass",
+						action: "anlass.updated",
+						actor: context.user,
+						request: requestAuditContext(context),
+					},
 				);
 				if (!entry) {
 					throw new ORPCError("NOT_FOUND", {
 						message: "Umsatzgruppe nicht gefunden",
 					});
 				}
-				await recordAuditEvent({
-					category: "anlass",
-					action: "anlass.updated",
-					actor: context.user,
-					subject: { type: "anlass", id: entry.id, label: entry.name },
-					request: requestAuditContext(context),
-					metadata: { typ: entry.typ, aktiv: entry.aktiv },
-				});
 				return { entry };
 			} catch (e) {
 				if (e instanceof AnlassKatalogConcurrencyError) {
@@ -598,7 +562,12 @@ const anlassKatalog = {
 		}),
 
 	remove: adminOnly.input(idInput).handler(async ({ input, context }) => {
-		const result = await deleteKatalog(input.id);
+		const result = await deleteKatalog(input.id, {
+			category: "anlass",
+			action: "anlass.deleted",
+			actor: context.user,
+			request: requestAuditContext(context),
+		});
 		if (result.status === "referenced") {
 			throw new ORPCError("CONFLICT", {
 				message: `Umsatzgruppe ist ${result.references} Belegen zugeordnet. Bitte stattdessen deaktivieren.`,
@@ -608,14 +577,6 @@ const anlassKatalog = {
 			throw new ORPCError("NOT_FOUND", {
 				message: "Umsatzgruppe nicht gefunden",
 			});
-		const entry = result.entry;
-		await recordAuditEvent({
-			category: "anlass",
-			action: "anlass.deleted",
-			actor: context.user,
-			subject: { type: "anlass", id: entry.id, label: entry.name },
-			request: requestAuditContext(context),
-		});
 		return { ok: true };
 	}),
 };
@@ -633,6 +594,10 @@ const invites = {
 					email: input.email,
 					role: input.role,
 					invitedBy: context.user.email,
+					audit: {
+						actor: context.user,
+						request: requestAuditContext(context),
+					},
 				});
 				const baseUrl = publicBaseUrl(context.headers);
 				const emailStatus = baseUrl
@@ -643,14 +608,6 @@ const invites = {
 							invitedBy: invite.invited_by,
 						})
 					: "skipped";
-				await recordAuditEvent({
-					category: "users",
-					action: "users.invite_created",
-					actor: context.user,
-					subject: { type: "invite", id: invite.id, label: invite.email },
-					request: requestAuditContext(context),
-					metadata: { role: invite.role, email_status: emailStatus },
-				});
 				return { ...invite, email_status: emailStatus };
 			} catch (e) {
 				throw new ORPCError("CONFLICT", { message: (e as Error).message });
@@ -658,19 +615,15 @@ const invites = {
 		}),
 
 	revoke: adminOnly.input(idInput).handler(async ({ input, context }) => {
-		const invite = await revokeInvite(input.id);
+		const invite = await revokeInvite(input.id, {
+			actor: context.user,
+			request: requestAuditContext(context),
+		});
 		if (!invite) {
 			throw new ORPCError("NOT_FOUND", {
 				message: "Einladung nicht gefunden oder bereits angenommen",
 			});
 		}
-		await recordAuditEvent({
-			category: "users",
-			action: "users.invite_revoked",
-			actor: context.user,
-			subject: { type: "invite", id: invite.id, label: invite.email },
-			request: requestAuditContext(context),
-		});
 		return { ok: true };
 	}),
 
@@ -684,23 +637,9 @@ const invites = {
 
 	accept: pub.input(InviteAcceptSchema).handler(async ({ input, context }) => {
 		try {
-			const accepted = await acceptInvite(input);
-			await recordAuditEvent({
-				category: "users",
-				action: "users.invite_accepted",
-				actor: {
-					id: accepted.userId,
-					email: accepted.email,
-					name: accepted.name,
-					role: accepted.role,
-				},
-				subject: {
-					type: "user",
-					id: accepted.userId,
-					label: accepted.email,
-				},
-				request: requestAuditContext(context),
-				metadata: { invite_id: accepted.inviteId, role: accepted.role },
+			await acceptInvite({
+				...input,
+				audit: { request: requestAuditContext(context) },
 			});
 			return { ok: true };
 		} catch (e) {
@@ -780,19 +719,20 @@ const users = {
 					.set({ role: input.role, updatedAt: new Date() })
 					.where(eq(userTable.id, input.id));
 				await tx.delete(sessionTable).where(eq(sessionTable.userId, input.id));
-				return { ...target, role: input.role };
+				const result = { ...target, role: input.role };
+				await recordAuditEventStrict(tx, {
+					category: "users",
+					action: "users.role_changed",
+					actor: context.user,
+					subject: { type: "user", id: result.id, label: result.email },
+					request: requestAuditContext(context),
+					metadata: { role: result.role },
+				});
+				return result;
 			});
 			if (!changed) {
 				throw new ORPCError("NOT_FOUND", { message: "Konto nicht gefunden" });
 			}
-			await recordAuditEvent({
-				category: "users",
-				action: "users.role_changed",
-				actor: context.user,
-				subject: { type: "user", id: changed.id, label: changed.email },
-				request: requestAuditContext(context),
-				metadata: { role: changed.role },
-			});
 			return { ok: true as const, role: changed.role };
 		}),
 
@@ -855,19 +795,20 @@ const users = {
 						.delete(sessionTable)
 						.where(eq(sessionTable.userId, input.id));
 				}
-				return { ...target, banned: input.banned };
+				const result = { ...target, banned: input.banned };
+				await recordAuditEventStrict(tx, {
+					category: "users",
+					action: input.banned ? "users.blocked" : "users.unblocked",
+					actor: context.user,
+					subject: { type: "user", id: result.id, label: result.email },
+					request: requestAuditContext(context),
+					metadata: { role: result.role },
+				});
+				return result;
 			});
 			if (!changed) {
 				throw new ORPCError("NOT_FOUND", { message: "Konto nicht gefunden" });
 			}
-			await recordAuditEvent({
-				category: "users",
-				action: input.banned ? "users.blocked" : "users.unblocked",
-				actor: context.user,
-				subject: { type: "user", id: changed.id, label: changed.email },
-				request: requestAuditContext(context),
-				metadata: { role: changed.role },
-			});
 			return { ok: true as const, banned: changed.banned };
 		}),
 
@@ -880,23 +821,16 @@ const users = {
 			}),
 		)
 		.handler(async ({ input, context }) => {
-			const ok = await setUserNotifyPref(input.id, input.notify);
-			if (!ok) {
-				throw new ORPCError("NOT_FOUND", { message: "Konto nicht gefunden" });
-			}
-			const [subject] = await db
-				.select({ email: userTable.email })
-				.from(userTable)
-				.where(eq(userTable.id, input.id))
-				.limit(1);
-			await recordAuditEvent({
+			const ok = await setUserNotifyPref(input.id, input.notify, {
 				category: "users",
 				action: "users.notification_changed",
 				actor: context.user,
-				subject: { type: "user", id: input.id, label: subject?.email },
 				request: requestAuditContext(context),
-				metadata: { notify: input.notify, changed_by_admin: true },
+				metadata: { changed_by_admin: true },
 			});
+			if (!ok) {
+				throw new ORPCError("NOT_FOUND", { message: "Konto nicht gefunden" });
+			}
 			return { ok: true, notify: input.notify };
 		}),
 };
@@ -912,18 +846,12 @@ const profile = {
 	setNotify: authed
 		.input(v.object({ notify: v.boolean() }))
 		.handler(async ({ input, context }) => {
-			await setUserNotifyPref(context.user.id, input.notify);
-			await recordAuditEvent({
+			await setUserNotifyPref(context.user.id, input.notify, {
 				category: "users",
 				action: "users.notification_changed",
 				actor: context.user,
-				subject: {
-					type: "user",
-					id: context.user.id,
-					label: context.user.email,
-				},
 				request: requestAuditContext(context),
-				metadata: { notify: input.notify, changed_by_admin: false },
+				metadata: { changed_by_admin: false },
 			});
 			return { ok: true, notify: input.notify };
 		}),
@@ -938,26 +866,9 @@ const historicalRevenue = {
 		.input(HistoricalRevenueCreateSchema)
 		.handler(async ({ input, context }) => {
 			try {
-				const result = await createHistoricalRevenue(input, context.user);
-				if (result.created) {
-					await recordAuditEvent({
-						category: "umsaetze",
-						action: "umsaetze.created",
-						actor: context.user,
-						subject: {
-							type: "historischer_umsatz",
-							id: result.row.id,
-							label: result.row.anlass,
-						},
-						request: requestAuditContext(context),
-						metadata: {
-							anlass_datum: result.row.anlass_datum,
-							vergleichsgruppe: result.row.vergleichsgruppe,
-							umsatz_cent: result.row.umsatz_cent,
-							ausgaben_cent: result.row.ausgaben_cent,
-						},
-					});
-				}
+				const result = await createHistoricalRevenue(input, context.user, {
+					request: requestAuditContext(context),
+				});
 				return result.row;
 			} catch (error) {
 				if (error instanceof HistoricalRevenueCatalogError) {
@@ -977,23 +888,12 @@ const historicalRevenue = {
 		.input(HistoricalRevenueCancelSchema)
 		.handler(async ({ input, context }) => {
 			try {
-				const cancelled = await cancelHistoricalRevenue(
+				await cancelHistoricalRevenue(
 					input.id,
 					input.storno_grund,
 					context.user,
+					{ request: requestAuditContext(context) },
 				);
-				await recordAuditEvent({
-					category: "umsaetze",
-					action: "umsaetze.cancelled",
-					actor: context.user,
-					subject: {
-						type: "historischer_umsatz",
-						id: cancelled.id,
-						label: cancelled.anlass,
-					},
-					request: requestAuditContext(context),
-					metadata: { grund: input.storno_grund },
-				});
 				return { ok: true as const };
 			} catch (error) {
 				if (error instanceof HistoricalRevenueNotFoundError) {

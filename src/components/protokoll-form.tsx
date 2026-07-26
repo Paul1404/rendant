@@ -78,6 +78,7 @@ export type ProtokollInitialValues = {
 const DRAFT_KEY = "svufo:draft:protokoll-neu";
 
 type FormDraft = {
+	idempotencyKey: string;
 	belegnummer: string;
 	datum: string;
 	selectedRegisterId: string | null;
@@ -246,6 +247,9 @@ export function ProtokollForm({
 		WECHSELGELD_DEFAULT_CENT;
 
 	const [counts, setCounts] = useState<DenominationCounts>(emptyCounts());
+	const [idempotencyKey, setIdempotencyKey] = useState<string>(() =>
+		crypto.randomUUID(),
+	);
 	const [belegnummer, setBelegnummer] = useState(belegnummerPreview);
 	const [datum, setDatum] = useState<string>(() => todayIsoDate());
 	const [selectedRegisterId, setSelectedRegisterId] = useState<string | null>(
@@ -496,6 +500,7 @@ export function ProtokollForm({
 
 	const snapshot = useMemo<FormDraft>(
 		() => ({
+			idempotencyKey,
 			belegnummer,
 			datum,
 			selectedRegisterId,
@@ -516,6 +521,7 @@ export function ProtokollForm({
 			umsatzUstBasis,
 		}),
 		[
+			idempotencyKey,
 			belegnummer,
 			datum,
 			selectedRegisterId,
@@ -543,6 +549,7 @@ export function ProtokollForm({
 		toastTitle: "Entwurf wiederherstellen?",
 		toastDescription: "Eingaben aus einer vorherigen Sitzung wurden gefunden.",
 		onRestore: (d) => {
+			setIdempotencyKey(d.idempotencyKey || crypto.randomUUID());
 			setBelegnummer(d.belegnummer || belegnummerPreview);
 			setDatum(d.datum || todayIsoDate());
 			setKassennummer(d.kassennummer ?? "");
@@ -774,6 +781,7 @@ export function ProtokollForm({
 
 		const trimmedBelegnummer = belegnummer.trim();
 		const payload: Record<string, unknown> = {
+			idempotency_key: idempotencyKey,
 			anlass_datum: datum,
 			kassennummer: kassennummer.trim(),
 			kassenbezeichnung: kassenbezeichnung.trim(),
@@ -820,7 +828,11 @@ export function ProtokollForm({
 				}
 				toast.success("Protokoll gespeichert");
 				await queryClient.invalidateQueries();
-				await navigate({ to: "/protokolle/$id", params: { id: body.id } });
+				await navigate({
+					to: "/protokolle/$id",
+					params: { id: body.id },
+					ignoreBlocker: true,
+				});
 			} catch (e) {
 				toast.error(orpcMessage(e, "Speichern fehlgeschlagen"));
 			}

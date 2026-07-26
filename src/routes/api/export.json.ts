@@ -18,6 +18,12 @@ export const Route = createFileRoute("/api/export/json")({
 				if (!session) {
 					return Response.json({ error: "Nicht angemeldet" }, { status: 401 });
 				}
+				if (session.user.role !== "admin") {
+					return Response.json(
+						{ error: "Adminrechte erforderlich" },
+						{ status: 403 },
+					);
+				}
 				const url = new URL(request.url);
 				const parsed = v.safeParse(ExportQuerySchema, {
 					von: url.searchParams.get("von"),
@@ -32,12 +38,12 @@ export const Route = createFileRoute("/api/export/json")({
 				const data = await exportJson(parsed.output.von, parsed.output.bis);
 				await recordAuditEvent({
 					category: "exports",
-					action: "exports.backup_json",
+					action: "exports.business_archive_json",
 					actor: auditActor(session.user),
 					request: auditRequest(request),
 					metadata: parsed.output,
 				});
-				const filename = `svufo-backup-${parsed.output.von}-${parsed.output.bis}.json`;
+				const filename = `svufo-geschaeftsarchiv-${parsed.output.von}-${parsed.output.bis}.json`;
 				return new Response(JSON.stringify(data, null, 2), {
 					status: 200,
 					headers: secureDownloadHeaders(

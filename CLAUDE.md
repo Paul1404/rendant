@@ -231,6 +231,13 @@ Always use Drizzle Kit — never modify the database directly or push schema to 
 
 ### Railway Postgres (auto-injected when Postgres service is connected)
 
+Database connections and queries have finite defaults. Override them only when
+an observed migration or query needs a documented exception:
+
+- `DATABASE_CONNECTION_TIMEOUT_MS` (default `5000`)
+- `DATABASE_QUERY_TIMEOUT_MS` (default `10000`, applied as client and PostgreSQL
+  statement timeout)
+
 ### Railway S3 Bucket (auto-injected when Bucket is connected, style: "AWS SDK Generic")
 
 > Connect services in Railway dashboard via Variable Reference e.g. ${{Postgres.DATABASE_URL}}
@@ -436,6 +443,12 @@ Focus on:
 - Not UI components
 
 Always run tests after making changes. If tests fail, fix them before moving on.
+
+`bun run test` is the fast suite and must not connect to PostgreSQL. Database
+behavior lives under `tests/integration/` and runs through
+`bun run test:integration` only with `SVUFO_INTEGRATION_TEST=1` and a dedicated
+database whose name ends in `_test`. CI applies the production migrator before
+that suite, then builds and starts the real Docker image and checks `/api/health`.
 ---
 
 ## UI & Copy Rules

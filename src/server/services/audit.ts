@@ -4,6 +4,7 @@ import {
 	type AuditEventRow,
 	sanitizeAuditMetadata,
 } from "@/lib/audit";
+import type { DbOrTx } from "@/server/db";
 import { db } from "@/server/db";
 import { auditEvents } from "@/server/db/schema";
 import { logger } from "@/server/logger";
@@ -45,7 +46,7 @@ export function auditRequest(request: Request): RecordAuditInput["request"] {
 	};
 }
 
-type RecordAuditInput = {
+export type RecordAuditInput = {
 	category: AuditCategory;
 	action: string;
 	success?: boolean;
@@ -73,24 +74,31 @@ function uuidOrUndefined(value?: string | null): string | undefined {
 		: undefined;
 }
 
+export async function recordAuditEventStrict(
+	database: DbOrTx,
+	input: RecordAuditInput,
+): Promise<void> {
+	await database.insert(auditEvents).values({
+		category: input.category,
+		action: input.action,
+		success: input.success ?? true,
+		actor_user_id: input.actor?.id ?? null,
+		actor_email: input.actor?.email ?? input.actorEmail ?? null,
+		actor_name: input.actor?.name ?? null,
+		actor_role: input.actor?.role ?? null,
+		subject_type: input.subject?.type ?? null,
+		subject_id: input.subject?.id ?? null,
+		subject_label: input.subject?.label?.slice(0, 500) ?? null,
+		request_id: uuidOrUndefined(input.request?.id),
+		ip_address: input.request?.ip?.slice(0, 100) ?? null,
+		user_agent: input.request?.userAgent?.slice(0, 500) ?? null,
+		metadata: sanitizeAuditMetadata(input.metadata),
+	});
+}
+
 export async function recordAuditEvent(input: RecordAuditInput): Promise<void> {
 	try {
-		await db.insert(auditEvents).values({
-			category: input.category,
-			action: input.action,
-			success: input.success ?? true,
-			actor_user_id: input.actor?.id ?? null,
-			actor_email: input.actor?.email ?? input.actorEmail ?? null,
-			actor_name: input.actor?.name ?? null,
-			actor_role: input.actor?.role ?? null,
-			subject_type: input.subject?.type ?? null,
-			subject_id: input.subject?.id ?? null,
-			subject_label: input.subject?.label?.slice(0, 500) ?? null,
-			request_id: uuidOrUndefined(input.request?.id),
-			ip_address: input.request?.ip?.slice(0, 100) ?? null,
-			user_agent: input.request?.userAgent?.slice(0, 500) ?? null,
-			metadata: sanitizeAuditMetadata(input.metadata),
-		});
+		await recordAuditEventStrict(db, input);
 	} catch (err) {
 		// Auditing must never make a completed accounting operation appear failed
 		// to the user, which could trigger a duplicate retry. The server log keeps

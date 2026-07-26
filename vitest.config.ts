@@ -7,9 +7,10 @@ export default defineConfig({
       "@": resolve(__dirname, "./src"),
     },
   },
-  test: {
-    environment: "node",
-    include: ["tests/**/*.test.ts"],
+	test: {
+		environment: "node",
+		include: ["tests/**/*.test.ts"],
+		exclude: ["tests/integration/**/*.test.ts"],
     // The DB client constructs a pg Pool at import time but only connects on
     // first query. The pure-logic tests never query, so a placeholder URL is
     // enough to satisfy module init.

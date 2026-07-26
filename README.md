@@ -17,7 +17,7 @@ heruntergeladen.
 | Protokolle | Dashboard, Suche, Zeitfilter und Belegliste | Alle angemeldeten Benutzer |
 | Neu | Vollständige Erfassung eines Kassenzählprotokolls | Alle angemeldeten Benutzer |
 | Umsätze | Vorjahresvergleich, Altunterlagen und Pflege der Zuordnungen | Vergleich für alle, Änderungen nur für Admins |
-| Import & Export | Excel-Import, XLSX, CSV, USt-Auswertung und JSON-Sicherung | Exporte für alle, Import nur für Admins |
+| Import & Export | Excel-Import, XLSX, CSV, USt-Auswertung und JSON-Geschäftsarchiv | Fachliche Exporte für alle, Import und Geschäftsarchiv nur für Admins |
 | Audit-Log | Filterbare Ereignisspur aller relevanten Vorgänge | Nur Admins |
 | Einstellungen | Eigene Benachrichtigungen sowie zentrale Verwaltung | Persönliche Einstellung für alle, Verwaltung nur für Admins |
 
@@ -122,9 +122,15 @@ und Vergleich entfernt.
   oder CSV
 - XLSX mit Autofilter, fixierter Kopfzeile und formatierten Datums- und
   Währungszellen
-- Protokoll-CSV, Umsatzsteuer-CSV und vollständige JSON-Sicherung für einen
-  gewählten Zeitraum
+- Protokoll-CSV und Umsatzsteuer-CSV für einen gewählten Zeitraum
+- Versioniertes JSON-Geschäftsarchiv für Admins mit Protokollen, historischen
+  Umsätzen, Kassen, Umsatzgruppen, Belegnummernsequenzen und sicheren
+  Einstellungen. Es ersetzt kein Datenbank- oder Objektspeicher-Backup
 - Geschützte Downloads ohne Browser-Cache und mit abgesicherten CSV-Inhalten
+
+Der Ablauf für vollständige PostgreSQL-Sicherungen, sichere Wiederherstellungen
+in eine leere Datenbank und die weiterhin nötige externe Railway-Konfiguration
+steht in [`docs/backup-restore.md`](docs/backup-restore.md).
 
 ### Benutzer, Einstellungen und Nachvollziehbarkeit
 
@@ -203,6 +209,8 @@ Die vollständige Vorlage mit Kommentaren steht in [`.env.example`](.env.example
 | Variable | Zweck | Erforderlich |
 | --- | --- | --- |
 | `DATABASE_URL` | PostgreSQL-Verbindung | Ja |
+| `DATABASE_CONNECTION_TIMEOUT_MS` | Zeitlimit für neue Datenbankverbindungen | Nein, Standard 5000 ms |
+| `DATABASE_QUERY_TIMEOUT_MS` | Zeitlimit für Datenbankabfragen | Nein, Standard 10000 ms |
 | `BETTER_AUTH_SECRET` | Schlüssel für Sitzungen und verschlüsselte SMTP-Zugangsdaten | Ja |
 | `BETTER_AUTH_URL` | Öffentliche Basis-URL für Cookies, Weiterleitungen, Einladungen und E-Mail-Links | Ja |
 | `ADMIN_EMAIL` | E-Mail des initialen Admins | Für die Ersteinrichtung |
@@ -216,8 +224,9 @@ Die vollständige Vorlage mit Kommentaren steht in [`.env.example`](.env.example
 | `VEREINSNAME` | Fallback bis Vereinsstammdaten in der App gespeichert wurden | Nein |
 | `LFIO_INGEST_TOKEN` | Aktiviert die optionale LFIO-Telemetrie | Nein |
 
-Die weiteren `LFIO_*`-Variablen steuern Intervall, Zeitlimits und
-Schwellenwerte der optionalen Telemetrie. SMTP-Server, Absender und Empfänger
+Die weiteren `LFIO_*`-Variablen steuern Intervall, Zeitlimits, die höchstens
+tägliche und seitenbegrenzte Bucket-Inventur sowie Schwellenwerte der optionalen
+Telemetrie. SMTP-Server, Absender und Empfänger
 werden nicht als Umgebungsvariablen gesetzt, sondern durch einen Admin unter
 `Einstellungen > E-Mail-Benachrichtigungen` verwaltet.
 
@@ -227,6 +236,7 @@ werden nicht als Umgebungsvariablen gesetzt, sondern durch einen Admin unter
 bun run check          # Biome prüfen
 bunx tsc --noEmit      # TypeScript prüfen
 bun run test           # Vitest ausführen
+bun run test:integration # isolierte PostgreSQL-Tests, siehe CI-Konfiguration
 bun run build          # Produktions-Build nach .output/ erzeugen
 bun .output/server/index.mjs
 

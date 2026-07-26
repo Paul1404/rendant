@@ -3,6 +3,10 @@ import type { HistoricalRevenueCreateInput } from "@/lib/schemas";
 import { type DbOrTx, db } from "@/server/db";
 import { anlassKatalog, historicalRevenues } from "@/server/db/schema";
 import type { AuthUser } from "@/server/orpc/base";
+import {
+	type RecordAuditInput,
+	recordAuditEventStrict,
+} from "@/server/services/audit";
 
 export type HistoricalRevenueRow = typeof historicalRevenues.$inferSelect;
 
@@ -137,33 +141,73 @@ export async function createHistoricalRevenueWithDb(
 export async function createHistoricalRevenue(
 	input: HistoricalRevenueCreateInput,
 	actor: AuthUser,
+	audit: Omit<RecordAuditInput, "category" | "action" | "actor" | "subject">,
 ): Promise<{ row: HistoricalRevenueRow; created: boolean }> {
-	return db.transaction((tx) =>
-		createHistoricalRevenueWithDb(tx, input, actor),
-	);
+	return db.transaction(async (tx) => {
+		const result = await createHistoricalRevenueWithDb(tx, input, actor);
+		if (result.created) {
+			await recordAuditEventStrict(tx, {
+				...audit,
+				category: "umsaetze",
+				action: "umsaetze.created",
+				actor,
+				subject: {
+					type: "historischer_umsatz",
+					id: result.row.id,
+					label: result.row.anlass,
+				},
+				metadata: {
+					...audit.metadata,
+					anlass_datum: result.row.anlass_datum,
+					vergleichsgruppe: result.row.vergleichsgruppe,
+					umsatz_cent: result.row.umsatz_cent,
+					ausgaben_cent: result.row.ausgaben_cent,
+				},
+			});
+		}
+		return result;
+	});
 }
 
 export async function cancelHistoricalRevenue(
 	id: string,
 	stornoGrund: string,
 	actor: AuthUser,
+	audit: Omit<RecordAuditInput, "category" | "action" | "actor" | "subject">,
 ): Promise<HistoricalRevenueRow> {
-	const cancelled = await db
-		.update(historicalRevenues)
-		.set({
-			storniert_am: new Date(),
-			storniert_von_user_id: actor.id,
-			storniert_von_name: actor.name,
-			storniert_von_email: actor.email,
-			storno_grund: stornoGrund,
-		})
-		.where(
-			and(
-				eq(historicalRevenues.id, id),
-				isNull(historicalRevenues.storniert_am),
-			),
-		)
-		.returning();
+	const cancelled = await db.transaction(async (tx) => {
+		const rows = await tx
+			.update(historicalRevenues)
+			.set({
+				storniert_am: new Date(),
+				storniert_von_user_id: actor.id,
+				storniert_von_name: actor.name,
+				storniert_von_email: actor.email,
+				storno_grund: stornoGrund,
+			})
+			.where(
+				and(
+					eq(historicalRevenues.id, id),
+					isNull(historicalRevenues.storniert_am),
+				),
+			)
+			.returning();
+		if (rows[0]) {
+			await recordAuditEventStrict(tx, {
+				...audit,
+				category: "umsaetze",
+				action: "umsaetze.cancelled",
+				actor,
+				subject: {
+					type: "historischer_umsatz",
+					id: rows[0].id,
+					label: rows[0].anlass,
+				},
+				metadata: { ...audit.metadata, grund: stornoGrund },
+			});
+		}
+		return rows;
+	});
 	if (cancelled[0]) return cancelled[0];
 
 	const [existing] = await db

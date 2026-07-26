@@ -10,6 +10,10 @@ import { db } from "@/server/db";
 import { appSettings } from "@/server/db/schema";
 import { logger } from "@/server/logger";
 import {
+	type RecordAuditInput,
+	recordAuditEventStrict,
+} from "@/server/services/audit";
+import {
 	callout,
 	ctaBlock,
 	detailsTable,
@@ -146,6 +150,7 @@ export async function getEmailSettings(): Promise<EmailSettings> {
 
 export async function updateEmailSettings(
 	patch: EmailSettingsPatch,
+	audit: RecordAuditInput,
 ): Promise<EmailSettings> {
 	const { valid, invalid } = parseRecipients(patch.recipients);
 	if (invalid.length > 0) {
@@ -170,15 +175,18 @@ export async function updateEmailSettings(
 		set.smtp_password_enc = encryptSecret(patch.password);
 	}
 
-	const rows = await db
-		.update(appSettings)
-		.set(set)
-		.where(eq(appSettings.id, 1))
-		.returning();
-	if (rows.length === 0) {
-		throw new Error("Einstellungen konnten nicht aktualisiert werden");
-	}
-	return rowToSettings(rows[0]);
+	return db.transaction(async (tx) => {
+		const rows = await tx
+			.update(appSettings)
+			.set(set)
+			.where(eq(appSettings.id, 1))
+			.returning();
+		if (rows.length === 0) {
+			throw new Error("Einstellungen konnten nicht aktualisiert werden");
+		}
+		await recordAuditEventStrict(tx, audit);
+		return rowToSettings(rows[0]);
+	});
 }
 
 type TransportConfig = {

@@ -11,6 +11,13 @@ declare global {
 	var __svufoPool: Pool | undefined;
 }
 
+function timeoutFromEnv(name: string, fallback: number): number {
+	const value = Number(process.env[name]);
+	return Number.isInteger(value) && value >= 1_000 && value <= 120_000
+		? value
+		: fallback;
+}
+
 function createPool(): Pool {
 	const connectionString = process.env.DATABASE_URL;
 	if (!connectionString) {
@@ -20,6 +27,12 @@ function createPool(): Pool {
 		connectionString,
 		max: 10,
 		idleTimeoutMillis: 20_000,
+		connectionTimeoutMillis: timeoutFromEnv(
+			"DATABASE_CONNECTION_TIMEOUT_MS",
+			5_000,
+		),
+		query_timeout: timeoutFromEnv("DATABASE_QUERY_TIMEOUT_MS", 10_000),
+		statement_timeout: timeoutFromEnv("DATABASE_QUERY_TIMEOUT_MS", 10_000),
 	});
 }
 

@@ -23,7 +23,7 @@ function ExportPage() {
 			/>
 			<div className="mx-auto max-w-4xl space-y-8">
 				{user.role === "admin" ? <HistoricalRevenueImport /> : null}
-				<ExportForm />
+				<ExportForm isAdmin={user.role === "admin"} />
 			</div>
 		</div>
 	);

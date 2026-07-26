@@ -77,6 +77,7 @@ const EXPORTS: ReadonlyArray<{
 	path: string;
 	icon: typeof FileText;
 	button: string;
+	adminOnly?: boolean;
 }> = [
 	{
 		id: "revenue-xlsx",
@@ -116,16 +117,17 @@ const EXPORTS: ReadonlyArray<{
 	},
 	{
 		id: "json",
-		title: "Backup (JSON)",
+		title: "Geschäftsarchiv (JSON)",
 		description:
-			"Vollständige Sicherung aller Protokolle inklusive Ausgaben und USt-Aufteilung.",
+			"Protokolle und historische Umsätze im Zeitraum plus Kassen, Umsatzgruppen und sichere Einstellungen. Kein Ersatz für ein Datenbank-Backup.",
 		path: "/api/export/json",
 		icon: Braces,
 		button: "Herunterladen",
+		adminOnly: true,
 	},
 ];
 
-export function ExportForm() {
+export function ExportForm({ isAdmin = false }: { isAdmin?: boolean }) {
 	const [von, setVon] = useState(isoFromParts(CURRENT_YEAR, 0, 1));
 	const [bis, setBis] = useState(TODAY);
 
@@ -219,7 +221,7 @@ export function ExportForm() {
 			</Card>
 
 			<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-				{EXPORTS.map((ex) => {
+				{EXPORTS.filter((ex) => !ex.adminOnly || isAdmin).map((ex) => {
 					const Icon = ex.icon;
 					return (
 						<Card key={ex.id} className="flex flex-col">

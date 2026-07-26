@@ -3,6 +3,28 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.22.0 - 2026-07-26
+
+- Neue Kassenzählprotokolle verwenden einen gespeicherten Idempotenzschlüssel.
+  Wiederholte Anfragen erzeugen dadurch weder einen zweiten Beleg noch erneut
+  PDF- und E-Mail-Nebenwirkungen.
+- Kritische Buchungs-, Storno-, Benutzer- und Einstellungsänderungen speichern
+  ihren Audit-Eintrag in derselben Datenbanktransaktion. Die Datenbank verhindert
+  nachträgliche Änderungen oder Löschungen von Audit-Ereignissen.
+- Das bisherige JSON-Backup heißt jetzt Geschäftsarchiv. Es enthält zusätzlich
+  historische Umsätze, Umsatzgruppen, Kassen, Sequenzen und sichere Einstellungen
+  und weist ausdrücklich auf ausgeschlossene Daten hin. Eine Anleitung mit
+  abgesicherten PostgreSQL-Sicherungs- und Wiederherstellungsskripten ergänzt den
+  vollständigen Notfallablauf.
+- PostgreSQL- und Produktionsimage-Tests prüfen in CI Migrationen, parallele
+  Schreibvorgänge, Datenbank-Zeitlimits, Containerstart und den Healthcheck.
+- LFIO prüft die Bucket-Erreichbarkeit weiterhin regelmäßig, führt die
+  seitenbegrenzte Objektinventur aber höchstens täglich aus. Datenbankverbindungen
+  und Abfragen haben konfigurierbare echte Zeitlimits.
+- Ungespeicherte Protokollentwürfe werden vor interner Navigation sofort
+  geschrieben. Beim Verlassen erscheint eine Warnung, ohne die Navigation nach
+  einem erfolgreichen Speichern zu blockieren.
+
 ## 1.21.1 - 2026-07-22
 
 - Das Produktionsimage verwendet eine gepinnte Bun-Alpine-Basis und läuft als

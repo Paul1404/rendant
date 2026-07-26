@@ -167,7 +167,18 @@ export const Route = createFileRoute("/api/import/revenue")({
 				const actor = auditActor(session.user);
 				let result: Awaited<ReturnType<typeof importHistoricalRevenues>>;
 				try {
-					result = await importHistoricalRevenues(parsed.rows, actor);
+					result = await importHistoricalRevenues(parsed.rows, actor, {
+						request: auditRequest(request),
+						subject: {
+							type: "historischer_umsatz_import",
+							id: parsed.importId,
+							label: file.name.slice(0, 200),
+						},
+						metadata: {
+							umsatz_cent: totals.revenueCent,
+							ausgaben_cent: totals.expensesCent,
+						},
+					});
 				} catch (error) {
 					if (
 						error instanceof HistoricalRevenueConflictError ||
@@ -183,24 +194,6 @@ export const Route = createFileRoute("/api/import/revenue")({
 					}
 					throw error;
 				}
-				await recordAuditEvent({
-					category: "umsaetze",
-					action: "umsaetze.imported",
-					actor,
-					request: auditRequest(request),
-					subject: {
-						type: "historischer_umsatz_import",
-						id: parsed.importId,
-						label: file.name.slice(0, 200),
-					},
-					metadata: {
-						zeilen: parsed.rows.length,
-						angelegt: result.created,
-						übersprungen: result.skipped,
-						umsatz_cent: totals.revenueCent,
-						ausgaben_cent: totals.expensesCent,
-					},
-				});
 				return Response.json({ ok: true, ...result });
 			},
 		},
