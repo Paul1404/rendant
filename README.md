@@ -204,6 +204,26 @@ Die Anwendung läuft unter <http://localhost:3000>. Der Migrator wendet alle
 offenen Drizzle-Migrationen an, legt die globalen Einstellungen an und erzeugt
 den initialen Admin idempotent aus den `ADMIN_*`-Variablen.
 
+### Wegwerf-Sandbox für Browser-Tests
+
+Für eine vollständig isolierte lokale Instanz genügt:
+
+```bash
+bun run sandbox
+```
+
+Der Befehl startet PostgreSQL mit einem `tmpfs` in Docker, einen ausschließlich
+im Arbeitsspeicher gehaltenen S3-kompatiblen Objektspeicher und Vite auf Port
+3100. Migrationen und Admin-Seed laufen automatisch. URL, zufällig erzeugte
+Anmeldedaten und Passwort erscheinen im Terminal. `Ctrl-C` beendet die App und
+löscht Datenbank, PDFs, Zugangsdaten und Container. Eine andere App-Portnummer
+kann mit `SANDBOX_PORT=4310 bun run sandbox` gewählt werden.
+
+Nach einem abgebrochenen Prozess entfernt `bun run sandbox:down` eventuell
+verbliebene, eindeutig als SVUFO-Sandbox markierte Container. Docker oder Colima
+muss verfügbar sein. Die Sandbox verwendet keine `.env`-Datei und greift weder
+auf Railway noch auf lokale oder produktive Datenbanken und Buckets zu.
+
 ## Konfiguration
 
 Die vollständige Vorlage mit Kommentaren steht in [`.env.example`](.env.example).
@@ -238,6 +258,8 @@ werden nicht als Umgebungsvariablen gesetzt, sondern durch einen Admin unter
 bun run check          # Biome prüfen
 bunx tsc --noEmit      # TypeScript prüfen
 bun run test           # Vitest ausführen
+bun run sandbox        # vollständig isolierte Browser-Testinstanz
+bun run sandbox:down   # verwaiste Sandbox-Container entfernen
 bun run test:integration # isolierte PostgreSQL-Tests, siehe CI-Konfiguration
 bun run build          # Produktions-Build nach .output/ erzeugen
 bun .output/server/index.mjs

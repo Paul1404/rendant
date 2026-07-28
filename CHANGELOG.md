@@ -9,6 +9,9 @@ hier entspricht `package.json` und der Versionsmarke in der App.
   die Anmutung klassischer Finanzdrucke. Dezente Grün- und Messingtöne passen
   sich an die helle und dunkle Darstellung sowie breite Bildschirme an, ohne
   Inhalte zu überlagern oder am Inhaltsrand abzubrechen.
+- Eine vollständig isolierte lokale Sandbox startet mit einem Befehl eine
+  temporäre Datenbank, einen flüchtigen PDF-Speicher, Migrationen, zufällige
+  Admin-Zugangsdaten und die App. Beim Beenden werden alle Daten entfernt.
 
 ## 1.23.0 - 2026-07-28
 

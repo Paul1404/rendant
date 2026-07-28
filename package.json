@@ -11,6 +11,8 @@
   },
   "scripts": {
     "dev": "vite dev --port 3000",
+	"sandbox": "bun scripts/sandbox.ts",
+	"sandbox:down": "bun scripts/sandbox-down.ts",
     "build": "vite build",
     "start": "node .output/server/index.mjs",
     "generate-routes": "tsr generate",
