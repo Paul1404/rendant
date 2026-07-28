@@ -17,10 +17,11 @@ export function MainWatermark() {
 				focusable="false"
 				className="fixed top-16 h-[56rem] w-[75rem] max-w-none overflow-visible"
 				style={{
-					// The rosette is at x=1040 in the 1200px artwork. Once the
-					// viewport exceeds the 72rem content width, its centre follows
-					// the middle of the otherwise unused right-hand gutter.
-					left: "calc(100vw - max(0px, calc(25vw - 18rem)) - 65rem)",
+					// The rosette is at x=1040 in the 1200px artwork. It follows the
+					// middle of the unused right-hand gutter until that would leave
+					// visible whitespace at the viewport edge. The 16rem cap then
+					// keeps a small part of the outer guilloché beyond the edge.
+					left: "calc(100vw - min(16rem, max(0px, calc(25vw - 18rem))) - 65rem)",
 				}}
 			>
 				<title>Guilloché-Muster</title>

@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.23.4 - 2026-07-28
+
+- Auf sehr breiten Bildschirmen reicht das Guilloché-Muster jetzt sichtbar bis
+  über den rechten Bildschirmrand. Der zuvor verbleibende helle Spalt entfällt.
+
 ## 1.23.3 - 2026-07-28
 
 - SVUFO ist nicht mehr unter der MIT-Lizenz veröffentlicht. Der Quellcode und
