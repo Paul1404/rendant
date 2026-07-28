@@ -59,7 +59,7 @@ export const Route = createFileRoute("/protokolle/einstellungen")({
 			notifyProtokoll: notify.notify,
 		};
 	},
-	head: () => ({ meta: [{ title: "Einstellungen · SVUFO" }] }),
+	head: () => ({ meta: [{ title: "Einstellungen · Rendant" }] }),
 	pendingComponent: SettingsSkeleton,
 	component: EinstellungenPage,
 });
@@ -91,7 +91,7 @@ function EinstellungenPage() {
 					<SectionHeading
 						icon={Building2}
 						title="Verein"
-						description="Stammdaten des Vereins, für den diese SVUFO-Instanz läuft. Der Name erscheint dezent in der App; Anschrift, Vorstand und Registereintrag stehen in der Fußzeile der PDF-Protokolle. Nur für Admins."
+						description="Stammdaten des Vereins, für den diese Rendant-Instanz läuft. Der Name erscheint dezent in der App; Anschrift, Vorstand und Registereintrag stehen in der Fußzeile der PDF-Protokolle. Nur für Admins."
 					/>
 					<VereinSettingsForm initial={verein} />
 				</section>

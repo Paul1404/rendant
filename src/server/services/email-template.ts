@@ -115,7 +115,7 @@ export function emailShell(opts: ShellOptions): string {
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="color-scheme" content="light only" />
 <meta name="supported-color-schemes" content="light" />
-<title>SVUFO</title>
+<title>Rendant</title>
 <!--[if mso]>
 <style type="text/css">table,td,div,p,a{font-family:Arial,sans-serif !important;}</style>
 <![endif]-->
@@ -129,7 +129,7 @@ export function emailShell(opts: ShellOptions): string {
         <!-- Header -->
         <tr>
           <td style="background-color:${BRAND.green};border-radius:14px 14px 0 0;padding:22px 32px;">
-            <div style="color:#ffffff;font-family:${FONT};font-size:19px;font-weight:bold;letter-spacing:2px;line-height:22px;">SVUFO</div>
+            <div style="color:#ffffff;font-family:${FONT};font-size:19px;font-weight:bold;letter-spacing:2px;line-height:22px;">Rendant</div>
             <div style="color:#cde0d7;font-family:${FONT};font-size:11px;letter-spacing:1px;line-height:16px;text-transform:uppercase;">Kassenzählprotokoll</div>
           </td>
         </tr>
@@ -147,12 +147,12 @@ export function emailShell(opts: ShellOptions): string {
         <tr>
           <td style="background-color:${BRAND.card};border-radius:0 0 14px 14px;border-top:1px solid ${BRAND.border};padding:20px 32px 26px;">
             <p style="margin:0 0 4px;color:${BRAND.ink};font-family:${FONT};font-size:13px;font-weight:bold;line-height:18px;">${escapeHtml(verein)}</p>
-            <p style="margin:0;color:${BRAND.muted};font-family:${FONT};font-size:12px;line-height:17px;">Diese E-Mail wurde automatisch von SVUFO gesendet. Bitte nicht direkt darauf antworten.</p>
+            <p style="margin:0;color:${BRAND.muted};font-family:${FONT};font-size:12px;line-height:17px;">Diese E-Mail wurde automatisch von Rendant gesendet. Bitte nicht direkt darauf antworten.</p>
           </td>
         </tr>
         <tr>
           <td style="padding:16px 32px 0;">
-            <p style="margin:0;color:${BRAND.muted};font-family:${FONT};font-size:11px;line-height:16px;text-align:center;">&copy; ${year} ${escapeHtml(verein)} &middot; l&auml;uft mit SVUFO</p>
+            <p style="margin:0;color:${BRAND.muted};font-family:${FONT};font-size:11px;line-height:16px;text-align:center;">&copy; ${year} ${escapeHtml(verein)} &middot; l&auml;uft mit Rendant</p>
           </td>
         </tr>
       </table>

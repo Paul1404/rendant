@@ -70,7 +70,7 @@ describe("historical revenue Excel import", () => {
 			"Heimspiel",
 		);
 		expect(workbook.getWorksheet("Umsatzgruppen")?.getCell("A3").value).toBeNull();
-		expect(workbook.getWorksheet("SVUFO")?.state).toBe("veryHidden");
+		expect(workbook.getWorksheet("Rendant")?.state).toBe("veryHidden");
 	});
 
 	it("parses typed dates and money and keeps row idempotency stable", async () => {
@@ -93,6 +93,23 @@ describe("historical revenue Excel import", () => {
 		expect(first.rows[0].idempotency_key).toBe(
 			second.rows[0].idempotency_key,
 		);
+	});
+
+	it("continues to accept templates created before the rename", async () => {
+		const bytes = await filledTemplate();
+		const workbook = new ExcelJS.Workbook();
+		await workbook.xlsx.load(asArrayBuffer(bytes));
+		const metadata = workbook.getWorksheet("Rendant");
+		if (!metadata) throw new Error("Metadatenblatt fehlt");
+		metadata.name = "SVUFO";
+		const buffer = await workbook.xlsx.writeBuffer();
+
+		const parsed = await parseRevenueImportWorkbook(
+			new Uint8Array(buffer),
+			CATALOG,
+		);
+		expect(parsed.errors).toEqual([]);
+		expect(parsed.rows).toHaveLength(1);
 	});
 
 	it("reports unknown groups and invalid values with Excel row numbers", async () => {

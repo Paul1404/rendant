@@ -18,7 +18,7 @@ export function VersionChip({ className }: { className?: string }) {
 					"inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/60 px-2 py-0.5 font-mono text-[10px] leading-none text-muted-foreground tabular-nums transition-colors hover:border-border hover:text-foreground",
 					className,
 				)}
-				title={`SVUFO v${APP_VERSION}`}
+				title={`Rendant v${APP_VERSION}`}
 			>
 				<span className="h-1.5 w-1.5 rounded-full bg-success/80" />v
 				{APP_VERSION}

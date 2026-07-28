@@ -1,8 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="512" height="512" role="img" aria-label="SVUFO mark, single ink">
-  <circle cx="50" cy="50" r="46" fill="#13201B"></circle>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="64" height="64" role="img" aria-label="Rendant favicon">
+  <circle cx="50" cy="50" r="50" fill="#0F4435"></circle>
   <rect x="30.5" y="33" width="5.6" height="34" rx="2.8" fill="#F6F3EC"></rect>
   <rect x="41.6" y="33" width="5.6" height="34" rx="2.8" fill="#F6F3EC"></rect>
   <rect x="52.7" y="33" width="5.6" height="34" rx="2.8" fill="#F6F3EC"></rect>
   <rect x="63.8" y="33" width="5.6" height="34" rx="2.8" fill="#F6F3EC"></rect>
-  <line x1="26" y1="69" x2="74" y2="31" stroke="#F6F3EC" stroke-width="6.2" stroke-linecap="round"></line>
+  <line x1="26" y1="69" x2="74" y2="31" stroke="#C49A4E" stroke-width="6.2" stroke-linecap="round"></line>
 </svg>

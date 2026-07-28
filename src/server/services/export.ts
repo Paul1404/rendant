@@ -84,6 +84,7 @@ export type BusinessArchiveCollections = {
 };
 
 export type BusinessArchive = {
+	// Stable external protocol marker retained for existing archive consumers.
 	format: "svufo-business-archive";
 	schemaVersion: 1;
 	appVersion: string;

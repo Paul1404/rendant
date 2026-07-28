@@ -67,7 +67,7 @@ export const Route = createFileRoute("/protokolle/neu")({
 			canManageAnlassKatalog: context.user.role === "admin",
 		};
 	},
-	head: () => ({ meta: [{ title: "Neues Protokoll · SVUFO" }] }),
+	head: () => ({ meta: [{ title: "Neues Protokoll · Rendant" }] }),
 	pendingComponent: NeuSkeleton,
 	component: NewProtokollPage,
 });

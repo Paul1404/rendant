@@ -24,7 +24,7 @@ export async function revenueXlsxDocument(
 	rows: RevenueExportRow[],
 ): Promise<Uint8Array> {
 	const workbook = new ExcelJS.Workbook();
-	workbook.creator = "SVUFO";
+	workbook.creator = "Rendant";
 	workbook.created = new Date();
 	const sheet = workbook.addWorksheet("Umsätze", {
 		views: [{ state: "frozen", ySplit: 1 }],

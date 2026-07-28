@@ -52,7 +52,7 @@
 }
 
 :root {
-  /* SVUFO brand: Ledger Green #0F4435, Coin Brass #C49A4E, Ink #13201B,
+  /* Rendant brand: Ledger Green #0F4435, Coin Brass #C49A4E, Ink #13201B,
      Paper #F6F3EC. Tokens below are tuned around that palette. */
   --background: oklch(0.96 0.008 95);
   --foreground: oklch(0.24 0.018 165);
@@ -166,7 +166,7 @@
 }
 
 @layer utilities {
-  /* SVUFO wordmark: Space Grotesk, semibold, all caps, technical tracking. */
+  /* Rendant wordmark: Space Grotesk, semibold, all caps, technical tracking. */
   .wordmark {
     font-family: var(--font-heading);
     font-weight: 600;

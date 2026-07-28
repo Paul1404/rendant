@@ -37,7 +37,7 @@ export const Route = createFileRoute("/api/export/ust")({
 					request: auditRequest(request),
 					metadata: parsed.output,
 				});
-				const filename = `svufo-ust-${parsed.output.von}-${parsed.output.bis}.csv`;
+				const filename = `rendant-ust-${parsed.output.von}-${parsed.output.bis}.csv`;
 				return new Response(csv, {
 					status: 200,
 					headers: secureDownloadHeaders(

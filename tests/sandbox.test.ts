@@ -33,7 +33,7 @@ describe("disposable sandbox", () => {
 
 	it("stores, lists, returns and deletes PDF objects in memory", () => {
 		const objects = new Map<string, Buffer>();
-		const objectUrl = "http://127.0.0.1/svufo-sandbox/protokolle/test.pdf";
+		const objectUrl = "http://127.0.0.1/rendant-sandbox/protokolle/test.pdf";
 
 		expect(
 			objectStoreResponse("PUT", objectUrl, Buffer.from("pdf"), objects).status,
@@ -42,7 +42,7 @@ describe("disposable sandbox", () => {
 
 		const listed = objectStoreResponse(
 			"GET",
-			"http://127.0.0.1/svufo-sandbox?list-type=2&prefix=protokolle%2F",
+			"http://127.0.0.1/rendant-sandbox?list-type=2&prefix=protokolle%2F",
 			Buffer.alloc(0),
 			objects,
 		);

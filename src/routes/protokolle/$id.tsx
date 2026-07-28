@@ -69,8 +69,8 @@ export const Route = createFileRoute("/protokolle/$id")({
 		meta: [
 			{
 				title: loaderData
-					? `Beleg ${loaderData.protokoll.belegnummer} · SVUFO`
-					: "Beleg · SVUFO",
+					? `Beleg ${loaderData.protokoll.belegnummer} · Rendant`
+					: "Beleg · Rendant",
 			},
 		],
 	}),

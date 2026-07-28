@@ -39,7 +39,7 @@ export const Route = createFileRoute("/api/import/revenue/template")({
 				return new Response(body, {
 					headers: secureDownloadHeaders(
 						"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-						'attachment; filename="svufo-altumsaetze-importvorlage.xlsx"',
+						'attachment; filename="rendant-altumsaetze-importvorlage.xlsx"',
 					),
 				});
 			},

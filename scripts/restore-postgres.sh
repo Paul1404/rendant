@@ -7,7 +7,7 @@ Usage:
   RESTORE_DATABASE_URL=... \
   CONFIRM_RESTORE_DATABASE=exact_database_name \
   CONFIRM_EMPTY_DATABASE_RESTORE=YES \
-  scripts/restore-postgres.sh /path/to/svufo.dump
+  scripts/restore-postgres.sh /path/to/rendant.dump
 
 The target database must have no tables in the public schema. This script never
 drops or overwrites an existing schema.

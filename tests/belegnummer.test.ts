@@ -12,7 +12,7 @@ import {
 
 describe("extractTrailingNumber", () => {
   it("reads the trailing sequence from a belegnummer", () => {
-    expect(extractTrailingNumber("SVUFO-2026-0001")).toBe(1);
+    expect(extractTrailingNumber("Rendant-2026-0001")).toBe(1);
     expect(extractTrailingNumber("0042")).toBe(42);
     expect(extractTrailingNumber("2026-12")).toBe(12);
   });
@@ -29,16 +29,16 @@ describe("formatBelegnummerWithSettings", () => {
     expect(formatBelegnummer(42, 2026, DEFAULT_BELEGNUMMER_SETTINGS)).toBe("42");
   });
 
-  it("builds the full SVUFO-2026-0001 shape", () => {
+  it("builds the full Rendant-2026-0001 shape", () => {
     expect(
       formatBelegnummerWithSettings(1, 2026, {
         min_digits: 4,
-        prefix: "SVUFO",
+        prefix: "Rendant",
         include_year: true,
         year_format: "long",
         separator: "-",
       }),
-    ).toBe("SVUFO-2026-0001");
+    ).toBe("Rendant-2026-0001");
   });
 
   it("supports short year and alternative separators", () => {
@@ -56,7 +56,7 @@ describe("formatBelegnummerWithSettings", () => {
 
 describe("sequence initialization helpers", () => {
   it("finds the highest trailing sequence in existing belegnummern", () => {
-    expect(maxTrailingSequence(["SVUFO-2026-0001", "SVUFO-2026-0042"])).toBe(42);
+    expect(maxTrailingSequence(["Rendant-2026-0001", "Rendant-2026-0042"])).toBe(42);
     expect(maxTrailingSequence(["abc", "2026-12"])).toBe(12);
   });
 
@@ -66,6 +66,6 @@ describe("sequence initialization helpers", () => {
   });
 
   it("initializes first-use sequences after the highest existing number", () => {
-    expect(nextSequenceAfterExisting(["SVUFO-2026-0001", "CUSTOM-0099"])).toBe(100);
+    expect(nextSequenceAfterExisting(["Rendant-2026-0001", "CUSTOM-0099"])).toBe(100);
   });
 });

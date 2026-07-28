@@ -75,7 +75,7 @@ export type ProtokollInitialValues = {
 	umsatz_ust_basis?: UmsatzUstBasis;
 };
 
-const DRAFT_KEY = "svufo:draft:protokoll-neu";
+const DRAFT_KEY = "rendant:draft:protokoll-neu";
 
 type FormDraft = {
 	idempotencyKey: string;
@@ -544,6 +544,7 @@ export function ProtokollForm({
 	);
 
 	const { clearDraft } = useFormDraft<FormDraft>(DRAFT_KEY, snapshot, {
+		legacyKeys: ["svufo:draft:protokoll-neu"],
 		dirty: dirty && !pending,
 		enabled: !pending,
 		toastTitle: "Entwurf wiederherstellen?",

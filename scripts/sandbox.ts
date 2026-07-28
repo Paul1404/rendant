@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
 /**
- * Launch a completely disposable SVUFO instance for interactive browser QA.
+ * Launch a completely disposable Rendant instance for interactive browser QA.
  *
  * PostgreSQL runs in a uniquely named, tmpfs-backed Docker container. S3 uses
  * a tiny in-process, memory-only HTTP implementation that supports exactly the
- * object operations SVUFO needs. Ctrl-C removes the database and every object.
+ * object operations Rendant needs. Ctrl-C removes the database and every object.
  */
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -18,10 +18,10 @@ import type { AddressInfo } from "node:net";
 
 const DEFAULT_PORT = 3100;
 const POSTGRES_IMAGE = "postgres:17.10-alpine3.23";
-const POSTGRES_USER = "svufo_sandbox";
-const POSTGRES_DATABASE = "svufo_sandbox";
-const SANDBOX_LABEL = "local.svufo.sandbox=1";
-const S3_BUCKET = "svufo-sandbox";
+const POSTGRES_USER = "rendant_sandbox";
+const POSTGRES_DATABASE = "rendant_sandbox";
+const SANDBOX_LABEL = "local.rendant.sandbox=1";
+const S3_BUCKET = "rendant-sandbox";
 
 export type SandboxCredentials = {
 	name: string;
@@ -153,7 +153,7 @@ async function readRequestBody(request: IncomingMessage): Promise<Buffer> {
 
 function writeResponse(response: ServerResponse, result: ObjectStoreResult): void {
 	response.writeHead(result.status, {
-		"x-amz-request-id": "svufo-sandbox",
+		"x-amz-request-id": "rendant-sandbox",
 		...result.headers,
 	});
 	response.end(result.body);
@@ -286,7 +286,7 @@ export async function main(): Promise<void> {
 	const port = sandboxPort(process.env.SANDBOX_PORT);
 	const baseUrl = `http://127.0.0.1:${port}`;
 	const credentials = createSandboxCredentials();
-	const containerName = `svufo-sandbox-${randomBytes(6).toString("hex")}`;
+	const containerName = `rendant-sandbox-${randomBytes(6).toString("hex")}`;
 	let appServer: ChildProcess | undefined;
 	let objectStore: Awaited<ReturnType<typeof startObjectStore>> | undefined;
 	let stopRequested = false;
@@ -346,7 +346,7 @@ export async function main(): Promise<void> {
 			ADMIN_EMAIL: credentials.email,
 			ADMIN_PASSWORD: credentials.password,
 			ADMIN_NAME: credentials.name,
-			AWS_ACCESS_KEY_ID: "svufo-sandbox",
+			AWS_ACCESS_KEY_ID: "rendant-sandbox",
 			AWS_SECRET_ACCESS_KEY: credentials.objectStoreSecret,
 			AWS_DEFAULT_REGION: "us-east-1",
 			AWS_ENDPOINT_URL_S3: objectStore.endpoint,
@@ -375,7 +375,7 @@ export async function main(): Promise<void> {
 		);
 		await waitUntilReady(baseUrl, appServer);
 
-		console.log("\nSVUFO Sandbox ist bereit");
+		console.log("\nRendant Sandbox ist bereit");
 		console.log(`URL:      ${baseUrl}/login`);
 		console.log(`E-Mail:   ${credentials.email}`);
 		console.log(`Passwort: ${credentials.password}`);

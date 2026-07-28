@@ -73,7 +73,7 @@ export function Header() {
 			<div className="mx-auto grid max-w-6xl grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-6 lg:flex lg:justify-between lg:gap-4">
 				<Link
 					to="/protokolle"
-					aria-label="SVUFO Startseite"
+					aria-label="Rendant Startseite"
 					className="group rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
 				>
 					<BrandLockup variant="bar" />

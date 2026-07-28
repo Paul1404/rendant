@@ -44,7 +44,7 @@ export const Route = createFileRoute("/api/export/revenue")({
 						umsatz_cent: result.totalCent,
 					},
 				});
-				const filename = `svufo-umsaetze-${parsed.output.von}-${parsed.output.bis}.csv`;
+				const filename = `rendant-umsaetze-${parsed.output.von}-${parsed.output.bis}.csv`;
 				return new Response(result.csv, {
 					status: 200,
 					headers: secureDownloadHeaders(

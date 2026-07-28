@@ -446,7 +446,7 @@ Always run tests after making changes. If tests fail, fix them before moving on.
 
 `bun run test` is the fast suite and must not connect to PostgreSQL. Database
 behavior lives under `tests/integration/` and runs through
-`bun run test:integration` only with `SVUFO_INTEGRATION_TEST=1` and a dedicated
+`bun run test:integration` only with `RENDANT_INTEGRATION_TEST=1` and a dedicated
 database whose name ends in `_test`. CI applies the production migrator before
 that suite, then builds and starts the real Docker image and checks `/api/health`.
 ---

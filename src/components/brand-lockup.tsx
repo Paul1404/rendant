@@ -1,11 +1,11 @@
 import { cn } from "@/lib/utils";
 import { APP_VERSION } from "@/lib/version";
 
-// The SVUFO app mark (the tally coin) is a static asset and the product's whole
+// The provisional Rendant app mark is a static asset until the new brand kit
 // visual identity. The club it runs for is shown elsewhere only as a quiet
 // "läuft für ..." line, never as a competing logo. The ?v= stamp busts the long
 // cache on this static asset whenever the logo (and version) changes.
-const SVUFO_MARK = `/logo.svg?v=${APP_VERSION}`;
+const RENDANT_MARK = `/logo.svg?v=${APP_VERSION}`;
 
 type Props = {
 	variant?: "bar" | "hero";
@@ -22,8 +22,8 @@ export function BrandLockup({ variant = "bar", className }: Props) {
 				)}
 			>
 				<img
-					src={SVUFO_MARK}
-					alt="SVUFO"
+					src={RENDANT_MARK}
+					alt="Rendant"
 					width={144}
 					height={144}
 					className="h-full w-full object-cover"
@@ -36,17 +36,17 @@ export function BrandLockup({ variant = "bar", className }: Props) {
 		<div className={cn("flex items-center gap-2.5", className)}>
 			<span className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full shadow-sm ring-1 ring-foreground/10">
 				<img
-					src={SVUFO_MARK}
-					alt="SVUFO"
+					src={RENDANT_MARK}
+					alt="Rendant"
 					width={72}
 					height={72}
 					className="h-full w-full object-cover"
 				/>
 			</span>
 			<span className="hidden flex-col leading-tight sm:flex">
-				<span className="wordmark text-sm text-foreground">SVUFO</span>
+				<span className="wordmark text-sm text-foreground">Rendant</span>
 				<span className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-					Kassenzählprotokoll
+					Finanzverwaltung
 				</span>
 			</span>
 		</div>

@@ -16,7 +16,7 @@ erstellt die Sicherung mit Dateimodus 0600:
 ```bash
 mkdir -p .db-backup
 DATABASE_URL='postgres://...' \
-  scripts/backup-postgres.sh ".db-backup/svufo-$(date +%Y%m%d-%H%M%S).dump"
+  scripts/backup-postgres.sh ".db-backup/rendant-$(date +%Y%m%d-%H%M%S).dump"
 ```
 
 Die Datei enthält personenbezogene Daten, Audit-Daten und verschlüsselte
@@ -30,10 +30,10 @@ Skript löscht nichts und verweigert vorhandene Tabellen. Für einen Test eine
 neue Datenbank anlegen und deren Namen zweimal ausdrücklich bestätigen:
 
 ```bash
-RESTORE_DATABASE_URL='postgres://.../svufo_restore_test' \
-CONFIRM_RESTORE_DATABASE='svufo_restore_test' \
+RESTORE_DATABASE_URL='postgres://.../rendant_restore_test' \
+CONFIRM_RESTORE_DATABASE='rendant_restore_test' \
 CONFIRM_EMPTY_DATABASE_RESTORE=YES \
-  scripts/restore-postgres.sh .db-backup/svufo-20260726-120000.dump
+  scripts/restore-postgres.sh .db-backup/rendant-20260726-120000.dump
 ```
 
 Danach mindestens prüfen:

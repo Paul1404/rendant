@@ -3,6 +3,16 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.24.0 - 2026-07-28
+
+- Die Anwendung heißt jetzt Rendant. Der neue Name steht für die umfassende
+  Finanzverwaltung im Verein und ersetzt die bisherige Produktbezeichnung in
+  Oberfläche, E-Mails, Exporten, Dokumentation und technischen Werkzeugen.
+- Bestehende Sitzungen, Entwürfe, verschlüsselte Zugangsdaten, Importvorlagen
+  und Geschäftsarchive bleiben durch gezielte Kompatibilitätsregeln nutzbar.
+- Das bewährte Guilloché-Muster und die bisherige Bildmarke bleiben bis zur
+  Einführung des neuen Brand Kits erhalten.
+
 ## 1.23.5 - 2026-07-28
 
 - Das obere Guilloché-Linienband läuft auf 4K-Bildschirmen jetzt ohne harte

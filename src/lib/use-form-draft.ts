@@ -56,6 +56,8 @@ export type UseFormDraftOptions<T> = {
 	toastTitle?: string;
 	/** Optional description for the restore toast. */
 	toastDescription?: string;
+	/** Previous storage keys that should be migrated once when found. */
+	legacyKeys?: string[];
 };
 
 export type UseFormDraftReturn = {
@@ -119,7 +121,17 @@ export function useFormDraft<T>(
 		if (restoredRef.current) return;
 		restoredRef.current = true;
 		if (!enabled) return;
-		const existing = readDraft<T>(key);
+		let existing = readDraft<T>(key);
+		if (existing == null) {
+			for (const legacyKey of opts.legacyKeys ?? []) {
+				existing = readDraft<T>(legacyKey);
+				if (existing != null) {
+					writeDraft(key, existing);
+					removeDraft(legacyKey);
+					break;
+				}
+			}
+		}
 		if (existing == null) return;
 		toast(opts.toastTitle ?? "Entwurf wiederherstellen?", {
 			description:

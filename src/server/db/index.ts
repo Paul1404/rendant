@@ -8,7 +8,7 @@ import * as schema from "./schema";
 
 declare global {
 	// eslint-disable-next-line no-var
-	var __svufoPool: Pool | undefined;
+	var __rendantPool: Pool | undefined;
 }
 
 function timeoutFromEnv(name: string, fallback: number): number {
@@ -36,9 +36,9 @@ function createPool(): Pool {
 	});
 }
 
-const pool = globalThis.__svufoPool ?? createPool();
+const pool = globalThis.__rendantPool ?? createPool();
 if (process.env.NODE_ENV !== "production") {
-	globalThis.__svufoPool = pool;
+	globalThis.__rendantPool = pool;
 }
 
 export const db = drizzle(pool, { schema });

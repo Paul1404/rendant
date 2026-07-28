@@ -1,4 +1,8 @@
-# SVUFO — Brand Mark
+# Rendant Brand Mark
+
+> Übergangsbestand: Die Bildmarke und Guilloché-Farbwelt bleiben während der
+> Entwicklung des neuen Rendant Brand Kits im Einsatz. Wortmarke, Lockup und
+> Anwendungsbeispiele werden anschließend durch die freigegebenen Assets ersetzt.
 
 **The concept: "The Tally."**
 
@@ -50,27 +54,27 @@ text face.
 ## What's in this pack
 
 ```
-SVUFO-Brand/
+Rendant-Brand/
 ├─ README.md                      ← this file
 ├─ concept/
-│  └─ SVUFO-Brand-Concept.html    ← full identity presentation, opens offline
+│  └─ Rendant-Brand-Concept.html    ← full identity presentation, opens offline
 └─ logo/
    ├─ svg/                        ← vector (scale infinitely)
-   │  ├─ svufo-mark.svg               primary, full colour
-   │  ├─ svufo-mark-ink.svg           single-ink disc
-   │  ├─ svufo-mark-outline.svg       outline / line version
-   │  ├─ svufo-mark-reversed.svg      for dark backgrounds
-   │  ├─ svufo-app-icon.svg           rounded-square home-screen tile
-   │  ├─ svufo-favicon.svg            full-bleed disc favicon
-   │  ├─ svufo-wordmark.svg           "SVUFO" wordmark
-   │  └─ svufo-lockup-horizontal.svg  mark + wordmark
+   │  ├─ rendant-mark.svg               primary, full colour
+   │  ├─ rendant-mark-ink.svg           single-ink disc
+   │  ├─ rendant-mark-outline.svg       outline / line version
+   │  ├─ rendant-mark-reversed.svg      for dark backgrounds
+   │  ├─ rendant-app-icon.svg           rounded-square home-screen tile
+   │  ├─ rendant-favicon.svg            full-bleed disc favicon
+   │  ├─ rendant-wordmark.svg           "Rendant" wordmark
+   │  └─ rendant-lockup-horizontal.svg  mark + wordmark
    └─ png/                        ← raster (transparent background)
-      ├─ svufo-mark-1024.png
-      ├─ svufo-mark-512.png
-      ├─ svufo-mark-ink-1024.png
-      ├─ svufo-mark-reversed-1024.png
-      ├─ svufo-app-icon-1024.png
-      └─ svufo-favicon-256.png
+      ├─ rendant-mark-1024.png
+      ├─ rendant-mark-512.png
+      ├─ rendant-mark-ink-1024.png
+      ├─ rendant-mark-reversed-1024.png
+      ├─ rendant-app-icon-1024.png
+      └─ rendant-favicon-256.png
 ```
 
 **Note on the wordmark/lockup SVGs:** they call Space Grotesk from Google Fonts, so

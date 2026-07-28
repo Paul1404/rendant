@@ -69,7 +69,7 @@ export const Route = createFileRoute("/protokolle/audit")({
 	loaderDeps: ({ search }) => search,
 	loader: ({ context, deps }) =>
 		context.queryClient.ensureQueryData(queryOptions(deps)),
-	head: () => ({ meta: [{ title: "Audit-Log · SVUFO" }] }),
+	head: () => ({ meta: [{ title: "Audit-Log · Rendant" }] }),
 	component: AuditPage,
 });
 

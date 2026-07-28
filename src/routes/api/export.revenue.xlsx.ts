@@ -44,7 +44,7 @@ export const Route = createFileRoute("/api/export/revenue/xlsx")({
 					request: auditRequest(request),
 					metadata: { ...parsed.output, zeilen: rows.length },
 				});
-				const filename = `svufo-umsaetze-${parsed.output.von}-${parsed.output.bis}.xlsx`;
+				const filename = `rendant-umsaetze-${parsed.output.von}-${parsed.output.bis}.xlsx`;
 				return new Response(body, {
 					headers: secureDownloadHeaders(
 						"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

@@ -72,11 +72,11 @@ type BucketInventoryState = {
 
 declare global {
 	// eslint-disable-next-line no-var
-	var __svufoLfioReporter: ReturnType<typeof setInterval> | undefined;
+	var __rendantLfioReporter: ReturnType<typeof setInterval> | undefined;
 	// eslint-disable-next-line no-var
-	var __svufoLfioReporterInFlight: boolean | undefined;
+	var __rendantLfioReporterInFlight: boolean | undefined;
 	// eslint-disable-next-line no-var
-	var __svufoBucketInventoryState: BucketInventoryState | undefined;
+	var __rendantBucketInventoryState: BucketInventoryState | undefined;
 }
 
 const LFIO_INGEST_URL = "https://lfio.pdcd.net/api/ingest";
@@ -446,7 +446,7 @@ async function collectApiPayload(): Promise<LfioPayload> {
 
 		return {
 			assetKey: "api",
-			name: "SVUFO Application",
+			name: "Rendant Application",
 			status: status.status,
 			message: status.message,
 			latencyMs: health.latencyMs,
@@ -490,7 +490,7 @@ async function collectApiPayload(): Promise<LfioPayload> {
 		};
 	} catch (err) {
 		log.warn("LFIO API metrics collection failed", { err });
-		return downPayload("api", "SVUFO Application", err);
+		return downPayload("api", "Rendant Application", err);
 	}
 }
 
@@ -588,7 +588,7 @@ async function collectDbPayload(): Promise<LfioPayload> {
 
 		return {
 			assetKey: "db",
-			name: "SVUFO PostgreSQL",
+			name: "Rendant PostgreSQL",
 			status: status.status,
 			message: status.message,
 			latencyMs,
@@ -639,7 +639,7 @@ async function collectDbPayload(): Promise<LfioPayload> {
 		};
 	} catch (err) {
 		log.warn("LFIO database metrics collection failed", { err });
-		return downPayload("db", "SVUFO PostgreSQL", err);
+		return downPayload("db", "Rendant PostgreSQL", err);
 	}
 }
 
@@ -682,8 +682,8 @@ async function collectBucketPayload(): Promise<LfioPayload | undefined> {
 		);
 
 		const nowMs = Date.now();
-		const inventoryState = globalThis.__svufoBucketInventoryState ?? {};
-		globalThis.__svufoBucketInventoryState = inventoryState;
+		const inventoryState = globalThis.__rendantBucketInventoryState ?? {};
+		globalThis.__rendantBucketInventoryState = inventoryState;
 		let inventoryComplete: boolean | undefined;
 		if (
 			isBucketInventoryDue(
@@ -737,7 +737,7 @@ async function collectBucketPayload(): Promise<LfioPayload | undefined> {
 
 		return {
 			assetKey: "bucket",
-			name: "SVUFO Object Storage",
+			name: "Rendant Object Storage",
 			status: status.status,
 			message: status.message,
 			latencyMs,
@@ -767,7 +767,7 @@ async function collectBucketPayload(): Promise<LfioPayload | undefined> {
 		};
 	} catch (err) {
 		log.warn("LFIO bucket metrics collection failed", { err });
-		return downPayload("bucket", "SVUFO Object Storage", err);
+		return downPayload("bucket", "Rendant Object Storage", err);
 	}
 }
 
@@ -793,7 +793,7 @@ function collectSystemPayload(): LfioPayload {
 
 		return {
 			assetKey: "system",
-			name: "SVUFO Runtime",
+			name: "Rendant Runtime",
 			status: status.status,
 			message: status.message,
 			metrics: metrics([
@@ -846,7 +846,7 @@ function collectSystemPayload(): LfioPayload {
 		};
 	} catch (err) {
 		log.warn("LFIO runtime metrics collection failed", { err });
-		return downPayload("system", "SVUFO Runtime", err);
+		return downPayload("system", "Rendant Runtime", err);
 	}
 }
 
@@ -859,10 +859,10 @@ async function collectLfioPayloads(): Promise<LfioPayload[]> {
 	]);
 
 	const fallbackNames = [
-		["api", "SVUFO Application"],
-		["db", "SVUFO PostgreSQL"],
-		["bucket", "SVUFO Object Storage"],
-		["system", "SVUFO Runtime"],
+		["api", "Rendant Application"],
+		["db", "Rendant PostgreSQL"],
+		["bucket", "Rendant Object Storage"],
+		["system", "Rendant Runtime"],
 	] as const;
 
 	return settled
@@ -907,19 +907,19 @@ export async function reportHealthToLfio(): Promise<void> {
 	const token = process.env.LFIO_INGEST_TOKEN?.trim();
 	if (!token) return;
 
-	if (globalThis.__svufoLfioReporterInFlight) return;
-	globalThis.__svufoLfioReporterInFlight = true;
+	if (globalThis.__rendantLfioReporterInFlight) return;
+	globalThis.__rendantLfioReporterInFlight = true;
 
 	try {
 		const payloads = await collectLfioPayloads();
 		await Promise.all(payloads.map((payload) => postToLfio(token, payload)));
 	} finally {
-		globalThis.__svufoLfioReporterInFlight = false;
+		globalThis.__rendantLfioReporterInFlight = false;
 	}
 }
 
 export function startLfioHealthReporter(): void {
-	if (globalThis.__svufoLfioReporter) return;
+	if (globalThis.__rendantLfioReporter) return;
 
 	if (!process.env.LFIO_INGEST_TOKEN?.trim()) {
 		log.info("LFIO health reporting disabled; LFIO_INGEST_TOKEN is not set");
@@ -932,5 +932,5 @@ export function startLfioHealthReporter(): void {
 		reportIntervalMs(),
 	);
 	timer.unref?.();
-	globalThis.__svufoLfioReporter = timer;
+	globalThis.__rendantLfioReporter = timer;
 }

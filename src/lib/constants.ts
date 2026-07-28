@@ -10,4 +10,4 @@ export const LOGIN_RATE_GLOBAL_MAX = 30;
 
 export const S3_PREFIX = "protokolle";
 
-export const APP_NAME = "SVUFO";
+export const APP_NAME = "Rendant";

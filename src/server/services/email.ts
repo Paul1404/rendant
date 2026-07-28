@@ -388,12 +388,12 @@ export async function sendInvitationEmail(
 		if (invite.invitedBy) rows.push(["Eingeladen von", invite.invitedBy]);
 
 		const html = emailShell({
-			preheader: `Einladung zu SVUFO für ${verein}. Konto in wenigen Schritten anlegen.`,
+			preheader: `Einladung zu Rendant für ${verein}. Konto in wenigen Schritten anlegen.`,
 			eyebrow: "Einladung",
-			heading: "Willkommen bei SVUFO",
+			heading: "Willkommen bei Rendant",
 			blocks: [
 				paragraph(
-					`du wurdest eingeladen, SVUFO für <strong>${escapeHtml(verein)}</strong> zu nutzen. Lege dazu in wenigen Schritten dein Konto an.`,
+					`du wurdest eingeladen, Rendant für <strong>${escapeHtml(verein)}</strong> zu nutzen. Lege dazu in wenigen Schritten dein Konto an.`,
 				),
 				detailsTable(rows),
 				ctaBlock(
@@ -406,7 +406,7 @@ export async function sendInvitationEmail(
 		});
 
 		const text = [
-			`Du wurdest zu SVUFO für ${verein} eingeladen.`,
+			`Du wurdest zu Rendant für ${verein} eingeladen.`,
 			``,
 			`Rolle: ${role}`,
 			...(invite.invitedBy ? [`Eingeladen von: ${invite.invitedBy}`] : []),
@@ -420,7 +420,7 @@ export async function sendInvitationEmail(
 		await transport.sendMail({
 			from: transportInfo.from,
 			to: recipient,
-			subject: `Einladung zu SVUFO`,
+			subject: `Einladung zu Rendant`,
 			text,
 			html,
 		});
@@ -450,12 +450,12 @@ export async function sendTestEmail(to: string): Promise<void> {
 	}
 	const verein = await getVereinsname();
 	const html = emailShell({
-		preheader: "Test-E-Mail von SVUFO. Die SMTP-Konfiguration funktioniert.",
+		preheader: "Test-E-Mail von Rendant. Die SMTP-Konfiguration funktioniert.",
 		eyebrow: "SMTP-Test",
 		heading: "Test-E-Mail",
 		blocks: [
 			paragraph(
-				"dies ist eine Test-E-Mail von SVUFO. Wenn du sie erhältst, ist die SMTP-Konfiguration korrekt und Benachrichtigungen können versendet werden.",
+				"dies ist eine Test-E-Mail von Rendant. Wenn du sie erhältst, ist die SMTP-Konfiguration korrekt und Benachrichtigungen können versendet werden.",
 			),
 			callout(
 				"Alles bereit",
@@ -468,7 +468,7 @@ export async function sendTestEmail(to: string): Promise<void> {
 	await transport.sendMail({
 		from: transportInfo.from,
 		to: recipient,
-		subject: `SVUFO Test-E-Mail`,
+		subject: `Rendant Test-E-Mail`,
 		text: [
 			`Dies ist eine Test-E-Mail von ${verein}.`,
 			``,

@@ -1,7 +1,7 @@
 {
-  "name": "SVUFO Kassenzählprotokoll",
-  "short_name": "SVUFO",
-  "description": "Digitale Kassenzählprotokolle",
+  "name": "Rendant Finanzverwaltung",
+  "short_name": "Rendant",
+  "description": "Finanzverwaltung für Vereine",
   "start_url": "/protokolle",
   "display": "standalone",
   "background_color": "#F6F3EC",

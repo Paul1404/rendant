@@ -11,6 +11,8 @@ import {
 } from "node:crypto";
 
 const PREFIX = "v1";
+// Persistence contract: changing this value would make every stored SMTP
+// password unreadable. Keep it stable independently of the product name.
 const SALT = "svufo-secret-box-v1";
 
 function deriveKey(): Buffer {

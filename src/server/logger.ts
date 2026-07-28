@@ -26,7 +26,7 @@ const REDACT =
 	/pass|secret|token|cookie|authorization|credential|connection.?string|database.?url|private.?key|api.?key/i;
 
 const BASE_CONTEXT: LogContext = {
-	service: "svufo",
+	service: "rendant",
 	version: packageJson.version,
 	environment: process.env.NODE_ENV ?? "development",
 	...(process.env.RAILWAY_DEPLOYMENT_ID

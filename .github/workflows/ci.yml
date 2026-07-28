@@ -45,21 +45,21 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: svufo_test
+          POSTGRES_DB: rendant_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d svufo_test"
+          --health-cmd "pg_isready -U postgres -d rendant_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/svufo_test
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/rendant_test
       DATABASE_CONNECTION_TIMEOUT_MS: 2000
       DATABASE_QUERY_TIMEOUT_MS: 10000
       BETTER_AUTH_SECRET: integration-test-secret-at-least-32-bytes
       BETTER_AUTH_URL: http://127.0.0.1:3000
-      SVUFO_INTEGRATION_TEST: "1"
+      RENDANT_INTEGRATION_TEST: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -79,38 +79,38 @@ jobs:
           DATABASE_QUERY_TIMEOUT_MS: 1000
 
       - name: Build production image
-        run: docker build --tag svufo-ci .
+        run: docker build --tag rendant-ci .
 
       - name: Verify image migrations
         run: >-
           docker run --rm
           --add-host=host.docker.internal:host-gateway
-          -e DATABASE_URL=postgres://postgres:postgres@host.docker.internal:5432/svufo_test
+          -e DATABASE_URL=postgres://postgres:postgres@host.docker.internal:5432/rendant_test
           -e DATABASE_CONNECTION_TIMEOUT_MS=2000
           -e DATABASE_QUERY_TIMEOUT_MS=5000
           -e BETTER_AUTH_SECRET=integration-test-secret-at-least-32-bytes
           -e BETTER_AUTH_URL=http://127.0.0.1:3000
-          svufo-ci bun src/server/db/migrate.ts
+          rendant-ci bun src/server/db/migrate.ts
 
       - name: Start production image
         run: >-
-          docker run --detach --name svufo-ci-app
+          docker run --detach --name rendant-ci-app
           --add-host=host.docker.internal:host-gateway
           -p 3000:3000
-          -e DATABASE_URL=postgres://postgres:postgres@host.docker.internal:5432/svufo_test
+          -e DATABASE_URL=postgres://postgres:postgres@host.docker.internal:5432/rendant_test
           -e DATABASE_CONNECTION_TIMEOUT_MS=2000
           -e DATABASE_QUERY_TIMEOUT_MS=5000
           -e BETTER_AUTH_SECRET=integration-test-secret-at-least-32-bytes
           -e BETTER_AUTH_URL=http://127.0.0.1:3000
-          svufo-ci
+          rendant-ci
 
       - name: Check production health endpoint
         run: curl --fail --retry 20 --retry-delay 1 --retry-all-errors http://127.0.0.1:3000/api/health
 
       - name: Show production logs on failure
         if: failure()
-        run: docker logs svufo-ci-app || true
+        run: docker logs rendant-ci-app || true
 
       - name: Stop production image
         if: always()
-        run: docker rm --force svufo-ci-app || true
+        run: docker rm --force rendant-ci-app || true

@@ -1,7 +1,8 @@
-# SVUFO
+# Rendant
 
-SVUFO ist eine interne Webanwendung für die digitale Erfassung, Auswertung und
-nachvollziehbare Ablage von Kassenzählprotokollen eines Vereins.
+Rendant ist die interne Finanzverwaltung für Vereine. Die Webanwendung erfasst
+Kassenbewegungen, wertet Umsätze und Steuern aus und hält jeden Vorgang
+nachvollziehbar für Buchhaltung, Prüfung und Übergabe fest.
 
 Die Anwendung bildet den Ablauf von der Kassenaufnahme bis zum PDF-Beleg ab.
 Sie verwaltet Kassen und Umsatzgruppen, berechnet Einnahmen und Umsatzsteuer,
@@ -220,7 +221,7 @@ löscht Datenbank, PDFs, Zugangsdaten und Container. Eine andere App-Portnummer
 kann mit `SANDBOX_PORT=4310 bun run sandbox` gewählt werden.
 
 Nach einem abgebrochenen Prozess entfernt `bun run sandbox:down` eventuell
-verbliebene, eindeutig als SVUFO-Sandbox markierte Container. Docker oder Colima
+verbliebene, eindeutig als Rendant-Sandbox markierte Container. Docker oder Colima
 muss verfügbar sein. Die Sandbox verwendet keine `.env`-Datei und greift weder
 auf Railway noch auf lokale oder produktive Datenbanken und Buckets zu.
 
@@ -307,7 +308,7 @@ für API, PostgreSQL, Laufzeit und Bucket an LFIO.
   werden.
 - PDF- und E-Mail-Erzeugung sind externe Folgeaktionen. Ein Fehler dabei legt
   kein zweites Protokoll an und ein fehlendes PDF kann erneut erzeugt werden.
-- SVUFO ersetzt keine steuerliche oder rechtliche Prüfung und besitzt keine
+- Rendant ersetzt keine steuerliche oder rechtliche Prüfung und besitzt keine
   direkte Schnittstelle zu DATEV Unternehmen Online.
 
 ## Lizenz

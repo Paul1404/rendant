@@ -29,7 +29,7 @@ export const Route = createFileRoute("/protokolle/umsaetze")({
 			context.queryClient.ensureQueryData(anlassKatalogQueryOptions),
 		]);
 	},
-	head: () => ({ meta: [{ title: "Umsätze im Vergleich · SVUFO" }] }),
+	head: () => ({ meta: [{ title: "Umsätze im Vergleich · Rendant" }] }),
 	component: RevenueComparisonPage,
 });
 
@@ -43,7 +43,7 @@ function RevenueComparisonPage() {
 			<PageHeader
 				eyebrow="Auswertung"
 				title="Umsätze im Vergleich"
-				description="Vergleiche Veranstaltungen über mehrere Jahre und ergänze Umsätze aus der Zeit vor SVUFO."
+				description="Vergleiche Veranstaltungen über mehrere Jahre und ergänze Umsätze aus der Zeit vor Rendant."
 			/>
 			<HistoricalRevenueOverview
 				initialHistorical={historical}

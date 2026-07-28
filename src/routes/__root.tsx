@@ -27,10 +27,11 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 		meta: [
 			{ charSet: "utf-8" },
 			{ name: "viewport", content: "width=device-width, initial-scale=1" },
-			{ title: "SVUFO · Kassenzählprotokoll" },
+			{ title: "Rendant · Finanzverwaltung für Vereine" },
 			{
 				name: "description",
-				content: "Digitale Erfassung von Kassenzählprotokollen.",
+				content:
+					"Finanzverwaltung für Vereine: erfassen, auswerten und nachweisen.",
 			},
 			{ name: "theme-color", content: "#0F4435" },
 		],

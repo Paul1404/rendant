@@ -79,7 +79,7 @@ const PRESETS: ReadonlyArray<Preset> = [
 		hint: "Präfix + Jahr + Nummer.",
 		settings: {
 			min_digits: 4,
-			prefix: "SVUFO",
+			prefix: "Rendant",
 			include_year: true,
 			year_format: "long",
 			separator: "-",
@@ -245,7 +245,7 @@ export function BelegnummerSettingsForm({
 								onChange={(e) =>
 									setS({ ...s, prefix: e.target.value.toUpperCase() })
 								}
-								placeholder="z. B. SVUFO oder leer"
+								placeholder="z. B. Rendant oder leer"
 								maxLength={20}
 								aria-invalid={prefixError}
 							/>

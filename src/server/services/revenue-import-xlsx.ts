@@ -21,7 +21,8 @@ export const REVENUE_IMPORT_HEADERS = [
 ] as const;
 
 const TEMPLATE_VERSION = "1";
-const METADATA_SHEET = "SVUFO";
+const METADATA_SHEET = "Rendant";
+const LEGACY_METADATA_SHEET = "SVUFO";
 const GROUPS_SHEET = "Umsatzgruppen";
 
 export type RevenueImportRow = HistoricalRevenueCreateInput & {
@@ -121,7 +122,7 @@ export async function revenueImportTemplate(
 	catalog: AnlassKatalogEntry[],
 ): Promise<Uint8Array> {
 	const workbook = new ExcelJS.Workbook();
-	workbook.creator = "SVUFO";
+	workbook.creator = "Rendant";
 	workbook.created = new Date();
 
 	const sheet = workbook.addWorksheet(REVENUE_IMPORT_SHEET, {
@@ -221,7 +222,9 @@ export async function parseRevenueImportWorkbook(
 	}
 
 	const sheet = workbook.getWorksheet(REVENUE_IMPORT_SHEET);
-	const metadata = workbook.getWorksheet(METADATA_SHEET);
+	const metadata =
+		workbook.getWorksheet(METADATA_SHEET) ??
+		workbook.getWorksheet(LEGACY_METADATA_SHEET);
 	const version = plainText(metadata?.getCell("B1").value ?? null);
 	const importId = plainText(metadata?.getCell("B2").value ?? null);
 	const errors: RevenueImportError[] = [];
@@ -240,7 +243,7 @@ export async function parseRevenueImportWorkbook(
 			errors: [
 				{
 					row: 0,
-					message: "Bitte die aktuelle SVUFO-Importvorlage verwenden.",
+					message: "Bitte die aktuelle Rendant-Importvorlage verwenden.",
 				},
 			],
 		};

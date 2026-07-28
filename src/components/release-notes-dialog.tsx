@@ -28,7 +28,7 @@ export function ReleaseNotesDialog({
 						Was ist neu
 					</DialogTitle>
 					<DialogDescription>
-						Änderungen und Verbesserungen in SVUFO, neueste zuerst.
+						Änderungen und Verbesserungen in Rendant, neueste zuerst.
 					</DialogDescription>
 				</DialogHeader>
 				<div className="-mr-2 max-h-[70vh] space-y-6 overflow-y-auto pr-2">

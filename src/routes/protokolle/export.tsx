@@ -4,7 +4,7 @@ import { HistoricalRevenueImport } from "@/components/historical-revenue-import"
 import { PageHeader } from "@/components/page-header";
 
 export const Route = createFileRoute("/protokolle/export")({
-	head: () => ({ meta: [{ title: "Import & Export · SVUFO" }] }),
+	head: () => ({ meta: [{ title: "Import & Export · Rendant" }] }),
 	component: ExportPage,
 });
 

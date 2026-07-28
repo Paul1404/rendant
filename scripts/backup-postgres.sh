@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-	echo "Usage: DATABASE_URL=... scripts/backup-postgres.sh /existing/directory/svufo.dump" >&2
+	echo "Usage: DATABASE_URL=... scripts/backup-postgres.sh /existing/directory/rendant.dump" >&2
 }
 
 if [[ ${1:-} == "--help" ]]; then

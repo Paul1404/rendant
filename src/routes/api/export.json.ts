@@ -43,7 +43,7 @@ export const Route = createFileRoute("/api/export/json")({
 					request: auditRequest(request),
 					metadata: parsed.output,
 				});
-				const filename = `svufo-geschaeftsarchiv-${parsed.output.von}-${parsed.output.bis}.json`;
+				const filename = `rendant-geschaeftsarchiv-${parsed.output.von}-${parsed.output.bis}.json`;
 				return new Response(JSON.stringify(data, null, 2), {
 					status: 200,
 					headers: secureDownloadHeaders(

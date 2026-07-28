@@ -18,7 +18,7 @@ function trustedOrigins(): string[] {
 }
 
 export const auth = betterAuth({
-	appName: "SVUFO",
+	appName: "Rendant",
 	baseURL: process.env.BETTER_AUTH_URL || undefined,
 	secret: process.env.BETTER_AUTH_SECRET,
 	trustedOrigins: trustedOrigins(),
@@ -53,6 +53,8 @@ export const auth = betterAuth({
 		cookieCache: { enabled: false },
 	},
 	advanced: {
+		// Persistence contract: retaining the original prefix keeps existing
+		// sessions valid through the product rename.
 		cookiePrefix: "svufo",
 	},
 	plugins: [admin(), tanstackStartCookies()],

@@ -25,9 +25,9 @@ const actor = {
 const audit = { request: { id: randomUUID(), ip: "127.0.0.1" } };
 
 beforeAll(async () => {
-	if (process.env.SVUFO_INTEGRATION_TEST !== "1") {
+	if (process.env.RENDANT_INTEGRATION_TEST !== "1") {
 		throw new Error(
-			"Integration tests require SVUFO_INTEGRATION_TEST=1 and an isolated database",
+			"Integration tests require RENDANT_INTEGRATION_TEST=1 and an isolated database",
 		);
 	}
 	const result = await pool.query<{ database: string }>(

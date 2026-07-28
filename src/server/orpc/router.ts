@@ -680,6 +680,8 @@ const users = {
 			}
 			const changed = await db.transaction(async (tx) => {
 				await tx.execute(
+					// Keep the established lock key so old and new app revisions share
+					// the same cross-deployment concurrency boundary during rollout.
 					sql`select pg_advisory_xact_lock(hashtext('svufo:user-access-admin'))`,
 				);
 				const [target] = await tx

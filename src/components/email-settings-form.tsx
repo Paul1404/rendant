@@ -290,7 +290,7 @@ export function EmailSettingsForm({ initial }: { initial: EmailSettingsView }) {
 						id="smtp-from"
 						value={value.from}
 						maxLength={255}
-						placeholder='z. B. "SVUFO" <noreply@example.de>'
+						placeholder='z. B. "Rendant" <noreply@example.de>'
 						onChange={(e) => set("from", e.target.value)}
 					/>
 					<p className="text-[11px] text-muted-foreground">
