@@ -9,6 +9,10 @@
   "imports": {
     "#/*": "./src/*"
   },
+  "overrides": {
+    "js-yaml": "^4.3.0",
+    "shell-quote": "^1.10.0"
+  },
   "scripts": {
     "dev": "vite dev --port 3000",
     "sandbox": "bun scripts/sandbox.ts",
