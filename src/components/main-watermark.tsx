@@ -28,9 +28,10 @@ export function MainWatermark() {
 				<defs>
 					<linearGradient
 						id="main-watermark-ribbon-fade"
+						gradientUnits="userSpaceOnUse"
 						x1="0"
 						y1="0"
-						x2="1"
+						x2="1200"
 						y2="0"
 					>
 						<stop offset="0" stopColor="white" stopOpacity="0" />
@@ -43,11 +44,18 @@ export function MainWatermark() {
 						<stop offset="0.7" stopColor="white" stopOpacity="0.9" />
 						<stop offset="1" stopColor="white" stopOpacity="0" />
 					</radialGradient>
-					<mask id="main-watermark-ribbon-mask">
+					<mask
+						id="main-watermark-ribbon-mask"
+						maskUnits="userSpaceOnUse"
+						x="-120"
+						y="-120"
+						width="1640"
+						height="1140"
+					>
 						<rect
 							x="0"
 							y="0"
-							width="1200"
+							width="1500"
 							height="900"
 							fill="url(#main-watermark-ribbon-fade)"
 						/>
