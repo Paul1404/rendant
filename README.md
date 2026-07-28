@@ -312,4 +312,7 @@ für API, PostgreSQL, Laufzeit und Bucket an LFIO.
 
 ## Lizenz
 
-[MIT](LICENSE)
+Proprietäre Software. Alle Rechte vorbehalten. Nutzung, Vervielfältigung,
+Veröffentlichung und Weitergabe sind nur mit vorheriger schriftlicher Erlaubnis
+des Rechteinhabers zulässig. Einzelheiten und Kontakt stehen in der
+[Lizenzdatei](LICENSE).

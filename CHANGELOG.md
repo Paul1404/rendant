@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.23.3 - 2026-07-28
+
+- SVUFO ist nicht mehr unter der MIT-Lizenz veröffentlicht. Der Quellcode und
+  die zugehörigen Materialien sind proprietär und alle Rechte Paul Dresch
+  vorbehalten.
+
 ## 1.23.2 - 2026-07-28
 
 - Das Guilloché-Muster bleibt beim Scrollen im sichtbaren Bereich und nutzt auf

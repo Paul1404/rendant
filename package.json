@@ -1,7 +1,8 @@
 {
   "name": "svufo",
-  "version": "1.23.2",
+  "version": "1.23.3",
   "private": true,
+  "license": "UNLICENSED",
   "type": "module",
   "engines": {
     "bun": ">=1.0"
