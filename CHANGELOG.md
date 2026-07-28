@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.24.1 - 2026-07-28
+
+- Die neue Hauptadresse `rendant.sv-untereuerheim.de` und die bisherige Adresse
+  können während des Übergangs gleichzeitig sicher für die Anmeldung genutzt
+  werden.
+
 ## 1.24.0 - 2026-07-28
 
 - Die Anwendung heißt jetzt Rendant. Der neue Name steht für die umfassende
