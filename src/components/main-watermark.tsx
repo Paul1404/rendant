@@ -9,13 +9,13 @@ export function MainWatermark() {
 	return (
 		<div
 			aria-hidden="true"
-			className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
+			className="pointer-events-none absolute inset-0 -z-10"
 		>
 			<svg
 				viewBox="0 0 1200 900"
 				fill="none"
 				focusable="false"
-				className="absolute top-0 -right-10 h-[56rem] w-[75rem] max-w-none sm:right-0"
+				className="absolute top-0 left-1/2 h-[56rem] w-[75rem] max-w-none -translate-x-1/2 overflow-visible"
 			>
 				<title>Guilloché-Muster</title>
 				<defs>

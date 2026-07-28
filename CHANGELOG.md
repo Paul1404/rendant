@@ -7,7 +7,8 @@ hier entspricht `package.json` und der Versionsmarke in der App.
 
 - Ein feines Guilloché-Muster aus Rosette und Linienband gibt dem Hauptbereich
   die Anmutung klassischer Finanzdrucke. Dezente Grün- und Messingtöne passen
-  sich an die helle und dunkle Darstellung an, ohne Inhalte zu überlagern.
+  sich an die helle und dunkle Darstellung sowie breite Bildschirme an, ohne
+  Inhalte zu überlagern oder am Inhaltsrand abzubrechen.
 
 ## 1.23.0 - 2026-07-28
 
