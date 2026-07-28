@@ -61,7 +61,13 @@ export function DashboardToolbar({
 					range?: TimeRange;
 					jahr?: number;
 					storno?: boolean;
+					von?: string;
+					bis?: string;
+					chart?: "day" | "week" | "month";
 				};
+				delete updated.von;
+				delete updated.bis;
+				delete updated.chart;
 				if (next.q !== undefined) {
 					updated.q = next.q.trim() ? next.q.trim() : undefined;
 				}

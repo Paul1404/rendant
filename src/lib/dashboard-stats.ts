@@ -1,4 +1,8 @@
-import { addIsoCalendarDays, todayIsoDate } from "@/lib/date";
+import {
+	addIsoCalendarDays,
+	isIsoCalendarDate,
+	todayIsoDate,
+} from "@/lib/date";
 import type { ProtokollRow } from "@/lib/protokoll-types";
 
 const MONTH_LABELS_LONG = [
@@ -17,6 +21,35 @@ const MONTH_LABELS_LONG = [
 ];
 
 export type TimeRange = "month" | "30d" | "year" | "all";
+
+export type DateWindow = { von: string; bis: string };
+
+export function parseDateWindow(
+	von: unknown,
+	bis: unknown,
+): DateWindow | undefined {
+	if (
+		typeof von !== "string" ||
+		typeof bis !== "string" ||
+		!isIsoCalendarDate(von) ||
+		!isIsoCalendarDate(bis) ||
+		von > bis
+	) {
+		return undefined;
+	}
+	return { von, bis };
+}
+
+export function filterByDateWindow<T extends { anlass_datum: string }>(
+	items: T[],
+	window: DateWindow | undefined,
+): T[] {
+	if (!window) return items;
+	return items.filter(
+		(item) =>
+			item.anlass_datum >= window.von && item.anlass_datum <= window.bis,
+	);
+}
 
 export function parseTimeRange(value: string | undefined): TimeRange {
 	if (value === "month" || value === "30d" || value === "year") return value;

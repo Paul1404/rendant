@@ -3,6 +3,17 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.23.0 - 2026-07-28
+
+- Punkte im Umsatzverlauf lassen sich per Maus, Tastatur oder Berührung
+  auswählen. Unter der Grafik erscheinen die zugehörigen Kassenzählprotokolle
+  und historischen Umsätze mit Summe und Belegverweisen. Die Auswahl bleibt in
+  der URL erhalten und lässt sich gezielt aufheben.
+- Das Dashboard ersetzt den wenig aussagekräftigen Durchschnitt je Eintrag und
+  den hervorgehobenen Überschuss durch Kartenzahlungen und die Anzahl erfasster
+  Einträge. Das Ergebnis bleibt in der Detailauswertung sichtbar. Der
+  Kartenanteil bezieht sich nur auf Umsätze mit bekannter Zahlungsart.
+
 ## 1.22.0 - 2026-07-26
 
 - Neue Kassenzählprotokolle verwenden einen gespeicherten Idempotenzschlüssel.

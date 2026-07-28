@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Plus, Receipt, SearchX } from "lucide-react";
 import { FinanceOverview } from "@/components/dashboard-stats";
 import { DashboardToolbar } from "@/components/dashboard-toolbar";
@@ -12,12 +12,14 @@ import {
 	filterByRange,
 	filterBySearch,
 	filterByYear,
+	parseDateWindow,
 	parseTimeRange,
 	type TimeRange,
 } from "@/lib/dashboard-stats";
 import {
 	computeContext,
 	computePeriod,
+	type Granularity,
 	RANGE_LABELS,
 	rangeToDates,
 	revenueOf,
@@ -29,6 +31,9 @@ type ProtokolleSearch = {
 	range?: TimeRange;
 	storno?: boolean;
 	jahr?: number;
+	von?: string;
+	bis?: string;
+	chart?: Granularity;
 };
 
 const listQueryOptions = orpc.protokolle.list.queryOptions({
@@ -46,6 +51,7 @@ const historicalRevenueQueryOptions = orpc.historicalRevenue.list.queryOptions({
 
 export const Route = createFileRoute("/protokolle/")({
 	validateSearch: (search: Record<string, unknown>): ProtokolleSearch => {
+		const drilldown = parseDateWindow(search.von, search.bis);
 		const range = parseTimeRange(
 			typeof search.range === "string" ? search.range : undefined,
 		);
@@ -60,6 +66,14 @@ export const Route = createFileRoute("/protokolle/")({
 					: typeof search.jahr === "number" && Number.isInteger(search.jahr)
 						? search.jahr
 						: undefined,
+			von: drilldown?.von,
+			bis: drilldown?.bis,
+			chart:
+				search.chart === "day" ||
+				search.chart === "week" ||
+				search.chart === "month"
+					? search.chart
+					: undefined,
 		};
 	},
 	loader: ({ context }) =>
@@ -72,6 +86,7 @@ export const Route = createFileRoute("/protokolle/")({
 
 function ProtokolleListPage() {
 	const search = Route.useSearch();
+	const navigate = useNavigate({ from: "/protokolle/" });
 	const { data: all } = useSuspenseQuery(listQueryOptions);
 	const { data: historical } = useSuspenseQuery(historicalRevenueQueryOptions);
 
@@ -79,6 +94,7 @@ function ProtokolleListPage() {
 	const timeRange: TimeRange = search.range ?? "all";
 	const selectedYear = search.jahr;
 	const query = (search.q ?? "").trim();
+	const selectedDrilldown = parseDateWindow(search.von, search.bis);
 
 	const allActive = all.filter((p) => !p.storniert_am);
 	const historicalActive = historical.filter((item) => !item.storniert_am);
@@ -131,7 +147,7 @@ function ProtokolleListPage() {
 
 			{hasAnyData ? (
 				<FinanceOverview
-					key={selectedYear ?? timeRange}
+					key={`${selectedYear ?? timeRange}-${search.chart ?? "default"}`}
 					period={period}
 					context={context}
 					rangeLabel={
@@ -143,7 +159,20 @@ function ProtokolleListPage() {
 					seriesNow={
 						selectedYear ? new Date(selectedYear, 11, 31, 12) : new Date()
 					}
-					initialGranularity={selectedYear ? "month" : "day"}
+					initialGranularity={search.chart ?? (selectedYear ? "month" : "day")}
+					selectedDrilldown={selectedDrilldown}
+					onChartChange={(granularity, window) => {
+						navigate({
+							replace: true,
+							resetScroll: false,
+							search: (previous) => ({
+								...previous,
+								chart: granularity,
+								von: window?.von,
+								bis: window?.bis,
+							}),
+						});
+					}}
 				/>
 			) : null}
 

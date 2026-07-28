@@ -1,10 +1,13 @@
 import type { JSX } from "react";
+import type { DateWindow } from "@/lib/dashboard-stats";
 import { formatCent, formatCentCompact } from "@/lib/money";
 
 type RevenuePoint = {
 	key: string;
 	label: string;
 	longLabel: string;
+	from: string;
+	to: string;
 	total: number;
 	count: number;
 	isCurrent: boolean;
@@ -59,8 +62,12 @@ function smoothLinePath(pts: Pt[]): string {
 
 export function RevenueAreaChart({
 	points,
+	selected,
+	onSelect,
 }: {
 	points: RevenuePoint[];
+	selected?: DateWindow;
+	onSelect?: (window: DateWindow | undefined) => void;
 }): JSX.Element {
 	const max = Math.max(0, ...points.map((p) => p.total));
 	const safeMax = max > 0 ? max : 1;
@@ -171,6 +178,8 @@ export function RevenueAreaChart({
 						const left = xFrac(i) * 100;
 						const top = (yFor(p.total) / VIEW_HEIGHT) * 100;
 						const showDot = !dense || p.isCurrent || p.total > 0;
+						const isSelected =
+							selected?.von === p.from && selected.bis === p.to;
 						// Anchor the tooltip to the nearest edge for points close to the
 						// plot border so it can't clip against the card's overflow.
 						const tipPos =
@@ -180,9 +189,18 @@ export function RevenueAreaChart({
 									? "left-0 translate-x-0"
 									: "left-1/2 -translate-x-1/2";
 						return (
-							<div
+							<button
+								type="button"
 								key={`pt-${p.key}`}
-								className="group absolute top-0 bottom-0 -translate-x-1/2"
+								disabled={!onSelect || p.count === 0}
+								aria-label={`${p.longLabel}: ${formatCent(p.total)}, ${p.count} ${p.count === 1 ? "Eintrag" : "Einträge"}`}
+								aria-pressed={isSelected}
+								onClick={() =>
+									onSelect?.(
+										isSelected ? undefined : { von: p.from, bis: p.to },
+									)
+								}
+								className={`group absolute top-0 bottom-0 -translate-x-1/2 rounded-sm outline-none transition-colors enabled:cursor-pointer enabled:hover:bg-primary/[0.04] focus-visible:ring-2 focus-visible:ring-primary/60 ${isSelected ? "bg-primary/[0.08]" : ""}`}
 								style={{
 									left: `${left.toFixed(3)}%`,
 									width: `${(100 / Math.max(points.length, 1)).toFixed(3)}%`,
@@ -190,7 +208,7 @@ export function RevenueAreaChart({
 							>
 								{/* Dot, centered on its column. */}
 								{showDot ? (
-									<div
+									<span
 										className={
 											p.isCurrent
 												? "absolute left-1/2 size-[10px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-primary"
@@ -200,23 +218,23 @@ export function RevenueAreaChart({
 									/>
 								) : null}
 								{/* Tooltip. */}
-								<div
-									className={`pointer-events-none absolute z-10 w-max ${tipPos} -translate-y-full rounded-md border border-border bg-popover px-2.5 py-1.5 text-center opacity-0 shadow-sm transition-opacity group-hover:opacity-100`}
+								<span
+									className={`pointer-events-none absolute z-10 w-max ${tipPos} -translate-y-full rounded-md border border-border bg-popover px-2.5 py-1.5 text-center opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100`}
 									style={{
 										top: `calc(${top.toFixed(3)}% - 10px)`,
 									}}
 								>
-									<div className="text-[11px] font-medium text-foreground">
+									<span className="block text-[11px] font-medium text-foreground">
 										{p.longLabel}
-									</div>
-									<div className="text-[11px] text-foreground">
+									</span>
+									<span className="block text-[11px] text-foreground">
 										{formatCent(p.total)}
-									</div>
-									<div className="text-[10px] text-muted-foreground">
+									</span>
+									<span className="block text-[10px] text-muted-foreground">
 										{`${p.count} ${p.count === 1 ? "Eintrag" : "Einträge"}`}
-									</div>
-								</div>
-							</div>
+									</span>
+								</span>
+							</button>
 						);
 					})}
 				</div>

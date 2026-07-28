@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
 	availableYears,
+	filterByDateWindow,
 	filterByRange,
 	filterByYear,
+	parseDateWindow,
 } from "@/lib/dashboard-stats";
 import {
 	computeContext,
@@ -53,7 +55,22 @@ describe("combined finance calculations", () => {
 			expenses: 800,
 			net: 19_200,
 			avgPerProtokoll: 10_000,
+			cardSharePct: 16.7,
 		});
+	});
+
+	it("does not report a card share when only historical payment data exists", () => {
+		const period = computePeriod([], [
+			{
+				anlass: "Sommerfest",
+				vergleichsgruppe: "Sommerfest",
+				anlass_datum: "2025-07-01",
+				umsatz_cent: 8_000,
+				ausgaben_cent: 0,
+			},
+		]);
+
+		expect(period.cardSharePct).toBeNull();
 	});
 
 	it("compares the same occasion across years ignoring case and whitespace", () => {
@@ -96,6 +113,33 @@ describe("year filters", () => {
 	});
 });
 
+describe("chart drilldown ranges", () => {
+	const rows = [
+		{ anlass_datum: "2026-04-01" },
+		{ anlass_datum: "2026-04-07" },
+		{ anlass_datum: "2026-04-08" },
+	];
+
+	it("accepts only complete ordered calendar ranges", () => {
+		expect(parseDateWindow("2026-04-01", "2026-04-07")).toEqual({
+			von: "2026-04-01",
+			bis: "2026-04-07",
+		});
+		expect(parseDateWindow("2026-04-07", "2026-04-01")).toBeUndefined();
+		expect(parseDateWindow("2026-04-31", "2026-05-01")).toBeUndefined();
+		expect(parseDateWindow("2026-04-01", undefined)).toBeUndefined();
+	});
+
+	it("filters both ends of a selected chart bucket inclusively", () => {
+		expect(
+			filterByDateWindow(rows, {
+				von: "2026-04-01",
+				bis: "2026-04-07",
+			}),
+		).toEqual([rows[0], rows[1]]);
+	});
+});
+
 describe("Berlin reporting ranges", () => {
 	const afterMidnightBerlin = new Date("2026-03-31T22:30:00.000Z");
 
@@ -116,14 +160,24 @@ describe("Berlin reporting ranges", () => {
 		expect(context.thisMonthTotal).toBe(12_300);
 		expect(context.monthly.at(-1)).toMatchObject({
 			key: "2026-04",
+			from: "2026-04-01",
+			to: "2026-04-30",
 			total: 12_300,
 			isCurrent: true,
 		});
 		expect(computeSeries(rows, "day", afterMidnightBerlin).at(-1)).toMatchObject(
 			{
 				key: "2026-04-01",
+				from: "2026-04-01",
+				to: "2026-04-01",
 				total: 12_300,
 				isCurrent: true,
+			},
+		);
+		expect(computeSeries(rows, "week", afterMidnightBerlin).at(-1)).toMatchObject(
+			{
+				from: "2026-03-26",
+				to: "2026-04-01",
 			},
 		);
 	});

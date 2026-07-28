@@ -54,6 +54,8 @@ export type MonthPoint = {
 	key: string;
 	label: string;
 	longLabel: string;
+	from: string;
+	to: string;
 	total: number;
 	count: number;
 	isCurrent: boolean;
@@ -62,11 +64,13 @@ export type MonthPoint = {
 export type AnlassPoint = { anlass: string; count: number; sum: number };
 
 export type HistoricalRevenueLike = {
+	id?: string;
 	anlass_datum: string;
 	anlass: string;
 	vergleichsgruppe: string;
 	umsatz_cent: number;
 	ausgaben_cent: number;
+	quellreferenz?: string | null;
 };
 
 export type PeriodStats = {
@@ -127,6 +131,7 @@ export function computePeriod(
 	}
 
 	const revenueTotal = revenueCashNet + revenueCard + revenueHistorical;
+	const revenueWithKnownPaymentMethod = revenueCashNet + revenueCard;
 	const topAnlass = Array.from(anlass.values())
 		.sort((a, b) => b.sum - a.sum)
 		.slice(0, 5);
@@ -144,8 +149,8 @@ export function computePeriod(
 				? Math.round(revenueTotal / (items.length + historical.length))
 				: 0,
 		cardSharePct:
-			revenueTotal > 0
-				? Math.round((revenueCard / revenueTotal) * 1000) / 10
+			revenueWithKnownPaymentMethod > 0
+				? Math.round((revenueCard / revenueWithKnownPaymentMethod) * 1000) / 10
 				: null,
 		topAnlass,
 	};
@@ -169,6 +174,8 @@ export function computeContext(
 			key,
 			label: MONTH_SHORT[month - 1],
 			longLabel: `${MONTH_LONG[month - 1]} ${year}`,
+			from: `${key}-01`,
+			to: addIsoCalendarDays(`${addMonthsToKey(key, 1)}-01`, -1),
 			total: 0,
 			count: 0,
 			isCurrent: i === 0,
@@ -304,6 +311,8 @@ export function computeSeries(
 				key,
 				label: i % 5 === 0 ? ddmm(key) : "",
 				longLabel: formatDateDe(key),
+				from: key,
+				to: key,
 				total: agg.total,
 				count: agg.count,
 				isCurrent: i === 0,
@@ -336,6 +345,8 @@ export function computeSeries(
 			key: startKey,
 			label: ddmm(startKey),
 			longLabel: `Woche ${formatDateDe(startKey)} bis ${formatDateDe(endKey)}`,
+			from: startKey,
+			to: endKey,
 			total,
 			count,
 			isCurrent: i === 0,

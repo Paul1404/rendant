@@ -51,10 +51,12 @@ heruntergeladen.
 
 ### Dashboard
 
-- Kennzahlen für Umsatz, Ausgaben und Überschuss
+- Kennzahlen für Umsatz, Ausgaben, Kartenzahlungen und erfasste Einträge
 - Vergleich mit dem vorherigen Zeitraum und kontextbezogene Entwicklung
-- Umsatzverlauf nach Tag, Woche oder Monat
+- Umsatzverlauf nach Tag, Woche oder Monat mit auswählbaren Punkten und einer
+  gemeinsamen Detailansicht für Kassenzählprotokolle und historische Umsätze
 - Aufteilung von Bar- und Kartenzahlungen sowie Umsatz nach Umsatzgruppen
+- Ergebnis aus Umsatz und erfassten Ausgaben in der Detailauswertung
 - Umsatzsteuer, Vorsteuer aus Ausgaben und daraus berechnete Zahllast
 - Suche sowie Filter nach Zeitraum, Kalenderjahr und Storno-Status
 - Jahresauswahl für abgeschlossene Geschäftsjahre und Auswertungen der

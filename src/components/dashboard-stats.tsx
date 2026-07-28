@@ -1,14 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import {
 	ArrowDownRight,
 	ArrowUpRight,
+	CalendarDays,
 	CreditCard,
+	History,
+	ListChecks,
 	Minus,
 	Percent,
 	ReceiptText,
-	Scale,
-	Sparkles,
 	TrendingUp,
+	X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { BarList } from "@/components/charts/bar-list";
@@ -18,6 +21,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Money } from "@/components/ui/money";
 import { FieldLabel } from "@/components/ui/section";
+import { type DateWindow, filterByDateWindow } from "@/lib/dashboard-stats";
+import { formatDateDe } from "@/lib/date";
 import {
 	computeSeries,
 	type FinanceContext,
@@ -25,6 +30,7 @@ import {
 	type Granularity,
 	type HistoricalRevenueLike,
 	type PeriodStats,
+	revenueOf,
 } from "@/lib/finance";
 import { formatCent } from "@/lib/money";
 import { orpc } from "@/lib/orpc";
@@ -41,6 +47,11 @@ type Props = {
 	historicalItems: HistoricalRevenueLike[];
 	seriesNow: Date;
 	initialGranularity: Granularity;
+	selectedDrilldown?: DateWindow;
+	onChartChange: (
+		granularity: Granularity,
+		window: DateWindow | undefined,
+	) => void;
 };
 
 const GRANULARITIES: Granularity[] = ["day", "week", "month"];
@@ -64,6 +75,8 @@ export function FinanceOverview({
 	historicalItems,
 	seriesNow,
 	initialGranularity,
+	selectedDrilldown,
+	onChartChange,
 }: Props) {
 	const [granularity, setGranularity] =
 		useState<Granularity>(initialGranularity);
@@ -72,6 +85,21 @@ export function FinanceOverview({
 		[items, historicalItems, granularity, seriesNow],
 	);
 	const hasTrend = series.some((p) => p.total > 0);
+	const drilldownProtocols = useMemo(
+		() => filterByDateWindow(items, selectedDrilldown),
+		[items, selectedDrilldown],
+	);
+	const drilldownHistorical = useMemo(
+		() => filterByDateWindow(historicalItems, selectedDrilldown),
+		[historicalItems, selectedDrilldown],
+	);
+	const selectedPoint = selectedDrilldown
+		? series.find(
+				(point) =>
+					point.from === selectedDrilldown.von &&
+					point.to === selectedDrilldown.bis,
+			)
+		: undefined;
 
 	return (
 		<div className="space-y-8">
@@ -100,16 +128,19 @@ export function FinanceOverview({
 					hint={`${period.count} ${period.count === 1 ? "Eintrag" : "Einträge"}`}
 				/>
 				<KpiCard
-					icon={Scale}
-					label="Überschuss"
-					cent={period.net}
-					tone={period.net < 0 ? "negative" : "default"}
-					hint="Umsatz abzüglich erfasster Ausgaben"
+					icon={CreditCard}
+					label="Kartenzahlungen"
+					cent={period.revenueCard}
+					hint={
+						period.cardSharePct === null
+							? "Keine Zahlungsart erfasst"
+							: `${period.cardSharePct.toLocaleString("de-DE", { maximumFractionDigits: 1 })} % des Umsatzes mit bekannter Zahlungsart`
+					}
 				/>
 				<KpiCard
-					icon={Sparkles}
-					label="Ø je Eintrag"
-					cent={period.avgPerProtokoll > 0 ? period.avgPerProtokoll : 0}
+					icon={ListChecks}
+					label="Einträge"
+					value={period.count.toLocaleString("de-DE")}
 					hint={recencyHint(context.lastEntryDays)}
 				/>
 			</div>
@@ -133,7 +164,10 @@ export function FinanceOverview({
 											key={g}
 											type="button"
 											aria-pressed={active}
-											onClick={() => setGranularity(g)}
+											onClick={() => {
+												setGranularity(g);
+												onChartChange(g, undefined);
+											}}
 											className={cn(
 												"rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
 												active
@@ -149,7 +183,22 @@ export function FinanceOverview({
 						</div>
 					</CardHeader>
 					<CardContent>
-						<RevenueAreaChart points={series} />
+						<RevenueAreaChart
+							points={series}
+							selected={selectedDrilldown}
+							onSelect={(window) => onChartChange(granularity, window)}
+						/>
+						{selectedDrilldown ? (
+							<RevenueDrilldown
+								label={
+									selectedPoint?.longLabel ??
+									formatDateWindow(selectedDrilldown)
+								}
+								protocols={drilldownProtocols}
+								historical={drilldownHistorical}
+								onClear={() => onChartChange(granularity, undefined)}
+							/>
+						) : null}
 					</CardContent>
 				</Card>
 			) : null}
@@ -192,10 +241,127 @@ export function FinanceOverview({
 								}))}
 							/>
 						</div>
+						<div className="border-border/60 border-t pt-3">
+							<SummaryRow
+								label="Umsatz abzüglich erfasster Ausgaben"
+								value={period.net}
+								bold
+							/>
+						</div>
 					</CardContent>
 				</Card>
 			</div>
 		</div>
+	);
+}
+
+function formatDateWindow(window: DateWindow): string {
+	if (window.von === window.bis) return formatDateDe(window.von);
+	return `${formatDateDe(window.von)} bis ${formatDateDe(window.bis)}`;
+}
+
+function RevenueDrilldown({
+	label,
+	protocols,
+	historical,
+	onClear,
+}: {
+	label: string;
+	protocols: ProtokollRow[];
+	historical: HistoricalRevenueLike[];
+	onClear: () => void;
+}) {
+	const rows = [
+		...protocols.map((item) => ({
+			key: `protocol-${item.id}`,
+			source: "protocol" as const,
+			id: item.id,
+			date: item.anlass_datum,
+			label: item.anlass,
+			reference: item.belegnummer,
+			revenue: revenueOf(item),
+		})),
+		...historical.map((item, index) => ({
+			key: `historical-${item.id ?? `${item.anlass_datum}-${index}`}`,
+			source: "historical" as const,
+			id: undefined,
+			date: item.anlass_datum,
+			label: item.anlass,
+			reference: item.quellreferenz?.trim() || "Altunterlage",
+			revenue: item.umsatz_cent,
+		})),
+	].sort(
+		(a, b) =>
+			b.date.localeCompare(a.date) ||
+			b.revenue - a.revenue ||
+			a.label.localeCompare(b.label, "de"),
+	);
+	const total = rows.reduce((sum, row) => sum + row.revenue, 0);
+
+	return (
+		<section
+			aria-labelledby="revenue-drilldown-heading"
+			className="mt-4 border-border/60 border-t pt-4"
+		>
+			<div className="flex flex-wrap items-start justify-between gap-3">
+				<div>
+					<div className="flex items-center gap-2">
+						<CalendarDays className="h-4 w-4 text-primary" />
+						<h3 id="revenue-drilldown-heading" className="font-medium">
+							Auswahl: {label}
+						</h3>
+					</div>
+					<p className="mt-1 text-xs text-muted-foreground">
+						{rows.length} {rows.length === 1 ? "Eintrag" : "Einträge"}
+						<span className="mx-1.5 text-muted-foreground/40">·</span>
+						<Money cent={total} className="text-xs text-foreground" />
+					</p>
+				</div>
+				<Button type="button" variant="ghost" size="sm" onClick={onClear}>
+					<X className="mr-1 h-3.5 w-3.5" />
+					Auswahl aufheben
+				</Button>
+			</div>
+
+			{rows.length > 0 ? (
+				<ul className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
+					{rows.map((row) => (
+						<li
+							key={row.key}
+							className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-border/60 bg-background/60 px-3 py-2.5"
+						>
+							<div className="min-w-0">
+								<div className="flex min-w-0 items-center gap-2">
+									{row.source === "historical" ? (
+										<History className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+									) : (
+										<ReceiptText className="h-3.5 w-3.5 shrink-0 text-primary" />
+									)}
+									<span className="truncate font-medium">{row.label}</span>
+								</div>
+								<p className="mt-0.5 truncate pl-5.5 text-xs text-muted-foreground">
+									{formatDateDe(row.date)} · {row.reference}
+								</p>
+							</div>
+							<div className="flex items-center gap-2">
+								<Money cent={row.revenue} emphasis />
+								{row.source === "protocol" && row.id ? (
+									<Button asChild variant="ghost" size="sm">
+										<Link to="/protokolle/$id" params={{ id: row.id }}>
+											Anzeigen
+										</Link>
+									</Button>
+								) : null}
+							</div>
+						</li>
+					))}
+				</ul>
+			) : (
+				<p className="mt-3 rounded-lg border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
+					Keine Einträge in diesem Zeitraum.
+				</p>
+			)}
+		</section>
 	);
 }
 
@@ -298,13 +464,15 @@ function KpiCard({
 	icon: Icon,
 	label,
 	cent,
+	value,
 	hint,
 	tone = "default",
 	variant = "default",
 }: {
 	icon: React.ComponentType<{ className?: string }>;
 	label: string;
-	cent: number;
+	cent?: number;
+	value?: React.ReactNode;
 	hint?: React.ReactNode;
 	tone?: "default" | "negative";
 	variant?: "default" | "hero";
@@ -330,20 +498,34 @@ function KpiCard({
 						<Icon className="h-3.5 w-3.5" />
 					</span>
 				</div>
-				<Money
-					cent={cent}
-					tone={valueTone}
-					emphasis
-					className={cn(
-						"mt-2 block tracking-tight",
-						// On narrow mobile the card is half the viewport and clips the
-						// no-wrap figure. Scale the value down with the card width and
-						// pin it to the original fixed size from the sm breakpoint up.
-						hero
-							? "text-[clamp(0.9rem,4.2vw,1.7rem)] sm:text-[1.7rem]"
-							: "text-[clamp(0.85rem,3.6vw,1.35rem)] sm:text-[1.35rem]",
-					)}
-				/>
+				{value !== undefined ? (
+					<span
+						className={cn(
+							"mt-2 block font-mono font-semibold tracking-tight tabular-nums",
+							hero ? "text-primary" : "text-foreground",
+							hero
+								? "text-[clamp(0.9rem,4.2vw,1.7rem)] sm:text-[1.7rem]"
+								: "text-[clamp(0.85rem,3.6vw,1.35rem)] sm:text-[1.35rem]",
+						)}
+					>
+						{value}
+					</span>
+				) : (
+					<Money
+						cent={cent ?? 0}
+						tone={valueTone}
+						emphasis
+						className={cn(
+							"mt-2 block tracking-tight",
+							// On narrow mobile the card is half the viewport and clips the
+							// no-wrap figure. Scale the value down with the card width and
+							// pin it to the original fixed size from the sm breakpoint up.
+							hero
+								? "text-[clamp(0.9rem,4.2vw,1.7rem)] sm:text-[1.7rem]"
+								: "text-[clamp(0.85rem,3.6vw,1.35rem)] sm:text-[1.35rem]",
+						)}
+					/>
+				)}
 				{hint ? (
 					<div className="mt-1 text-xs text-muted-foreground">{hint}</div>
 				) : null}
