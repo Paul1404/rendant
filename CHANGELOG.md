@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.23.2 - 2026-07-28
+
+- Das Guilloché-Muster bleibt beim Scrollen im sichtbaren Bereich und nutzt auf
+  breiten Bildschirmen gezielt den freien Raum rechts neben dem Inhalt. Beim
+  Verschieben oder Verkleinern des Fensters passt sich seine Position fließend an.
+- Laufzeit- und Entwicklungsabhängigkeiten wurden geschlossen auf ihre aktuellen,
+  untereinander kompatiblen Versionen aktualisiert.
+
 ## 1.23.1 - 2026-07-28
 
 - Ein feines Guilloché-Muster aus Rosette und Linienband gibt dem Hauptbereich

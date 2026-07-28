@@ -9,13 +9,19 @@ export function MainWatermark() {
 	return (
 		<div
 			aria-hidden="true"
-			className="pointer-events-none absolute inset-0 -z-10"
+			className="pointer-events-none fixed inset-0 z-0 overflow-hidden"
 		>
 			<svg
 				viewBox="0 0 1200 900"
 				fill="none"
 				focusable="false"
-				className="absolute top-0 left-1/2 h-[56rem] w-[75rem] max-w-none -translate-x-1/2 overflow-visible"
+				className="fixed top-16 h-[56rem] w-[75rem] max-w-none overflow-visible"
+				style={{
+					// The rosette is at x=1040 in the 1200px artwork. Once the
+					// viewport exceeds the 72rem content width, its centre follows
+					// the middle of the otherwise unused right-hand gutter.
+					left: "calc(100vw - max(0px, calc(25vw - 18rem)) - 65rem)",
+				}}
 			>
 				<title>Guilloché-Muster</title>
 				<defs>
