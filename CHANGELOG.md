@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.23.1 - 2026-07-28
+
+- Ein feines Guilloché-Muster aus Rosette und Linienband gibt dem Hauptbereich
+  die Anmutung klassischer Finanzdrucke. Dezente Grün- und Messingtöne passen
+  sich an die helle und dunkle Darstellung an, ohne Inhalte zu überlagern.
+
 ## 1.23.0 - 2026-07-28
 
 - Punkte im Umsatzverlauf lassen sich per Maus, Tastatur oder Berührung

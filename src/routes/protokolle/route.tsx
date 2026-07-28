@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { CommandPalette } from "@/components/command-palette";
 import { Header } from "@/components/header";
+import { MainWatermark } from "@/components/main-watermark";
 import { VersionChip } from "@/components/version-chip";
 import { fetchSession } from "@/lib/server-fns";
 import { useBranding } from "@/routes/__root";
@@ -22,8 +23,11 @@ function ProtokolleLayout() {
 		<>
 			<CommandPalette />
 			<Header />
-			<main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-				<Outlet />
+			<main className="relative isolate mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
+				<MainWatermark />
+				<div className="relative z-10">
+					<Outlet />
+				</div>
 			</main>
 			<footer className="mt-auto border-t border-border/70 bg-background/60 backdrop-blur">
 				<div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-4 text-[11px] text-muted-foreground sm:px-6">
