@@ -3,12 +3,29 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.23.3 - 2026-07-28
+
+- SVUFO ist nicht mehr unter der MIT-Lizenz veröffentlicht. Der Quellcode und
+  die zugehörigen Materialien sind proprietär und alle Rechte Paul Dresch
+  vorbehalten.
+
+## 1.23.2 - 2026-07-28
+
+- Das Guilloché-Muster bleibt beim Scrollen im sichtbaren Bereich und nutzt auf
+  breiten Bildschirmen gezielt den freien Raum rechts neben dem Inhalt. Beim
+  Verschieben oder Verkleinern des Fensters passt sich seine Position fließend an.
+- Laufzeit- und Entwicklungsabhängigkeiten wurden geschlossen auf ihre aktuellen,
+  untereinander kompatiblen Versionen aktualisiert.
+
 ## 1.23.1 - 2026-07-28
 
 - Ein feines Guilloché-Muster aus Rosette und Linienband gibt dem Hauptbereich
   die Anmutung klassischer Finanzdrucke. Dezente Grün- und Messingtöne passen
   sich an die helle und dunkle Darstellung sowie breite Bildschirme an, ohne
   Inhalte zu überlagern oder am Inhaltsrand abzubrechen.
+- Eine vollständig isolierte lokale Sandbox startet mit einem Befehl eine
+  temporäre Datenbank, einen flüchtigen PDF-Speicher, Migrationen, zufällige
+  Admin-Zugangsdaten und die App. Beim Beenden werden alle Daten entfernt.
 
 ## 1.23.0 - 2026-07-28
 
