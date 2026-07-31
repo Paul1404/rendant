@@ -1,0 +1,44 @@
+/* Rendant — Dark theme roles */
+@import url("tokens.css");
+
+[data-theme="dark"] {
+  --rd-bg: var(--rd-color-dark-bg);
+  --rd-bg-sunken: #07160F;
+  --rd-surface: var(--rd-color-dark-surface);
+  --rd-surface-2: var(--rd-color-dark-surface-raised);
+  --rd-text: var(--rd-color-dark-text);
+  --rd-text-muted: var(--rd-color-dark-muted);
+  --rd-text-faint: #7E938A;
+  --rd-accent: var(--rd-color-brand-brass-light);
+  --rd-accent-quiet: var(--rd-color-brand-brass);
+  --rd-line: rgba(201,169,96,0.18);
+  --rd-line-strong: rgba(201,169,96,0.32);
+  --rd-nav-bg: #07160F;
+  --rd-nav-text: var(--rd-color-dark-text);
+  --rd-focus: var(--rd-color-brand-brass-light);
+  --rd-shadow-card: var(--rd-shadow-dark-1);
+  --rd-guilloche-opacity: 0.11;
+  --rd-guilloche-color: var(--rd-color-brand-brass-light);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --rd-bg: var(--rd-color-dark-bg);
+    --rd-bg-sunken: #07160F;
+    --rd-surface: var(--rd-color-dark-surface);
+    --rd-surface-2: var(--rd-color-dark-surface-raised);
+    --rd-text: var(--rd-color-dark-text);
+    --rd-text-muted: var(--rd-color-dark-muted);
+    --rd-text-faint: #7E938A;
+    --rd-accent: var(--rd-color-brand-brass-light);
+    --rd-accent-quiet: var(--rd-color-brand-brass);
+    --rd-line: rgba(201,169,96,0.18);
+    --rd-line-strong: rgba(201,169,96,0.32);
+    --rd-nav-bg: #07160F;
+    --rd-nav-text: var(--rd-color-dark-text);
+    --rd-focus: var(--rd-color-brand-brass-light);
+    --rd-shadow-card: var(--rd-shadow-dark-1);
+    --rd-guilloche-opacity: 0.11;
+    --rd-guilloche-color: var(--rd-color-brand-brass-light);
+  }
+}

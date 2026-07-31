@@ -1,0 +1,51 @@
+/* Rendant — Guilloché-System
+   Regel 1: Die Guilloché liegt IMMER hinter dem Inhalt und niemals unter Fließtext-Spalten.
+   Regel 2: Die SVG-Kante darf nie sichtbar sein — Motive werden über den Viewport-Rand geschoben.
+   Regel 3: Ein Motiv pro Bildschirmseite, max. zwei pro Ansicht. */
+
+.rd-guilloche-field {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+  color: var(--rd-guilloche-color); opacity: var(--rd-guilloche-opacity);
+  contain: strict;
+}
+.rd-guilloche-field > svg { position: absolute; stroke: currentColor; fill: none; }
+
+/* Rosette rechts — wächst mit der Viewport-Höhe, ragt immer über die rechte Kante */
+.rd-guilloche-rosette {
+  right: clamp(-620px, -18vw, -180px);
+  top: 50%;
+  width: clamp(720px, 78vh, 1400px); height: clamp(720px, 78vh, 1400px);
+  transform: translateY(-50%);
+}
+/* Zweite Rosette links, tiefer gesetzt — nur ab 1600px, damit Inhalt frei bleibt */
+.rd-guilloche-rosette--left { display: none; left: clamp(-560px, -16vw, -220px); right: auto; top: 62%; }
+@media (min-width: 1600px) { .rd-guilloche-rosette--left { display: block; } }
+
+/* Linienband am unteren Rand */
+.rd-guilloche-ribbon { left: -5vw; bottom: -40px; width: 110vw; height: 180px; }
+
+/* Ultra-wide / 4K: das Motiv besetzt den ungenutzten Raum neben dem zentrierten Inhalt */
+@media (min-width: 2200px) {
+  .rd-guilloche-rosette { width: 1500px; height: 1500px; right: -420px; }
+  .rd-guilloche-rosette--left { width: 1200px; height: 1200px; left: -380px; }
+}
+@media (min-width: 3200px) {
+  .rd-guilloche-rosette { width: 1900px; height: 1900px; right: -520px; }
+  .rd-guilloche-rosette--left { width: 1500px; height: 1500px; left: -460px; }
+}
+/* Schmale Viewports: Guilloché würde mit Inhalt kollidieren → aus */
+@media (max-width: 900px) { .rd-guilloche-field { display: none; } }
+@media print { .rd-guilloche-field { display: none; } }
+@media (prefers-reduced-motion: reduce) { .rd-guilloche-field { transition: none; } }
+
+/* Sicherheitszone: Inhalt bekommt eine eigene Ebene und einen deckenden Träger */
+.rd-content { position: relative; z-index: 1; }
+.rd-card { background: var(--rd-surface); border: 1px solid var(--rd-line); border-radius: var(--rd-radius-md);
+           box-shadow: var(--rd-shadow-card); }
+
+/* Dokument-Wasserzeichen (Druck) */
+.rd-doc-watermark {
+  position: absolute; inset: auto 0 0 auto; width: 320px; height: 320px;
+  opacity: var(--rd-guilloche-opacity-document); color: var(--rd-color-brand-forest);
+  stroke: currentColor; fill: none;
+}

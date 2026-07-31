@@ -1,26 +1,35 @@
-const ROSETTE_ANGLES = Array.from({ length: 36 }, (_, index) => index * 5);
-const INNER_ROSETTE_ANGLES = Array.from(
-	{ length: 24 },
-	(_, index) => index * 7.5,
+const OUTER_ROSETTE_ANGLES = Array.from(
+	{ length: 12 },
+	(_, index) => index * 15,
 );
-const RIBBON_OFFSETS = [-18, -13, -8, -3, 3, 8, 13, 18];
+const MIDDLE_ROSETTE_ANGLES = Array.from(
+	{ length: 8 },
+	(_, index) => index * 22.5,
+);
+const INNER_ROSETTE_ANGLES = Array.from(
+	{ length: 6 },
+	(_, index) => index * 30,
+);
+const RIBBON_OFFSETS = [-16, -10, -5, 0, 5, 10, 16];
+
+const RIBBON_PATH =
+	"M0 48Q15 20 30 48Q45 20 60 48Q75 20 90 48Q105 20 120 48Q135 20 150 48Q165 20 180 48Q195 20 210 48Q225 20 240 48Q255 20 270 48Q285 20 300 48Q315 20 330 48Q345 20 360 48Q375 20 390 48Q405 20 420 48Q435 20 450 48Q465 20 480 48";
 
 export function MainWatermark() {
 	return (
 		<div
 			aria-hidden="true"
-			className="pointer-events-none fixed inset-0 z-0 overflow-hidden"
+			className="pointer-events-none fixed inset-0 z-0 hidden overflow-hidden min-[900px]:block"
 		>
 			<svg
 				viewBox="0 0 1200 900"
 				fill="none"
 				focusable="false"
-				className="fixed top-16 h-[56rem] w-[75rem] max-w-none overflow-visible"
+				className="fixed top-16 h-[56rem] w-[75rem] max-w-none overflow-visible stroke-brand opacity-[0.075] dark:opacity-[0.11]"
 				style={{
-					// The rosette is at x=1040 in the 1200px artwork. It follows the
-					// middle of the unused right-hand gutter until that would leave
-					// visible whitespace at the viewport edge. The 16rem cap then
-					// keeps a small part of the outer guilloché beyond the edge.
+					// Keep the large rosette in the unused right gutter. On ultra-wide
+					// screens the cap lets it fade beyond the viewport instead of exposing
+					// an empty strip at the edge.
 					left: "calc(100vw - min(16rem, max(0px, calc(25vw - 18rem))) - 65rem)",
 				}}
 			>
@@ -70,91 +79,57 @@ export function MainWatermark() {
 					</mask>
 				</defs>
 
-				<g mask="url(#main-watermark-ribbon-mask)">
-					<g
-						className="stroke-primary/[0.055] dark:stroke-primary/[0.09]"
-						strokeWidth="1.15"
-					>
-						{RIBBON_OFFSETS.map((offset) => (
-							<path
-								key={offset}
-								d="M-100 236 C105 72 286 390 492 218 S875 64 1090 226 S1310 338 1380 174"
-								transform={`translate(0 ${offset})`}
-							/>
-						))}
-					</g>
-					<g
-						className="stroke-brass/[0.07] dark:stroke-brass/[0.11]"
-						strokeWidth="0.9"
-					>
-						<path d="M-100 236 C105 72 286 390 492 218 S875 64 1090 226 S1310 338 1380 174" />
+				<g mask="url(#main-watermark-ribbon-mask)" strokeWidth="0.7">
+					{RIBBON_OFFSETS.map((offset) => (
 						<path
-							d="M-100 236 C105 72 286 390 492 218 S875 64 1090 226 S1310 338 1380 174"
-							transform="translate(0 11)"
+							key={`top-${offset}`}
+							d={RIBBON_PATH}
+							transform={`translate(0 ${180 + offset}) scale(3 1)`}
 						/>
-					</g>
+					))}
+					{[-8, 0, 8].map((offset) => (
+						<path
+							key={`bottom-${offset}`}
+							d={RIBBON_PATH}
+							transform={`translate(45 ${180 + offset}) scale(3 -1) translate(0 -96)`}
+						/>
+					))}
 				</g>
 
-				<g mask="url(#main-watermark-rosette-mask)">
-					<g
-						className="stroke-primary/[0.06] dark:stroke-primary/[0.095]"
-						strokeWidth="0.9"
-					>
-						{ROSETTE_ANGLES.map((angle) => (
-							<ellipse
-								key={angle}
-								cx="1040"
-								cy="650"
-								rx="292"
-								ry="94"
-								transform={`rotate(${angle} 1040 650)`}
-							/>
-						))}
-					</g>
-					<g
-						className="stroke-primary/[0.045] dark:stroke-primary/[0.075]"
-						strokeWidth="0.75"
-					>
-						{INNER_ROSETTE_ANGLES.map((angle) => (
-							<ellipse
-								key={angle}
-								cx="1040"
-								cy="650"
-								rx="226"
-								ry="68"
-								transform={`rotate(${angle + 2.5} 1040 650)`}
-							/>
-						))}
-					</g>
-					<g
-						className="stroke-brass/[0.085] dark:stroke-brass/[0.12]"
-						strokeWidth="0.85"
-					>
-						{[0, 30, 60, 90, 120, 150].map((angle) => (
-							<ellipse
-								key={angle}
-								cx="1040"
-								cy="650"
-								rx="260"
-								ry="82"
-								transform={`rotate(${angle} 1040 650)`}
-							/>
-						))}
-					</g>
-					<circle
-						cx="1040"
-						cy="650"
-						r="305"
-						className="stroke-primary/[0.055] dark:stroke-primary/[0.09]"
-						strokeWidth="1.2"
-					/>
-					<circle
-						cx="1040"
-						cy="650"
-						r="314"
-						className="stroke-brass/[0.065] dark:stroke-brass/[0.1]"
-						strokeWidth="0.8"
-					/>
+				<g mask="url(#main-watermark-rosette-mask)" strokeWidth="0.7">
+					{OUTER_ROSETTE_ANGLES.map((angle) => (
+						<ellipse
+							key={`outer-${angle}`}
+							cx="1040"
+							cy="650"
+							rx="266"
+							ry="102"
+							transform={`rotate(${angle} 1040 650)`}
+						/>
+					))}
+					{MIDDLE_ROSETTE_ANGLES.map((angle) => (
+						<ellipse
+							key={`middle-${angle}`}
+							cx="1040"
+							cy="650"
+							rx="182"
+							ry="60"
+							transform={`rotate(${angle} 1040 650)`}
+						/>
+					))}
+					{INNER_ROSETTE_ANGLES.map((angle) => (
+						<ellipse
+							key={`inner-${angle}`}
+							cx="1040"
+							cy="650"
+							rx="109"
+							ry="35"
+							transform={`rotate(${angle} 1040 650)`}
+						/>
+					))}
+					{[308, 294, 214, 203, 123].map((radius) => (
+						<circle key={radius} cx="1040" cy="650" r={radius} />
+					))}
 				</g>
 			</svg>
 		</div>

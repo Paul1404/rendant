@@ -1,0 +1,23 @@
+/* Rendant — Typography
+   Spectral (Display) · IBM Plex Sans (UI) · IBM Plex Mono (Zahlen/Codes)
+   Bezug + Lizenz: siehe 08-fonts/FONT-SOURCES-AND-LICENSES.md */
+@import url("https://fonts.googleapis.com/css2?family=Spectral:wght@300;400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+:root { --font-display: Spectral, 'Iowan Old Style', Georgia, serif; --font-ui: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif; --font-mono: 'IBM Plex Mono', ui-monospace, monospace; }
+
+body, .rd-body { font-family: var(--font-ui); font-size: 15px; line-height: 1.6; color: var(--rd-text); font-feature-settings: "kern" 1; }
+.rd-display-1 { font-family: var(--font-display); font-weight: 500; font-size: 60px; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; }
+.rd-display-2 { font-family: var(--font-display); font-weight: 400; font-size: 46px; line-height: 1.12; }
+.rd-h1 { font-family: var(--font-display); font-weight: 400; font-size: 32px; line-height: 1.2; }
+.rd-h2 { font-family: var(--font-display); font-weight: 500; font-size: 24px; line-height: 1.25; }
+.rd-h3 { font-family: var(--font-ui); font-weight: 600; font-size: 18px; line-height: 1.35; }
+.rd-body-sm { font-size: 13px; line-height: 1.55; }
+.rd-label { font-family: var(--font-ui); font-weight: 600; font-size: 11px; line-height: 1; letter-spacing: 0.18em; text-transform: uppercase; color: var(--rd-accent); }
+.rd-num, .rd-table td.rd-num, .rd-amount {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1, "zero" 1; text-align: right; }
+.rd-num-lg { font-family: var(--font-mono); font-size: 28px; line-height: 1.1; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.rd-amount--negative { color: var(--rd-color-semantic-danger); }
+.rd-caption { font-size: 12px; line-height: 1.5; color: var(--rd-text-faint); }
+/* Deutsche Texte: kein zu enger Satz, weiche Umbrüche */
+p, li { text-wrap: pretty; hyphens: auto; }

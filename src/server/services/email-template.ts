@@ -4,19 +4,22 @@
 // Every send also ships a plain-text part as the true fallback.
 
 const BRAND = {
-	green: "#0F4435",
-	brass: "#C49A4E",
-	ink: "#13201B",
-	muted: "#5b6660",
-	page: "#eceadf",
-	card: "#ffffff",
-	softBg: "#f6f3ec",
-	border: "#e4dfd2",
-	white: "#ffffff",
+	forest: "#0F2A22",
+	brassLight: "#C9A960",
+	brassDark: "#8A6A28",
+	ink: "#12261F",
+	muted: "#3C4B44",
+	faint: "#6B7A73",
+	parchment: "#F7F3EA",
+	card: "#FFFDF8",
+	softBg: "#EFE9DC",
+	border: "#DDE0DA",
+	white: "#FFFFFF",
 };
 
 const FONT =
 	"Arial, 'Helvetica Neue', Helvetica, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+const DISPLAY_FONT = "Georgia, 'Times New Roman', Times, serif";
 
 export function escapeHtml(input: string): string {
 	return input
@@ -34,15 +37,15 @@ function button(url: string, label: string): string {
 	return `
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px auto 0;">
   <tr>
-    <td align="center" bgcolor="${BRAND.green}" style="border-radius:8px;">
+    <td align="center" bgcolor="${BRAND.forest}" style="border-radius:4px;">
       <!--[if mso]>
-      <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:46px;v-text-anchor:middle;width:260px;" arcsize="16%" strokecolor="${BRAND.green}" fillcolor="${BRAND.green}">
+      <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:46px;v-text-anchor:middle;width:260px;" arcsize="8%" strokecolor="${BRAND.forest}" fillcolor="${BRAND.forest}">
         <w:anchorlock/>
         <center style="color:#ffffff;font-family:${FONT};font-size:15px;font-weight:bold;">${text}</center>
       </v:roundrect>
       <![endif]-->
       <!--[if !mso]><!-- -->
-      <a href="${href}" target="_blank" style="background-color:${BRAND.green};border:1px solid ${BRAND.green};border-radius:8px;color:#ffffff;display:inline-block;font-family:${FONT};font-size:15px;font-weight:bold;line-height:20px;padding:13px 30px;text-align:center;text-decoration:none;">${text}</a>
+      <a href="${href}" target="_blank" style="background-color:${BRAND.forest};border:1px solid ${BRAND.forest};border-radius:4px;color:${BRAND.white};display:inline-block;font-family:${FONT};font-size:15px;font-weight:bold;line-height:20px;padding:13px 30px;text-align:center;text-decoration:none;">${text}</a>
       <!--<![endif]-->
     </td>
   </tr>
@@ -66,7 +69,7 @@ export function detailsTable(rows: Array<[string, string]>): string {
 		})
 		.join("");
 	return `
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;margin:0 0 20px;border:1px solid ${BRAND.border};border-radius:10px;background-color:${BRAND.softBg};">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;margin:0 0 20px;border:1px solid ${BRAND.border};border-radius:4px;background-color:${BRAND.softBg};">
   <tr><td style="padding:6px 18px;">
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;">${body}
     </table>
@@ -77,9 +80,9 @@ export function detailsTable(rows: Array<[string, string]>): string {
 // A soft callout box used to explain why the mail carries no amounts.
 export function callout(title: string, body: string): string {
 	return `
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;margin:0 0 20px;background-color:${BRAND.softBg};border:1px solid ${BRAND.border};border-radius:10px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;margin:0 0 20px;background-color:${BRAND.softBg};border:1px solid ${BRAND.border};border-radius:4px;">
   <tr>
-    <td width="4" style="width:4px;background-color:${BRAND.brass};border-radius:10px 0 0 10px;font-size:0;line-height:0;">&nbsp;</td>
+    <td width="4" style="width:4px;background-color:${BRAND.brassDark};border-radius:4px 0 0 4px;font-size:0;line-height:0;">&nbsp;</td>
     <td style="padding:14px 18px;">
       <p style="margin:0 0 6px;color:${BRAND.ink};font-family:${FONT};font-size:13px;font-weight:bold;line-height:18px;">${escapeHtml(title)}</p>
       <p style="margin:0;color:${BRAND.muted};font-family:${FONT};font-size:13px;line-height:19px;">${body}</p>
@@ -120,39 +123,51 @@ export function emailShell(opts: ShellOptions): string {
 <style type="text/css">table,td,div,p,a{font-family:Arial,sans-serif !important;}</style>
 <![endif]-->
 </head>
-<body style="margin:0;padding:0;background-color:${BRAND.page};-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
-<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:${BRAND.page};">${escapeHtml(preheader)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;background-color:${BRAND.page};">
+<body style="margin:0;padding:0;background-color:${BRAND.parchment};-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:${BRAND.parchment};">${escapeHtml(preheader)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;background-color:${BRAND.parchment};">
   <tr>
     <td align="center" style="padding:28px 12px;">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:100%;max-width:600px;">
         <!-- Header -->
         <tr>
-          <td style="background-color:${BRAND.green};border-radius:14px 14px 0 0;padding:22px 32px;">
-            <div style="color:#ffffff;font-family:${FONT};font-size:19px;font-weight:bold;letter-spacing:2px;line-height:22px;">Rendant</div>
-            <div style="color:#cde0d7;font-family:${FONT};font-size:11px;letter-spacing:1px;line-height:16px;text-transform:uppercase;">Kassenzählprotokoll</div>
+          <td style="background-color:${BRAND.forest};border-radius:6px 6px 0 0;padding:20px 32px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td width="42" valign="middle" style="width:42px;padding:0 14px 0 0;vertical-align:middle;">
+				  <table role="img" aria-label="Rendant Registermarke" cellpadding="0" cellspacing="0" border="0" width="42" style="width:42px;">
+					<tr><td aria-hidden="true" align="center" style="border-bottom:2px solid ${BRAND.brassLight};color:${BRAND.brassLight};font-family:${DISPLAY_FONT};font-size:30px;font-weight:bold;line-height:32px;padding:0 0 2px;">R</td></tr>
+                  </table>
+                </td>
+                <td valign="middle" style="vertical-align:middle;">
+                  <div style="color:${BRAND.parchment};font-family:${DISPLAY_FONT};font-size:20px;font-weight:bold;letter-spacing:3px;line-height:23px;text-transform:uppercase;">Rendant</div>
+                  <div style="color:${BRAND.brassLight};font-family:${FONT};font-size:11px;letter-spacing:1px;line-height:16px;text-transform:uppercase;">Finanzverwaltung f&uuml;r Vereine</div>
+                </td>
+              </tr>
+            </table>
           </td>
         </tr>
         <!-- Brass hairline -->
-        <tr><td style="background-color:${BRAND.brass};font-size:0;line-height:0;height:3px;">&nbsp;</td></tr>
+        <tr><td style="background-color:${BRAND.brassLight};font-size:0;line-height:0;height:3px;">&nbsp;</td></tr>
         <!-- Body -->
         <tr>
           <td style="background-color:${BRAND.card};padding:30px 32px 8px;">
-            <p style="margin:0 0 4px;color:${BRAND.brass};font-family:${FONT};font-size:12px;font-weight:bold;letter-spacing:1px;line-height:16px;text-transform:uppercase;">${escapeHtml(eyebrow)}</p>
-            <h1 style="margin:0 0 18px;color:${BRAND.ink};font-family:${FONT};font-size:22px;font-weight:bold;line-height:28px;">${escapeHtml(heading)}</h1>
+            <p style="margin:0 0 4px;color:${BRAND.brassDark};font-family:${FONT};font-size:12px;font-weight:bold;letter-spacing:1px;line-height:16px;text-transform:uppercase;">${escapeHtml(eyebrow)}</p>
+            <h1 style="margin:0 0 18px;color:${BRAND.ink};font-family:${DISPLAY_FONT};font-size:24px;font-weight:normal;line-height:30px;">${escapeHtml(heading)}</h1>
             ${blocks.join("\n")}
           </td>
         </tr>
         <!-- Footer -->
         <tr>
-          <td style="background-color:${BRAND.card};border-radius:0 0 14px 14px;border-top:1px solid ${BRAND.border};padding:20px 32px 26px;">
+          <td style="background-color:${BRAND.card};border-radius:0 0 6px 6px;border-top:1px solid ${BRAND.border};padding:20px 32px 26px;">
             <p style="margin:0 0 4px;color:${BRAND.ink};font-family:${FONT};font-size:13px;font-weight:bold;line-height:18px;">${escapeHtml(verein)}</p>
             <p style="margin:0;color:${BRAND.muted};font-family:${FONT};font-size:12px;line-height:17px;">Diese E-Mail wurde automatisch von Rendant gesendet. Bitte nicht direkt darauf antworten.</p>
           </td>
         </tr>
         <tr>
           <td style="padding:16px 32px 0;">
-            <p style="margin:0;color:${BRAND.muted};font-family:${FONT};font-size:11px;line-height:16px;text-align:center;">&copy; ${year} ${escapeHtml(verein)} &middot; l&auml;uft mit Rendant</p>
+            <p style="margin:0 0 4px;color:${BRAND.brassDark};font-family:${FONT};font-size:10px;font-weight:bold;letter-spacing:1px;line-height:15px;text-align:center;">ERFASSEN. AUSWERTEN. NACHWEISEN.</p>
+            <p style="margin:0;color:${BRAND.faint};font-family:${FONT};font-size:11px;line-height:16px;text-align:center;">&copy; ${year} ${escapeHtml(verein)} &middot; l&auml;uft mit Rendant</p>
           </td>
         </tr>
       </table>

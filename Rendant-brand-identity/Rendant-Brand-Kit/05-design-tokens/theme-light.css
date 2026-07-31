@@ -1,0 +1,22 @@
+/* Rendant — Light theme roles */
+@import url("tokens.css");
+
+:root, [data-theme="light"] {
+  --rd-bg: var(--rd-color-brand-parchment);
+  --rd-bg-sunken: var(--rd-color-brand-parchment-2);
+  --rd-surface: #FFFFFF;
+  --rd-surface-2: var(--rd-color-brand-parchment-2);
+  --rd-text: var(--rd-color-neutral-ink);
+  --rd-text-muted: var(--rd-color-neutral-ink-muted);
+  --rd-text-faint: var(--rd-color-neutral-ink-faint);
+  --rd-accent: var(--rd-color-brand-brass-dark);
+  --rd-accent-quiet: var(--rd-color-brand-brass);
+  --rd-line: rgba(15,42,34,0.12);
+  --rd-line-strong: rgba(15,42,34,0.22);
+  --rd-nav-bg: var(--rd-color-brand-forest);
+  --rd-nav-text: var(--rd-color-brand-parchment);
+  --rd-focus: var(--rd-color-brand-brass-dark);
+  --rd-shadow-card: var(--rd-shadow-level-1);
+  --rd-guilloche-opacity: 0.075;
+  --rd-guilloche-color: var(--rd-color-brand-forest);
+}

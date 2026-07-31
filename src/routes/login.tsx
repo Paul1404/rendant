@@ -25,15 +25,6 @@ function LoginPage() {
 
 	return (
 		<div className="relative flex flex-1 items-center justify-center px-4 py-12 sm:py-16">
-			<div
-				aria-hidden
-				className="bg-grid-faint pointer-events-none absolute inset-0 -z-10 [mask-image:radial-gradient(ellipse_55%_45%_at_50%_35%,black,transparent_75%)]"
-			/>
-			<div
-				aria-hidden
-				className="pointer-events-none absolute left-1/2 top-[28%] -z-10 h-64 w-64 -translate-x-1/2 rounded-full bg-primary/10 blur-[100px]"
-			/>
-
 			<div className="w-full max-w-sm">
 				<div className="flex flex-col items-center text-center">
 					<BrandLockup variant="hero" className="mb-6" />
@@ -49,8 +40,7 @@ function LoginPage() {
 					</p>
 				</div>
 
-				<div className="mt-8 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm backdrop-blur">
-					<div className="h-1 w-full bg-gradient-to-r from-primary/60 via-primary to-primary/60" />
+				<div className="mt-8 overflow-hidden rounded-lg border border-border bg-card shadow-sm">
 					<LoginForm redirectTo={redirectTo} />
 				</div>
 

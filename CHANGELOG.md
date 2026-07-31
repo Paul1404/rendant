@@ -3,6 +3,17 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.25.0 - 2026-07-31
+
+- Rendant verwendet jetzt die neue Registermarke mit der dokumentarischen
+  Wortmarke und einer einheitlichen Farbwelt aus Waldgrün, Messing und
+  warmem Papier in Oberfläche, App-Symbolen, E-Mails und PDF-Dokumenten.
+- Spectral und IBM Plex werden datenschutzfreundlich direkt aus der Anwendung
+  geladen. Die helle und dunkle Darstellung, Zahlen, Statusfarben und
+  Guilloché-Muster folgen dem neuen barrierearmen Designsystem.
+- Das Brand Kit enthält korrigierte Logoformate, Design-Tokens,
+  Verwendungsregeln sowie Vorlagen für Oberfläche und Dokumente.
+
 ## 1.24.1 - 2026-07-28
 
 - Die neue Hauptadresse `rendant.sv-untereuerheim.de` und die bisherige Adresse

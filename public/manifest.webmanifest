@@ -1,16 +1,34 @@
 {
-  "name": "Rendant Finanzverwaltung",
+  "name": "Rendant Finanzverwaltung für Vereine",
   "short_name": "Rendant",
-  "description": "Finanzverwaltung für Vereine",
+  "lang": "de",
+  "description": "Erfassen. Auswerten. Nachweisen.",
   "start_url": "/protokolle",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#F6F3EC",
-  "theme_color": "#0F4435",
+  "background_color": "#F7F3EA",
+  "theme_color": "#0F2A22",
   "icons": [
-    { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192" },
-    { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512" },
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
     {
       "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-maskable-512.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "maskable"

@@ -11,7 +11,11 @@ const MODES: { value: Mode; label: string; icon: typeof Monitor }[] = [
 	{ value: "dark", label: "Dunkel", icon: Moon },
 ];
 
-export function ThemeToggle() {
+export function ThemeToggle({
+	variant = "default",
+}: {
+	variant?: "default" | "nav";
+}) {
 	const { theme, setTheme } = useTheme();
 	const [mounted, setMounted] = useState(false);
 
@@ -25,7 +29,12 @@ export function ThemeToggle() {
 
 	return (
 		<fieldset
-			className="inline-flex items-center rounded-lg border border-border/70 bg-background/60 p-0.5 shadow-sm"
+			className={cn(
+				"inline-flex items-center rounded-lg border p-0.5 shadow-sm",
+				variant === "nav"
+					? "border-nav-accent/25 bg-white/5"
+					: "border-border/70 bg-background/60",
+			)}
 			aria-label="Farbschema"
 		>
 			<legend className="sr-only">Farbschema</legend>
@@ -41,9 +50,13 @@ export function ThemeToggle() {
 						onClick={() => setTheme(value)}
 						className={cn(
 							"inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors",
-							isActive
-								? "bg-primary/10 text-primary"
-								: "text-muted-foreground hover:text-foreground",
+							variant === "nav"
+								? isActive
+									? "bg-nav-accent/15 text-nav-accent"
+									: "text-nav-foreground/65 hover:text-nav-foreground"
+								: isActive
+									? "bg-primary/10 text-primary"
+									: "text-muted-foreground hover:text-foreground",
 						)}
 					>
 						<Icon className="h-4 w-4" />

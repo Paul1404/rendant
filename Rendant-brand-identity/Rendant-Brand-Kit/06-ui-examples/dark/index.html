@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rendant — Dark Mode</title>
+<link rel="stylesheet" href="../../05-design-tokens/tokens.css">
+<link rel="stylesheet" href="../../05-design-tokens/theme-light.css">
+<link rel="stylesheet" href="../../05-design-tokens/theme-dark.css">
+<link rel="stylesheet" href="../../05-design-tokens/typography.css">
+<link rel="stylesheet" href="../../04-guilloche/implementation/guilloche.css">
+<style>
+*{box-sizing:border-box} body{margin:0;background:var(--rd-bg);color:var(--rd-text);font-family:var(--font-ui);-webkit-font-smoothing:antialiased}
+.nav{background:var(--rd-nav-bg);color:var(--rd-nav-text);display:flex;align-items:center;gap:36px;padding:0 28px;height:60px;position:relative;z-index:2;border-bottom:1px solid rgba(201,169,96,0.22)}
+.nav .brand{display:flex;align-items:center;gap:12px;font-family:var(--font-display);font-weight:500;font-size:19px;letter-spacing:.14em;text-transform:uppercase}
+.nav a{color:rgba(242,237,226,.72);text-decoration:none;font-size:13.5px;font-weight:500;padding:20px 0;border-bottom:2px solid transparent}
+.nav a:hover{color:#F2EDE2}
+.nav a.is-active{color:var(--rd-color-brand-brass-light);border-bottom-color:var(--rd-color-brand-brass-light)}
+.nav .right{margin-left:auto;display:flex;align-items:center;gap:18px;font-size:12px;color:rgba(242,237,226,.55)}
+.chip{border:1px solid rgba(201,169,96,.35);color:var(--rd-color-brand-brass-light);border-radius:999px;padding:4px 11px;font-size:11px;font-family:var(--font-mono)}
+.wrap{max-width:1440px;margin:0 auto;padding:34px 28px 72px;position:relative;z-index:1}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:26px}
+h1{font-family:var(--font-display);font-weight:400;font-size:30px;line-height:1.2;margin:6px 0 0}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--rd-accent)}
+.sub{font-size:13px;color:var(--rd-text-muted);margin-top:6px}
+.card{background:var(--rd-surface);border:1px solid var(--rd-line);border-radius:4px;box-shadow:var(--rd-shadow-card)}
+.card-h{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--rd-line)}
+.card-t{font-family:var(--font-display);font-size:16px;font-weight:500}
+.grid{display:grid;gap:18px}
+.kpi{padding:18px 20px}
+.kpi .l{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--rd-text-faint)}
+.kpi .v{font-family:var(--font-mono);font-size:25px;white-space:nowrap;font-variant-numeric:tabular-nums;margin-top:10px;letter-spacing:-.01em}
+.kpi .d{font-size:12px;color:var(--rd-text-muted);margin-top:6px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--rd-text-faint);padding:10px 18px;border-bottom:1px solid var(--rd-line)}
+td{padding:11px 18px;border-bottom:1px solid var(--rd-line)}
+tr:last-child td{border-bottom:none}
+.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.neg{color:var(--rd-color-semantic-danger)}
+.badge{display:inline-block;font-size:11px;font-weight:500;padding:3px 9px;border-radius:2px;border:1px solid}
+.b-ok{color:#2F6B4F;border-color:rgba(47,107,79,.35);background:rgba(47,107,79,.07)}
+.b-warn{color:#A9791C;border-color:rgba(169,121,28,.35);background:rgba(169,121,28,.08)}
+.b-bad{color:#8C2F24;border-color:rgba(140,47,36,.35);background:rgba(140,47,36,.07)}
+.b-neutral{color:var(--rd-text-muted);border-color:var(--rd-line-strong)}
+.btn{font-family:var(--font-ui);font-size:13px;font-weight:500;padding:9px 18px;border-radius:3px;border:1px solid var(--rd-color-brand-forest);background:var(--rd-color-brand-forest);color:#F7F3EA;cursor:pointer}
+.btn-2{background:transparent;color:var(--rd-text);border-color:var(--rd-line-strong)}
+.btn:focus-visible{outline:2px solid var(--rd-focus);outline-offset:2px}
+[data-theme="dark"] .btn{background:#C9A960;border-color:#C9A960;color:#0A1D17}
+input,select{font-family:var(--font-ui);font-size:14px;padding:10px 12px;border:1px solid var(--rd-line-strong);border-radius:3px;background:var(--rd-surface);color:var(--rd-text);width:100%}
+input:focus{outline:2px solid var(--rd-focus);outline-offset:1px;border-color:transparent}
+label{display:block;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--rd-text-faint);margin-bottom:7px}
+.divider{height:1px;background:var(--rd-line)}
+.foot{margin-top:28px;font-size:11.5px;color:var(--rd-text-faint);display:flex;gap:22px;font-family:var(--font-mono)}
+</style>
+</head><body><div class="wrap" style="max-width:1000px">
+<div class="eyebrow">Rendant UI</div><h1>Dark Mode</h1><div class="sub" style="margin-bottom:26px">Alle Beispielansichten dieses Ordners.</div>
+<div class="card"><a href="dashboard-dark.html" style="display:flex;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--rd-line);text-decoration:none;color:var(--rd-text)">
+<span style="font-size:14.5px;font-weight:500">Übersicht (dunkel)</span><span class="num" style="font-size:12px;color:var(--rd-text-faint)">dashboard-dark.html</span></a><a href="login-dark.html" style="display:flex;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--rd-line);text-decoration:none;color:var(--rd-text)">
+<span style="font-size:14.5px;font-weight:500">Anmeldung (dunkel)</span><span class="num" style="font-size:12px;color:var(--rd-text-faint)">login-dark.html</span></a><a href="../ultra-wide/dashboard-4k-dark.html" style="display:flex;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--rd-line);text-decoration:none;color:var(--rd-text)">
+<span style="font-size:14.5px;font-weight:500">Ultra-Wide 4K (dunkel)</span><span class="num" style="font-size:12px;color:var(--rd-text-faint)">../ultra-wide/dashboard-4k-dark.html</span></a></div></div></body></html>

@@ -1,0 +1,39 @@
+<!DOCTYPE html><html lang="de" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rendant — Logo-Anwendung</title><link rel="stylesheet" href="../05-design-tokens/tokens.css"><link rel="stylesheet" href="../05-design-tokens/theme-light.css"><link rel="stylesheet" href="../05-design-tokens/theme-dark.css"><link rel="stylesheet" href="../05-design-tokens/typography.css"><link rel="stylesheet" href="../04-guilloche/implementation/guilloche.css"><style>*{box-sizing:border-box}body{margin:0;background:var(--rd-bg);color:var(--rd-text);font-family:var(--font-ui)}
+.w{max-width:1100px;margin:0 auto;padding:56px 32px 90px;position:relative;z-index:1}
+h1{font-family:var(--font-display);font-weight:400;font-size:34px;margin:8px 0 6px}
+h2{font-family:var(--font-display);font-weight:500;font-size:20px;margin:52px 0 14px;padding-bottom:10px;border-bottom:1px solid var(--rd-line)}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--rd-accent)}
+.sub{color:var(--rd-text-muted);font-size:14px;max-width:64ch;line-height:1.65}
+.card{background:var(--rd-surface);border:1px solid var(--rd-line);border-radius:4px;padding:26px}
+.row{display:grid;gap:18px}
+code,pre{font-family:var(--font-mono);font-size:12.5px}
+pre{background:var(--rd-bg-sunken);border:1px solid var(--rd-line);border-radius:3px;padding:16px;overflow:auto;line-height:1.6}
+.sw{height:76px;border-radius:3px;display:flex;align-items:flex-end;padding:8px;font-family:var(--font-mono);font-size:10.5px}
+button{font-family:var(--font-ui);font-size:13px;font-weight:500;padding:9px 18px;border-radius:3px;border:1px solid var(--rd-color-brand-forest);background:var(--rd-color-brand-forest);color:#F7F3EA;cursor:pointer}
+button.ghost{background:transparent;color:var(--rd-text);border-color:var(--rd-line-strong)}
+</style></head><body><div class="w">
+<div class="eyebrow">Implementation</div><h1>Logo-Anwendung</h1>
+<p class="sub">Alle Dateien liegen in <code>02-logo/</code>. Für Umgebungen ohne installierte Spectral die Varianten aus <code>svg-outlined/</code> verwenden.</p>
+<div style="margin-top:20px"><button class="ghost" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'">Light / Dark umschalten</button></div>
+<h2>Hauptlockup</h2>
+<div class="row" style="grid-template-columns:1fr 1fr">
+<div class="card" style="background:#F7F3EA;display:flex;align-items:center;justify-content:center;min-height:170px"><img src="../02-logo/svg/rendant-logo-primary-horizontal.svg" alt="Rendant Logo" style="width:300px"></div>
+<div class="card" style="background:#0F2A22;display:flex;align-items:center;justify-content:center;min-height:170px"><img src="../02-logo/svg/rendant-logo-horizontal-on-dark.svg" alt="Rendant Logo auf dunklem Grund" style="width:300px"></div>
+</div>
+<h2>Signet in Größenstufen</h2>
+<div class="card" style="display:flex;align-items:flex-end;gap:38px;flex-wrap:wrap">
+<div style="text-align:center"><img src="../02-logo/svg/rendant-symbol.svg" width="96" height="96" alt="Signet 96 px"><div style="font-family:var(--font-mono);font-size:10.5px;color:var(--rd-text-faint);margin-top:8px">96 px</div></div><div style="text-align:center"><img src="../02-logo/svg/rendant-symbol.svg" width="64" height="64" alt="Signet 64 px"><div style="font-family:var(--font-mono);font-size:10.5px;color:var(--rd-text-faint);margin-top:8px">64 px</div></div><div style="text-align:center"><img src="../02-logo/svg/rendant-symbol.svg" width="44" height="44" alt="Signet 44 px"><div style="font-family:var(--font-mono);font-size:10.5px;color:var(--rd-text-faint);margin-top:8px">44 px</div></div><div style="text-align:center"><img src="../02-logo/svg/rendant-symbol.svg" width="32" height="32" alt="Signet 32 px"><div style="font-family:var(--font-mono);font-size:10.5px;color:var(--rd-text-faint);margin-top:8px">32 px</div></div><div style="text-align:center"><img src="../02-logo/svg/rendant-symbol-small-size.svg" width="24" height="24" alt="Signet 24 px"><div style="font-family:var(--font-mono);font-size:10.5px;color:var(--rd-text-faint);margin-top:8px">24 px</div></div><div style="text-align:center"><img src="../02-logo/svg/rendant-symbol-small-size.svg" width="16" height="16" alt="Signet 16 px"><div style="font-family:var(--font-mono);font-size:10.5px;color:var(--rd-text-faint);margin-top:8px">16 px</div></div>
+</div>
+<h2>Schutzraum</h2>
+<div class="card"><img src="../02-logo/svg/rendant-clearspace-diagram.svg" alt="Schutzraum" style="width:100%;max-width:520px"></div>
+<h2>Einbindung</h2>
+<pre>&lt;img src="02-logo/svg/rendant-logo-primary-horizontal.svg" alt="Rendant" height="32"&gt;
+
+&lt;!-- Signet inline, Farbe erbt von currentColor --&gt;
+&lt;svg viewBox="0 0 96 96" width="24" height="24" fill="none" stroke="currentColor"&gt;
+  &lt;g stroke-width="8"&gt;
+    &lt;path d="M32 22 V70"/&gt;&lt;path d="M32 22 H53 C65 22 65 44 53 44 H32"/&gt;&lt;path d="M50 44 L67 70"/&gt;
+  &lt;/g&gt;
+  &lt;path d="M22 80 H74" stroke-width="4"/&gt;
+&lt;/svg&gt;</pre>
+</div></body></html>

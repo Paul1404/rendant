@@ -33,7 +33,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 				content:
 					"Finanzverwaltung für Vereine: erfassen, auswerten und nachweisen.",
 			},
-			{ name: "theme-color", content: "#0F4435" },
+			{ name: "theme-color", content: "#0F2A22" },
 		],
 		links: [
 			{ rel: "stylesheet", href: appCss },
@@ -56,7 +56,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 				href: `/apple-touch-icon.png${v}`,
 				sizes: "180x180",
 			},
-			{ rel: "manifest", href: "/manifest.webmanifest" },
+			{ rel: "manifest", href: `/manifest.webmanifest${v}` },
 		],
 	}),
 	loader: async (): Promise<{ branding: Branding }> => ({

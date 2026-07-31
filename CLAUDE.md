@@ -471,7 +471,8 @@ that suite, then builds and starts the real Docker image and checks `/api/health
 - SVG is the primary source of truth. Generate all PNGs and ICO from it via a `scripts/generate-icons.ts` script using sharp.
 - The SVG design should reflect the app purpose. A plain letter on a colored rounded square is acceptable if done cleanly. No generic placeholders.
 - Wire all variants into `__root.tsx` head(): SVG first, then PNG 32/16, ICO shortcut, apple-touch, manifest link.
-- The `server.ts` wrapper must serve all favicon/icon/manifest files from `dist/client/` with a 1-day cache header -- they will 404 otherwise.
+- Keep favicon, icon, and manifest sources in `public/`. TanStack Start/Nitro
+  copies them to `.output/public/` and serves them with the built application.
 
 ### Design
 - Every UI should feel modern, clean, and slightly elegant -- the kind where someone opens it and says "oh this looks good"
@@ -480,6 +481,24 @@ that suite, then builds and starts the real Docker image and checks `/api/health
 - Dark mode support by default
 - Subtle animations where they add polish, never where they distract
 - When in doubt: less is more
+
+### Rendant Brand Identity
+- `Rendant-brand-identity/` is the source of truth for logo geometry, usage
+  rules, design tokens, guilloche artwork, and document examples.
+- The production palette is Forest `#0F2A22`, Brass `#B08A3E`, Brass Light
+  `#C9A960`, Brass Dark `#8A6A28`, Parchment `#F7F3EA`, and Ink `#12261F`.
+  Brass Dark is the accessible brass text role on light backgrounds. Plain
+  Brass is decorative there because it does not meet the text contrast bar.
+- Spectral is the display and wordmark face, IBM Plex Sans is the interface
+  face, and IBM Plex Mono is used for amounts, identifiers, and timestamps.
+  Load all three through the committed Fontsource dependencies. Never add a
+  Google Fonts or other runtime font request.
+- Map brand roles through the semantic variables in `src/styles.css`; use
+  Tailwind roles such as `primary`, `muted`, `brass`, and `nav` in components
+  instead of introducing duplicate hardcoded colors.
+- `public/logo.svg`, `public/favicon.svg`, `public/logo-square.svg`, and
+  `public/logo-maskable.svg` are the production web sources. Run
+  `bun run icons` after changing their geometry or colors.
 
 ---
 

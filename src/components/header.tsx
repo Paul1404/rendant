@@ -69,21 +69,21 @@ export function Header() {
 	}
 
 	return (
-		<header className="sticky top-0 z-30 border-b border-border/70 bg-background/75 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
+		<header className="sticky top-0 z-30 border-b border-nav-accent/20 bg-nav text-nav-foreground shadow-sm">
 			<div className="mx-auto grid max-w-6xl grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-6 lg:flex lg:justify-between lg:gap-4">
 				<Link
 					to="/protokolle"
 					aria-label="Rendant Startseite"
 					className="group rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
 				>
-					<BrandLockup variant="bar" />
+					<BrandLockup variant="bar" onDark className="text-nav-foreground" />
 				</Link>
 
 				<nav
 					aria-label="Hauptnavigation"
 					className="order-3 col-span-2 min-w-0 lg:order-none lg:col-span-1"
 				>
-					<div className="hidden items-center gap-0.5 rounded-xl border border-border/70 bg-background/60 p-1 shadow-sm lg:flex">
+					<div className="hidden items-center gap-0.5 rounded-lg border border-nav-accent/25 bg-white/5 p-1 lg:flex">
 						{navItems.map(({ href, label, icon: Icon, exact }) => {
 							const active = exact
 								? pathname === href
@@ -97,8 +97,8 @@ export function Header() {
 									className={cn(
 										"h-8 rounded-lg px-3",
 										active
-											? "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
-											: "text-muted-foreground hover:text-foreground",
+											? "bg-nav-accent/15 text-nav-accent hover:bg-nav-accent/20 hover:text-nav-accent"
+											: "text-nav-foreground/70 hover:bg-white/8 hover:text-nav-foreground",
 									)}
 								>
 									<Link to={href} aria-current={active ? "page" : undefined}>
@@ -111,7 +111,7 @@ export function Header() {
 					</div>
 
 					<TooltipProvider>
-						<div className="flex items-center justify-between gap-1 rounded-xl border border-border/70 bg-background/60 p-1 shadow-sm lg:hidden">
+						<div className="flex items-center justify-between gap-1 rounded-lg border border-nav-accent/25 bg-white/5 p-1 lg:hidden">
 							{navItems.map(({ href, label, icon: Icon, exact }) => {
 								const active = exact
 									? pathname === href
@@ -126,8 +126,8 @@ export function Header() {
 												className={cn(
 													"border",
 													active
-														? "border-primary/25 bg-primary/12 text-primary hover:bg-primary/15 hover:text-primary"
-														: "border-transparent text-muted-foreground hover:text-foreground",
+														? "border-nav-accent/30 bg-nav-accent/15 text-nav-accent hover:bg-nav-accent/20 hover:text-nav-accent"
+														: "border-transparent text-nav-foreground/70 hover:bg-white/8 hover:text-nav-foreground",
 												)}
 											>
 												<Link
@@ -149,10 +149,10 @@ export function Header() {
 				</nav>
 
 				<div className="flex items-center justify-end gap-1">
-					<ThemeToggle />
+					<ThemeToggle variant="nav" />
 
 					<span
-						className="mx-1 hidden h-5 w-px bg-border sm:block"
+						className="mx-1 hidden h-5 w-px bg-nav-accent/25 sm:block"
 						aria-hidden
 					/>
 					<Button
@@ -160,7 +160,7 @@ export function Header() {
 						size="sm"
 						onClick={logout}
 						disabled={pending}
-						className="text-muted-foreground hover:text-foreground"
+						className="text-nav-foreground/70 hover:bg-white/8 hover:text-nav-foreground"
 					>
 						<LogOut className="h-4 w-4 sm:mr-1.5" />
 						<span className="hidden sm:inline">Abmelden</span>
