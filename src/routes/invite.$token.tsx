@@ -143,10 +143,7 @@ function Shell({
 				<div className="mb-6 flex flex-col items-center text-center">
 					<BrandLockup variant="hero" className="mb-4" />
 					<h1 className="wordmark text-xl text-foreground">Rendant</h1>
-					<p className="mt-1 text-sm font-medium text-foreground/75">
-						Erfassen. Auswerten. Nachweisen.
-					</p>
-					<p className="mt-1 text-sm text-muted-foreground">
+					<p className="mt-2 text-sm text-muted-foreground">
 						läuft für {vereinsname}
 					</p>
 				</div>

@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.25.1 - 2026-07-31
+
+- Rendant verzichtet auf den werblichen Claim im Login, bei Einladungen und
+  in App-Metadaten. Die Oberfläche bleibt bewusst sachlich und erklärt die
+  Software durch ihre Funktionen statt durch Slogans.
+
 ## 1.25.0 - 2026-07-31
 
 - Rendant verwendet jetzt die neue Registermarke mit der dokumentarischen

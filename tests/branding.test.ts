@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const publicPath = (name: string) =>
 	new URL(`../public/${name}`, import.meta.url);
+const sourcePath = (name: string) => new URL(`../src/${name}`, import.meta.url);
 
 describe("Rendant web branding", () => {
 	it("keeps the manifest aligned with the production brand", () => {
@@ -49,6 +50,20 @@ describe("Rendant web branding", () => {
 			expect(source).toContain("<title");
 			expect(source).toContain("#0F2A22");
 			expect(source).toMatch(/#(?:B08A3E|C9A960)/);
+		}
+	});
+
+	it("keeps entry surfaces factual instead of repeating a marketing claim", () => {
+		const claim = "Erfassen. Auswerten. Nachweisen.";
+		const entrySources = [
+			readFileSync(sourcePath("routes/login.tsx"), "utf8"),
+			readFileSync(sourcePath("routes/invite.$token.tsx"), "utf8"),
+			readFileSync(sourcePath("routes/__root.tsx"), "utf8"),
+			readFileSync(publicPath("manifest.webmanifest"), "utf8"),
+		];
+
+		for (const source of entrySources) {
+			expect(source).not.toContain(claim);
 		}
 	});
 });

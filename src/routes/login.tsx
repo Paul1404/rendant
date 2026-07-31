@@ -32,10 +32,7 @@ function LoginPage() {
 						Finanzverwaltung für Vereine
 					</p>
 					<h1 className="wordmark mt-1.5 text-3xl text-foreground">Rendant</h1>
-					<p className="mt-2 text-sm font-medium text-foreground/75">
-						Erfassen. Auswerten. Nachweisen.
-					</p>
-					<p className="mt-1.5 text-sm text-muted-foreground">
+					<p className="mt-2 text-sm text-muted-foreground">
 						läuft für {branding.vereinsname}
 					</p>
 				</div>

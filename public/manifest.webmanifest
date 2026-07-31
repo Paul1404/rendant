@@ -2,7 +2,7 @@
   "name": "Rendant Finanzverwaltung für Vereine",
   "short_name": "Rendant",
   "lang": "de",
-  "description": "Erfassen. Auswerten. Nachweisen.",
+  "description": "Finanzverwaltung für Vereine.",
   "start_url": "/protokolle",
   "scope": "/",
   "display": "standalone",

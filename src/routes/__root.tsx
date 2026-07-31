@@ -30,8 +30,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 			{ title: "Rendant · Finanzverwaltung für Vereine" },
 			{
 				name: "description",
-				content:
-					"Finanzverwaltung für Vereine: erfassen, auswerten und nachweisen.",
+				content: "Finanzverwaltung für Vereine.",
 			},
 			{ name: "theme-color", content: "#0F2A22" },
 		],

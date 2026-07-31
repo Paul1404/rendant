@@ -27,6 +27,11 @@ unchanged. Map the tokens to the application's existing theme contract, copy
 only the required public assets, and verify light mode, dark mode, responsive
 layouts, printed documents, favicons, and PWA metadata in the target runtime.
 
+Rendant uses no marketing claim. Product surfaces describe concrete functions
+and content instead of repeating promotional slogans. The legacy
+`rendant-lockup-with-tagline.svg` filename is retained for compatibility, but
+the asset contains only the factual product category.
+
 Do not use `#B08A3E` as text on `#F7F3EA`. Its 2.89:1 contrast ratio fails WCAG
 AA even for large text. Use `#8A6A28` for accessible light-theme accent text.
 
