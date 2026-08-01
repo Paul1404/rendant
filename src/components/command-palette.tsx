@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useRouteContext } from "@tanstack/react-router";
 import { Command } from "cmdk";
-import { Download, List, Plus, Settings, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
 	Dialog,
@@ -10,28 +9,15 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { formatDateDe } from "@/lib/date";
+import { APP_NAV_ITEMS } from "@/lib/navigation";
 import { orpc } from "@/lib/orpc";
-
-const NAV_ITEMS = [
-	{ to: "/protokolle", label: "Protokolle", icon: List },
-	{ to: "/protokolle/neu", label: "Neues Protokoll", icon: Plus },
-	{ to: "/protokolle/export", label: "Import & Export", icon: Download },
-	{
-		to: "/protokolle/audit",
-		label: "Audit-Log",
-		icon: ShieldCheck,
-		adminOnly: true,
-	},
-	{ to: "/protokolle/einstellungen", label: "Einstellungen", icon: Settings },
-] as const;
 
 export function CommandPalette() {
 	const [open, setOpen] = useState(false);
 	const navigate = useNavigate();
 	const { user } = useRouteContext({ from: "/protokolle" });
-	const navItems = NAV_ITEMS.filter(
-		(item) =>
-			!("adminOnly" in item) || !item.adminOnly || user.role === "admin",
+	const navItems = APP_NAV_ITEMS.filter(
+		(item) => !item.adminOnly || user.role === "admin",
 	);
 
 	const { data: protokolle } = useQuery(
@@ -78,15 +64,15 @@ export function CommandPalette() {
 						</Command.Empty>
 
 						<Command.Group heading="Navigation">
-							{navItems.map(({ to, label, icon: Icon }) => (
+							{navItems.map(({ href, label, paletteLabel, icon: Icon }) => (
 								<Command.Item
-									key={to}
-									value={`navigation ${label}`}
-									onSelect={() => go(to)}
+									key={href}
+									value={`navigation ${paletteLabel ?? label}`}
+									onSelect={() => go(href)}
 									className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm outline-none data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
 								>
 									<Icon className="size-4 text-muted-foreground" />
-									<span>{label}</span>
+									<span>{paletteLabel ?? label}</span>
 								</Command.Item>
 							))}
 						</Command.Group>

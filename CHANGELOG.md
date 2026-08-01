@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.26.3 - 2026-08-01
+
+- Die Hauptnavigation bleibt bei schmalen und mittleren Bildschirmbreiten in
+  einer eigenen Zeile. Auf breiten Bildschirmen nutzt die Kopfleiste mehr
+  Platz, damit alle Bereiche vollständig sichtbar und erreichbar bleiben.
+- Die Befehlspalette enthält wieder dieselben Bereiche wie die sichtbare
+  Hauptnavigation.
+
 ## 1.26.2 - 2026-08-01
 
 - Aufrufe der bisherigen Adresse `svufo.sv-untereuerheim.de` werden unter
