@@ -1,5 +1,6 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import type { HistoricalRevenueCreateInput } from "@/lib/schemas";
+import { umsatzbereichLabel } from "@/lib/umsatzbereich";
 import { type DbOrTx, db } from "@/server/db";
 import { anlassKatalog, historicalRevenues } from "@/server/db/schema";
 import type { AuthUser } from "@/server/orpc/base";
@@ -53,6 +54,7 @@ function matchesIdempotentRequest(
 ): boolean {
 	return (
 		row.anlass_datum === input.anlass_datum &&
+		row.umsatzbereich === input.umsatzbereich &&
 		row.anlass_katalog_id === input.anlass_katalog_id &&
 		row.anlass ===
 			`${row.vergleichsgruppe} · ${input.veranstaltungsbezeichnung}` &&
@@ -82,14 +84,18 @@ export async function createHistoricalRevenueWithDb(
 	actor: AuthUser,
 	options: { allowDifferentActor?: boolean } = {},
 ): Promise<{ row: HistoricalRevenueRow; created: boolean }> {
-	const [umsatzgruppe] = await database
-		.select({ id: anlassKatalog.id, name: anlassKatalog.name })
-		.from(anlassKatalog)
-		.where(eq(anlassKatalog.id, input.anlass_katalog_id))
-		.limit(1)
-		.for("key share");
-	if (!umsatzgruppe) throw new HistoricalRevenueCatalogError();
-	const anlass = `${umsatzgruppe.name} · ${input.veranstaltungsbezeichnung}`;
+	const [umsatzgruppe] = input.anlass_katalog_id
+		? await database
+				.select({ id: anlassKatalog.id, name: anlassKatalog.name })
+				.from(anlassKatalog)
+				.where(eq(anlassKatalog.id, input.anlass_katalog_id))
+				.limit(1)
+				.for("key share")
+		: [];
+	if (input.anlass_katalog_id && !umsatzgruppe)
+		throw new HistoricalRevenueCatalogError();
+	const bereich = umsatzbereichLabel(input.umsatzbereich);
+	const anlass = `${bereich} · ${input.veranstaltungsbezeichnung}`;
 	if (anlass.length > 200) {
 		throw new HistoricalRevenueInputError(
 			"Veranstaltungsbezeichnung ist zusammen mit der Umsatzgruppe zu lang",
@@ -102,8 +108,9 @@ export async function createHistoricalRevenueWithDb(
 			idempotency_key: input.idempotency_key,
 			anlass_datum: input.anlass_datum,
 			anlass,
-			vergleichsgruppe: umsatzgruppe.name,
-			anlass_katalog_id: umsatzgruppe.id,
+			vergleichsgruppe: bereich,
+			umsatzbereich: input.umsatzbereich,
+			anlass_katalog_id: umsatzgruppe?.id ?? null,
 			umsatz_cent: input.umsatz_cent,
 			ausgaben_cent: input.ausgaben_cent,
 			bemerkung: nullableText(input.bemerkung),

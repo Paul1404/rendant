@@ -5,7 +5,7 @@ Kassenbewegungen, wertet Umsätze und Steuern aus und hält jeden Vorgang
 nachvollziehbar für Buchhaltung, Prüfung und Übergabe fest.
 
 Die Anwendung bildet den Ablauf von der Kassenaufnahme bis zum PDF-Beleg ab.
-Sie verwaltet Kassen und Umsatzgruppen, berechnet Einnahmen und Umsatzsteuer,
+Sie verwaltet Kassen und Umsatzbereiche, berechnet Einnahmen und Umsatzsteuer,
 vergleicht Veranstaltungen über mehrere Jahre und übernimmt historische
 Umsätze aus Excel. Eine direkte DATEV-Anbindung gibt es nicht. PDF- und
 CSV-Dateien werden für die weitere Übergabe an Buchhaltung oder Steuerberatung
@@ -17,7 +17,7 @@ heruntergeladen.
 | --- | --- | --- |
 | Protokolle | Dashboard, Suche, Zeitfilter und Belegliste | Alle angemeldeten Benutzer |
 | Neu | Vollständige Erfassung eines Kassenzählprotokolls | Alle angemeldeten Benutzer |
-| Umsätze | Vorjahresvergleich, Altunterlagen und Pflege der Zuordnungen | Vergleich für alle, Änderungen nur für Admins |
+| Umsätze | Vorjahresvergleich und Altunterlagen | Vergleich für alle, Erfassung nur für Admins |
 | Import & Export | Excel-Import, XLSX, CSV, USt-Auswertung und JSON-Geschäftsarchiv | Fachliche Exporte für alle, Import und Geschäftsarchiv nur für Admins |
 | Audit-Log | Filterbare Ereignisspur aller relevanten Vorgänge | Nur Admins |
 | Einstellungen | Eigene Benachrichtigungen sowie zentrale Verwaltung | Persönliche Einstellung für alle, Verwaltung nur für Admins |
@@ -26,7 +26,7 @@ heruntergeladen.
 
 ### Kassenzählprotokolle
 
-- Erfassung von Kasse, Umsatzgruppe, Veranstaltungsbezeichnung, Datum sowie
+- Erfassung von Kasse, Umsatzbereich, Details, Datum sowie
   zählender und optional prüfender Person
 - Bargeldzählung über 15 Münz- und Scheinstückelungen
 - Kassenabhängiger Anfangsbestand, Kartenzahlungen und betriebliche Ausgaben
@@ -56,7 +56,7 @@ heruntergeladen.
 - Vergleich mit dem vorherigen Zeitraum und kontextbezogene Entwicklung
 - Umsatzverlauf nach Tag, Woche oder Monat mit auswählbaren Punkten und einer
   gemeinsamen Detailansicht für Kassenzählprotokolle und historische Umsätze
-- Aufteilung von Bar- und Kartenzahlungen sowie Umsatz nach Umsatzgruppen
+- Aufteilung von Bar- und Kartenzahlungen sowie Umsatz nach Umsatzbereichen
 - Ergebnis aus Umsatz und erfassten Ausgaben in der Detailauswertung
 - Umsatzsteuer, Vorsteuer aus Ausgaben und daraus berechnete Zahllast
 - Suche sowie Filter nach Zeitraum, Kalenderjahr und Storno-Status
@@ -67,53 +67,42 @@ heruntergeladen.
 
 ### Umsätze und Vorjahresvergleich
 
-Der Umsatzbereich verbindet aktuelle Kassenzählprotokolle mit Zahlen aus
-Altunterlagen. Er verwendet zwei getrennte Angaben:
+Die Auswertung verbindet aktuelle Kassenzählprotokolle mit Zahlen aus
+Altunterlagen. Neue Einträge verwenden zwei Angaben:
 
-- Die `Umsatzgruppe` ist die stabile Kategorie, zum Beispiel `Heimspiel` oder
-  `Biergarten`. Sie verbindet vergleichbare Veranstaltungen über Jahre.
-- Die `Veranstaltungsbezeichnung` beschreibt den konkreten Termin, zum Beispiel
-  `Heimspiel gegen Grettstadt`. Der Originaltext bleibt am Beleg erhalten.
+- Der feste `Umsatzbereich` ordnet den Vorgang fachlich ein, zum Beispiel
+  `Wirtschaftsbetrieb` oder `Veranstaltungen`.
+- `Details` beschreiben den konkreten Termin oder die Kasse, zum Beispiel
+  `Biergarten Donnerstag` oder `Sommerfest · Essenkasse`.
 
-Die Vergleichskarten zeigen für jede Umsatzgruppe:
+Die Vergleichskarten zeigen für jeden Umsatzbereich:
 
 - Umsatz und Ergebnis je Kalenderjahr
 - absolute und prozentuale Veränderung zum Vorjahr
 - Anzahl und Herkunft der enthaltenen Protokolle und Altunterlagen
-- bei wiederkehrenden Gruppen die Anzahl unterschiedlicher Termine und den
-  durchschnittlichen Umsatz pro Termin
-- bei einmaligen Gruppen den direkten Vergleich der Jahressummen
+- die Anzahl unterschiedlicher Termine und den durchschnittlichen Umsatz pro
+  Termin
+- einen auf alle Jahre gleich angewendeten Monatszeitraum
 
-Mehrere Kassenprotokolle derselben Umsatzgruppe am selben Tag zählen dabei als
-ein realer Termin. Nicht zugeordnete ältere Freitexte bleiben über eine
-normalisierte Ersatzgruppe auswertbar, bis ein Admin sie zuordnet.
+Mehrere Kassenprotokolle desselben Umsatzbereichs am selben Tag zählen dabei als
+ein realer Termin. Ältere Datensätze behalten ihre bisherige Gruppierung, damit
+keine historische Zuordnung stillschweigend umgedeutet wird.
 
-Admins können historische Umsätze einzeln mit Datum, Umsatzgruppe,
-Veranstaltungsbezeichnung, Umsatz, Ausgaben, Quellreferenz und Bemerkung
+Admins können historische Umsätze einzeln mit Datum, Umsatzbereich, Details,
+Umsatz, Ausgaben, Quellreferenz und Bemerkung
 erfassen. Ein Hinweis meldet bereits vorhandene Protokolle oder Altunterlagen
-für denselben Tag und dieselbe Gruppe, ohne eine bewusst gewünschte Erfassung
+für denselben Tag und denselben Bereich, ohne eine bewusst gewünschte Erfassung
 zu blockieren. Historische Werte fließen in Dashboard und Umsatzvergleich ein,
 aber bewusst nicht in die Umsatzsteuer-Auswertung.
 
-Admins können außerdem:
-
-- Umsatzgruppen direkt in der Vergleichskarte umbenennen
-- zwischen `wiederkehrend` und `einmalig` wechseln
-- Gruppen für neue Erfassungen aktivieren oder deaktivieren
-- mehrere Protokolle und Altunterlagen gemeinsam einer Zielgruppe zuordnen
-- den Zielnamen bei der Zuordnung mitpflegen
-- historische Umsätze mit einer Begründung stornieren
-
-Eine Sammelzuordnung ist transaktional und berücksichtigt zwischenzeitliche
-Änderungen. Übersprungene Einträge werden gemeldet. Die fachliche Zuordnung
-ändert sich, der ursprüngliche Belegtext bleibt zur Nachvollziehbarkeit
-erhalten. Stornierte Altunterlagen bleiben sichtbar, werden aber aus Dashboard
-und Vergleich entfernt.
+Admins können historische Umsätze mit einer Begründung stornieren. Stornierte
+Altunterlagen bleiben sichtbar, werden aber aus Dashboard und Vergleich
+entfernt.
 
 ### Import und Export
 
-- Excel-Vorlage für historische Umsätze mit den aktuell gepflegten
-  Umsatzgruppen
+- Excel-Vorlage für historische Umsätze mit der bisherigen Katalogzuordnung.
+  Neue Einzelerfassungen verwenden die sechs festen Umsatzbereiche
 - Zweistufiger Excel-Import mit Prüfung, Vorschau, Zeilenfehlern,
   Summen, Dublettenhinweisen und ausdrücklicher Bestätigung
 - Atomare und idempotente Übernahme von höchstens 500 Zeilen und 5 MB pro Datei
@@ -127,7 +116,7 @@ und Vergleich entfernt.
   Währungszellen
 - Protokoll-CSV und Umsatzsteuer-CSV für einen gewählten Zeitraum
 - Versioniertes JSON-Geschäftsarchiv für Admins mit Protokollen, historischen
-  Umsätzen, Kassen, Umsatzgruppen, Belegnummernsequenzen und sicheren
+  Umsätzen, Kassen, den historischen Katalogdaten, Belegnummernsequenzen und sicheren
   Einstellungen. Es ersetzt kein Datenbank- oder Objektspeicher-Backup
 - Geschützte Downloads ohne Browser-Cache und mit abgesicherten CSV-Inhalten
 
@@ -147,7 +136,7 @@ steht in [`docs/backup-restore.md`](docs/backup-restore.md).
 - Append-only Audit-Log für Anmeldungen, Einladungen, Buchungsvorgänge,
   Downloads, Importe und administrative Änderungen
 - Suche, Kategoriefilter, Seitenwechsel und aufklappbare Metadaten im Audit-Log
-- Verwaltung von Vereinsstammdaten, Kassen, Umsatzgruppen, Belegnummern und
+- Verwaltung von Vereinsstammdaten, Kassen, Belegnummern und
   Umsatzsteuer-Standardwerten in der Anwendung
 - Optionale E-Mail-Benachrichtigung bei neuen Protokollen. SMTP-Zugangsdaten
   werden in der Anwendung gepflegt und verschlüsselt gespeichert

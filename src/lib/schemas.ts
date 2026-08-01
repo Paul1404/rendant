@@ -1,6 +1,7 @@
 import * as v from "valibot";
 import { isIsoCalendarDate, todayIsoDate } from "@/lib/date";
 import { DENOMINATION_KEYS } from "@/lib/denominations";
+import { UMSATZBEREICHE } from "@/lib/umsatzbereich";
 
 // Validation schemas in Valibot, shared between the oRPC procedures (server)
 // and the forms (client).
@@ -48,6 +49,10 @@ export type UmsatzUstSplitInput = v.InferOutput<typeof UmsatzUstSplitSchema>;
 
 export const UmsatzUstBasisSchema = v.picklist(["pre_card", "post_card"]);
 export type UmsatzUstBasis = v.InferOutput<typeof UmsatzUstBasisSchema>;
+
+export const UmsatzbereichSchema = v.picklist(
+	UMSATZBEREICHE.map((entry) => entry.code),
+);
 
 export const UmsatzUstBasisSettingsSchema = v.object({
 	umsatz_ust_basis: UmsatzUstBasisSchema,
@@ -128,9 +133,10 @@ export const CreateProtokollSchema = v.object({
 	veranstaltungsbezeichnung: v.pipe(
 		v.string(),
 		v.trim(),
-		v.minLength(1, "Bitte eine Veranstaltungsbezeichnung angeben"),
+		v.minLength(1, "Bitte Details angeben"),
 		v.maxLength(120),
 	),
+	umsatzbereich: UmsatzbereichSchema,
 	// Optional link to the anlass catalog (plans/007). The `anlass` text above
 	// stays the human label; this is the stable grouping key.
 	anlass_katalog_id: v.optional(
@@ -262,11 +268,12 @@ const historicalRevenueOptionalText = (maxLength: number) =>
 export const HistoricalRevenueCreateSchema = v.object({
 	idempotency_key: v.pipe(v.string(), v.uuid()),
 	anlass_datum: historicalRevenueDate,
-	anlass_katalog_id: v.pipe(v.string(), v.uuid()),
+	anlass_katalog_id: v.optional(v.nullable(v.pipe(v.string(), v.uuid())), null),
+	umsatzbereich: UmsatzbereichSchema,
 	veranstaltungsbezeichnung: v.pipe(
 		v.string(),
 		v.trim(),
-		v.minLength(1, "Bitte eine Veranstaltungsbezeichnung angeben"),
+		v.minLength(1, "Bitte Details angeben"),
 		v.maxLength(120),
 	),
 	umsatz_cent: v.pipe(

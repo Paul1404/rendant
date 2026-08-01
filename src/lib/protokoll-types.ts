@@ -1,5 +1,6 @@
 import type { DenominationCounts } from "@/lib/denominations";
 import type { UmsatzUstBasis } from "@/lib/schemas";
+import type { Umsatzbereich } from "@/lib/umsatzbereich";
 
 // Pure, client-safe shapes for a protokoll and its children. The oRPC RPC
 // serializer preserves Date values across the wire, so Date-typed fields stay
@@ -32,6 +33,7 @@ export type ProtokollRow = {
 	kassennummer: string;
 	kassenbezeichnung: string;
 	anlass: string;
+	umsatzbereich: Umsatzbereich | null;
 	anlass_katalog_id: string | null;
 	gezaehlt_von: string;
 	geprueft_von: string;

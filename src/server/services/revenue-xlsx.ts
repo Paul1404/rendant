@@ -4,8 +4,8 @@ import type { RevenueExportRow } from "@/lib/revenue-csv";
 const HEADER = [
 	"Datum",
 	"Jahr",
-	"Veranstaltung",
-	"Umsatzgruppe",
+	"Umsatzbereich",
+	"Details",
 	"Umsatz brutto EUR",
 	"Ausgaben EUR",
 	"Überschuss EUR",
@@ -35,8 +35,10 @@ export async function revenueXlsxDocument(
 		sheet.addRow([
 			excelDate(row.date),
 			Number(row.date.slice(0, 4)),
-			row.occasion,
-			row.comparisonGroup,
+			row.revenueArea || row.comparisonGroup,
+			row.occasion.includes(" · ")
+				? row.occasion.slice(row.occasion.indexOf(" · ") + 3)
+				: row.occasion,
 			row.revenueCent / 100,
 			row.expensesCent / 100,
 			(row.revenueCent - row.expensesCent) / 100,

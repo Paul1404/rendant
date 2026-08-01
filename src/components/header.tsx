@@ -124,7 +124,7 @@ export function Header() {
 												variant="ghost"
 												size="icon-sm"
 												className={cn(
-													"border",
+													"size-11 border sm:size-11",
 													active
 														? "border-nav-accent/30 bg-nav-accent/15 text-nav-accent hover:bg-nav-accent/20 hover:text-nav-accent"
 														: "border-transparent text-nav-foreground/70 hover:bg-white/8 hover:text-nav-foreground",

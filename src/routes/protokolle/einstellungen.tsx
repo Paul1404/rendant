@@ -2,14 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
 	Bell,
 	Building2,
-	CalendarRange,
 	Hash,
 	Mail,
 	Receipt,
 	Users,
 	Wallet,
 } from "lucide-react";
-import { AnlassCatalogForm } from "@/components/anlass-catalog-form";
 import { BelegnummerSettingsForm } from "@/components/belegnummer-settings-form";
 import { CashRegistersForm } from "@/components/cash-registers-form";
 import { EmailSettingsForm } from "@/components/email-settings-form";
@@ -25,27 +23,18 @@ import { orpcClient } from "@/lib/orpc";
 export const Route = createFileRoute("/protokolle/einstellungen")({
 	loader: async ({ context }) => {
 		const isAdmin = context.user.role === "admin";
-		const [
-			belegnummer,
-			basis,
-			verein,
-			registers,
-			anlass,
-			admin,
-			email,
-			notify,
-		] = await Promise.all([
-			orpcClient.settings.getBelegnummer(),
-			orpcClient.settings.getUmsatzUstBasis(),
-			orpcClient.settings.getVerein(),
-			orpcClient.registers.list(),
-			orpcClient.anlassKatalog.list(),
-			isAdmin
-				? Promise.all([orpcClient.users.list(), orpcClient.invites.list()])
-				: Promise.resolve(null),
-			isAdmin ? orpcClient.settings.getEmail() : Promise.resolve(null),
-			orpcClient.profile.getNotify(),
-		]);
+		const [belegnummer, basis, verein, registers, admin, email, notify] =
+			await Promise.all([
+				orpcClient.settings.getBelegnummer(),
+				orpcClient.settings.getUmsatzUstBasis(),
+				orpcClient.settings.getVerein(),
+				orpcClient.registers.list(),
+				isAdmin
+					? Promise.all([orpcClient.users.list(), orpcClient.invites.list()])
+					: Promise.resolve(null),
+				isAdmin ? orpcClient.settings.getEmail() : Promise.resolve(null),
+				orpcClient.profile.getNotify(),
+			]);
 		return {
 			currentUserId: context.user.id,
 			settings: belegnummer.settings,
@@ -53,7 +42,6 @@ export const Route = createFileRoute("/protokolle/einstellungen")({
 			umsatzUstBasis: basis.umsatz_ust_basis,
 			verein,
 			registers,
-			anlassKatalog: anlass,
 			admin: admin ? { users: admin[0], invites: admin[1] } : null,
 			email,
 			notifyProtokoll: notify.notify,
@@ -72,7 +60,6 @@ function EinstellungenPage() {
 		umsatzUstBasis,
 		verein,
 		registers,
-		anlassKatalog,
 		admin,
 		email,
 		notifyProtokoll,
@@ -105,17 +92,6 @@ function EinstellungenPage() {
 						description="Vorlagen für Kassennummer, Kassenbezeichnung und Anfangsbestand (Wechselgeld). Beim Erfassen eines Protokolls lassen sich diese Werte mit einem Klick übernehmen. Nur für Admins."
 					/>
 					<CashRegistersForm initial={registers} />
-				</section>
-			) : null}
-
-			{admin ? (
-				<section className="mx-auto max-w-3xl space-y-4">
-					<SectionHeading
-						icon={CalendarRange}
-						title="Umsatzgruppen"
-						description="Fester Katalog für die Auswertung. Beim Erfassen wird eine Umsatzgruppe gewählt und mit einer konkreten Veranstaltungsbezeichnung ergänzt. Wiederkehrende Gruppen (z. B. Heimspiel) werden pro Saison zusammengefasst, einmalige (z. B. Sommerfest) Jahr für Jahr verglichen. Nur für Admins."
-					/>
-					<AnlassCatalogForm initial={anlassKatalog} />
 				</section>
 			) : null}
 

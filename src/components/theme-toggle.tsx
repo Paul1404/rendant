@@ -49,7 +49,7 @@ export function ThemeToggle({
 						title={label}
 						onClick={() => setTheme(value)}
 						className={cn(
-							"inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors",
+							"inline-flex h-11 w-11 items-center justify-center rounded-md transition-colors",
 							variant === "nav"
 								? isActive
 									? "bg-nav-accent/15 text-nav-accent"

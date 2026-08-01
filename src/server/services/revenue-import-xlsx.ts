@@ -5,6 +5,7 @@ import { anlassKey } from "@/lib/anlass";
 import { isIsoCalendarDate, todayIsoDate } from "@/lib/date";
 import { parseGermanAmount } from "@/lib/money";
 import type { HistoricalRevenueCreateInput } from "@/lib/schemas";
+import { inferUmsatzbereich } from "@/lib/umsatzbereich";
 
 export const REVENUE_IMPORT_MAX_ROWS = 500;
 export const REVENUE_IMPORT_MAX_BYTES = 5_000_000;
@@ -365,6 +366,7 @@ export async function parseRevenueImportWorkbook(
 				idempotency_key: deterministicUuid(importId, rowNumber),
 				anlass_datum: date,
 				anlass_katalog_id: group.id,
+				umsatzbereich: inferUmsatzbereich(group.name),
 				veranstaltungsbezeichnung: eventLabel,
 				umsatz_cent: revenueCent,
 				ausgaben_cent: expensesCent,

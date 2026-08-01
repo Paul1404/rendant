@@ -20,7 +20,7 @@ export function SectionHeading({
 	return (
 		<div className={cn("flex items-end justify-between gap-4", className)}>
 			<div>
-				<h2 className="flex items-center gap-2 text-base font-semibold tracking-tight text-foreground">
+				<h2 className="flex items-center gap-2 font-heading text-2xl font-medium tracking-tight text-foreground">
 					{Icon ? <Icon className="h-4 w-4 text-primary" /> : null}
 					{title}
 				</h2>

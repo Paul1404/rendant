@@ -15,7 +15,7 @@ export function VersionChip({ className }: { className?: string }) {
 				type="button"
 				onClick={() => setOpen(true)}
 				className={cn(
-					"inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/60 px-2 py-0.5 font-mono text-[10px] leading-none text-muted-foreground tabular-nums transition-colors hover:border-border hover:text-foreground",
+					"inline-flex min-h-8 items-center gap-1.5 rounded-full border border-border/70 bg-card/60 px-2.5 py-1 font-mono text-[10px] leading-none text-muted-foreground tabular-nums transition-colors hover:border-border hover:text-foreground",
 					className,
 				)}
 				title={`Rendant v${APP_VERSION}`}

@@ -1,0 +1,6 @@
+ALTER TABLE "historical_revenues" ADD COLUMN "umsatzbereich" text;--> statement-breakpoint
+ALTER TABLE "protokolle" ADD COLUMN "umsatzbereich" text;--> statement-breakpoint
+CREATE INDEX "idx_historical_revenues_umsatzbereich" ON "historical_revenues" USING btree ("umsatzbereich");--> statement-breakpoint
+CREATE INDEX "idx_protokolle_umsatzbereich" ON "protokolle" USING btree ("umsatzbereich");--> statement-breakpoint
+ALTER TABLE "historical_revenues" ADD CONSTRAINT "historical_revenues_umsatzbereich_check" CHECK ("historical_revenues"."umsatzbereich" IS NULL OR "historical_revenues"."umsatzbereich" IN ('wirtschaftsbetrieb', 'veranstaltungen', 'eintrittsgelder', 'verkauf_spielfeld', 'seniorennachmittag', 'sonstiges'));--> statement-breakpoint
+ALTER TABLE "protokolle" ADD CONSTRAINT "protokolle_umsatzbereich_check" CHECK ("protokolle"."umsatzbereich" IS NULL OR "protokolle"."umsatzbereich" IN ('wirtschaftsbetrieb', 'veranstaltungen', 'eintrittsgelder', 'verkauf_spielfeld', 'seniorennachmittag', 'sonstiges'));

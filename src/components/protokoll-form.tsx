@@ -30,7 +30,6 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { AnlassKatalogEntry, AnlassTyp } from "@/lib/anlass";
 import { WECHSELGELD_DEFAULT_CENT } from "@/lib/constants";
 import { todayIsoDate } from "@/lib/date";
 import {
@@ -50,6 +49,11 @@ import { formatCent, formatCentPlain, parseGermanAmount } from "@/lib/money";
 import { orpcClient } from "@/lib/orpc";
 import { orpcMessage } from "@/lib/orpc-error";
 import { runSanityChecks } from "@/lib/sanity-checks";
+import {
+	UMSATZBEREICHE,
+	type Umsatzbereich,
+	umsatzbereichLabel,
+} from "@/lib/umsatzbereich";
 import { useFormDraft } from "@/lib/use-form-draft";
 import { cn } from "@/lib/utils";
 
@@ -67,6 +71,7 @@ export type ProtokollInitialValues = {
 	kassennummer?: string;
 	kassenbezeichnung?: string;
 	anlass?: string;
+	umsatzbereich?: Umsatzbereich | null;
 	anlass_katalog_id?: string | null;
 	veranstaltungsbezeichnung?: string;
 	gezaehlt_von?: string;
@@ -85,6 +90,7 @@ type FormDraft = {
 	kassennummer: string;
 	kassenbezeichnung: string;
 	anlassKatalogId: string | null;
+	umsatzbereich: Umsatzbereich | null;
 	anlassZusatz: string;
 	anlassFree: string;
 	gezaehltVon: string;
@@ -189,36 +195,21 @@ export function ProtokollForm({
 	belegnummerPreview,
 	umsatzUstBasisDefault,
 	registers = [],
-	anlassKatalog = [],
-	canManageAnlassKatalog = false,
 	canManageRegisters = false,
 	initialValues,
 }: {
 	belegnummerPreview: string;
 	umsatzUstBasisDefault: UmsatzUstBasis;
 	registers?: CashRegisterPreset[];
-	anlassKatalog?: AnlassKatalogEntry[];
-	canManageAnlassKatalog?: boolean;
 	canManageRegisters?: boolean;
 	initialValues?: ProtokollInitialValues;
 }) {
 	const [availableRegisters, setAvailableRegisters] = useState(registers);
-	const [availableKatalog, setAvailableKatalog] = useState(anlassKatalog);
 	const [showNewRegister, setShowNewRegister] = useState(false);
 	const [newRegisterNumber, setNewRegisterNumber] = useState("");
 	const [newRegisterName, setNewRegisterName] = useState("");
 	const [newRegisterChange, setNewRegisterChange] = useState("160,00");
-	const [showNewAnlass, setShowNewAnlass] = useState(false);
-	const [newAnlassName, setNewAnlassName] = useState("");
-	const [newAnlassTyp, setNewAnlassTyp] = useState<AnlassTyp>("wiederkehrend");
 	const [creatingPreset, setCreatingPreset] = useState(false);
-	// Active catalog entries drive the Umsatzgruppe picker. An entry that a stored
-	// protokoll still references but that was since deactivated is added back so
-	// the duplicate flow can preselect it.
-	const activeKatalog = availableKatalog.filter(
-		(k) => k.aktiv || k.id === initialValues?.anlass_katalog_id,
-	);
-	const hasKatalog = activeKatalog.length > 0;
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const [pending, startTransition] = useTransition();
@@ -265,18 +256,15 @@ export function ProtokollForm({
 	const [anlassKatalogId, setAnlassKatalogId] = useState<string | null>(
 		initialValues?.anlass_katalog_id ?? null,
 	);
+	const [umsatzbereich, setUmsatzbereich] = useState<Umsatzbereich | null>(
+		initialValues?.umsatzbereich ?? null,
+	);
 	const [anlassZusatz, setAnlassZusatz] = useState(
 		initialValues?.veranstaltungsbezeichnung ?? "",
 	);
 	const [anlassFree, setAnlassFree] = useState(initialValues?.anlass ?? "");
-	const selectedKatalog =
-		activeKatalog.find((k) => k.id === anlassKatalogId) ?? null;
-	const anlass = hasKatalog
-		? selectedKatalog
-			? anlassZusatz.trim()
-				? `${selectedKatalog.name} · ${anlassZusatz.trim()}`
-				: selectedKatalog.name
-			: ""
+	const anlass = umsatzbereich
+		? `${umsatzbereichLabel(umsatzbereich)} · ${anlassZusatz.trim()}`
 		: anlassFree;
 	const [gezaehltVon, setGezaehltVon] = useState(
 		initialValues?.gezaehlt_von ?? "",
@@ -368,35 +356,6 @@ export function ProtokollForm({
 			await queryClient.invalidateQueries();
 		} catch (error) {
 			toast.error(orpcMessage(error, "Kasse konnte nicht angelegt werden"));
-		} finally {
-			setCreatingPreset(false);
-		}
-	}
-
-	async function createAnlassInline() {
-		const name = newAnlassName.trim();
-		if (!name) {
-			toast.error("Bitte einen Namen für die Umsatzgruppe angeben");
-			return;
-		}
-		setCreatingPreset(true);
-		try {
-			const data = await orpcClient.anlassKatalog.create({
-				name,
-				typ: newAnlassTyp,
-				aktiv: true,
-			});
-			setAvailableKatalog((items) => [...items, data.entry]);
-			setAnlassKatalogId(data.entry.id);
-			setShowNewAnlass(false);
-			setNewAnlassName("");
-			setNewAnlassTyp("wiederkehrend");
-			toast.success("Umsatzgruppe angelegt und ausgewählt");
-			await queryClient.invalidateQueries();
-		} catch (error) {
-			toast.error(
-				orpcMessage(error, "Umsatzgruppe konnte nicht angelegt werden"),
-			);
 		} finally {
 			setCreatingPreset(false);
 		}
@@ -507,6 +466,7 @@ export function ProtokollForm({
 			kassennummer,
 			kassenbezeichnung,
 			anlassKatalogId,
+			umsatzbereich,
 			anlassZusatz,
 			anlassFree,
 			gezaehltVon,
@@ -528,6 +488,7 @@ export function ProtokollForm({
 			kassennummer,
 			kassenbezeichnung,
 			anlassKatalogId,
+			umsatzbereich,
 			anlassZusatz,
 			anlassFree,
 			gezaehltVon,
@@ -556,6 +517,7 @@ export function ProtokollForm({
 			setKassennummer(d.kassennummer ?? "");
 			setKassenbezeichnung(d.kassenbezeichnung ?? "");
 			setAnlassKatalogId(d.anlassKatalogId ?? null);
+			setUmsatzbereich(d.umsatzbereich ?? null);
 			setAnlassZusatz(d.anlassZusatz ?? "");
 			setAnlassFree(d.anlassFree ?? (d as { anlass?: string }).anlass ?? "");
 			setGezaehltVon(d.gezaehltVon ?? "");
@@ -689,7 +651,8 @@ export function ProtokollForm({
 			!kassenbezeichnung.trim() ||
 			!anlass.trim() ||
 			!gezaehltVon.trim() ||
-			(hasKatalog && !anlassZusatz.trim())
+			!umsatzbereich ||
+			!anlassZusatz.trim()
 		) {
 			toast.error("Bitte alle Pflichtfelder ausfüllen");
 			return;
@@ -786,10 +749,9 @@ export function ProtokollForm({
 			anlass_datum: datum,
 			kassennummer: kassennummer.trim(),
 			kassenbezeichnung: kassenbezeichnung.trim(),
-			anlass_katalog_id: hasKatalog ? anlassKatalogId : null,
-			veranstaltungsbezeichnung: hasKatalog
-				? anlassZusatz.trim()
-				: anlassFree.trim(),
+			anlass_katalog_id: anlassKatalogId,
+			umsatzbereich,
+			veranstaltungsbezeichnung: anlassZusatz.trim(),
 			gezaehlt_von: gezaehltVon.trim(),
 			geprueft_von: gepruefftVon.trim(),
 			bemerkung: bemerkung.trim(),
@@ -841,7 +803,12 @@ export function ProtokollForm({
 	}
 
 	return (
-		<form onSubmit={submit} onChange={markDirty} onInput={markDirty}>
+		<form
+			onSubmit={submit}
+			onChange={markDirty}
+			onInput={markDirty}
+			className="pb-20 lg:pb-0"
+		>
 			<div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="space-y-8">
 					<Card>
@@ -1025,186 +992,40 @@ export function ProtokollForm({
 									/>
 								</div>
 							</div>
-							{hasKatalog ? (
-								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-									<div className="space-y-2">
-										<Label htmlFor="anlass-katalog">Umsatzgruppe</Label>
-										<Select
-											value={anlassKatalogId ?? ""}
-											onValueChange={(val) => {
-												if (val === "__new_anlass__") {
-													setShowNewAnlass(true);
-													return;
-												}
-												setAnlassKatalogId(val || null);
-											}}
-										>
-											<SelectTrigger id="anlass-katalog" className="w-full">
-												<SelectValue placeholder="Umsatzgruppe wählen" />
-											</SelectTrigger>
-											<SelectContent>
-												{activeKatalog.map((k) => (
-													<SelectItem key={k.id} value={k.id}>
-														{k.name}
-													</SelectItem>
-												))}
-												{canManageAnlassKatalog ? (
-													<SelectItem value="__new_anlass__">
-														+ Neue Umsatzgruppe anlegen
-													</SelectItem>
-												) : null}
-											</SelectContent>
-										</Select>
-									</div>
-									{showNewAnlass ? (
-										<div className="grid gap-3 rounded-xl border border-primary/20 bg-primary/[0.03] p-3 sm:col-span-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end">
-											<div className="space-y-1.5">
-												<Label htmlFor="new-anlass-name">
-													Neue Umsatzgruppe
-												</Label>
-												<Input
-													id="new-anlass-name"
-													value={newAnlassName}
-													onChange={(event) =>
-														setNewAnlassName(event.target.value)
-													}
-													maxLength={120}
-													autoFocus
-													placeholder="z. B. Schafkopfturnier"
-												/>
-											</div>
-											<div className="flex rounded-lg border border-input bg-background p-0.5">
-												{(["wiederkehrend", "einmalig"] as const).map((typ) => (
-													<button
-														key={typ}
-														type="button"
-														aria-pressed={newAnlassTyp === typ}
-														onClick={() => setNewAnlassTyp(typ)}
-														className={cn(
-															"rounded-md px-2.5 py-1.5 text-xs font-medium",
-															newAnlassTyp === typ
-																? "bg-primary/10 text-primary"
-																: "text-muted-foreground",
-														)}
-													>
-														{typ}
-													</button>
-												))}
-											</div>
-											<Button
-												type="button"
-												size="sm"
-												onClick={() => void createAnlassInline()}
-												disabled={creatingPreset}
-											>
-												Speichern
-											</Button>
-										</div>
-									) : null}
-									<div className="space-y-2">
-										<Label htmlFor="anlass-zusatz">
-											Veranstaltungsbezeichnung
-										</Label>
-										<Input
-											id="anlass-zusatz"
-											value={anlassZusatz}
-											onChange={(e) => setAnlassZusatz(e.target.value)}
-											required
-											maxLength={Math.min(
-												120,
-												197 - (selectedKatalog?.name.length ?? 0),
-											)}
-											placeholder="z. B. Heimspiel gegen Grettstadt"
-										/>
-									</div>
-									<p className="text-xs text-muted-foreground sm:col-span-2">
-										Die Umsatzgruppe bündelt vergleichbare Veranstaltungen über
-										mehrere Jahre. Die Veranstaltungsbezeichnung beschreibt den
-										konkreten Termin, zum Beispiel Gegner oder
-										Veranstaltungsname.
-										{canManageAnlassKatalog
-											? " Fehlt eine Umsatzgruppe, lege sie über die Auswahl neu an."
-											: " Fehlende Umsatzgruppen kann ein Admin ergänzen."}
-									</p>
-								</div>
-							) : (
+							<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 								<div className="space-y-2">
-									<Label htmlFor="anlass">Veranstaltungsbezeichnung</Label>
-									<Input
-										id="anlass"
-										value={anlassFree}
-										onChange={(e) => setAnlassFree(e.target.value)}
-										required
-										maxLength={200}
-										placeholder="z. B. Heimspiel 1. Mannschaft"
-									/>
-									<p className="text-xs text-muted-foreground">
-										Lege eine Umsatzgruppe an, damit vergleichbare
-										Veranstaltungen im Jahresvergleich zuverlässig
-										zusammengefasst werden.
-									</p>
-									{canManageAnlassKatalog ? (
-										<>
-											<Button
-												type="button"
-												variant="outline"
-												size="sm"
-												onClick={() => setShowNewAnlass((value) => !value)}
-											>
-												<Plus className="mr-2 h-4 w-4" />
-												Erste Umsatzgruppe anlegen
-											</Button>
-											{showNewAnlass ? (
-												<div className="grid gap-3 rounded-xl border border-primary/20 bg-primary/[0.03] p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end">
-													<div className="space-y-1.5">
-														<Label htmlFor="first-anlass-name">
-															Neue Umsatzgruppe
-														</Label>
-														<Input
-															id="first-anlass-name"
-															value={newAnlassName}
-															onChange={(event) =>
-																setNewAnlassName(event.target.value)
-															}
-															maxLength={120}
-															autoFocus
-															placeholder="z. B. Biergarten"
-														/>
-													</div>
-													<div className="flex rounded-lg border border-input bg-background p-0.5">
-														{(["wiederkehrend", "einmalig"] as const).map(
-															(typ) => (
-																<button
-																	key={typ}
-																	type="button"
-																	aria-pressed={newAnlassTyp === typ}
-																	onClick={() => setNewAnlassTyp(typ)}
-																	className={cn(
-																		"rounded-md px-2.5 py-1.5 text-xs font-medium",
-																		newAnlassTyp === typ
-																			? "bg-primary/10 text-primary"
-																			: "text-muted-foreground",
-																	)}
-																>
-																	{typ}
-																</button>
-															),
-														)}
-													</div>
-													<Button
-														type="button"
-														size="sm"
-														onClick={() => void createAnlassInline()}
-														disabled={creatingPreset}
-													>
-														Speichern
-													</Button>
-												</div>
-											) : null}
-										</>
-									) : null}
+									<Label htmlFor="umsatzbereich">Umsatzbereich</Label>
+									<Select
+										value={umsatzbereich ?? ""}
+										onValueChange={(value) => {
+											setUmsatzbereich(value as Umsatzbereich);
+											setAnlassKatalogId(null);
+										}}
+									>
+										<SelectTrigger id="umsatzbereich" className="w-full">
+											<SelectValue placeholder="Umsatzbereich wählen" />
+										</SelectTrigger>
+										<SelectContent>
+											{UMSATZBEREICHE.map((entry) => (
+												<SelectItem key={entry.code} value={entry.code}>
+													{entry.label}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
 								</div>
-							)}
+								<div className="space-y-2">
+									<Label htmlFor="anlass-zusatz">Details</Label>
+									<Input
+										id="anlass-zusatz"
+										value={anlassZusatz}
+										onChange={(event) => setAnlassZusatz(event.target.value)}
+										required
+										maxLength={120}
+										placeholder="z. B. Biergarten Donnerstag"
+									/>
+								</div>
+							</div>
 							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 								<div className="space-y-2">
 									<Label htmlFor="gezaehlt_von">Gezählt von</Label>
@@ -1951,6 +1772,26 @@ export function ProtokollForm({
 							)}
 						</Button>
 					</div>
+				</div>
+			</div>
+			<div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-4 py-3 shadow-lg backdrop-blur lg:hidden">
+				<div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+					<div className="min-w-0">
+						<p className="text-[11px] text-muted-foreground">Tageseinnahmen</p>
+						{tageseinnahmenGesamtCent == null ? (
+							<span className="font-mono text-sm">-</span>
+						) : (
+							<Money cent={tageseinnahmenGesamtCent} emphasis />
+						)}
+					</div>
+					<Button type="submit" disabled={pending} className="h-11 shrink-0">
+						{pending ? (
+							<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+						) : (
+							<Save className="mr-2 h-4 w-4" />
+						)}
+						Speichern
+					</Button>
 				</div>
 			</div>
 		</form>

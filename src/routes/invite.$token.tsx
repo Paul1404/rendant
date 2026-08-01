@@ -138,7 +138,11 @@ function Shell({
 	vereinsname: string;
 }) {
 	return (
-		<div className="relative flex flex-1 items-center justify-center px-4 py-12 sm:py-16">
+		<main
+			id="main-content"
+			tabIndex={-1}
+			className="relative flex flex-1 items-center justify-center px-4 py-12 outline-none sm:py-16"
+		>
 			<div className="w-full max-w-sm">
 				<div className="mb-6 flex flex-col items-center text-center">
 					<BrandLockup variant="hero" className="mb-4" />
@@ -149,6 +153,6 @@ function Shell({
 				</div>
 				{children}
 			</div>
-		</div>
+		</main>
 	);
 }

@@ -16,12 +16,14 @@ function proto(p: {
 	karten?: number;
 	ausgaben?: number;
 	storniert?: boolean;
+	umsatzbereich?: ProtokollRow["umsatzbereich"];
 }): ProtokollRow {
 	return {
 		id: p.id,
 		anlass_datum: p.date,
 		anlass_katalog_id: p.katalogId,
 		anlass: p.anlass,
+		umsatzbereich: p.umsatzbereich ?? null,
 		tageseinnahmen_cent: p.tageseinnahmen,
 		kartenzahlung_cent: p.karten ?? 0,
 		ausgaben_cent: p.ausgaben ?? 0,
@@ -66,6 +68,27 @@ describe("anlass comparison aggregation", () => {
 		expect(y?.dates.size).toBe(2); // two distinct dates = two Termine
 		expect(y?.protocolCount).toBe(3); // three till-protocols
 		expect(y?.revenueCent).toBe(18000);
+	});
+
+	test("new rows group by Umsatzbereich before the legacy catalog", () => {
+		const groups = build([
+			proto({ id: "1", date: "2025-06-01", katalogId: "b", anlass: "Biergarten", tageseinnahmen: 1000, umsatzbereich: "wirtschaftsbetrieb" }),
+			proto({ id: "2", date: "2026-06-01", katalogId: null, anlass: "Wirtschaftsbetrieb · Donnerstag", tageseinnahmen: 2000, umsatzbereich: "wirtschaftsbetrieb" }),
+		]);
+		const group = groups.get("bereich:wirtschaftsbetrieb");
+		expect(group?.label).toBe("Wirtschaftsbetrieb");
+		expect(group?.years.size).toBe(2);
+		expect(groups.has("b")).toBe(false);
+	});
+
+	test("keeps different Umsatzbereiche separate on the same date", () => {
+		const groups = build([
+			proto({ id: "1", date: "2026-07-04", katalogId: null, anlass: "Sommerfest", tageseinnahmen: 1000, umsatzbereich: "veranstaltungen" }),
+			proto({ id: "2", date: "2026-07-04", katalogId: null, anlass: "Eintritt", tageseinnahmen: 500, umsatzbereich: "eintrittsgelder" }),
+		]);
+		expect(groups.size).toBe(2);
+		expect(groups.has("bereich:veranstaltungen")).toBe(true);
+		expect(groups.has("bereich:eintrittsgelder")).toBe(true);
 	});
 
 	test("revenue includes card payments; Ø per Termin is revenue/Termine", () => {

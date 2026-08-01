@@ -113,7 +113,7 @@ export function DashboardToolbar({
 						type="button"
 						onClick={clearQuery}
 						aria-label="Suche löschen"
-						className="absolute right-2 top-1/2 inline-flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+						className="absolute right-1 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 					>
 						<X className="h-3.5 w-3.5" />
 					</button>

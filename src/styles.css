@@ -93,7 +93,7 @@
   --success: #2f6b4f;
   --success-foreground: #ffffff;
   --border: rgb(15 42 34 / 12%);
-  --input: rgb(15 42 34 / 18%);
+  --input: rgb(15 42 34 / 56%);
   --ring: #8a6a28;
   --chart-1: #0f2a22;
   --chart-2: #8a6a28;
@@ -129,7 +129,7 @@
   --success: #72b18e;
   --success-foreground: #07160f;
   --border: rgb(201 169 96 / 18%);
-  --input: rgb(201 169 96 / 24%);
+  --input: rgb(201 169 96 / 62%);
   --ring: #c9a960;
   --chart-1: #c9a960;
   --chart-2: #72b18e;
@@ -234,6 +234,22 @@
     .reveal {
       animation: reveal-in 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) both;
       animation-delay: var(--reveal-delay, 0ms);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lift,
+    .lift:hover {
+      transform: none;
+      transition: none;
+    }
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
     }
   }
 }

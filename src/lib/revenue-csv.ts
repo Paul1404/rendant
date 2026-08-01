@@ -5,6 +5,7 @@ import { formatCentPlain } from "@/lib/money";
 export type RevenueExportRow = {
 	date: string;
 	occasion: string;
+	revenueArea?: string;
 	comparisonGroup: string;
 	revenueCent: number;
 	expensesCent: number;
@@ -19,8 +20,8 @@ export function revenueCsvDocument(rows: RevenueExportRow[]): string {
 		[
 			"Datum",
 			"Jahr",
-			"Veranstaltung",
-			"Umsatzgruppe",
+			"Umsatzbereich",
+			"Details",
 			"Umsatz brutto EUR",
 			"Ausgaben EUR",
 			"Überschuss EUR",
@@ -32,8 +33,10 @@ export function revenueCsvDocument(rows: RevenueExportRow[]): string {
 		...rows.map((row) => [
 			formatDateDe(row.date),
 			row.date.slice(0, 4),
-			row.occasion,
-			row.comparisonGroup,
+			row.revenueArea || row.comparisonGroup,
+			row.occasion.includes(" · ")
+				? row.occasion.slice(row.occasion.indexOf(" · ") + 3)
+				: row.occasion,
 			formatCentPlain(row.revenueCent),
 			formatCentPlain(row.expensesCent),
 			formatCentPlain(row.revenueCent - row.expensesCent),

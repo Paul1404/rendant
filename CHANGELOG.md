@@ -3,6 +3,20 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.26.0 - 2026-08-01
+
+- Neue Kassenzählprotokolle und Altumsätze verwenden sechs feste
+  Umsatzbereiche und ein freies Feld für Details. Die frühere Umsatzgruppe ist
+  bei neuen Erfassungen nicht mehr sichtbar.
+- Der Vorjahresvergleich bündelt neue Datensätze nach Umsatzbereich und kann
+  denselben Monatszeitraum auf alle Jahre anwenden. Bestehende Zuordnungen und
+  Belegtexte bleiben unverändert erhalten.
+- Formulare haben deutlich erkennbare Begrenzungen, Sprunglinks führen zum
+  tatsächlichen Hauptinhalt und Überschriften sind semantisch klarer.
+- Die mobile Protokollerfassung zeigt Summe und Speichern dauerhaft am unteren
+  Bildschirmrand. Kleine Bedienelemente haben größere Trefferflächen und
+  reduzierte Bewegung wird systemweit berücksichtigt.
+
 ## 1.25.1 - 2026-07-31
 
 - Rendant verzichtet auf den werblichen Claim im Login, bei Einladungen und

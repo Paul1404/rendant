@@ -24,7 +24,11 @@ function LoginPage() {
 	const redirectTo = sanitizeAuthRedirect(from);
 
 	return (
-		<div className="relative flex flex-1 items-center justify-center px-4 py-12 sm:py-16">
+		<main
+			id="main-content"
+			tabIndex={-1}
+			className="relative flex flex-1 items-center justify-center px-4 py-12 outline-none sm:py-16"
+		>
 			<div className="w-full max-w-sm">
 				<div className="flex flex-col items-center text-center">
 					<BrandLockup variant="hero" className="mb-6" />
@@ -45,6 +49,6 @@ function LoginPage() {
 					<VersionChip />
 				</div>
 			</div>
-		</div>
+		</main>
 	);
 }

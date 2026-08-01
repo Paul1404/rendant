@@ -23,7 +23,11 @@ function ProtokolleLayout() {
 		<>
 			<CommandPalette />
 			<Header />
-			<main className="relative isolate w-full flex-1 overflow-hidden">
+			<main
+				id="main-content"
+				tabIndex={-1}
+				className="relative isolate w-full flex-1 overflow-hidden outline-none"
+			>
 				<MainWatermark />
 				<div className="relative z-10 mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
 					<Outlet />

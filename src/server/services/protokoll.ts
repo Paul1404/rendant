@@ -10,6 +10,7 @@ import type {
 	UmsatzUstRow,
 } from "@/lib/protokoll-types";
 import type { CreateProtokollInput, StornoInput } from "@/lib/schemas";
+import { umsatzbereichLabel } from "@/lib/umsatzbereich";
 import { db } from "@/server/db";
 import {
 	anlassKatalog,
@@ -57,6 +58,7 @@ function rowToProtokoll(row: DbProtokoll): ProtokollRow {
 		kassennummer: row.kassennummer ?? "",
 		kassenbezeichnung: row.kassenbezeichnung ?? "",
 		anlass: row.anlass,
+		umsatzbereich: row.umsatzbereich as ProtokollRow["umsatzbereich"],
 		anlass_katalog_id: row.anlass_katalog_id,
 		gezaehlt_von: row.gezaehlt_von,
 		geprueft_von: row.geprueft_von,
@@ -311,7 +313,7 @@ export async function createProtokoll(
 						created: false,
 					};
 				}
-				let anlass = input.veranstaltungsbezeichnung;
+				let anlass = `${umsatzbereichLabel(input.umsatzbereich)} · ${input.veranstaltungsbezeichnung}`;
 				if (input.anlass_katalog_id) {
 					const [umsatzgruppe] = await tx
 						.select({ name: anlassKatalog.name })
@@ -343,6 +345,7 @@ export async function createProtokoll(
 						kassennummer: input.kassennummer,
 						kassenbezeichnung: input.kassenbezeichnung,
 						anlass,
+						umsatzbereich: input.umsatzbereich,
 						anlass_katalog_id: input.anlass_katalog_id ?? null,
 						gezaehlt_von: input.gezaehlt_von,
 						geprueft_von: input.geprueft_von,

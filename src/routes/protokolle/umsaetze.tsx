@@ -43,7 +43,7 @@ function RevenueComparisonPage() {
 			<PageHeader
 				eyebrow="Auswertung"
 				title="Umsätze im Vergleich"
-				description="Vergleiche Veranstaltungen über mehrere Jahre und ergänze Umsätze aus der Zeit vor Rendant."
+				description="Umsätze nach Bereich und Zeitraum, einschließlich Altunterlagen."
 			/>
 			<HistoricalRevenueOverview
 				initialHistorical={historical}

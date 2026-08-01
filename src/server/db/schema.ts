@@ -34,6 +34,9 @@ export const protokolle = pgTable(
 		kassennummer: text("kassennummer").notNull().default(""),
 		kassenbezeichnung: text("kassenbezeichnung").notNull().default(""),
 		anlass: text("anlass").notNull(),
+		// Stable, user-facing reporting category. Nullable for legacy rows, which
+		// continue to use the detailed catalog/text comparison fallback below.
+		umsatzbereich: text("umsatzbereich"),
 		// Stable grouping key for the year-over-year comparison (see plans/007).
 		// The free-text `anlass` above stays as the human label; this points at the
 		// managed catalog entry. Nullable: legacy rows fall back to text grouping.
@@ -84,6 +87,7 @@ export const protokolle = pgTable(
 		index("idx_protokolle_storniert_am").on(t.storniert_am),
 		index("idx_protokolle_anlass_datum").on(t.anlass_datum),
 		index("idx_protokolle_anlass_katalog_id").on(t.anlass_katalog_id),
+		index("idx_protokolle_umsatzbereich").on(t.umsatzbereich),
 		index("idx_protokolle_erstellt_von_user_id").on(t.erstellt_von_user_id),
 		index("idx_protokolle_storniert_von_user_id").on(t.storniert_von_user_id),
 		check("protokolle_wechselgeld_cent_check", sql`${t.wechselgeld_cent} >= 0`),
@@ -97,6 +101,10 @@ export const protokolle = pgTable(
 		check(
 			"protokolle_umsatz_ust_basis_check",
 			sql`${t.umsatz_ust_basis} IN ('pre_card', 'post_card')`,
+		),
+		check(
+			"protokolle_umsatzbereich_check",
+			sql`${t.umsatzbereich} IS NULL OR ${t.umsatzbereich} IN ('wirtschaftsbetrieb', 'veranstaltungen', 'eintrittsgelder', 'verkauf_spielfeld', 'seniorennachmittag', 'sonstiges')`,
 		),
 	],
 );
@@ -357,6 +365,7 @@ export const historicalRevenues = pgTable(
 		anlass_datum: date("anlass_datum", { mode: "string" }).notNull(),
 		anlass: text("anlass").notNull(),
 		vergleichsgruppe: text("vergleichsgruppe").notNull(),
+		umsatzbereich: text("umsatzbereich"),
 		// Unifies historical entries under the same catalog as protokolle (plans/007).
 		// Nullable during migration; `vergleichsgruppe` stays for backward compat.
 		anlass_katalog_id: uuid("anlass_katalog_id").references(
@@ -382,6 +391,7 @@ export const historicalRevenues = pgTable(
 	(t) => [
 		index("idx_historical_revenues_anlass_datum").on(t.anlass_datum),
 		index("idx_historical_revenues_anlass_katalog_id").on(t.anlass_katalog_id),
+		index("idx_historical_revenues_umsatzbereich").on(t.umsatzbereich),
 		index("idx_historical_revenues_erstellt_von_user_id").on(
 			t.erstellt_von_user_id,
 		),
@@ -393,6 +403,10 @@ export const historicalRevenues = pgTable(
 		check(
 			"historical_revenues_vergleichsgruppe_check",
 			sql`length(trim(${t.vergleichsgruppe})) BETWEEN 1 AND 120`,
+		),
+		check(
+			"historical_revenues_umsatzbereich_check",
+			sql`${t.umsatzbereich} IS NULL OR ${t.umsatzbereich} IN ('wirtschaftsbetrieb', 'veranstaltungen', 'eintrittsgelder', 'verkauf_spielfeld', 'seniorennachmittag', 'sonstiges')`,
 		),
 		check("historical_revenues_umsatz_cent_check", sql`${t.umsatz_cent} >= 0`),
 		check(

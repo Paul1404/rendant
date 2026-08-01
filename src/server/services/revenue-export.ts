@@ -1,5 +1,6 @@
 import { and, eq, gte, lte } from "drizzle-orm";
 import { type RevenueExportRow, revenueCsvDocument } from "@/lib/revenue-csv";
+import { isUmsatzbereich, umsatzbereichLabel } from "@/lib/umsatzbereich";
 import { db } from "@/server/db";
 import {
 	anlassKatalog,
@@ -22,6 +23,7 @@ export async function loadRevenueExportRows(
 			.select({
 				date: protokolle.anlass_datum,
 				occasion: protokolle.anlass,
+				revenueArea: protokolle.umsatzbereich,
 				comparisonGroup: anlassKatalog.name,
 				revenueCashCent: protokolle.tageseinnahmen_cent,
 				revenueCardCent: protokolle.kartenzahlung_cent,
@@ -45,6 +47,7 @@ export async function loadRevenueExportRows(
 			.select({
 				date: historicalRevenues.anlass_datum,
 				occasion: historicalRevenues.anlass,
+				revenueArea: historicalRevenues.umsatzbereich,
 				comparisonGroup: anlassKatalog.name,
 				legacyComparisonGroup: historicalRevenues.vergleichsgruppe,
 				revenueCent: historicalRevenues.umsatz_cent,
@@ -70,6 +73,9 @@ export async function loadRevenueExportRows(
 		...protocolRows.map((row) => ({
 			date: row.date,
 			occasion: row.occasion,
+			revenueArea: isUmsatzbereich(row.revenueArea)
+				? umsatzbereichLabel(row.revenueArea)
+				: "",
 			comparisonGroup: row.comparisonGroup ?? row.occasion,
 			revenueCent:
 				Number(row.revenueCashCent) + Number(row.revenueCardCent ?? 0),
@@ -82,6 +88,9 @@ export async function loadRevenueExportRows(
 		...historicalRows.map((row) => ({
 			date: row.date,
 			occasion: row.occasion,
+			revenueArea: isUmsatzbereich(row.revenueArea)
+				? umsatzbereichLabel(row.revenueArea)
+				: "",
 			comparisonGroup: row.comparisonGroup ?? row.legacyComparisonGroup,
 			revenueCent: Number(row.revenueCent),
 			expensesCent: Number(row.expensesCent),

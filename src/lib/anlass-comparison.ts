@@ -6,11 +6,17 @@
 
 import type { AnlassKatalogEntry, AnlassTyp } from "@/lib/anlass";
 import type { ProtokollRow } from "@/lib/protokoll-types";
+import {
+	isUmsatzbereich,
+	type Umsatzbereich,
+	umsatzbereichLabel,
+} from "@/lib/umsatzbereich";
 
 export type HistoricalLike = {
 	id: string;
 	anlass_datum: string;
 	anlass_katalog_id: string | null;
+	umsatzbereich?: string | null;
 	vergleichsgruppe: string;
 	umsatz_cent: number;
 	ausgaben_cent: number;
@@ -21,6 +27,7 @@ export type ComparisonEntry = {
 	id: string;
 	date: string;
 	katalogId: string | null;
+	umsatzbereich: string | null;
 	occasion: string;
 	revenueCent: number;
 	expensesCent: number;
@@ -57,7 +64,9 @@ export function occasionKey(value: string): string {
 export function groupKeyFor(
 	katalogId: string | null,
 	occasion: string,
+	umsatzbereich?: Umsatzbereich | null,
 ): string {
+	if (umsatzbereich) return `bereich:${umsatzbereich}`;
 	return katalogId ?? `text:${occasionKey(occasion)}`;
 }
 
@@ -76,6 +85,7 @@ export function toComparisonEntries(
 				id: entry.id,
 				date: entry.anlass_datum,
 				katalogId: entry.anlass_katalog_id,
+				umsatzbereich: entry.umsatzbereich ?? null,
 				occasion: entry.vergleichsgruppe,
 				revenueCent: entry.umsatz_cent,
 				expensesCent: entry.ausgaben_cent,
@@ -87,6 +97,7 @@ export function toComparisonEntries(
 				id: protocol.id,
 				date: protocol.anlass_datum,
 				katalogId: protocol.anlass_katalog_id,
+				umsatzbereich: protocol.umsatzbereich,
 				occasion: protocol.anlass,
 				revenueCent: protocolRevenue(protocol),
 				expensesCent: protocol.ausgaben_cent,
@@ -105,7 +116,14 @@ export function buildComparisons(
 			? (catalogById.get(entry.katalogId) ?? null)
 			: null;
 		// A catalog id that no longer resolves falls back to text grouping.
-		const key = groupKeyFor(catalog ? entry.katalogId : null, entry.occasion);
+		const area = isUmsatzbereich(entry.umsatzbereich)
+			? entry.umsatzbereich
+			: null;
+		const key = groupKeyFor(
+			catalog ? entry.katalogId : null,
+			entry.occasion,
+			area,
+		);
 		if (key === "text:") continue;
 		const year = Number(entry.date.slice(0, 4));
 		if (!Number.isInteger(year)) continue;
@@ -113,9 +131,13 @@ export function buildComparisons(
 			groups.get(key) ??
 			({
 				key,
-				label: catalog ? catalog.name : entry.occasion.trim(),
-				typ: catalog ? catalog.typ : "einmalig",
-				unmapped: !catalog,
+				label: area
+					? umsatzbereichLabel(area)
+					: catalog
+						? catalog.name
+						: entry.occasion.trim(),
+				typ: area ? "wiederkehrend" : catalog ? catalog.typ : "einmalig",
+				unmapped: !area && !catalog,
 				years: new Map<number, OccasionYear>(),
 			} satisfies OccasionComparison);
 		const existing = group.years.get(year);

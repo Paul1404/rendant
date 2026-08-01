@@ -22,13 +22,11 @@ export const Route = createFileRoute("/protokolle/neu")({
 	}),
 	loaderDeps: ({ search }) => ({ duplicate: search.duplicate }),
 	loader: async ({ context, deps }) => {
-		const [belegnummerRes, basisRes, registers, anlassKatalog] =
-			await Promise.all([
-				orpcClient.protokolle.nextBelegnummer(),
-				orpcClient.settings.getUmsatzUstBasis(),
-				orpcClient.registers.list(),
-				orpcClient.anlassKatalog.list(),
-			]);
+		const [belegnummerRes, basisRes, registers] = await Promise.all([
+			orpcClient.protokolle.nextBelegnummer(),
+			orpcClient.settings.getUmsatzUstBasis(),
+			orpcClient.registers.list(),
+		]);
 
 		let initialValues: ProtokollInitialValues | undefined;
 		let duplicateBelegnummer: string | undefined;
@@ -40,6 +38,7 @@ export const Route = createFileRoute("/protokolle/neu")({
 					kassennummer: src.protokoll.kassennummer || undefined,
 					kassenbezeichnung: src.protokoll.kassenbezeichnung || undefined,
 					anlass: src.protokoll.anlass || undefined,
+					umsatzbereich: src.protokoll.umsatzbereich,
 					anlass_katalog_id: src.protokoll.anlass_katalog_id ?? null,
 					veranstaltungsbezeichnung: (() => {
 						const separatorIndex = src.protokoll.anlass.indexOf(" · ");
@@ -61,10 +60,9 @@ export const Route = createFileRoute("/protokolle/neu")({
 			belegnummer: belegnummerRes.belegnummer,
 			umsatzUstBasisDefault: basisRes.umsatz_ust_basis,
 			registers,
-			anlassKatalog,
 			initialValues,
 			duplicateBelegnummer,
-			canManageAnlassKatalog: context.user.role === "admin",
+			canManageRegisters: context.user.role === "admin",
 		};
 	},
 	head: () => ({ meta: [{ title: "Neues Protokoll · Rendant" }] }),
@@ -77,10 +75,9 @@ function NewProtokollPage() {
 		belegnummer,
 		umsatzUstBasisDefault,
 		registers,
-		anlassKatalog,
 		initialValues,
 		duplicateBelegnummer,
-		canManageAnlassKatalog,
+		canManageRegisters,
 	} = Route.useLoaderData();
 
 	return (
@@ -109,10 +106,9 @@ function NewProtokollPage() {
 							übernommen
 						</p>
 						<p className="text-sm text-muted-foreground">
-							Kassennummer, Kassenbezeichnung, Umsatzgruppe,
-							Veranstaltungsbezeichnung, Wechselgeld und Namen sind
-							vorausgefüllt. Stückelung, Ausgaben und USt.-Aufteilung bitte für
-							diesen Tag neu erfassen.
+							Kassennummer, Kassenbezeichnung, Umsatzbereich, Details,
+							Wechselgeld und Namen sind vorausgefüllt. Stückelung, Ausgaben und
+							USt.-Aufteilung bitte für diesen Tag neu erfassen.
 						</p>
 					</div>
 				</div>
@@ -122,9 +118,7 @@ function NewProtokollPage() {
 				belegnummerPreview={belegnummer}
 				umsatzUstBasisDefault={umsatzUstBasisDefault}
 				registers={registers}
-				anlassKatalog={anlassKatalog}
-				canManageAnlassKatalog={canManageAnlassKatalog}
-				canManageRegisters={canManageAnlassKatalog}
+				canManageRegisters={canManageRegisters}
 				initialValues={initialValues}
 			/>
 		</div>

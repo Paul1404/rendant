@@ -9,6 +9,7 @@ const validCreate = {
 	idempotency_key: "019f84bc-9383-7301-95e6-c23483cfb28b",
 	anlass_datum: "2024-05-01",
 	anlass_katalog_id: "019f84bc-9383-7301-95e6-c23483cfb28c",
+	umsatzbereich: "wirtschaftsbetrieb" as const,
 	veranstaltungsbezeichnung: "Biergarteneröffnung am 1. Mai",
 	umsatz_cent: 123_456,
 	ausgaben_cent: 12_300,
@@ -65,7 +66,16 @@ describe("HistoricalRevenueCreateSchema", () => {
 		).toBe(false);
 	});
 
-	it("requires a revenue group and event label", () => {
+	it("rejects unknown Umsatzbereiche", () => {
+		expect(
+			v.safeParse(HistoricalRevenueCreateSchema, {
+				...validCreate,
+				umsatzbereich: "biergarten",
+			}).success,
+		).toBe(false);
+	});
+
+	it("requires Details and validates the optional legacy catalog link", () => {
 		const result = v.safeParse(HistoricalRevenueCreateSchema, {
 			...validCreate,
 			veranstaltungsbezeichnung: "   ",

@@ -54,7 +54,6 @@ import {
 	groupKeyFor,
 	type OccasionComparison,
 	type OccasionYear,
-	occasionKey,
 	toComparisonEntries,
 } from "@/lib/anlass-comparison";
 import { formatDateDe, todayIsoDate } from "@/lib/date";
@@ -62,6 +61,11 @@ import { formatCentPlain, parseGermanAmount } from "@/lib/money";
 import { orpcClient } from "@/lib/orpc";
 import { orpcMessage } from "@/lib/orpc-error";
 import type { ProtokollRow } from "@/lib/protokoll-types";
+import {
+	UMSATZBEREICHE,
+	type Umsatzbereich,
+	umsatzbereichLabel,
+} from "@/lib/umsatzbereich";
 import { cn } from "@/lib/utils";
 
 export type HistoricalRevenue = {
@@ -69,6 +73,7 @@ export type HistoricalRevenue = {
 	anlass_datum: string;
 	anlass: string;
 	anlass_katalog_id: string | null;
+	umsatzbereich: string | null;
 	umsatz_cent: number;
 	ausgaben_cent: number;
 	bemerkung: string | null;
@@ -88,6 +93,21 @@ type ComparisonDetailEntry = {
 	reference: string;
 	revenueCent: number;
 };
+
+const MONTHS = [
+	"Januar",
+	"Februar",
+	"März",
+	"April",
+	"Mai",
+	"Juni",
+	"Juli",
+	"August",
+	"September",
+	"Oktober",
+	"November",
+	"Dezember",
+] as const;
 
 export function HistoricalRevenueOverview({
 	initialHistorical,
@@ -112,15 +132,29 @@ export function HistoricalRevenueOverview({
 	}
 	const [showForm, setShowForm] = useState(initialHistorical.length === 0);
 	const [occasionFilter, setOccasionFilter] = useState("all");
+	const [monthFrom, setMonthFrom] = useState("1");
+	const [monthTo, setMonthTo] = useState("12");
 	const idempotencyKey = useRef<string | null>(null);
 
 	const catalogById = useMemo(
 		() => new Map(anlassKatalog.map((k) => [k.id, k])),
 		[anlassKatalog],
 	);
-	const comparisonEntries = useMemo(
+	const allComparisonEntries = useMemo(
 		() => toComparisonEntries(historical, protocols),
-		[historical, protocols, catalogById],
+		[historical, protocols],
+	);
+	const comparisonEntries = useMemo(
+		() =>
+			allComparisonEntries.filter((entry) => {
+				const month = Number(entry.date.slice(5, 7));
+				const from = Number(monthFrom);
+				const to = Number(monthTo);
+				return from <= to
+					? month >= from && month <= to
+					: month >= from || month <= to;
+			}),
+		[allComparisonEntries, monthFrom, monthTo],
 	);
 	const comparisons = useMemo(
 		() => buildComparisons(comparisonEntries, catalogById),
@@ -137,7 +171,11 @@ export function HistoricalRevenueOverview({
 				entry.katalogId && catalogById.has(entry.katalogId)
 					? entry.katalogId
 					: null;
-			const key = groupKeyFor(mappedId, entry.occasion);
+			const key = groupKeyFor(
+				mappedId,
+				entry.occasion,
+				entry.umsatzbereich as Umsatzbereich | null,
+			);
 			const source =
 				entry.source === "protocol"
 					? protocolsById.get(entry.id)
@@ -170,22 +208,15 @@ export function HistoricalRevenueOverview({
 		occasionFilter === "all"
 			? comparisons
 			: comparisons.filter((group) => group.key === occasionFilter);
-	function duplicateSources(
-		date: string,
-		comparisonGroupId: string,
-		comparisonGroup: string,
-	): string[] {
-		const key = occasionKey(comparisonGroup);
-		if (!date || !comparisonGroupId || !key) return [];
+	function duplicateSources(date: string, area: Umsatzbereich): string[] {
+		if (!date || !area) return [];
 		const sources: string[] = [];
 		if (
 			historical.some(
 				(entry) =>
 					!entry.storniert_am &&
 					entry.anlass_datum === date &&
-					(entry.anlass_katalog_id === comparisonGroupId ||
-						(!entry.anlass_katalog_id &&
-							occasionKey(entry.vergleichsgruppe) === key)),
+					entry.umsatzbereich === area,
 			)
 		) {
 			sources.push("historischer Eintrag");
@@ -195,9 +226,7 @@ export function HistoricalRevenueOverview({
 				(protocol) =>
 					!protocol.storniert_am &&
 					protocol.anlass_datum === date &&
-					(protocol.anlass_katalog_id === comparisonGroupId ||
-						(!protocol.anlass_katalog_id &&
-							occasionKey(protocol.anlass) === key)),
+					protocol.umsatzbereich === area,
 			)
 		) {
 			sources.push("Kassenzählprotokoll");
@@ -208,7 +237,7 @@ export function HistoricalRevenueOverview({
 	const form = useForm({
 		defaultValues: {
 			date: todayIsoDate(),
-			revenueGroupId: "",
+			revenueArea: "" as Umsatzbereich | "",
 			eventLabel: "",
 			revenue: "",
 			expenses: "0,00",
@@ -218,10 +247,8 @@ export function HistoricalRevenueOverview({
 		onSubmit: async ({ value }) => {
 			const revenueCent = parseGermanAmount(value.revenue);
 			const expensesCent = parseGermanAmount(value.expenses);
-			if (!value.date || !value.revenueGroupId || !value.eventLabel.trim()) {
-				toast.error(
-					"Datum, Umsatzgruppe und Veranstaltungsbezeichnung sind erforderlich",
-				);
+			if (!value.date || !value.revenueArea || !value.eventLabel.trim()) {
+				toast.error("Datum, Umsatzbereich und Details sind erforderlich");
 				return;
 			}
 			if (revenueCent == null || revenueCent < 0) {
@@ -238,7 +265,8 @@ export function HistoricalRevenueOverview({
 				const created = await orpcClient.historicalRevenue.create({
 					idempotency_key: idempotencyKey.current,
 					anlass_datum: value.date,
-					anlass_katalog_id: value.revenueGroupId,
+					anlass_katalog_id: null,
+					umsatzbereich: value.revenueArea,
 					veranstaltungsbezeichnung: value.eventLabel.trim(),
 					umsatz_cent: revenueCent,
 					ausgaben_cent: expensesCent,
@@ -247,7 +275,11 @@ export function HistoricalRevenueOverview({
 				});
 				setHistorical((entries) => [created, ...entries]);
 				setOccasionFilter(
-					groupKeyFor(created.anlass_katalog_id, created.vergleichsgruppe),
+					groupKeyFor(
+						created.anlass_katalog_id,
+						created.vergleichsgruppe,
+						created.umsatzbereich as Umsatzbereich | null,
+					),
 				);
 				idempotencyKey.current = null;
 				form.reset();
@@ -333,25 +365,25 @@ export function HistoricalRevenueOverview({
 								)}
 							</form.Field>
 
-							<form.Field name="revenueGroupId">
+							<form.Field name="revenueArea">
 								{(field) => (
 									<div className="space-y-1.5 sm:col-span-1 lg:col-span-4">
-										<Label htmlFor={field.name}>Umsatzgruppe</Label>
+										<Label htmlFor={field.name}>Umsatzbereich</Label>
 										<Select
 											value={field.state.value}
-											onValueChange={field.handleChange}
+											onValueChange={(value) =>
+												field.handleChange(value as Umsatzbereich)
+											}
 										>
 											<SelectTrigger id={field.name} className="w-full">
-												<SelectValue placeholder="Umsatzgruppe wählen" />
+												<SelectValue placeholder="Umsatzbereich wählen" />
 											</SelectTrigger>
 											<SelectContent>
-												{anlassKatalog
-													.filter((entry) => entry.aktiv)
-													.map((entry) => (
-														<SelectItem key={entry.id} value={entry.id}>
-															{entry.name}
-														</SelectItem>
-													))}
+												{UMSATZBEREICHE.map((entry) => (
+													<SelectItem key={entry.code} value={entry.code}>
+														{entry.label}
+													</SelectItem>
+												))}
 											</SelectContent>
 										</Select>
 									</div>
@@ -361,9 +393,7 @@ export function HistoricalRevenueOverview({
 							<form.Field name="eventLabel">
 								{(field) => (
 									<div className="space-y-1.5 sm:col-span-2 lg:col-span-5">
-										<Label htmlFor={field.name}>
-											Veranstaltungsbezeichnung
-										</Label>
+										<Label htmlFor={field.name}>Details</Label>
 										<Input
 											id={field.name}
 											name={field.name}
@@ -372,14 +402,10 @@ export function HistoricalRevenueOverview({
 											onChange={(event) =>
 												field.handleChange(event.target.value)
 											}
-											placeholder="z. B. Heimspiel gegen Grettstadt"
+											placeholder="z. B. Sommerfest · Essenkasse"
 											maxLength={120}
 											required
 										/>
-										<p className="text-xs text-muted-foreground">
-											Bezeichnet den konkreten Termin innerhalb der
-											Umsatzgruppe.
-										</p>
 									</div>
 								)}
 							</form.Field>
@@ -431,15 +457,13 @@ export function HistoricalRevenueOverview({
 							<form.Subscribe
 								selector={(state) => [
 									state.values.date,
-									state.values.revenueGroupId,
+									state.values.revenueArea,
 								]}
 							>
-								{([date, revenueGroupId]) => {
-									const groupName = catalogById.get(revenueGroupId)?.name ?? "";
+								{([date, revenueArea]) => {
 									const duplicates = duplicateSources(
 										date,
-										revenueGroupId,
-										groupName,
+										revenueArea as Umsatzbereich,
 									);
 									return duplicates.length > 0 ? (
 										<div
@@ -448,10 +472,9 @@ export function HistoricalRevenueOverview({
 										>
 											<TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
 											<p>
-												Für dieses Datum und diese Umsatzgruppe gibt es bereits:{" "}
-												{duplicates.join(" und ")}. Prüfe die Zahlen, damit der
-												Umsatz nicht doppelt gezählt wird. Absichtliches
-												Speichern bleibt möglich.
+												Für dieses Datum und diesen Umsatzbereich gibt es
+												möglicherweise bereits: {duplicates.join(" und ")}.
+												Prüfe die Details und Beträge. Speichern bleibt möglich.
 											</p>
 										</div>
 									) : null;
@@ -511,15 +534,15 @@ export function HistoricalRevenueOverview({
 							Historische Werte und aktive Kassenzählprotokolle im Vergleich.
 						</p>
 					</div>
-					{comparisons.length > 0 ? (
-						<div className="w-full space-y-1.5 sm:w-64">
-							<Label htmlFor="occasion-filter">Umsatzgruppe filtern</Label>
+					<div className="grid w-full gap-2 sm:w-auto sm:grid-cols-[15rem_8rem_8rem]">
+						<div className="space-y-1.5">
+							<Label htmlFor="occasion-filter">Umsatzbereich</Label>
 							<Select value={occasionFilter} onValueChange={setOccasionFilter}>
 								<SelectTrigger id="occasion-filter" className="w-full">
-									<SelectValue placeholder="Alle Umsatzgruppen" />
+									<SelectValue placeholder="Alle Umsatzbereiche" />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value="all">Alle Umsatzgruppen</SelectItem>
+									<SelectItem value="all">Alle Umsatzbereiche</SelectItem>
 									{comparisons.map((group) => (
 										<SelectItem key={group.key} value={group.key}>
 											{group.label}
@@ -528,7 +551,19 @@ export function HistoricalRevenueOverview({
 								</SelectContent>
 							</Select>
 						</div>
-					) : null}
+						<MonthSelect
+							id="month-from"
+							label="Von Monat"
+							value={monthFrom}
+							onChange={setMonthFrom}
+						/>
+						<MonthSelect
+							id="month-to"
+							label="Bis Monat"
+							value={monthTo}
+							onChange={setMonthTo}
+						/>
+					</div>
 				</div>
 
 				{visibleComparisons.length > 0 ? (
@@ -539,7 +574,7 @@ export function HistoricalRevenueOverview({
 								group={group}
 								entries={detailsByGroup.get(group.key) ?? []}
 								catalog={anlassKatalog}
-								canManage={canCreate}
+								canManage={false}
 								onSaved={async () => {
 									await queryClient.invalidateQueries();
 									await router.invalidate();
@@ -1097,10 +1132,12 @@ function HistoricalEntries({
 								</Badge>
 							</div>
 							<p className="mt-1 text-xs text-muted-foreground">
-								Umsatzgruppe:{" "}
-								{(entry.anlass_katalog_id
-									? catalogById.get(entry.anlass_katalog_id)?.name
-									: null) ?? entry.vergleichsgruppe}
+								Umsatzbereich:{" "}
+								{entry.umsatzbereich
+									? umsatzbereichLabel(entry.umsatzbereich as Umsatzbereich)
+									: ((entry.anlass_katalog_id
+											? catalogById.get(entry.anlass_katalog_id)?.name
+											: null) ?? entry.vergleichsgruppe)}
 								{entry.quellreferenz ? ` · Quelle: ${entry.quellreferenz}` : ""}
 							</p>
 							{entry.storniert_am ? (
@@ -1223,6 +1260,36 @@ function HistoricalCancelDialog({
 				</AlertDialogFooter>
 			</AlertDialogContent>
 		</AlertDialog>
+	);
+}
+
+function MonthSelect({
+	id,
+	label,
+	value,
+	onChange,
+}: {
+	id: string;
+	label: string;
+	value: string;
+	onChange: (value: string) => void;
+}) {
+	return (
+		<div className="space-y-1.5">
+			<Label htmlFor={id}>{label}</Label>
+			<Select value={value} onValueChange={onChange}>
+				<SelectTrigger id={id} className="w-full">
+					<SelectValue />
+				</SelectTrigger>
+				<SelectContent>
+					{MONTHS.map((month, index) => (
+						<SelectItem key={month} value={String(index + 1)}>
+							{month}
+						</SelectItem>
+					))}
+				</SelectContent>
+			</Select>
+		</div>
 	);
 }
 

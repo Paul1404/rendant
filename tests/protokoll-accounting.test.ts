@@ -20,6 +20,7 @@ function baseInput(
     kassennummer: "K1",
     kassenbezeichnung: "Hauptkasse",
 		veranstaltungsbezeichnung: "Sommerfest 2026",
+		umsatzbereich: "veranstaltungen" as const,
     gezaehlt_von: "Anna",
     geprueft_von: "Bob",
     bemerkung: "",

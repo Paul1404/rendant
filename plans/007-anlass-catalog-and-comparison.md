@@ -2,8 +2,9 @@
 
 ## Status
 
-Not started. Design plan. No code written yet. Live-data migration involved, so
-this MUST be reviewed before any implementation and executed phase by phase.
+Implemented through version 1.20.0. Since version 1.26.0 the catalog remains a
+legacy compatibility layer. New records use six fixed Umsatzbereiche plus free
+Details, while existing catalog links remain untouched.
 
 ## Why this matters
 

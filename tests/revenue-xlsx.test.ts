@@ -8,6 +8,7 @@ describe("revenueXlsxDocument", () => {
 			{
 				date: "2025-05-03",
 				occasion: "Biergarteneröffnung",
+				revenueArea: "Wirtschaftsbetrieb",
 				comparisonGroup: "Biergarten",
 				revenueCent: 12_345,
 				expensesCent: 1_000,
@@ -26,7 +27,9 @@ describe("revenueXlsxDocument", () => {
 
 		expect(sheet).toBeDefined();
 		expect(sheet?.getCell("A1").value).toBe("Datum");
-		expect(sheet?.getCell("C2").value).toBe("Biergarteneröffnung");
+		expect(sheet?.getCell("C1").value).toBe("Umsatzbereich");
+		expect(sheet?.getCell("C2").value).toBe("Wirtschaftsbetrieb");
+		expect(sheet?.getCell("D2").value).toBe("Biergarteneröffnung");
 		expect(sheet?.getCell("E2").value).toBe(123.45);
 		expect(sheet?.getCell("G2").value).toBe(113.45);
 		expect(sheet?.autoFilter).toBe("A1:K1");
