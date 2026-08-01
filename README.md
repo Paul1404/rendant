@@ -283,6 +283,13 @@ Für eine neue Umgebung:
    Origin zeigen.
 6. Deployment starten und den Healthcheck unter `/api/health` prüfen.
 
+Die produktive Hauptadresse ist `rendant.sv-untereuerheim.de`. Die bisherige
+Adresse `svufo.sv-untereuerheim.de` bleibt als Railway-Domain und DNS-Eintrag
+aktiv. Seit Version 1.26.2 leitet die Anwendung Seitenaufrufe mit unverändertem
+Pfad und unveränderten Suchparametern an die Hauptadresse weiter. API-,
+Serverfunktions- und Asset-Anfragen bleiben für bereits geöffnete Sitzungen auf
+der bisherigen Adresse erreichbar.
+
 Der Healthcheck testet die Datenbank und antwortet bei einem Ausfall mit HTTP
 503. Mit `LFIO_INGEST_TOKEN` sendet die Anwendung zusätzlich Betriebsmetriken
 für API, PostgreSQL, Laufzeit und Bucket an LFIO.

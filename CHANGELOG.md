@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.26.2 - 2026-08-01
+
+- Aufrufe der bisherigen Adresse `svufo.sv-untereuerheim.de` werden unter
+  Beibehaltung von Pfad und Suchparametern dauerhaft an
+  `rendant.sv-untereuerheim.de` weitergeleitet.
+- API-, Download- und Hintergrundanfragen bleiben auf der bisherigen Adresse
+  erreichbar. Bereits geöffnete Sitzungen und bestehende Verknüpfungen
+  funktionieren dadurch während des Übergangs weiter.
+
 ## 1.26.1 - 2026-08-01
 
 - Bestehende Kassenzählprotokolle werden den neuen Umsatzbereichen
