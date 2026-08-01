@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.26.4 - 2026-08-01
+
+- Das Guilloché-Muster ist in heller und dunkler Darstellung klarer sichtbar.
+  Messingfarbene Konturen geben der Rosette mehr Tiefe, ohne Inhalte oder
+  Bedienelemente zu überlagern.
+
 ## 1.26.3 - 2026-08-01
 
 - Die Hauptnavigation bleibt bei schmalen und mittleren Bildschirmbreiten in

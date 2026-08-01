@@ -25,7 +25,7 @@ export function MainWatermark() {
 				viewBox="0 0 1200 900"
 				fill="none"
 				focusable="false"
-				className="fixed top-16 h-[56rem] w-[75rem] max-w-none overflow-visible stroke-brand opacity-[0.075] dark:opacity-[0.11]"
+				className="fixed top-16 h-[56rem] w-[75rem] max-w-none overflow-visible"
 				style={{
 					// Keep the large rosette in the unused right gutter. On ultra-wide
 					// screens the cap lets it fade beyond the viewport instead of exposing
@@ -79,7 +79,11 @@ export function MainWatermark() {
 					</mask>
 				</defs>
 
-				<g mask="url(#main-watermark-ribbon-mask)" strokeWidth="0.7">
+				<g
+					mask="url(#main-watermark-ribbon-mask)"
+					className="stroke-brand/[0.1] dark:stroke-brand/[0.14]"
+					strokeWidth="0.8"
+				>
 					{RIBBON_OFFSETS.map((offset) => (
 						<path
 							key={`top-${offset}`}
@@ -96,7 +100,11 @@ export function MainWatermark() {
 					))}
 				</g>
 
-				<g mask="url(#main-watermark-rosette-mask)" strokeWidth="0.7">
+				<g
+					mask="url(#main-watermark-rosette-mask)"
+					className="stroke-brand/[0.13] dark:stroke-brand/[0.17]"
+					strokeWidth="0.8"
+				>
 					{OUTER_ROSETTE_ANGLES.map((angle) => (
 						<ellipse
 							key={`outer-${angle}`}
@@ -127,6 +135,12 @@ export function MainWatermark() {
 							transform={`rotate(${angle} 1040 650)`}
 						/>
 					))}
+				</g>
+				<g
+					mask="url(#main-watermark-rosette-mask)"
+					className="stroke-brass/[0.16] dark:stroke-brass/[0.21]"
+					strokeWidth="0.9"
+				>
 					{[308, 294, 214, 203, 123].map((radius) => (
 						<circle key={radius} cx="1040" cy="650" r={radius} />
 					))}
