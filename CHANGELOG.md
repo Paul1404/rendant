@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.26.1 - 2026-08-01
+
+- Bestehende Kassenzählprotokolle werden den neuen Umsatzbereichen
+  zugeordnet. Wirtschaftsdienst, Veranstaltungen, Seniorennachmittag,
+  Eintrittsgelder und Verkäufe am Spielfeld erscheinen dadurch in den neuen
+  Auswertungen gemeinsam mit künftigen Einträgen.
+- Die Zuordnung wird mit den Anzahlen je Umsatzbereich im Auditprotokoll
+  festgehalten. Anlass, Kasse, Betrag und Beleg bleiben unverändert.
+
 ## 1.26.0 - 2026-08-01
 
 - Neue Kassenzählprotokolle und Altumsätze verwenden sechs feste
