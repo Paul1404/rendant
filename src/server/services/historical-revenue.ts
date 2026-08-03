@@ -1,4 +1,5 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
+import type { HistoricalProtocolSource } from "@/lib/historical-protocol-import";
 import type { HistoricalRevenueCreateInput } from "@/lib/schemas";
 import { umsatzbereichLabel } from "@/lib/umsatzbereich";
 import { type DbOrTx, db } from "@/server/db";
@@ -51,6 +52,7 @@ function matchesIdempotentRequest(
 	input: HistoricalRevenueCreateInput,
 	actor: AuthUser,
 	allowDifferentActor: boolean,
+	source?: HistoricalProtocolSource,
 ): boolean {
 	return (
 		row.anlass_datum === input.anlass_datum &&
@@ -62,6 +64,19 @@ function matchesIdempotentRequest(
 		row.ausgaben_cent === input.ausgaben_cent &&
 		row.bemerkung === nullableText(input.bemerkung) &&
 		row.quellreferenz === nullableText(input.quellreferenz) &&
+		(!source ||
+			(row.quelle_sha256 === source.sha256 &&
+				row.quelle_pfad === source.path &&
+				row.quelle_format === source.format &&
+				row.quelle_belegnummer === source.protocolNumber &&
+				row.quelle_datum_herkunft === source.dateOrigin &&
+				row.kassennummer === source.cashRegisterNumber &&
+				row.kassenbezeichnung === source.cashRegisterLabel &&
+				row.gezaehlt_von === source.countedBy &&
+				row.wechselgeld_cent === source.openingCent &&
+				row.kartenzahlung_cent === source.cardCent &&
+				row.gezaehlt_cent === source.countedCent &&
+				row.tageseinnahmen_bar_cent === source.cashRevenueCent)) &&
 		(allowDifferentActor || row.erstellt_von_user_id === actor.id)
 	);
 }
@@ -82,7 +97,10 @@ export async function createHistoricalRevenueWithDb(
 	database: DbOrTx,
 	input: HistoricalRevenueCreateInput,
 	actor: AuthUser,
-	options: { allowDifferentActor?: boolean } = {},
+	options: {
+		allowDifferentActor?: boolean;
+		source?: HistoricalProtocolSource;
+	} = {},
 ): Promise<{ row: HistoricalRevenueRow; created: boolean }> {
 	const [umsatzgruppe] = input.anlass_katalog_id
 		? await database
@@ -115,6 +133,21 @@ export async function createHistoricalRevenueWithDb(
 			ausgaben_cent: input.ausgaben_cent,
 			bemerkung: nullableText(input.bemerkung),
 			quellreferenz: nullableText(input.quellreferenz),
+			quelle_sha256: options.source?.sha256,
+			quelle_pfad: options.source?.path,
+			quelle_format: options.source?.format,
+			quelle_belegnummer: options.source?.protocolNumber,
+			quelle_datum_herkunft: options.source?.dateOrigin,
+			kassennummer: options.source?.cashRegisterNumber,
+			kassenbezeichnung: options.source?.cashRegisterLabel,
+			gezaehlt_von: options.source?.countedBy,
+			wechselgeld_cent: options.source?.openingCent,
+			kartenzahlung_cent: options.source?.cardCent,
+			gezaehlt_cent: options.source?.countedCent,
+			tageseinnahmen_bar_cent: options.source?.cashRevenueCent,
+			stueckelung: options.source?.denominations,
+			umsatz_ust: options.source?.vat,
+			import_warnungen: options.source?.warnings,
 			erstellt_von_user_id: actor.id,
 			erstellt_von_name: actor.name,
 			erstellt_von_email: actor.email,
@@ -135,6 +168,7 @@ export async function createHistoricalRevenueWithDb(
 			input,
 			actor,
 			options.allowDifferentActor ?? false,
+			options.source,
 		)
 	) {
 		throw new HistoricalRevenueConflictError(

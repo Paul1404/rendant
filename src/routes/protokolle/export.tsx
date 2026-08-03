@@ -17,7 +17,7 @@ function ExportPage() {
 				title="Import & Export"
 				description={
 					user.role === "admin"
-						? "Historische Umsätze aus Excel übernehmen sowie Belege, Auswertungen und Sicherungen herunterladen."
+						? "Historische Zählprotokolle oder einzelne Altumsätze prüfen und übernehmen sowie Belege, Auswertungen und Sicherungen herunterladen."
 						: "Belege, Auswertungen und Sicherungen herunterladen."
 				}
 			/>

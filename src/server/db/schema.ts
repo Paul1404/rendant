@@ -10,8 +10,15 @@ import {
 	pgTable,
 	text,
 	timestamp,
+	uniqueIndex,
 	uuid,
 } from "drizzle-orm/pg-core";
+import type { DenominationCounts } from "@/lib/denominations";
+
+export type HistoricalRevenueVatSplit = {
+	ust_basis_punkte: number;
+	betrag_cent: number;
+};
 
 // Money is always stored as integer cents. Conversion happens only at the
 // form input and at display time.
@@ -376,6 +383,25 @@ export const historicalRevenues = pgTable(
 		ausgaben_cent: integer("ausgaben_cent").notNull().default(0),
 		bemerkung: text("bemerkung"),
 		quellreferenz: text("quellreferenz"),
+		// Structured evidence from the historical cash-protocol folder import.
+		// Manual legacy entries leave these nullable. The source hash is the
+		// durable deduplication boundary, while the remaining fields keep useful
+		// cash, card, VAT and denomination detail available for later reports.
+		quelle_sha256: text("quelle_sha256"),
+		quelle_pfad: text("quelle_pfad"),
+		quelle_format: text("quelle_format"),
+		quelle_belegnummer: text("quelle_belegnummer"),
+		quelle_datum_herkunft: text("quelle_datum_herkunft"),
+		kassennummer: text("kassennummer"),
+		kassenbezeichnung: text("kassenbezeichnung"),
+		gezaehlt_von: text("gezaehlt_von"),
+		wechselgeld_cent: integer("wechselgeld_cent"),
+		kartenzahlung_cent: integer("kartenzahlung_cent"),
+		gezaehlt_cent: integer("gezaehlt_cent"),
+		tageseinnahmen_bar_cent: integer("tageseinnahmen_bar_cent"),
+		stueckelung: jsonb("stueckelung").$type<DenominationCounts>(),
+		umsatz_ust: jsonb("umsatz_ust").$type<HistoricalRevenueVatSplit[]>(),
+		import_warnungen: jsonb("import_warnungen").$type<string[]>(),
 		erstellt_von_user_id: text("erstellt_von_user_id").notNull(),
 		erstellt_von_name: text("erstellt_von_name").notNull(),
 		erstellt_von_email: text("erstellt_von_email").notNull(),
@@ -389,6 +415,9 @@ export const historicalRevenues = pgTable(
 		storno_grund: text("storno_grund"),
 	},
 	(t) => [
+		uniqueIndex("historical_revenues_quelle_sha256_unique")
+			.on(t.quelle_sha256)
+			.where(sql`${t.quelle_sha256} IS NOT NULL`),
 		index("idx_historical_revenues_anlass_datum").on(t.anlass_datum),
 		index("idx_historical_revenues_anlass_katalog_id").on(t.anlass_katalog_id),
 		index("idx_historical_revenues_umsatzbereich").on(t.umsatzbereich),
@@ -420,6 +449,22 @@ export const historicalRevenues = pgTable(
 		check(
 			"historical_revenues_quellreferenz_check",
 			sql`${t.quellreferenz} IS NULL OR length(${t.quellreferenz}) <= 500`,
+		),
+		check(
+			"historical_revenues_quelle_pfad_check",
+			sql`${t.quelle_pfad} IS NULL OR length(${t.quelle_pfad}) <= 1000`,
+		),
+		check(
+			"historical_revenues_quelle_format_check",
+			sql`${t.quelle_format} IS NULL OR ${t.quelle_format} IN ('ods', 'xlsx')`,
+		),
+		check(
+			"historical_revenues_quelle_datum_herkunft_check",
+			sql`${t.quelle_datum_herkunft} IS NULL OR ${t.quelle_datum_herkunft} IN ('workbook', 'file_modified')`,
+		),
+		check(
+			"historical_revenues_source_amounts_check",
+			sql`(${t.wechselgeld_cent} IS NULL OR ${t.wechselgeld_cent} >= 0) AND (${t.kartenzahlung_cent} IS NULL OR ${t.kartenzahlung_cent} >= 0) AND (${t.gezaehlt_cent} IS NULL OR ${t.gezaehlt_cent} >= 0) AND (${t.tageseinnahmen_bar_cent} IS NULL OR ${t.tageseinnahmen_bar_cent} >= 0)`,
 		),
 		check(
 			"historical_revenues_storno_check",

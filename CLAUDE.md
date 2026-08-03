@@ -200,6 +200,11 @@ Assume concurrent users and multiple Railway instances for every shared write.
 - New mutations and sensitive reads or downloads must define an audit event as
   part of their implementation. Audit entries identify the actor and subject,
   while snapshots remain limited to the context needed for accountability.
+- Historical protocol-folder imports are preview-first. Content hashes provide
+  idempotency, current protocol records are checked before import, and source
+  path, date provenance, cash, card, expenses, denomination and VAT details
+  stay attached to the immutable historical revenue. Dates inferred from file
+  metadata and accounting inconsistencies always require explicit selection.
 
 ---
 

@@ -3,6 +3,20 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.27.0 - 2026-08-03
+
+- Der vollständige Zählprotokoll-Ordner kann als Vorschau ausgewertet und
+  anschließend als historische Umsätze übernommen werden. Rendant liest ODS
+  und XLSX, trennt Dubletten und nicht relevante Hauptkassenbelege und zeigt
+  vorab Beträge, Zeitraum und Datenabdeckung.
+- Erkannte Kassenbezeichnungen werden passenden Umsatzbereichen zugeordnet und
+  können vor dem Import gruppenweise korrigiert werden. Prüffälle lassen sich
+  getrennt nach Ursache freigeben.
+- Quellenpfad, Datei-Prüfsumme, Bargeld, Kartenzahlungen, Ausgaben,
+  Stückelungen und USt-Aufteilungen bleiben am historischen Umsatz erhalten.
+  Ein fehlendes Belegdatum wird nur als gekennzeichneter Prüffall aus dem
+  passenden Dateiänderungsdatum abgeleitet.
+
 ## 1.26.4 - 2026-08-01
 
 - Das Guilloché-Muster ist in heller und dunkler Darstellung klarer sichtbar.

@@ -26,6 +26,7 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiExportJsonRouteImport } from './routes/api/export.json'
 import { Route as ApiExportRevenueRouteImport } from './routes/api/export.revenue'
 import { Route as ApiExportUstRouteImport } from './routes/api/export.ust'
+import { Route as ApiImportHistoricalProtocolsRouteImport } from './routes/api/import.historical-protocols'
 import { Route as ApiImportRevenueRouteImport } from './routes/api/import.revenue'
 import { Route as ApiRpcSplatRouteImport } from './routes/api/rpc/$'
 import { Route as ApiExportRevenueXlsxRouteImport } from './routes/api/export.revenue.xlsx'
@@ -118,6 +119,12 @@ const ApiExportUstRoute = ApiExportUstRouteImport.update({
   path: '/ust',
   getParentRoute: () => ApiExportRoute,
 } as any)
+const ApiImportHistoricalProtocolsRoute =
+  ApiImportHistoricalProtocolsRouteImport.update({
+    id: '/api/import/historical-protocols',
+    path: '/api/import/historical-protocols',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiImportRevenueRoute = ApiImportRevenueRouteImport.update({
   id: '/api/import/revenue',
   path: '/api/import/revenue',
@@ -169,6 +176,7 @@ export interface FileRoutesByFullPath {
   '/api/export/json': typeof ApiExportJsonRoute
   '/api/export/revenue': typeof ApiExportRevenueRouteWithChildren
   '/api/export/ust': typeof ApiExportUstRoute
+  '/api/import/historical-protocols': typeof ApiImportHistoricalProtocolsRoute
   '/api/import/revenue': typeof ApiImportRevenueRouteWithChildren
   '/api/rpc/$': typeof ApiRpcSplatRoute
   '/api/export/revenue/xlsx': typeof ApiExportRevenueXlsxRoute
@@ -193,6 +201,7 @@ export interface FileRoutesByTo {
   '/api/export/json': typeof ApiExportJsonRoute
   '/api/export/revenue': typeof ApiExportRevenueRouteWithChildren
   '/api/export/ust': typeof ApiExportUstRoute
+  '/api/import/historical-protocols': typeof ApiImportHistoricalProtocolsRoute
   '/api/import/revenue': typeof ApiImportRevenueRouteWithChildren
   '/api/rpc/$': typeof ApiRpcSplatRoute
   '/api/export/revenue/xlsx': typeof ApiExportRevenueXlsxRoute
@@ -219,6 +228,7 @@ export interface FileRoutesById {
   '/api/export/json': typeof ApiExportJsonRoute
   '/api/export/revenue': typeof ApiExportRevenueRouteWithChildren
   '/api/export/ust': typeof ApiExportUstRoute
+  '/api/import/historical-protocols': typeof ApiImportHistoricalProtocolsRoute
   '/api/import/revenue': typeof ApiImportRevenueRouteWithChildren
   '/api/rpc/$': typeof ApiRpcSplatRoute
   '/api/export/revenue/xlsx': typeof ApiExportRevenueXlsxRoute
@@ -246,6 +256,7 @@ export interface FileRouteTypes {
     | '/api/export/json'
     | '/api/export/revenue'
     | '/api/export/ust'
+    | '/api/import/historical-protocols'
     | '/api/import/revenue'
     | '/api/rpc/$'
     | '/api/export/revenue/xlsx'
@@ -270,6 +281,7 @@ export interface FileRouteTypes {
     | '/api/export/json'
     | '/api/export/revenue'
     | '/api/export/ust'
+    | '/api/import/historical-protocols'
     | '/api/import/revenue'
     | '/api/rpc/$'
     | '/api/export/revenue/xlsx'
@@ -295,6 +307,7 @@ export interface FileRouteTypes {
     | '/api/export/json'
     | '/api/export/revenue'
     | '/api/export/ust'
+    | '/api/import/historical-protocols'
     | '/api/import/revenue'
     | '/api/rpc/$'
     | '/api/export/revenue/xlsx'
@@ -311,6 +324,7 @@ export interface RootRouteChildren {
   ApiHealthRoute: typeof ApiHealthRoute
   InviteTokenRoute: typeof InviteTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiImportHistoricalProtocolsRoute: typeof ApiImportHistoricalProtocolsRoute
   ApiImportRevenueRoute: typeof ApiImportRevenueRouteWithChildren
   ApiRpcSplatRoute: typeof ApiRpcSplatRoute
   ApiProtokolleIdPdfRoute: typeof ApiProtokolleIdPdfRoute
@@ -438,6 +452,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiExportUstRouteImport
       parentRoute: typeof ApiExportRoute
     }
+    '/api/import/historical-protocols': {
+      id: '/api/import/historical-protocols'
+      path: '/api/import/historical-protocols'
+      fullPath: '/api/import/historical-protocols'
+      preLoaderRoute: typeof ApiImportHistoricalProtocolsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/import/revenue': {
       id: '/api/import/revenue'
       path: '/api/import/revenue'
@@ -553,6 +574,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiHealthRoute: ApiHealthRoute,
   InviteTokenRoute: InviteTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiImportHistoricalProtocolsRoute: ApiImportHistoricalProtocolsRoute,
   ApiImportRevenueRoute: ApiImportRevenueRouteWithChildren,
   ApiRpcSplatRoute: ApiRpcSplatRoute,
   ApiProtokolleIdPdfRoute: ApiProtokolleIdPdfRoute,
