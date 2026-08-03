@@ -10,7 +10,7 @@ import {
 	Loader2,
 	ShieldCheck,
 } from "lucide-react";
-import { type ReactNode, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -108,6 +108,16 @@ export function HistoricalProtocolFolderImport() {
 		HistoricalProtocolImportStatus | "all"
 	>("ready");
 	const [loading, setLoading] = useState<"preview" | "apply" | null>(null);
+	const setDirectoryInputRef = useCallback((node: HTMLInputElement | null) => {
+		inputRef.current = node;
+		if (!node) return;
+		const directoryInput = node as HTMLInputElement & {
+			webkitdirectory: boolean;
+		};
+		directoryInput.webkitdirectory = true;
+		node.setAttribute("webkitdirectory", "");
+		node.setAttribute("directory", "");
+	}, []);
 
 	const includedReviewRows =
 		preview?.rows.filter(
@@ -278,18 +288,27 @@ export function HistoricalProtocolFolderImport() {
 					</Label>
 					<div className="flex flex-col gap-2 sm:flex-row">
 						<Input
-							ref={inputRef}
+							ref={setDirectoryInputRef}
 							id="historical-protocol-folder"
 							type="file"
 							multiple
 							accept=".ods,.xlsx,.pdf,.lnk"
-							{...({ webkitdirectory: "", directory: "" } as Record<
-								string,
-								string
-							>)}
+							className="hidden"
 							onChange={(event) => chooseFolder(event.target.files)}
 							disabled={loading != null}
 						/>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => inputRef.current?.click()}
+							disabled={loading != null}
+							className="justify-start sm:min-w-64"
+						>
+							<FolderOpen className="mr-2 h-4 w-4" />
+							{files.length > 0
+								? "Anderen Ordner auswählen"
+								: "Ordner auswählen"}
+						</Button>
 						<Button
 							type="button"
 							variant="secondary"

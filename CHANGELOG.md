@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.27.1 - 2026-08-03
+
+- Die Auswahl des Zählprotokoll-Archivs öffnet jetzt zuverlässig einen
+  Ordnerdialog statt einer gewöhnlichen Dateiauswahl.
+
 ## 1.27.0 - 2026-08-03
 
 - Der vollständige Zählprotokoll-Ordner kann als Vorschau ausgewertet und
