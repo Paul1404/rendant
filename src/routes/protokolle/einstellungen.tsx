@@ -4,6 +4,7 @@ import {
 	Building2,
 	Hash,
 	Mail,
+	Network,
 	Receipt,
 	Users,
 	Wallet,
@@ -11,6 +12,7 @@ import {
 import { BelegnummerSettingsForm } from "@/components/belegnummer-settings-form";
 import { CashRegistersForm } from "@/components/cash-registers-form";
 import { EmailSettingsForm } from "@/components/email-settings-form";
+import { McpSettingsPanel } from "@/components/mcp-settings-panel";
 import { NotificationPrefForm } from "@/components/notification-pref-form";
 import { PageHeader } from "@/components/page-header";
 import { SettingsSkeleton } from "@/components/skeletons";
@@ -23,7 +25,7 @@ import { orpcClient } from "@/lib/orpc";
 export const Route = createFileRoute("/protokolle/einstellungen")({
 	loader: async ({ context }) => {
 		const isAdmin = context.user.role === "admin";
-		const [belegnummer, basis, verein, registers, admin, email, notify] =
+		const [belegnummer, basis, verein, registers, admin, email, mcp, notify] =
 			await Promise.all([
 				orpcClient.settings.getBelegnummer(),
 				orpcClient.settings.getUmsatzUstBasis(),
@@ -33,6 +35,7 @@ export const Route = createFileRoute("/protokolle/einstellungen")({
 					? Promise.all([orpcClient.users.list(), orpcClient.invites.list()])
 					: Promise.resolve(null),
 				isAdmin ? orpcClient.settings.getEmail() : Promise.resolve(null),
+				isAdmin ? orpcClient.settings.getMcp() : Promise.resolve(null),
 				orpcClient.profile.getNotify(),
 			]);
 		return {
@@ -44,6 +47,7 @@ export const Route = createFileRoute("/protokolle/einstellungen")({
 			registers,
 			admin: admin ? { users: admin[0], invites: admin[1] } : null,
 			email,
+			mcp,
 			notifyProtokoll: notify.notify,
 		};
 	},
@@ -62,6 +66,7 @@ function EinstellungenPage() {
 		registers,
 		admin,
 		email,
+		mcp,
 		notifyProtokoll,
 	} = Route.useLoaderData();
 
@@ -70,11 +75,27 @@ function EinstellungenPage() {
 			<PageHeader
 				eyebrow="Buchhaltung"
 				title="Einstellungen"
-				description="Vorlagen und Standardwerte für die Kassenzählprotokolle: Kassen, Belegnummer-Format und USt.-Aufteilung."
+				description="Vorlagen, Standardwerte, Benutzer und kontrollierte Integrationen für Rendant."
 			/>
 
 			{admin ? (
-				<section className="mx-auto max-w-3xl space-y-4">
+				<nav
+					aria-label="Einstellungsbereiche"
+					className="mx-auto flex max-w-3xl flex-wrap gap-2"
+				>
+					<SettingsLink href="#verein">Verein</SettingsLink>
+					<SettingsLink href="#kassen">Kassen</SettingsLink>
+					<SettingsLink href="#buchhaltung">Buchhaltung</SettingsLink>
+					<SettingsLink href="#mcp">MCP &amp; Automatisierung</SettingsLink>
+					<SettingsLink href="#benutzer">Benutzer</SettingsLink>
+				</nav>
+			) : null}
+
+			{admin ? (
+				<section
+					id="verein"
+					className="mx-auto max-w-3xl scroll-mt-28 space-y-4"
+				>
 					<SectionHeading
 						icon={Building2}
 						title="Verein"
@@ -85,7 +106,10 @@ function EinstellungenPage() {
 			) : null}
 
 			{admin ? (
-				<section className="mx-auto max-w-3xl space-y-4">
+				<section
+					id="kassen"
+					className="mx-auto max-w-3xl scroll-mt-28 space-y-4"
+				>
 					<SectionHeading
 						icon={Wallet}
 						title="Kassen"
@@ -97,7 +121,10 @@ function EinstellungenPage() {
 
 			{admin ? (
 				<>
-					<section className="mx-auto max-w-3xl space-y-4">
+					<section
+						id="buchhaltung"
+						className="mx-auto max-w-3xl scroll-mt-28 space-y-4"
+					>
 						<SectionHeading
 							icon={Hash}
 							title="Belegnummer-Format"
@@ -140,8 +167,22 @@ function EinstellungenPage() {
 				</section>
 			) : null}
 
+			{mcp ? (
+				<section id="mcp" className="mx-auto max-w-3xl scroll-mt-28 space-y-4">
+					<SectionHeading
+						icon={Network}
+						title="MCP & Automatisierung"
+						description="Status und Sicherheitsgrenze für Codex und andere vertrauenswürdige Assistenten. Nur für Admins."
+					/>
+					<McpSettingsPanel status={mcp} />
+				</section>
+			) : null}
+
 			{admin ? (
-				<section className="mx-auto max-w-3xl space-y-4">
+				<section
+					id="benutzer"
+					className="mx-auto max-w-3xl scroll-mt-28 space-y-4"
+				>
 					<SectionHeading
 						icon={Users}
 						title="Benutzer & Einladungen"
@@ -155,5 +196,22 @@ function EinstellungenPage() {
 				</section>
 			) : null}
 		</div>
+	);
+}
+
+function SettingsLink({
+	href,
+	children,
+}: {
+	href: string;
+	children: React.ReactNode;
+}) {
+	return (
+		<a
+			href={href}
+			className="rounded-full border border-border/70 bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+		>
+			{children}
+		</a>
 	);
 }

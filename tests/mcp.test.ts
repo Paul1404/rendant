@@ -1,7 +1,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vitest";
-import type { McpAuthContext } from "@/server/mcp/auth";
+import { getMcpStatus, type McpAuthContext } from "@/server/mcp/auth";
 import { buildMcpServer, handleMcpRequest } from "@/server/mcp/server";
 
 const previous = {
@@ -22,6 +22,20 @@ describe("Rendant MCP", () => {
 		process.env.MCP_BEARER_TOKEN = "a".repeat(64);
 		const response = await handleMcpRequest(mcpRequest("initialize", {}, 1));
 		expect(response.status).toBe(401);
+	});
+
+	it("exposes a secret-free status for the admin settings page", () => {
+		process.env.MCP_BEARER_TOKEN = "a".repeat(64);
+		process.env.MCP_ACCESS_MODE = "admin";
+		const status = getMcpStatus();
+
+		expect(status).toMatchObject({
+			configured: true,
+			accessMode: "admin",
+			endpoint: "/api/mcp",
+			auditedMutations: true,
+		});
+		expect(JSON.stringify(status)).not.toContain("a".repeat(32));
 	});
 
 	it("negotiates authenticated stateless Streamable HTTP", async () => {

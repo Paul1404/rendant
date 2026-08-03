@@ -11,8 +11,29 @@ export type McpAuthContext = {
 	tokenFingerprint: string;
 };
 
+export type McpStatus = {
+	configured: boolean;
+	accessMode: McpAccessMode;
+	endpoint: string;
+	actor: {
+		name: string;
+		email: string;
+	};
+	auditedMutations: true;
+};
+
 export function mcpIsConfigured(): boolean {
 	return configuredToken() !== null;
+}
+
+export function getMcpStatus(): McpStatus {
+	return {
+		configured: mcpIsConfigured(),
+		accessMode: configuredAccessMode(),
+		endpoint: "/api/mcp",
+		actor: configuredActor(),
+		auditedMutations: true,
+	};
 }
 
 export function authenticateMcpRequest(
@@ -25,8 +46,8 @@ export function authenticateMcpRequest(
 	const provided = authorization.slice("Bearer ".length).trim();
 	if (!secureEqual(provided, expected)) return null;
 
-	const accessMode: McpAccessMode =
-		process.env.MCP_ACCESS_MODE === "admin" ? "admin" : "readonly";
+	const accessMode = configuredAccessMode();
+	const actor = configuredActor();
 	const headers = new Headers(request.headers);
 	const requestId = requestIdFromHeaders(headers);
 	headers.set("x-request-id", requestId);
@@ -39,14 +60,25 @@ export function authenticateMcpRequest(
 		orpc: {
 			user: {
 				id: "mcp:codex",
-				email: process.env.MCP_ACTOR_EMAIL?.trim() || "codex@rendant.local",
-				name: process.env.MCP_ACTOR_NAME?.trim() || "Codex MCP",
+				email: actor.email,
+				name: actor.name,
 				role: accessMode === "admin" ? "admin" : "user",
 			},
 			headers,
 			clientIp: clientIpFromHeaders(headers),
 			requestId,
 		},
+	};
+}
+
+function configuredAccessMode(): McpAccessMode {
+	return process.env.MCP_ACCESS_MODE === "admin" ? "admin" : "readonly";
+}
+
+function configuredActor(): McpStatus["actor"] {
+	return {
+		email: process.env.MCP_ACTOR_EMAIL?.trim() || "codex@rendant.local",
+		name: process.env.MCP_ACTOR_NAME?.trim() || "Codex MCP",
 	};
 }
 

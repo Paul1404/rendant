@@ -28,6 +28,7 @@ import {
 	session as sessionTable,
 	user as userTable,
 } from "@/server/db/auth-schema";
+import { getMcpStatus } from "@/server/mcp/auth";
 import {
 	AnlassKatalogConcurrencyError,
 	bulkAssignKatalog,
@@ -241,6 +242,8 @@ const protokolle = {
 // ---- Settings ------------------------------------------------------------
 
 const settings = {
+	getMcp: adminOnly.handler(() => getMcpStatus()),
+
 	getBelegnummer: authed.handler(async () => ({
 		settings: await getBelegnummerSettings(),
 		preview: await previewNextBelegnummer(),

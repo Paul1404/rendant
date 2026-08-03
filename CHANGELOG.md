@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.29.1 - 2026-08-03
+
+- Die Einstellungen führen MCP und Automatisierungen jetzt als eigenen Bereich
+  mit Betriebsstatus, Zugriffsmodus, Audit-Identität und Endpunkt auf.
+- MCP-Änderungen bleiben im gemeinsamen Auditlog eindeutig als Codex-Zugriff
+  erkennbar. Geheimnisse wie der Bearer-Token werden in der Oberfläche nie
+  ausgegeben.
+
 ## 1.29.0 - 2026-08-03
 
 - Der Zählprotokoll-Ordner wird jetzt als gespeicherter, strukturierter
