@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ProtokolleRouteRouteImport } from './routes/protokolle/route'
 import { Route as ApiExportRouteImport } from './routes/api/export'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as ApiMcpRouteImport } from './routes/api/mcp'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ProtokolleIndexRouteImport } from './routes/protokolle/index'
 import { Route as ProtokolleIdRouteImport } from './routes/protokolle/$id'
@@ -57,6 +58,11 @@ const ApiExportRoute = ApiExportRouteImport.update({
 const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
   path: '/api/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMcpRoute = ApiMcpRouteImport.update({
+  id: '/api/mcp',
+  path: '/api/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
@@ -164,6 +170,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/api/export': typeof ApiExportRouteWithChildren
   '/api/health': typeof ApiHealthRoute
+  '/api/mcp': typeof ApiMcpRoute
   '/invite/$token': typeof InviteTokenRoute
   '/protokolle/$id': typeof ProtokolleIdRoute
   '/protokolle/audit': typeof ProtokolleAuditRoute
@@ -189,6 +196,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/api/export': typeof ApiExportRouteWithChildren
   '/api/health': typeof ApiHealthRoute
+  '/api/mcp': typeof ApiMcpRoute
   '/invite/$token': typeof InviteTokenRoute
   '/protokolle/$id': typeof ProtokolleIdRoute
   '/protokolle/audit': typeof ProtokolleAuditRoute
@@ -216,6 +224,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/api/export': typeof ApiExportRouteWithChildren
   '/api/health': typeof ApiHealthRoute
+  '/api/mcp': typeof ApiMcpRoute
   '/invite/$token': typeof InviteTokenRoute
   '/protokolle/$id': typeof ProtokolleIdRoute
   '/protokolle/audit': typeof ProtokolleAuditRoute
@@ -244,6 +253,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/api/export'
     | '/api/health'
+    | '/api/mcp'
     | '/invite/$token'
     | '/protokolle/$id'
     | '/protokolle/audit'
@@ -269,6 +279,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/api/export'
     | '/api/health'
+    | '/api/mcp'
     | '/invite/$token'
     | '/protokolle/$id'
     | '/protokolle/audit'
@@ -295,6 +306,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/api/export'
     | '/api/health'
+    | '/api/mcp'
     | '/invite/$token'
     | '/protokolle/$id'
     | '/protokolle/audit'
@@ -322,6 +334,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ApiExportRoute: typeof ApiExportRouteWithChildren
   ApiHealthRoute: typeof ApiHealthRoute
+  ApiMcpRoute: typeof ApiMcpRoute
   InviteTokenRoute: typeof InviteTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiImportHistoricalProtocolsRoute: typeof ApiImportHistoricalProtocolsRoute
@@ -366,6 +379,13 @@ declare module '@tanstack/react-router' {
       path: '/api/health'
       fullPath: '/api/health'
       preLoaderRoute: typeof ApiHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/mcp': {
+      id: '/api/mcp'
+      path: '/api/mcp'
+      fullPath: '/api/mcp'
+      preLoaderRoute: typeof ApiMcpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/invite/$token': {
@@ -572,6 +592,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ApiExportRoute: ApiExportRouteWithChildren,
   ApiHealthRoute: ApiHealthRoute,
+  ApiMcpRoute: ApiMcpRoute,
   InviteTokenRoute: InviteTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiImportHistoricalProtocolsRoute: ApiImportHistoricalProtocolsRoute,

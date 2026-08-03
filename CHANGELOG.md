@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.28.0 - 2026-08-03
+
+- Rendant stellt jetzt einen token-geschützten Streamable-HTTP-MCP-Endpunkt
+  bereit. Vertrauenswürdige Assistenten können Protokolle, historische Umsätze,
+  Kennzahlen, USt, Kassen, Umsatzkatalog, Einstellungen und Audit auswerten.
+- Ein optionaler Admin-Modus bindet Änderungen an dieselben Rollenprüfungen,
+  Transaktionen, Idempotenzregeln und Audit-Einträge wie die Oberfläche.
+  Rohes SQL und Geheimnisse werden nicht über MCP angeboten.
+
 ## 1.27.2 - 2026-08-03
 
 - Die Ordnerauswahl für Zählprotokolle lässt sich jetzt auch in Safari als

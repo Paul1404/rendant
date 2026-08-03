@@ -151,6 +151,7 @@ steht in [`docs/backup-restore.md`](docs/backup-restore.md).
 
 - TanStack Start und TanStack Router mit React 19
 - TanStack Query und TanStack Form
+- Remote MCP über Streamable HTTP für auditierbare Assistentenzugriffe
 - oRPC mit Valibot für die typisierte Server-Schnittstelle
 - better-auth mit Passwortanmeldung und Admin-Funktionen
 - Drizzle ORM und PostgreSQL
@@ -165,6 +166,24 @@ Servercode liegt ausschließlich unter `src/server/` und wird über geschützte
 oRPC-Prozeduren oder Server-Routen aufgerufen. Finanzielle Schreibvorgänge
 verwenden Transaktionen, Datenbankbedingungen und eindeutige Constraints, damit
 auch parallele Zugriffe mehrerer Benutzer oder App-Instanzen konsistent bleiben.
+
+### MCP-Zugang
+
+Der Streamable-HTTP-Endpunkt `/api/mcp` stellt Rendant als fachliche
+Schnittstelle für vertrauenswürdige Assistenten bereit. Ein Bearer-Token ist
+immer erforderlich. `MCP_ACCESS_MODE=readonly` erlaubt Auswertungen über
+Protokolle, historische Umsätze, USt, Kassen, Katalog und Einstellungen.
+`MCP_ACCESS_MODE=admin` ergänzt Benutzer, Einladungen, Audit sowie die
+vorhandenen geprüften Schreibabläufe. Änderungen laufen durch dieselben
+oRPC-Prozeduren, Rollenprüfungen, Transaktionen und Audit-Einträge wie die UI.
+Rohes SQL und Geheimnisse werden nicht angeboten.
+
+Codex registriert den Produktionsendpunkt beispielsweise so:
+
+```bash
+codex mcp add rendant --url https://rendant.example.de/api/mcp \
+  --bearer-token-env-var RENDANT_MCP_TOKEN
+```
 
 ## Lokale Entwicklung
 
