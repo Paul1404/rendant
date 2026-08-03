@@ -62,6 +62,14 @@ const STATUS_STYLES: Record<HistoricalProtocolImportStatus, string> = {
 	error: "bg-destructive/10 text-destructive",
 };
 
+// Render these attributes with the input itself. Safari decides whether to
+// open a directory chooser from the initial file-input configuration and can
+// reject a directory when an extension-based `accept` filter is present.
+const DIRECTORY_INPUT_ATTRIBUTES = {
+	directory: "",
+	webkitdirectory: "",
+} as const;
+
 async function responseError(response: Response): Promise<string> {
 	try {
 		const body = (await response.json()) as { error?: string };
@@ -288,11 +296,11 @@ export function HistoricalProtocolFolderImport() {
 					</Label>
 					<div className="flex flex-col gap-2 sm:flex-row">
 						<Input
+							{...DIRECTORY_INPUT_ATTRIBUTES}
 							ref={setDirectoryInputRef}
 							id="historical-protocol-folder"
 							type="file"
 							multiple
-							accept=".ods,.xlsx,.pdf,.lnk"
 							className="hidden"
 							onChange={(event) => chooseFolder(event.target.files)}
 							disabled={loading != null}

@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.27.2 - 2026-08-03
+
+- Die Ordnerauswahl für Zählprotokolle lässt sich jetzt auch in Safari als
+  Ordner bestätigen. Der Browser erhält den Ordnermodus bereits beim Rendern,
+  und ein Dateitypfilter blockiert die Ordnerauswahl nicht mehr.
+
 ## 1.27.1 - 2026-08-03
 
 - Die Auswahl des Zählprotokoll-Archivs öffnet jetzt zuverlässig einen
