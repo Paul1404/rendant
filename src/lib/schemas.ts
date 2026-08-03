@@ -305,3 +305,80 @@ export const HistoricalRevenueCancelSchema = v.object({
 export type HistoricalRevenueCancelInput = v.InferOutput<
 	typeof HistoricalRevenueCancelSchema
 >;
+
+export const HistoricalProtocolDraftDecisionSchema = v.picklist([
+	"include",
+	"review",
+	"exclude",
+]);
+
+const draftRevision = v.pipe(v.number(), v.integer(), v.minValue(1));
+const draftId = v.pipe(v.string(), v.uuid());
+const draftAmount = v.pipe(intGte0, v.maxValue(2_147_483_647));
+
+export const HistoricalProtocolDraftGetSchema = v.object({ id: draftId });
+
+export const HistoricalProtocolDraftUpdateItemSchema = v.object({
+	draft_id: draftId,
+	item_id: draftId,
+	expected_revision: draftRevision,
+	decision: v.optional(HistoricalProtocolDraftDecisionSchema),
+	date: v.optional(v.nullable(historicalRevenueDate)),
+	detail: v.optional(
+		v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120)),
+	),
+	umsatzbereich: v.optional(v.nullable(UmsatzbereichSchema)),
+	umsatz_cent: v.optional(v.nullable(draftAmount)),
+	ausgaben_cent: v.optional(v.nullable(draftAmount)),
+	korrekturhinweis: v.optional(
+		v.nullable(v.pipe(v.string(), v.trim(), v.maxLength(1000))),
+	),
+});
+
+export const HistoricalProtocolDraftBulkUpdateSchema = v.pipe(
+	v.object({
+		draft_id: draftId,
+		expected_revision: draftRevision,
+		item_ids: v.optional(v.pipe(v.array(draftId), v.maxLength(1500))),
+		classification_key: v.optional(v.pipe(v.string(), v.maxLength(160))),
+		parser_status: v.optional(
+			v.picklist([
+				"ready",
+				"review",
+				"already_imported",
+				"existing_protocol",
+				"duplicate_file",
+				"skipped",
+				"error",
+			]),
+		),
+		parser_reason: v.optional(v.pipe(v.string(), v.maxLength(500))),
+		decision: v.optional(HistoricalProtocolDraftDecisionSchema),
+		umsatzbereich: v.optional(UmsatzbereichSchema),
+		korrekturhinweis: v.optional(
+			v.nullable(v.pipe(v.string(), v.trim(), v.maxLength(1000))),
+		),
+	}),
+	v.check(
+		(input) =>
+			Boolean(
+				input.item_ids?.length ||
+					input.classification_key ||
+					input.parser_status ||
+					input.parser_reason,
+			),
+		"Mindestens einen Filter angeben",
+	),
+	v.check(
+		(input) =>
+			input.decision !== undefined ||
+			input.umsatzbereich !== undefined ||
+			input.korrekturhinweis !== undefined,
+		"Mindestens eine Änderung angeben",
+	),
+);
+
+export const HistoricalProtocolDraftTransitionSchema = v.object({
+	id: draftId,
+	expected_revision: draftRevision,
+});

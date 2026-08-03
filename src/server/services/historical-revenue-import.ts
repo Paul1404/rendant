@@ -22,7 +22,7 @@ export type HistoricalRevenueImportResult = {
 	skipped: number;
 };
 
-function sourceUuid(sha256: string): string {
+export function historicalProtocolSourceUuid(sha256: string): string {
 	const bytes = createHash("sha256")
 		.update(`historical-protocol-folder:v1:${sha256}`)
 		.digest()
@@ -204,7 +204,7 @@ export async function importHistoricalProtocolFolder(
 			const result = await createHistoricalRevenueWithDb(
 				tx,
 				{
-					idempotency_key: sourceUuid(row.source.sha256),
+					idempotency_key: historicalProtocolSourceUuid(row.source.sha256),
 					anlass_datum: row.date,
 					anlass_katalog_id: null,
 					umsatzbereich: area,

@@ -101,6 +101,10 @@ entfernt.
 
 ### Import und Export
 
+- Zählprotokoll-Ordner mit ODS- und XLSX-Dateien werden als persistente
+  Arbeitsstände analysiert. Admins und der Rendant-MCP können erkannte Zeilen
+  prüfen, korrigieren oder auslassen. Erst eine vollständige Prüfung sperrt
+  eine konkrete Revision für den verbindlichen, auditierten Import
 - Excel-Vorlage für historische Umsätze mit der bisherigen Katalogzuordnung.
   Neue Einzelerfassungen verwenden die sechs festen Umsatzbereiche
 - Zweistufiger Excel-Import mit Prüfung, Vorschau, Zeilenfehlern,

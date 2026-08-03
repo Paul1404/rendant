@@ -1,12 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import type { HistoricalProtocolClassificationOverrides } from "@/lib/historical-protocol-import";
-import { isUmsatzbereich } from "@/lib/umsatzbereich";
 import { auth } from "@/server/auth";
-import {
-	auditActor,
-	auditRequest,
-	recordAuditEvent,
-} from "@/server/services/audit";
+import { auditActor, auditRequest } from "@/server/services/audit";
 import {
 	buildHistoricalProtocolPreview,
 	HISTORICAL_PROTOCOL_MAX_FILES,
@@ -15,10 +9,8 @@ import {
 	historicalProtocolManifestDigest,
 	parseHistoricalProtocolFile,
 } from "@/server/services/historical-protocol-folder";
-import {
-	enrichHistoricalProtocolPreview,
-	importHistoricalProtocolFolder,
-} from "@/server/services/historical-revenue-import";
+import { createHistoricalProtocolImportDraft } from "@/server/services/historical-protocol-import-draft";
+import { enrichHistoricalProtocolPreview } from "@/server/services/historical-revenue-import";
 
 function safeRelativePath(value: unknown): value is string {
 	if (typeof value !== "string" || value.length < 1 || value.length > 1_000) {
@@ -41,47 +33,6 @@ function safeFileMetadata(value: unknown): value is FileMetadata {
 		safeRelativePath((value as FileMetadata).path) &&
 		/^20\d{2}-\d{2}-\d{2}$/.test((value as FileMetadata).modifiedAt)
 	);
-}
-
-function parseOverrides(value: FormDataEntryValue | null) {
-	if (typeof value !== "string" || !value) return {};
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(value);
-	} catch {
-		throw new Error("Die Umsatzbereich-Zuordnung ist ungültig.");
-	}
-	if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-		throw new Error("Die Umsatzbereich-Zuordnung ist ungültig.");
-	}
-	const entries = Object.entries(parsed);
-	if (entries.length > 200)
-		throw new Error("Zu viele Umsatzbereich-Zuordnungen.");
-	const overrides: HistoricalProtocolClassificationOverrides = {};
-	for (const [key, area] of entries) {
-		if (key.length > 120 || !isUmsatzbereich(area)) {
-			throw new Error("Die Umsatzbereich-Zuordnung ist ungültig.");
-		}
-		overrides[key] = area;
-	}
-	return overrides;
-}
-
-function parseReviewIndices(value: FormDataEntryValue | null): Set<number> {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(typeof value === "string" ? value : "[]");
-	} catch {
-		throw new Error("Die Auswahl der Prüffälle ist ungültig.");
-	}
-	if (
-		!Array.isArray(parsed) ||
-		parsed.length > HISTORICAL_PROTOCOL_MAX_FILES ||
-		!parsed.every((entry) => Number.isInteger(entry) && entry >= 0)
-	) {
-		throw new Error("Die Auswahl der Prüffälle ist ungültig.");
-	}
-	return new Set(parsed as number[]);
 }
 
 async function parseUploadedFiles(files: HistoricalProtocolUploadFile[]) {
@@ -123,7 +74,7 @@ export const Route = createFileRoute("/api/import/historical-protocols")({
 					);
 				}
 				const mode = formData.get("mode");
-				if (mode !== "preview" && mode !== "apply") {
+				if (mode !== "preview") {
 					return Response.json({ error: "Ungültiger Modus." }, { status: 400 });
 				}
 				const uploaded = formData.getAll("files");
@@ -173,79 +124,12 @@ export const Route = createFileRoute("/api/import/historical-protocols")({
 					buildHistoricalProtocolPreview(files, rows, digest),
 				);
 
-				if (mode === "preview") {
-					await recordAuditEvent({
-						category: "umsaetze",
-						action: "umsaetze.protocol_folder_previewed",
-						actor: auditActor(session.user),
-						request: auditRequest(request),
-						metadata: {
-							dateien: preview.files,
-							erkannt: preview.spreadsheetFiles,
-							importierbar: preview.toImport,
-							prüffälle: preview.reviewRequired,
-							bereits_vorhanden:
-								preview.statusCounts.already_imported +
-								preview.statusCounts.existing_protocol,
-						},
-					});
-					return Response.json(preview);
-				}
-
-				if (formData.get("confirm_digest") !== digest) {
-					return Response.json(
-						{
-							error:
-								"Der Ordner wurde seit der Prüfung geändert. Bitte erneut prüfen.",
-						},
-						{ status: 409 },
-					);
-				}
-				let overrides: HistoricalProtocolClassificationOverrides;
-				try {
-					overrides = parseOverrides(formData.get("classification_overrides"));
-				} catch (error) {
-					return Response.json(
-						{
-							error:
-								error instanceof Error ? error.message : "Zuordnung ungültig",
-						},
-						{ status: 400 },
-					);
-				}
-				let includedReviewIndices: Set<number>;
-				try {
-					includedReviewIndices = parseReviewIndices(
-						formData.get("included_review_indices"),
-					);
-				} catch (error) {
-					return Response.json(
-						{
-							error:
-								error instanceof Error ? error.message : "Auswahl ungültig",
-						},
-						{ status: 400 },
-					);
-				}
-				const result = await importHistoricalProtocolFolder(
-					preview.rows,
-					overrides,
-					includedReviewIndices,
+				const draft = await createHistoricalProtocolImportDraft(
+					preview,
 					auditActor(session.user),
-					{
-						request: auditRequest(request),
-						subject: {
-							type: "historischer_protokollordner_import",
-							id: digest,
-							label: preview.folderName.slice(0, 200),
-						},
-						metadata: {
-							umsatz_cent: preview.totals.revenueCent,
-							ausgaben_cent: preview.totals.expensesCent,
-						},
-					},
+					{ request: auditRequest(request) },
 				);
-				return Response.json({ ok: true, ...result });
+				return Response.json(draft);
 			},
 		},
 	},

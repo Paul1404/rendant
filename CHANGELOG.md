@@ -3,6 +3,19 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.29.0 - 2026-08-03
+
+- Der Zählprotokoll-Ordner wird jetzt als gespeicherter, strukturierter
+  Arbeitsstand angelegt. Analyse, zeilenweise Korrektur, Prüfung und
+  verbindlicher Import sind klar getrennte Schritte und können später
+  fortgesetzt werden.
+- Oberfläche und MCP bearbeiten denselben revisionsgeschützten Entwurf.
+  Erkannte Quelldaten bleiben unverändert, Korrekturen brauchen einen Hinweis,
+  und konkurrierende Änderungen werden nicht still überschrieben.
+- Erst ein vollständig geprüfter und gesperrter Entwurf kann historische
+  Umsätze anlegen. Alle Bearbeitungen, Freigaben und der finale Import werden
+  im Auditprotokoll festgehalten.
+
 ## 1.28.0 - 2026-08-03
 
 - Rendant stellt jetzt einen token-geschützten Streamable-HTTP-MCP-Endpunkt

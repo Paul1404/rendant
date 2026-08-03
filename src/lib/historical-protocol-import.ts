@@ -86,3 +86,60 @@ export type HistoricalProtocolClassificationOverrides = Record<
 	string,
 	Umsatzbereich
 >;
+
+export type HistoricalProtocolDraftStatus = "editing" | "ready" | "imported";
+
+export type HistoricalProtocolDraftDecision = "include" | "review" | "exclude";
+
+export type HistoricalProtocolDraftItem = {
+	id: string;
+	draftId: string;
+	fileIndex: number;
+	path: string;
+	parserStatus: HistoricalProtocolImportStatus;
+	parserReason: string;
+	decision: HistoricalProtocolDraftDecision;
+	date: string | null;
+	detail: string;
+	area: Umsatzbereich | null;
+	revenueCent: number | null;
+	expensesCent: number | null;
+	classificationKey: string;
+	classificationConfidence: "high" | "medium" | "low";
+	correctionNote: string | null;
+	detected: HistoricalProtocolParsedRow;
+	revision: number;
+	updatedAt: Date;
+	updatedByName: string;
+};
+
+export type HistoricalProtocolDraftSummary = {
+	id: string;
+	folderName: string;
+	digest: string;
+	status: HistoricalProtocolDraftStatus;
+	revision: number;
+	files: number;
+	spreadsheetFiles: number;
+	createdAt: Date;
+	updatedAt: Date;
+	createdByName: string;
+	importedAt: Date | null;
+	resultCreated: number | null;
+	resultSkipped: number | null;
+	counts: {
+		include: number;
+		review: number;
+		exclude: number;
+		invalidIncluded: number;
+	};
+	totals: {
+		revenueCent: number;
+		expensesCent: number;
+		cardCent: number;
+	};
+};
+
+export type HistoricalProtocolDraftDetail = HistoricalProtocolDraftSummary & {
+	items: HistoricalProtocolDraftItem[];
+};

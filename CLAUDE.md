@@ -200,11 +200,15 @@ Assume concurrent users and multiple Railway instances for every shared write.
 - New mutations and sensitive reads or downloads must define an audit event as
   part of their implementation. Audit entries identify the actor and subject,
   while snapshots remain limited to the context needed for accountability.
-- Historical protocol-folder imports are preview-first. Content hashes provide
-  idempotency, current protocol records are checked before import, and source
-  path, date provenance, cash, card, expenses, denomination and VAT details
-  stay attached to the immutable historical revenue. Dates inferred from file
-  metadata and accounting inconsistencies always require explicit selection.
+- Historical protocol-folder imports create a persistent, revisioned working
+  draft before any accounting rows are written. UI and MCP must use the same
+  oRPC draft procedures, keep parser evidence immutable, require a correction
+  note for changed working values, and lock an exact revision before final
+  import. Content hashes provide idempotency, current protocol records are
+  checked before import, and source path, date provenance, cash, card, expenses,
+  denomination and VAT details stay attached to the immutable historical
+  revenue. Dates inferred from file metadata and accounting inconsistencies
+  always require explicit review.
 
 ### 8. Remote MCP Boundary
 

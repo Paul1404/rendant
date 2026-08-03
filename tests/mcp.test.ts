@@ -63,6 +63,7 @@ describe("Rendant MCP", () => {
 		expect(names).toContain("get_settings");
 		expect(names).not.toContain("create_protocol");
 		expect(names).not.toContain("list_users");
+		expect(names).not.toContain("list_protocol_import_drafts");
 		await client.close();
 		await server.close();
 	});
@@ -80,8 +81,18 @@ describe("Rendant MCP", () => {
 			(tool) => tool.name === "cancel_historical_revenue",
 		);
 		expect(cancel?.annotations?.destructiveHint).toBe(true);
+		const importDraft = result.tools.find(
+			(tool) => tool.name === "apply_protocol_import_draft",
+		);
+		expect(importDraft?.annotations?.destructiveHint).toBe(true);
 		expect(result.tools.map((tool) => tool.name)).toContain("create_protocol");
 		expect(result.tools.map((tool) => tool.name)).toContain("list_audit_events");
+		expect(result.tools.map((tool) => tool.name)).toContain(
+			"get_protocol_import_draft",
+		);
+		expect(result.tools.map((tool) => tool.name)).toContain(
+			"update_protocol_import_draft_item",
+		);
 		await client.close();
 		await server.close();
 	});

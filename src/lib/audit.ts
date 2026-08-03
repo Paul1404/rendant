@@ -64,6 +64,13 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
 	"umsaetze.cancelled": "Historischen Umsatz storniert",
 	"umsaetze.import_previewed": "Umsatzimport geprüft",
 	"umsaetze.imported": "Historische Umsätze importiert",
+	"umsaetze.protocol_import_draft_created": "Protokollimport vorbereitet",
+	"umsaetze.protocol_import_draft_item_updated": "Importzeile korrigiert",
+	"umsaetze.protocol_import_draft_bulk_updated":
+		"Importzeilen gesammelt geändert",
+	"umsaetze.protocol_import_draft_ready": "Protokollimport freigegeben",
+	"umsaetze.protocol_import_draft_reopened": "Protokollimport wieder geöffnet",
+	"umsaetze.protocol_import_draft_applied": "Protokollimport ausgeführt",
 	"umsaetze.areas_backfilled": "Umsatzbereiche zugeordnet",
 	"exports.protokolle_csv": "Protokolle exportiert",
 	"exports.umsaetze_csv": "Umsätze exportiert",

@@ -9,6 +9,10 @@ import {
 	CashRegisterSchema,
 	CreateProtokollSchema,
 	ExportQuerySchema,
+	HistoricalProtocolDraftBulkUpdateSchema,
+	HistoricalProtocolDraftGetSchema,
+	HistoricalProtocolDraftTransitionSchema,
+	HistoricalProtocolDraftUpdateItemSchema,
 	HistoricalRevenueCancelSchema,
 	HistoricalRevenueCreateSchema,
 	InviteCreateSchema,
@@ -178,6 +182,86 @@ const TOOLS: McpTool[] = [
 				items: matched.slice(0, input.limit),
 			};
 		},
+	}),
+	defineTool({
+		name: "list_protocol_import_drafts",
+		description:
+			"List persistent historical protocol import drafts with status, revision, decision counts and selected totals. UI and MCP share these drafts.",
+		minMode: "admin",
+		input: EmptyInput,
+		annotations: READ_ONLY,
+		execute: (context) =>
+			call(router.historicalProtocolImport.list, undefined, { context }),
+	}),
+	defineTool({
+		name: "get_protocol_import_draft",
+		description:
+			"Get one structured historical protocol import draft including parser evidence, editable working values, decisions, corrections and current revision.",
+		minMode: "admin",
+		input: HistoricalProtocolDraftGetSchema,
+		annotations: READ_ONLY,
+		execute: (context, input) =>
+			call(router.historicalProtocolImport.get, input, { context }),
+	}),
+	defineTool({
+		name: "validate_protocol_import_draft",
+		description:
+			"Validate a historical protocol import draft and return unresolved review rows and incomplete included rows without changing it.",
+		minMode: "admin",
+		input: HistoricalProtocolDraftGetSchema,
+		annotations: READ_ONLY,
+		execute: (context, input) =>
+			call(router.historicalProtocolImport.validate, input, { context }),
+	}),
+	defineTool({
+		name: "update_protocol_import_draft_item",
+		description:
+			"Correct one structured import row or change its decision. Working-value corrections require a correction note and optimistic expected_revision.",
+		minMode: "admin",
+		input: HistoricalProtocolDraftUpdateItemSchema,
+		annotations: WRITE,
+		execute: (context, input) =>
+			call(router.historicalProtocolImport.updateItem, input, { context }),
+	}),
+	defineTool({
+		name: "bulk_update_protocol_import_draft_items",
+		description:
+			"Apply an audited decision or revenue-area correction to an exact set or parser group in an editable import draft.",
+		minMode: "admin",
+		input: HistoricalProtocolDraftBulkUpdateSchema,
+		annotations: WRITE,
+		execute: (context, input) =>
+			call(router.historicalProtocolImport.bulkUpdate, input, { context }),
+	}),
+	defineTool({
+		name: "mark_protocol_import_draft_ready",
+		description:
+			"Lock a fully reviewed import draft at its expected revision so it can be inspected before final import.",
+		minMode: "admin",
+		input: HistoricalProtocolDraftTransitionSchema,
+		annotations: WRITE,
+		execute: (context, input) =>
+			call(router.historicalProtocolImport.markReady, input, { context }),
+	}),
+	defineTool({
+		name: "reopen_protocol_import_draft",
+		description:
+			"Reopen a ready but not yet imported draft for further audited corrections.",
+		minMode: "admin",
+		input: HistoricalProtocolDraftTransitionSchema,
+		annotations: WRITE,
+		execute: (context, input) =>
+			call(router.historicalProtocolImport.reopen, input, { context }),
+	}),
+	defineTool({
+		name: "apply_protocol_import_draft",
+		description:
+			"Import the exact ready draft revision as immutable historical revenue records. Requires explicit user authorization and cannot edit the source evidence.",
+		minMode: "admin",
+		input: HistoricalProtocolDraftTransitionSchema,
+		annotations: DESTRUCTIVE,
+		execute: (context, input) =>
+			call(router.historicalProtocolImport.apply, input, { context }),
 	}),
 	defineTool({
 		name: "revenue_summary",

@@ -14,6 +14,7 @@ import {
 	uuid,
 } from "drizzle-orm/pg-core";
 import type { DenominationCounts } from "@/lib/denominations";
+import type { HistoricalProtocolParsedRow } from "@/lib/historical-protocol-import";
 
 export type HistoricalRevenueVatSplit = {
 	ust_basis_punkte: number;
@@ -469,6 +470,126 @@ export const historicalRevenues = pgTable(
 		check(
 			"historical_revenues_storno_check",
 			sql`(${t.storniert_am} IS NULL AND ${t.storniert_von_user_id} IS NULL AND ${t.storniert_von_name} IS NULL AND ${t.storniert_von_email} IS NULL AND ${t.storno_grund} IS NULL) OR (${t.storniert_am} IS NOT NULL AND ${t.storniert_von_user_id} IS NOT NULL AND ${t.storniert_von_name} IS NOT NULL AND ${t.storniert_von_email} IS NOT NULL AND length(trim(${t.storno_grund})) BETWEEN 5 AND 500)`,
+		),
+	],
+);
+
+// A protocol-folder analysis becomes a durable workspace before any accounting
+// rows are written. The immutable parser result stays in `detected_row`; users
+// and MCP edit only the explicit working columns on each item.
+export const historicalProtocolImportDrafts = pgTable(
+	"historical_protocol_import_drafts",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		digest: text("digest").notNull().unique(),
+		folder_name: text("folder_name").notNull(),
+		status: text("status").notNull().default("editing"),
+		revision: integer("revision").notNull().default(1),
+		files: integer("files").notNull(),
+		spreadsheet_files: integer("spreadsheet_files").notNull(),
+		created_by_user_id: text("created_by_user_id").notNull(),
+		created_by_name: text("created_by_name").notNull(),
+		created_by_email: text("created_by_email").notNull(),
+		created_at: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		updated_at: timestamp("updated_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		imported_at: timestamp("imported_at", { withTimezone: true }),
+		imported_by_user_id: text("imported_by_user_id"),
+		imported_by_name: text("imported_by_name"),
+		result_created: integer("result_created"),
+		result_skipped: integer("result_skipped"),
+	},
+	(t) => [
+		index("idx_historical_protocol_import_drafts_status_updated").on(
+			t.status,
+			t.updated_at,
+		),
+		check(
+			"historical_protocol_import_drafts_status_check",
+			sql`${t.status} IN ('editing', 'ready', 'imported')`,
+		),
+		check(
+			"historical_protocol_import_drafts_revision_check",
+			sql`${t.revision} >= 1`,
+		),
+		check(
+			"historical_protocol_import_drafts_counts_check",
+			sql`${t.files} >= 1 AND ${t.spreadsheet_files} >= 0 AND ${t.spreadsheet_files} <= ${t.files}`,
+		),
+	],
+);
+
+export const historicalProtocolImportItems = pgTable(
+	"historical_protocol_import_items",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		draft_id: uuid("draft_id")
+			.notNull()
+			.references(() => historicalProtocolImportDrafts.id, {
+				onDelete: "cascade",
+			}),
+		file_index: integer("file_index").notNull(),
+		path: text("path").notNull(),
+		parser_status: text("parser_status").notNull(),
+		parser_reason: text("parser_reason").notNull(),
+		decision: text("decision").notNull(),
+		effective_date: date("effective_date", { mode: "string" }),
+		detail: text("detail").notNull(),
+		umsatzbereich: text("umsatzbereich"),
+		revenue_cent: integer("revenue_cent"),
+		expenses_cent: integer("expenses_cent"),
+		classification_key: text("classification_key").notNull(),
+		classification_confidence: text("classification_confidence").notNull(),
+		correction_note: text("correction_note"),
+		detected_row: jsonb("detected_row")
+			.$type<HistoricalProtocolParsedRow>()
+			.notNull(),
+		revision: integer("revision").notNull().default(1),
+		updated_by_user_id: text("updated_by_user_id").notNull(),
+		updated_by_name: text("updated_by_name").notNull(),
+		updated_at: timestamp("updated_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		uniqueIndex("historical_protocol_import_items_draft_file_unique").on(
+			t.draft_id,
+			t.file_index,
+		),
+		index("idx_historical_protocol_import_items_draft_decision").on(
+			t.draft_id,
+			t.decision,
+		),
+		index("idx_historical_protocol_import_items_draft_parser_status").on(
+			t.draft_id,
+			t.parser_status,
+		),
+		check(
+			"historical_protocol_import_items_parser_status_check",
+			sql`${t.parser_status} IN ('ready', 'review', 'already_imported', 'existing_protocol', 'duplicate_file', 'skipped', 'error')`,
+		),
+		check(
+			"historical_protocol_import_items_decision_check",
+			sql`${t.decision} IN ('include', 'review', 'exclude')`,
+		),
+		check(
+			"historical_protocol_import_items_area_check",
+			sql`${t.umsatzbereich} IS NULL OR ${t.umsatzbereich} IN ('wirtschaftsbetrieb', 'veranstaltungen', 'eintrittsgelder', 'verkauf_spielfeld', 'seniorennachmittag', 'sonstiges')`,
+		),
+		check(
+			"historical_protocol_import_items_amounts_check",
+			sql`(${t.revenue_cent} IS NULL OR ${t.revenue_cent} >= 0) AND (${t.expenses_cent} IS NULL OR ${t.expenses_cent} >= 0)`,
+		),
+		check(
+			"historical_protocol_import_items_detail_check",
+			sql`length(trim(${t.detail})) BETWEEN 1 AND 120`,
+		),
+		check(
+			"historical_protocol_import_items_note_check",
+			sql`${t.correction_note} IS NULL OR length(${t.correction_note}) <= 1000`,
 		),
 	],
 );

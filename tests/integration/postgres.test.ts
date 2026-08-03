@@ -6,9 +6,15 @@ import { db, pool } from "@/server/db";
 import {
 	anlassKatalog,
 	auditEvents,
+	historicalProtocolImportDrafts,
 	historicalRevenues,
 	protokolle,
 } from "@/server/db/schema";
+import {
+	createHistoricalProtocolImportDraft,
+	HistoricalProtocolDraftConflictError,
+	updateHistoricalProtocolImportDraftItem,
+} from "@/server/services/historical-protocol-import-draft";
 import {
 	cancelHistoricalRevenue,
 	createHistoricalRevenue,
@@ -117,6 +123,109 @@ describe("PostgreSQL production paths", () => {
 				.delete(historicalRevenues)
 				.where(eq(historicalRevenues.idempotency_key, idempotencyKey));
 			await db.delete(anlassKatalog).where(eq(anlassKatalog.id, catalogId));
+		}
+	});
+
+	it("rejects concurrent edits against the same import draft revision", async () => {
+		const digest = randomUUID().replaceAll("-", "").padEnd(64, "a");
+		const sourceHash = randomUUID().replaceAll("-", "").padEnd(64, "b");
+		const preview = {
+			valid: true,
+			digest,
+			folderName: "Integration/Zählprotokolle",
+			files: 1,
+			spreadsheetFiles: 1,
+			statusCounts: {
+				ready: 1,
+				review: 0,
+				already_imported: 0,
+				existing_protocol: 0,
+				duplicate_file: 0,
+				skipped: 0,
+				error: 0,
+			},
+			toImport: 1,
+			reviewRequired: 0,
+			totals: {
+				revenueCent: 10_000,
+				expensesCent: 0,
+				cashCent: 10_000,
+				cardCent: 0,
+			},
+			coverage: {
+				years: [2020],
+				withDenominations: 0,
+				withVat: 0,
+				withCard: 0,
+				withCashRegister: 1,
+			},
+			classifications: [],
+			rows: [
+				{
+					fileIndex: 0,
+					path: "2020/Test.xlsx",
+					status: "ready" as const,
+					statusReason: "Vollständig erkannt",
+					date: "2020-01-15",
+					detail: "Integration",
+					classificationKey: "integration",
+					suggestedArea: "sonstiges" as const,
+					classificationConfidence: "high" as const,
+					revenueCent: 10_000,
+					expensesCent: 0,
+					source: {
+						sha256: sourceHash,
+						path: "2020/Test.xlsx",
+						format: "xlsx" as const,
+						protocolNumber: "1",
+						cashRegisterNumber: "1",
+						cashRegisterLabel: "Integration",
+						countedBy: "Integration Test",
+						openingCent: 0,
+						cardCent: 0,
+						countedCent: 10_000,
+						cashRevenueCent: 10_000,
+						denominations: null,
+						vat: [],
+						warnings: [],
+						dateOrigin: "workbook" as const,
+					},
+				},
+			],
+		};
+
+		const draft = await createHistoricalProtocolImportDraft(preview, actor, audit);
+		try {
+			const input = {
+				draft_id: draft.id,
+				item_id: draft.items[0].id,
+				expected_revision: draft.revision,
+			};
+			const results = await Promise.allSettled([
+				updateHistoricalProtocolImportDraftItem(
+					{ ...input, decision: "exclude" as const },
+					actor,
+					audit,
+				),
+				updateHistoricalProtocolImportDraftItem(
+					{ ...input, decision: "review" as const },
+					actor,
+					audit,
+				),
+			]);
+			expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(
+				1,
+			);
+			const rejected = results.find((result) => result.status === "rejected");
+			if (rejected?.status === "rejected") {
+				expect(rejected.reason).toBeInstanceOf(
+					HistoricalProtocolDraftConflictError,
+				);
+			}
+		} finally {
+			await db
+				.delete(historicalProtocolImportDrafts)
+				.where(eq(historicalProtocolImportDrafts.id, draft.id));
 		}
 	});
 

@@ -10,6 +10,10 @@ import {
 	CreateProtokollSchema,
 	EmailSettingsSchema,
 	ExportQuerySchema,
+	HistoricalProtocolDraftBulkUpdateSchema,
+	HistoricalProtocolDraftGetSchema,
+	HistoricalProtocolDraftTransitionSchema,
+	HistoricalProtocolDraftUpdateItemSchema,
 	HistoricalRevenueCancelSchema,
 	HistoricalRevenueCreateSchema,
 	InviteAcceptSchema,
@@ -51,6 +55,19 @@ import {
 	sendTestEmail,
 	updateEmailSettings,
 } from "@/server/services/email";
+import {
+	applyHistoricalProtocolImportDraft,
+	bulkUpdateHistoricalProtocolImportDraftItems,
+	getHistoricalProtocolImportDraft,
+	HistoricalProtocolDraftConflictError,
+	HistoricalProtocolDraftNotFoundError,
+	HistoricalProtocolDraftValidationError,
+	listHistoricalProtocolImportDrafts,
+	markHistoricalProtocolImportDraftReady,
+	reopenHistoricalProtocolImportDraft,
+	updateHistoricalProtocolImportDraftItem,
+	validateHistoricalProtocolImportDraft,
+} from "@/server/services/historical-protocol-import-draft";
 import {
 	cancelHistoricalRevenue,
 	createHistoricalRevenue,
@@ -909,6 +926,113 @@ const historicalRevenue = {
 		}),
 };
 
+function throwHistoricalProtocolDraftError(error: unknown): never {
+	if (error instanceof HistoricalProtocolDraftNotFoundError) {
+		throw new ORPCError("NOT_FOUND", { message: error.message });
+	}
+	if (error instanceof HistoricalProtocolDraftConflictError) {
+		throw new ORPCError("CONFLICT", { message: error.message });
+	}
+	if (error instanceof HistoricalProtocolDraftValidationError) {
+		throw new ORPCError("BAD_REQUEST", {
+			message: error.message,
+			data: error.validation,
+		});
+	}
+	throw error;
+}
+
+const historicalProtocolImport = {
+	list: adminOnly.handler(() => listHistoricalProtocolImportDrafts()),
+
+	get: adminOnly
+		.input(HistoricalProtocolDraftGetSchema)
+		.handler(async ({ input }) => {
+			try {
+				return await getHistoricalProtocolImportDraft(input.id);
+			} catch (error) {
+				throwHistoricalProtocolDraftError(error);
+			}
+		}),
+
+	updateItem: adminOnly
+		.input(HistoricalProtocolDraftUpdateItemSchema)
+		.handler(async ({ input, context }) => {
+			try {
+				return await updateHistoricalProtocolImportDraftItem(
+					input,
+					context.user,
+					{ request: requestAuditContext(context) },
+				);
+			} catch (error) {
+				throwHistoricalProtocolDraftError(error);
+			}
+		}),
+
+	bulkUpdate: adminOnly
+		.input(HistoricalProtocolDraftBulkUpdateSchema)
+		.handler(async ({ input, context }) => {
+			try {
+				return await bulkUpdateHistoricalProtocolImportDraftItems(
+					input,
+					context.user,
+					{ request: requestAuditContext(context) },
+				);
+			} catch (error) {
+				throwHistoricalProtocolDraftError(error);
+			}
+		}),
+
+	validate: adminOnly
+		.input(HistoricalProtocolDraftGetSchema)
+		.handler(({ input }) => validateHistoricalProtocolImportDraft(input.id)),
+
+	markReady: adminOnly
+		.input(HistoricalProtocolDraftTransitionSchema)
+		.handler(async ({ input, context }) => {
+			try {
+				return await markHistoricalProtocolImportDraftReady(
+					input.id,
+					input.expected_revision,
+					context.user,
+					{ request: requestAuditContext(context) },
+				);
+			} catch (error) {
+				throwHistoricalProtocolDraftError(error);
+			}
+		}),
+
+	reopen: adminOnly
+		.input(HistoricalProtocolDraftTransitionSchema)
+		.handler(async ({ input, context }) => {
+			try {
+				return await reopenHistoricalProtocolImportDraft(
+					input.id,
+					input.expected_revision,
+					context.user,
+					{ request: requestAuditContext(context) },
+				);
+			} catch (error) {
+				throwHistoricalProtocolDraftError(error);
+			}
+		}),
+
+	apply: adminOnly
+		.input(HistoricalProtocolDraftTransitionSchema)
+		.handler(async ({ input, context }) => {
+			try {
+				return await applyHistoricalProtocolImportDraft(
+					input.id,
+					input.expected_revision,
+					context.user,
+					{ request: requestAuditContext(context) },
+				);
+			} catch (error) {
+				throwHistoricalProtocolDraftError(error);
+			}
+		}),
+};
+
 // ---- Reports -------------------------------------------------------------
 
 const reports = {
@@ -956,6 +1080,7 @@ export const router = {
 	users,
 	profile,
 	historicalRevenue,
+	historicalProtocolImport,
 	reports,
 	audit,
 	health,
