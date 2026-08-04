@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.29.4 - 2026-08-04
+
+- Liegen Original und nummerierte Korrektur am selben Änderungsdatum, gewinnt
+  zuverlässig die Dateirevision mit dem höheren Suffix wie `-1`.
+
 ## 1.29.3 - 2026-08-04
 
 - Korrigierte Dateirevisionen desselben Zählprotokolls werden anhand von

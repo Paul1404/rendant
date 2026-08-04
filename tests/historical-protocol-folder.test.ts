@@ -217,13 +217,13 @@ describe("historical protocol folder import", () => {
 			protocolFile({
 				path: "Zählprotokolle/2025/Zählprotokoll 17.xlsx",
 				revenue: 100,
-				modifiedAt: "2025-05-04T10:00:00Z",
+				modifiedAt: "2025-05-04",
 			}),
 			protocolFile({
 				path: "Zählprotokolle/2025/Zählprotokoll 17-1.xlsx",
 				revenue: 90,
 				card: 10,
-				modifiedAt: "2025-05-04T10:01:00Z",
+				modifiedAt: "2025-05-04",
 			}),
 		]);
 		files[1].index = 1;

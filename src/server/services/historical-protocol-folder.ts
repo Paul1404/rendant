@@ -757,7 +757,7 @@ export function historicalProtocolManifestDigest(
 	// Keep drafts produced by materially different parser rules separate. This
 	// lets an unchanged source folder be re-analysed without silently reopening
 	// a stale draft from an earlier parser generation.
-	hash.update("historical-protocol-parser:v3\0");
+	hash.update("historical-protocol-parser:v4\0");
 	for (const file of [...files].sort((a, b) =>
 		a.path.localeCompare(b.path, "de"),
 	)) {
@@ -843,6 +843,10 @@ function revisionBasePath(path: string): string {
 		.replace(/-\d+$/u, "");
 }
 
+function revisionSequence(path: string): number {
+	return Number(/-(\d+)[.](?:ods|xlsx)$/iu.exec(path)?.[1] ?? 0);
+}
+
 function markSupersededRevisions(
 	files: HistoricalProtocolUploadFile[],
 	rows: HistoricalProtocolParsedRow[],
@@ -880,6 +884,9 @@ function markSupersededRevisions(
 				(modifiedAtByIndex.get(b.fileIndex) ?? 0) -
 				(modifiedAtByIndex.get(a.fileIndex) ?? 0);
 			if (modifiedDifference !== 0) return modifiedDifference;
+			const sequenceDifference =
+				revisionSequence(b.path) - revisionSequence(a.path);
+			if (sequenceDifference !== 0) return sequenceDifference;
 			return b.path.localeCompare(a.path, "de");
 		})[0];
 		for (const row of group) {
