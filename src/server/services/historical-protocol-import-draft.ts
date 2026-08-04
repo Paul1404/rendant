@@ -243,7 +243,10 @@ export async function createHistoricalProtocolImportDraft(
 					decision: defaultDecision(row),
 					effective_date: row.date,
 					detail: (row.detail || "Unbekannter Altumsatz").slice(0, 120),
-					umsatzbereich: row.source ? row.suggestedArea : null,
+					umsatzbereich:
+						row.source && row.classificationConfidence !== "low"
+							? row.suggestedArea
+							: null,
 					revenue_cent: row.revenueCent,
 					expenses_cent: row.expensesCent,
 					classification_key: row.classificationKey.slice(0, 160),

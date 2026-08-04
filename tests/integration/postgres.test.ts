@@ -175,6 +175,7 @@ describe("PostgreSQL production paths", () => {
 					expensesCent: 0,
 					source: {
 						sha256: sourceHash,
+						contentFingerprint: sourceHash,
 						path: "2020/Test.xlsx",
 						format: "xlsx" as const,
 						protocolNumber: "1",

@@ -17,6 +17,7 @@ export type HistoricalProtocolVatSplit = {
 
 export type HistoricalProtocolSource = {
 	sha256: string;
+	contentFingerprint: string;
 	path: string;
 	format: "ods" | "xlsx";
 	protocolNumber: string | null;

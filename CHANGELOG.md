@@ -3,6 +3,21 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.29.2 - 2026-08-04
+
+- XLSX-Zählprotokolle übernehmen jetzt die Stückelung aus der tatsächlichen
+  Mengenspalte. Leere Mengen werden als null Stück gelesen und widersprüchliche
+  Kassenbestände bleiben Prüffälle.
+- Inhaltlich gleiche Protokolle werden auch dann als Dublette erkannt, wenn
+  sich nur Dateimetadaten unterscheiden. Dreistellige Jahresangaben wie
+  `18.05.025` werden anhand des Jahresordners sicher aufgelöst.
+- Nur eindeutig benannte Umsatzbereiche werden automatisch vorgeschlagen.
+  Unsichere Kassen bleiben ohne feste Zuordnung in Prüfung. Weitere Kassen am
+  selben eindeutigen Veranstaltungstag liefern einen gekennzeichneten
+  Kontextvorschlag.
+- Eine erneute Analyse desselben Ordners erzeugt mit den verbesserten
+  Parserregeln einen neuen Entwurf, statt einen veralteten Entwurf zu öffnen.
+
 ## 1.29.1 - 2026-08-03
 
 - Die Einstellungen führen MCP und Automatisierungen jetzt als eigenen Bereich

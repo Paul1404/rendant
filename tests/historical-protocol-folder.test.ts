@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import ExcelJS from "exceljs";
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
@@ -10,18 +11,47 @@ import {
 
 async function protocolFile(options: {
 	path?: string;
-	date?: Date | null;
+	date?: Date | string | null;
 	revenue?: number;
 	card?: number;
-	detail?: string;
+	detail?: string | null;
 	modifiedAt?: string;
 	vat11?: number;
+	withDenominations?: boolean;
 } = {}): Promise<HistoricalProtocolUploadFile> {
 	const workbook = new ExcelJS.Workbook();
 	const sheet = workbook.addWorksheet("Kasse");
 	sheet.addRow(["Kassenbericht vom", options.date === null ? null : (options.date ?? new Date(Date.UTC(2025, 4, 3)))]);
-	sheet.addRow(["Nr.", 17, options.detail ?? "Theke"]);
-	sheet.addRow(["Stückelung", "Menge", "Betrag"]);
+	sheet.addRow([
+		"Nr.",
+		17,
+		options.detail === null ? null : (options.detail ?? "Theke"),
+	]);
+	sheet.addRow(["Stückelung", "Stückelung", "Menge", "Summe"]);
+	if (options.withDenominations) {
+		const counts = new Map<number, number>([
+			[100, 2],
+			[50, 1],
+			[20, 1],
+			[10, 1],
+			[2, 1],
+			[1, 1],
+			[0.1, 4],
+			[0.05, 1],
+		]);
+		for (const denomination of [
+			500, 200, 100, 50, 20, 10, 5, 2, 1, 0.5, 0.2, 0.1, 0.05, 0.02,
+			0.01,
+		]) {
+			const count = counts.get(denomination) ?? 0;
+			sheet.addRow([
+				denomination,
+				denomination,
+				count === 0 ? null : count,
+				denomination * count,
+			]);
+		}
+	}
 	sheet.addRow(["Kassenendbestand am Vortag", 160]);
 	sheet.addRow(["Kassenendbestand", 160 + (options.revenue ?? 123.45)]);
 	sheet.addRow(["Tageseinnahmen", options.revenue ?? 123.45]);
@@ -66,7 +96,7 @@ describe("historical protocol folder import", () => {
 		});
 
 		expect(row).toMatchObject({
-			status: "ready",
+			status: "review",
 			date: "2024-06-15",
 			revenueCent: 25_050,
 			expensesCent: 1_200,
@@ -96,6 +126,39 @@ describe("historical protocol folder import", () => {
 		});
 	});
 
+	it("reads XLSX denomination counts from the Menge column", async () => {
+		const row = await parseHistoricalProtocolFile(
+			await protocolFile({ withDenominations: true }),
+		);
+
+		expect(row.status).toBe("review");
+		expect(row.source?.denominations).toMatchObject({
+			anzahl_100_eur: 2,
+			anzahl_50_eur: 1,
+			anzahl_5_cent: 1,
+		});
+		expect(row.source?.warnings).not.toContain(
+			"Stückelung stimmt nicht mit dem Kassenendbestand überein",
+		);
+	});
+
+	it("accepts a three-digit year when the folder year disambiguates it", async () => {
+		const row = await parseHistoricalProtocolFile(
+			await protocolFile({
+				date: "18.05.025",
+				detail: null,
+				modifiedAt: "2025-05-19",
+			}),
+		);
+
+		expect(row.date).toBe("2025-05-18");
+		expect(row.detail).toBe("Kassenprotokoll Nr. 17");
+		expect(row.source?.dateOrigin).toBe("workbook");
+		expect(row.source?.warnings).not.toContain(
+			"Datum aus dem Änderungsdatum der Quelldatei abgeleitet",
+		);
+	});
+
 	it("offers a matching file timestamp as an explicit review case", async () => {
 		const row = await parseHistoricalProtocolFile(
 			await protocolFile({ date: null, modifiedAt: "2025-02-08" }),
@@ -121,7 +184,14 @@ describe("historical protocol folder import", () => {
 
 	it("marks duplicate content and keeps the preview totals single-source", async () => {
 		const first = await protocolFile();
-		const duplicate = { ...first, index: 1, path: "Zählprotokolle/2025/Kopie.xlsx" };
+		const archive = await JSZip.loadAsync(first.bytes);
+		archive.file("docProps/import-copy.txt", "Andere Paketmetadaten");
+		const duplicate = {
+			...first,
+			index: 1,
+			path: "Zählprotokolle/2025/Kopie.xlsx",
+			bytes: await archive.generateAsync({ type: "uint8array" }),
+		};
 		const rows = await Promise.all([
 			parseHistoricalProtocolFile(first),
 			parseHistoricalProtocolFile(duplicate),
@@ -133,9 +203,67 @@ describe("historical protocol folder import", () => {
 			historicalProtocolManifestDigest(files),
 		);
 
+		expect(rows[0].source?.sha256).not.toBe(rows[1].source?.sha256);
+		expect(rows[0].source?.contentFingerprint).toBe(
+			rows[1].source?.contentFingerprint,
+		);
 		expect(preview.statusCounts.duplicate_file).toBe(1);
 		expect(preview.toImport).toBe(1);
 		expect(preview.totals.revenueCent).toBe(12_345);
+	});
+
+	it("uses a versioned and deterministic manifest digest", async () => {
+		const files = [await protocolFile()];
+		const digest = historicalProtocolManifestDigest(files);
+
+		expect(historicalProtocolManifestDigest(files)).toBe(digest);
+		expect(digest).toHaveLength(64);
+		expect(digest).not.toBe(
+			createHash("sha256")
+				.update(files[0].path.normalize("NFC"))
+				.update("\0")
+				.update(createHash("sha256").update(files[0].bytes).digest())
+				.update("\0")
+				.update(files[0].modifiedAt ?? "")
+				.update("\0")
+				.digest("hex"),
+		);
+	});
+
+	it("uses an unambiguous same-day anchor only as a reviewable suggestion", async () => {
+		const files = await Promise.all([
+			protocolFile({ detail: "Eintritt Fußball" }),
+			protocolFile({ detail: "Theke", path: "Zählprotokolle/2025/Zählprotokoll 18.xlsx" }),
+		]);
+		files[1].index = 1;
+		const rows = await Promise.all(files.map(parseHistoricalProtocolFile));
+		const preview = buildHistoricalProtocolPreview(
+			files,
+			rows,
+			historicalProtocolManifestDigest(files),
+		);
+		const theke = preview.rows.find((row) => row.detail === "Theke");
+
+		expect(theke).toMatchObject({
+			status: "review",
+			suggestedArea: "verkauf_spielfeld",
+			classificationConfidence: "medium",
+		});
+		expect(theke?.source?.warnings).toContain(
+			"Umsatzbereich aus weiteren Kassen desselben Veranstaltungstags vorgeschlagen",
+		);
+	});
+
+	it("keeps mixed entry and catering labels in review", async () => {
+		const row = await parseHistoricalProtocolFile(
+			await protocolFile({ detail: "Eintritt/Essen" }),
+		);
+
+		expect(row).toMatchObject({
+			status: "review",
+			suggestedArea: "eintrittsgelder",
+			classificationConfidence: "medium",
+		});
 	});
 
 	it("keeps exceptional VAT data out of the automatic set", async () => {

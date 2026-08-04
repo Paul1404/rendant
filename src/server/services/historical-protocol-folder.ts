@@ -228,6 +228,15 @@ function rowWith(grid: Grid, needle: string): GridValue[] | null {
 	);
 }
 
+function countedRow(grid: Grid): GridValue[] | null {
+	return (
+		grid.find((row) => {
+			const text = rowText(row);
+			return text.includes("kassenendbestand") && !text.includes("am vortag");
+		}) ?? null
+	);
+}
+
 function numberValues(row: GridValue[] | null): number[] {
 	if (!row) return [];
 	return row.filter(
@@ -262,12 +271,20 @@ function dateFromValue(
 	if (typeof value === "string") {
 		const text = cleanText(value);
 		if (isIsoCalendarDate(text.slice(0, 10))) result = text.slice(0, 10);
-		const german = /^(\d{1,2})[./](\d{1,2})[./](\d{2}|\d{4})$/.exec(text);
+		const german = /^(\d{1,2})[./](\d{1,2})[./](\d{2,4})$/.exec(text);
 		if (german) {
 			const year =
-				german[3].length === 4 ? german[3] : String(2000 + Number(german[3]));
-			const iso = `${year}-${german[2].padStart(2, "0")}-${german[1].padStart(2, "0")}`;
-			if (isIsoCalendarDate(iso)) result = iso;
+				german[3].length === 4
+					? german[3]
+					: german[3].length === 2
+						? String(2000 + Number(german[3]))
+						: pathYear && german[3] === pathYear.slice(1)
+							? pathYear
+							: null;
+			if (year) {
+				const iso = `${year}-${german[2].padStart(2, "0")}-${german[1].padStart(2, "0")}`;
+				if (isIsoCalendarDate(iso)) result = iso;
+			}
 		}
 		const short = /^(\d{1,2})[./](\d{1,2})$/.exec(text);
 		if (allowShort && short && pathYear) {
@@ -344,7 +361,10 @@ const IGNORED_DETAIL = [
 	"summe",
 ];
 
-function extractHeader(grid: Grid): {
+function extractHeader(
+	grid: Grid,
+	path: string,
+): {
 	detail: string;
 	countedBy: string | null;
 	cashRegisterNumber: string | null;
@@ -357,6 +377,7 @@ function extractHeader(grid: Grid): {
 		0,
 		denominationIndex >= 0 ? denominationIndex : 12,
 	);
+	const pathYear = /(?:^|\/)(20\d{2})(?:\/|$)/.exec(path)?.[1] ?? null;
 	let countedBy: string | null = null;
 	const nameRow = headerRows.find((row) => rowText(row).includes("name"));
 	if (nameRow) {
@@ -382,7 +403,8 @@ function extractHeader(grid: Grid): {
 			)
 				continue;
 			if (normalized === countedBy?.toLocaleLowerCase("de-DE")) continue;
-			if (/^\d+(?:-\d+)?$/.test(text) || dateFromValue(text, null)) continue;
+			if (/^\d+(?:-\d+)?$/.test(text) || dateFromValue(text, pathYear))
+				continue;
 			if (/^kasse\s*:?$/iu.test(text)) continue;
 			candidates.push(text);
 		}
@@ -404,13 +426,40 @@ function classification(detail: string): {
 } {
 	const key = detail.toLocaleLowerCase("de-DE");
 	if (key === "kassenprotokoll") {
-		return { area: "wirtschaftsbetrieb", confidence: "low" };
+		return { area: "sonstiges", confidence: "low" };
 	}
 	if (key.includes("senior"))
 		return { area: "seniorennachmittag", confidence: "high" };
+	if (
+		key.includes("eintritt") &&
+		/essen|theke|getränke|bar|grill/iu.test(key)
+	) {
+		return { area: "eintrittsgelder", confidence: "medium" };
+	}
 	if (key.includes("eintritt"))
 		return { area: "eintrittsgelder", confidence: "high" };
+	if (
+		/(combo|fasching).*(probe|bespr)|(?:probe|bespr).*(combo|fasching)/iu.test(
+			key,
+		)
+	) {
+		return { area: "veranstaltungen", confidence: "medium" };
+	}
+	if (
+		/schlacht|bierfest|osteressen|neujahrsempfang|martinsumzug|st[.] martin|kinderkleidermarkt|kinderkleiderm|combo|fasching|stiller zecher/iu.test(
+			key,
+		)
+	) {
+		return { area: "veranstaltungen", confidence: "high" };
+	}
 	if (key.includes("verkauf") && /spielfeld|sportplatz|platz/iu.test(key)) {
+		return { area: "verkauf_spielfeld", confidence: "high" };
+	}
+	if (
+		/spielfeld|sportplatz|fußball|fussball|korbball|pokalspiel|heimspiel|jugendfußball|jugendfussball|u19/iu.test(
+			key,
+		)
+	) {
 		return { area: "verkauf_spielfeld", confidence: "high" };
 	}
 	if (
@@ -419,6 +468,9 @@ function classification(detail: string): {
 		)
 	) {
 		return { area: "veranstaltungen", confidence: "high" };
+	}
+	if (/biergarten|wirtschaftsbetrieb|donnerstag/iu.test(key)) {
+		return { area: "wirtschaftsbetrieb", confidence: "high" };
 	}
 	if (
 		/biergarten|theke|essen|sportheim|wirtschaft|darts?|getränke|grill|kaffee|kuchen|geldbeutel|bar|kasse\s*\d*/iu.test(
@@ -433,6 +485,11 @@ function classification(detail: string): {
 function extractDenominations(grid: Grid) {
 	const counts = emptyCounts();
 	let found = 0;
+	const header = grid.find((row) => rowText(row).includes("stückelung"));
+	const countColumn =
+		header?.findIndex(
+			(value) => valueText(value).toLocaleLowerCase("de-DE") === "menge",
+		) ?? -1;
 	for (const denomination of DENOMINATIONS) {
 		const euro = denomination.cent / 100;
 		const row = grid.find((candidate) => {
@@ -441,12 +498,36 @@ function extractDenominations(grid: Grid) {
 		});
 		if (!row) continue;
 		const numbers = numberValues(row);
-		const count = numbers[1];
+		const columnValue = countColumn >= 0 ? row[countColumn] : null;
+		const count =
+			countColumn >= 0
+				? typeof columnValue === "number"
+					? columnValue
+					: columnValue == null || valueText(columnValue) === ""
+						? 0
+						: null
+				: numbers[1];
 		if (count == null || !Number.isInteger(count) || count < 0) continue;
 		counts[denomination.key] = count;
 		found += 1;
 	}
 	return found >= 10 ? counts : null;
+}
+
+function normalizedContentFingerprint(input: {
+	date: string;
+	protocolNumber: string | null;
+	cashRegisterNumber: string | null;
+	cashRegisterLabel: string | null;
+	openingCent: number | null;
+	cardCent: number;
+	countedCent: number | null;
+	cashRevenueCent: number;
+	expensesCent: number;
+	denominations: HistoricalProtocolSource["denominations"];
+	vat: HistoricalProtocolVatSplit[];
+}): string {
+	return createHash("sha256").update(JSON.stringify(input)).digest("hex");
 }
 
 function extractVat(grid: Grid): HistoricalProtocolVatSplit[] {
@@ -536,13 +617,13 @@ export async function parseHistoricalProtocolFile(
 
 	const workbookDate = extractDate(grid, file.path);
 	const date = workbookDate ?? modifiedDate(file);
-	const header = extractHeader(grid);
+	const header = extractHeader(grid, file.path);
 	const sourceNumber = protocolNumber(grid, file.path);
 	const cashRevenueCent = euroCent(lastNumber(rowWith(grid, "tageseinnahmen")));
 	const cardCent = euroCent(lastNumber(rowWith(grid, "kartenzahlung"))) ?? 0;
 	const expensesCent =
 		euroCent(lastNumber(rowWith(grid, "betriebliche ausgaben"))) ?? 0;
-	const countedCent = euroCent(lastNumber(rowWith(grid, "kassenendbestand")));
+	const countedCent = euroCent(lastNumber(countedRow(grid)));
 	const openingCent = euroCent(
 		lastNumber(rowWith(grid, "kassenendbestand am vortag")),
 	);
@@ -606,9 +687,32 @@ export async function parseHistoricalProtocolFile(
 		warnings.push("Keine aussagekräftige Kassenbezeichnung");
 
 	const inferred = classification(header.detail);
+	if (inferred.confidence !== "high") {
+		warnings.push(
+			"Umsatzbereich ist aus der Kassenbezeichnung nicht eindeutig",
+		);
+		reviewReasons.push(
+			inferred.confidence === "low"
+				? "Umsatzbereich und Details prüfen"
+				: "Veranstaltungskontext prüfen",
+		);
+	}
 	const classificationKey = cleanText(header.detail).toLocaleLowerCase("de-DE");
 	const source: HistoricalProtocolSource = {
 		sha256,
+		contentFingerprint: normalizedContentFingerprint({
+			date,
+			protocolNumber: sourceNumber,
+			cashRegisterNumber: header.cashRegisterNumber,
+			cashRegisterLabel: header.cashRegisterLabel,
+			openingCent,
+			cardCent,
+			countedCent,
+			cashRevenueCent,
+			expensesCent,
+			denominations,
+			vat,
+		}),
 		path: file.path.slice(0, 1_000),
 		format: extension,
 		protocolNumber: sourceNumber,
@@ -650,6 +754,10 @@ export function historicalProtocolManifestDigest(
 	files: HistoricalProtocolUploadFile[],
 ): string {
 	const hash = createHash("sha256");
+	// Keep drafts produced by materially different parser rules separate. This
+	// lets an unchanged source folder be re-analysed without silently reopening
+	// a stale draft from an earlier parser generation.
+	hash.update("historical-protocol-parser:v2\0");
 	for (const file of [...files].sort((a, b) =>
 		a.path.localeCompare(b.path, "de"),
 	)) {
@@ -663,20 +771,86 @@ export function historicalProtocolManifestDigest(
 	return hash.digest("hex");
 }
 
+type SharedDateContext = "economy" | "event" | "senior" | "sport";
+
+function sharedDateContext(
+	row: HistoricalProtocolParsedRow,
+): SharedDateContext | null {
+	if (row.classificationConfidence !== "high") return null;
+	if (row.suggestedArea === "veranstaltungen") return "event";
+	if (row.suggestedArea === "seniorennachmittag") return "senior";
+	if (
+		row.suggestedArea === "eintrittsgelder" ||
+		row.suggestedArea === "verkauf_spielfeld"
+	)
+		return "sport";
+	if (row.suggestedArea === "wirtschaftsbetrieb") return "economy";
+	return null;
+}
+
+function contextArea(context: SharedDateContext): Umsatzbereich {
+	if (context === "event") return "veranstaltungen";
+	if (context === "senior") return "seniorennachmittag";
+	if (context === "sport") return "verkauf_spielfeld";
+	return "wirtschaftsbetrieb";
+}
+
+function applySharedDateContext(rows: HistoricalProtocolParsedRow[]): void {
+	const byDate = new Map<string, HistoricalProtocolParsedRow[]>();
+	for (const row of rows) {
+		if (!row.date || !row.source) continue;
+		const sameDate = byDate.get(row.date) ?? [];
+		sameDate.push(row);
+		byDate.set(row.date, sameDate);
+	}
+
+	for (const sameDate of byDate.values()) {
+		const contexts = new Set(
+			sameDate.flatMap((row) => {
+				const context = sharedDateContext(row);
+				return context ? [context] : [];
+			}),
+		);
+		if (contexts.size !== 1) continue;
+		const context = contexts.values().next().value as SharedDateContext;
+		const area = contextArea(context);
+		for (const row of sameDate) {
+			if (row.classificationConfidence === "high" || !row.source) continue;
+			row.suggestedArea = area;
+			row.classificationConfidence = "medium";
+			row.classificationKey = `context:${area}:${row.classificationKey}`.slice(
+				0,
+				160,
+			);
+			const warning =
+				"Umsatzbereich aus weiteren Kassen desselben Veranstaltungstags vorgeschlagen";
+			if (!row.source.warnings.includes(warning)) {
+				row.source.warnings.push(warning);
+			}
+			row.status = "review";
+			if (!row.statusReason.includes("Tageskontext prüfen")) {
+				row.statusReason = `${row.statusReason}; Tageskontext prüfen`;
+			}
+		}
+	}
+}
+
 export function buildHistoricalProtocolPreview(
 	files: HistoricalProtocolUploadFile[],
 	rows: HistoricalProtocolParsedRow[],
 	digest: string,
 ): HistoricalProtocolPreview {
+	applySharedDateContext(rows);
 	const seenHashes = new Set<string>();
 	for (const row of rows) {
 		if (!row.source) continue;
-		if (seenHashes.has(row.source.sha256)) {
+		const fingerprint = row.source.contentFingerprint || row.source.sha256;
+		if (seenHashes.has(fingerprint)) {
 			row.status = "duplicate_file";
 			row.statusReason =
-				"Dateiinhalt ist im ausgewählten Ordner bereits vorhanden";
+				"Gleicher Protokollinhalt ist im ausgewählten Ordner bereits vorhanden";
 		} else {
-			seenHashes.add(row.source.sha256);
+			seenHashes.add(fingerprint);
 		}
 	}
 	const importable = rows.filter(
