@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.29.3 - 2026-08-04
+
+- Korrigierte Dateirevisionen desselben Zählprotokolls werden anhand von
+  Protokollnummer, Datum, Kasse und Gesamtumsatz erkannt. Nur die neueste
+  Fassung bleibt für den Import auswählbar.
+
 ## 1.29.2 - 2026-08-04
 
 - XLSX-Zählprotokolle übernehmen jetzt die Stückelung aus der tatsächlichen

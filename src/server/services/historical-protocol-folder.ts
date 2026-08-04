@@ -757,7 +757,7 @@ export function historicalProtocolManifestDigest(
 	// Keep drafts produced by materially different parser rules separate. This
 	// lets an unchanged source folder be re-analysed without silently reopening
 	// a stale draft from an earlier parser generation.
-	hash.update("historical-protocol-parser:v2\0");
+	hash.update("historical-protocol-parser:v3\0");
 	for (const file of [...files].sort((a, b) =>
 		a.path.localeCompare(b.path, "de"),
 	)) {
@@ -835,6 +835,62 @@ function applySharedDateContext(rows: HistoricalProtocolParsedRow[]): void {
 	}
 }
 
+function revisionBasePath(path: string): string {
+	return path
+		.normalize("NFC")
+		.toLocaleLowerCase("de-DE")
+		.replace(/[.](?:ods|xlsx)$/u, "")
+		.replace(/-\d+$/u, "");
+}
+
+function markSupersededRevisions(
+	files: HistoricalProtocolUploadFile[],
+	rows: HistoricalProtocolParsedRow[],
+): void {
+	const modifiedAtByIndex = new Map(
+		files.map((file) => [file.index, Date.parse(file.modifiedAt ?? "") || 0]),
+	);
+	const groups = new Map<string, HistoricalProtocolParsedRow[]>();
+	for (const row of rows) {
+		if (
+			!row.source?.protocolNumber ||
+			(row.status !== "ready" && row.status !== "review")
+		)
+			continue;
+		const register = cleanText(
+			row.source.cashRegisterLabel ?? row.detail,
+		).toLocaleLowerCase("de-DE");
+		const key = JSON.stringify([
+			revisionBasePath(row.source.path),
+			row.date,
+			row.source.protocolNumber,
+			register,
+			row.revenueCent,
+			row.expensesCent,
+		]);
+		const group = groups.get(key) ?? [];
+		group.push(row);
+		groups.set(key, group);
+	}
+
+	for (const group of groups.values()) {
+		if (group.length < 2) continue;
+		const newest = [...group].sort((a, b) => {
+			const modifiedDifference =
+				(modifiedAtByIndex.get(b.fileIndex) ?? 0) -
+				(modifiedAtByIndex.get(a.fileIndex) ?? 0);
+			if (modifiedDifference !== 0) return modifiedDifference;
+			return b.path.localeCompare(a.path, "de");
+		})[0];
+		for (const row of group) {
+			if (row === newest) continue;
+			row.status = "duplicate_file";
+			row.statusReason =
+				"Neuere Dateirevision derselben Protokollnummer ist vorhanden";
+		}
+	}
+}
+
 export function buildHistoricalProtocolPreview(
 	files: HistoricalProtocolUploadFile[],
 	rows: HistoricalProtocolParsedRow[],
@@ -853,6 +909,7 @@ export function buildHistoricalProtocolPreview(
 			seenHashes.add(fingerprint);
 		}
 	}
+	markSupersededRevisions(files, rows);
 	const importable = rows.filter(
 		(row) => row.status === "ready" || row.status === "review",
 	);

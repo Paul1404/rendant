@@ -212,6 +212,39 @@ describe("historical protocol folder import", () => {
 		expect(preview.totals.revenueCent).toBe(12_345);
 	});
 
+	it("keeps only the newest corrected revision of one protocol", async () => {
+		const files = await Promise.all([
+			protocolFile({
+				path: "Zählprotokolle/2025/Zählprotokoll 17.xlsx",
+				revenue: 100,
+				modifiedAt: "2025-05-04T10:00:00Z",
+			}),
+			protocolFile({
+				path: "Zählprotokolle/2025/Zählprotokoll 17-1.xlsx",
+				revenue: 90,
+				card: 10,
+				modifiedAt: "2025-05-04T10:01:00Z",
+			}),
+		]);
+		files[1].index = 1;
+		const rows = await Promise.all(files.map(parseHistoricalProtocolFile));
+		const preview = buildHistoricalProtocolPreview(
+			files,
+			rows,
+			historicalProtocolManifestDigest(files),
+		);
+
+		expect(rows[0]).toMatchObject({
+			status: "duplicate_file",
+			statusReason:
+				"Neuere Dateirevision derselben Protokollnummer ist vorhanden",
+		});
+		expect(rows[1].status).toBe("review");
+		expect(preview.statusCounts.duplicate_file).toBe(1);
+		expect(preview.toImport).toBe(1);
+		expect(preview.totals.revenueCent).toBe(10_000);
+	});
+
 	it("uses a versioned and deterministic manifest digest", async () => {
 		const files = [await protocolFile()];
 		const digest = historicalProtocolManifestDigest(files);
