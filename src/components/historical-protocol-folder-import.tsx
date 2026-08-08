@@ -2,10 +2,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import {
 	type ColumnDef,
+	createPaginatedRowModel,
 	flexRender,
-	getCoreRowModel,
-	getPaginationRowModel,
-	useReactTable,
+	rowPaginationFeature,
+	tableFeatures,
+	useTable,
 } from "@tanstack/react-table";
 import {
 	Archive,
@@ -67,6 +68,11 @@ const DIRECTORY_INPUT_ATTRIBUTES = {
 	directory: "",
 	webkitdirectory: "",
 } as const;
+
+const protocolTableFeatures = tableFeatures({
+	rowPaginationFeature,
+	paginatedRowModel: createPaginatedRowModel(),
+});
 
 const DECISIONS: Record<
 	HistoricalProtocolDraftDecision,
@@ -337,7 +343,9 @@ export function HistoricalProtocolFolderImport() {
 		});
 	}, [decisionFilter, draft, query]);
 
-	const columns = useMemo<ColumnDef<HistoricalProtocolDraftItem>[]>(
+	const columns = useMemo<
+		ColumnDef<typeof protocolTableFeatures, HistoricalProtocolDraftItem>[]
+	>(
 		() => [
 			{
 				header: "Entscheidung",
@@ -432,11 +440,10 @@ export function HistoricalProtocolFolderImport() {
 		[draft?.status, loading],
 	);
 
-	const table = useReactTable({
+	const table = useTable({
+		features: protocolTableFeatures,
 		data: visibleItems,
 		columns,
-		getCoreRowModel: getCoreRowModel(),
-		getPaginationRowModel: getPaginationRowModel(),
 		initialState: { pagination: { pageIndex: 0, pageSize: 50 } },
 	});
 
@@ -631,7 +638,7 @@ export function HistoricalProtocolFolderImport() {
 											key={row.id}
 											className="border-border/50 border-t align-top"
 										>
-											{row.getVisibleCells().map((cell) => (
+											{row.getAllCells().map((cell) => (
 												<td key={cell.id} className="px-3 py-2">
 													{flexRender(
 														cell.column.columnDef.cell,
@@ -652,7 +659,7 @@ export function HistoricalProtocolFolderImport() {
 						<div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
 							<span>
 								{visibleItems.length} Zeilen · Seite{" "}
-								{table.getState().pagination.pageIndex + 1} von{" "}
+								{table.state.pagination.pageIndex + 1} von{" "}
 								{Math.max(1, table.getPageCount())}
 							</span>
 							<div className="flex gap-1">
