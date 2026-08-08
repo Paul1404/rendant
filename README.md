@@ -1,5 +1,12 @@
 # Rendant
 
+<img width="2553" height="1205" alt="image" src="https://github.com/user-attachments/assets/337ddfe5-d43c-40a1-9a54-5d2cd7a6c5dd" />
+<img width="2551" height="1210" alt="image" src="https://github.com/user-attachments/assets/6f02bb5e-ddf3-4445-aaaf-1b1579559c9b" />
+<img width="2557" height="1209" alt="image" src="https://github.com/user-attachments/assets/3c8a4171-623a-4ba2-9e9f-6365709a7c04" />
+<img width="2554" height="1203" alt="image" src="https://github.com/user-attachments/assets/05f38695-6991-4617-80a7-dd43fc69e796" />
+<img width="2555" height="1207" alt="image" src="https://github.com/user-attachments/assets/43df0f40-55d8-4731-8241-a089f4475486" />
+
+
 Rendant ist die interne Finanzverwaltung für Vereine. Die Webanwendung erfasst
 Kassenbewegungen, wertet Umsätze und Steuern aus und hält jeden Vorgang
 nachvollziehbar für Buchhaltung, Prüfung und Übergabe fest.
