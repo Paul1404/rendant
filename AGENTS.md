@@ -1,10 +1,10 @@
 # Agent notes
 
-`AGENTS.md` is the Codex/ChatGPT entry point for this repository. `CLAUDE.md` is
-the detailed, shared source of truth for the stack, architecture, known gotchas,
-release process, UI rules, and verification requirements. Read all of
-`CLAUDE.md` before changing code. If implementation and documentation disagree,
-verify the current behavior and update both files in the same change.
+`AGENTS.md` is the canonical instruction file for this repository. Claude Code
+loads it through `CLAUDE.md`. Detailed previous guidance is preserved in
+`docs/agent-reference.md`; consult its project-specific sections when relevant.
+If implementation and documentation disagree, verify current behavior and
+update the appropriate canonical documentation in the same change.
 
 ## Stack and boundaries
 
@@ -56,5 +56,11 @@ verify the current behavior and update both files in the same change.
 - Before calling a change complete, run `bun run check`, `bunx tsc --noEmit`,
   `bun run test`, and `bun run build`, then exercise the affected runtime flow
   where feasible.
-- Keep `CLAUDE.md`, `.env.example`, migrations, and operational documentation in
+- Keep `AGENTS.md`, `.env.example`, migrations, and operational documentation in
   sync with behavior changes.
+
+## Maintaining this file
+
+Keep this file concise and update it when verified repository behavior changes.
+Move detailed explanations to `docs/` and keep `CLAUDE.md` as the compatibility
+import unless Claude-specific guidance is genuinely required.
