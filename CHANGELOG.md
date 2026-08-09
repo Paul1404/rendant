@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.31.2 - 2026-08-09
+
+- Eine Prüfphase zeigt erst dann 100 Prozent Fortschritt, wenn wirklich alle
+  Zeilen erledigt sind. Verbleibende Beanstandungen werden nicht mehr durch
+  Aufrundung verdeckt.
+
 ## 1.31.1 - 2026-08-09
 
 - Gespeicherte Import-Arbeitsstände zeigen jetzt Erstellungsdatum, Uhrzeit,

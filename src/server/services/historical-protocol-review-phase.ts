@@ -330,6 +330,12 @@ function mapPhase(phase: PhaseRow, aggregate?: PhaseAggregate) {
 	const notApplicable = Number(aggregate?.notApplicable ?? 0);
 	const total = Number(aggregate?.total ?? 0);
 	const completed = accepted + notApplicable;
+	const progressPercent =
+		total === 0
+			? 0
+			: completed >= total
+				? 100
+				: Math.min(99, Math.floor((completed / total) * 100));
 	return {
 		id: phase.id,
 		draftId: phase.draft_id,
@@ -351,7 +357,7 @@ function mapPhase(phase: PhaseRow, aggregate?: PhaseAggregate) {
 			total,
 			completed,
 		},
-		progressPercent: total === 0 ? 0 : Math.round((completed / total) * 100),
+		progressPercent,
 		totals: {
 			revenueCent: Number(aggregate?.revenueCent ?? 0),
 			expensesCent: Number(aggregate?.expensesCent ?? 0),
