@@ -71,6 +71,11 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
 	"umsaetze.protocol_import_draft_ready": "Protokollimport freigegeben",
 	"umsaetze.protocol_import_draft_reopened": "Protokollimport wieder geöffnet",
 	"umsaetze.protocol_import_draft_applied": "Protokollimport ausgeführt",
+	"umsaetze.protocol_import_review_phase_created": "Prüfphase angelegt",
+	"umsaetze.protocol_import_review_items_updated":
+		"Prüfergebnisse aktualisiert",
+	"umsaetze.protocol_import_review_phase_completed": "Prüfphase abgeschlossen",
+	"umsaetze.protocol_import_review_phase_reopened": "Prüfphase wieder geöffnet",
 	"umsaetze.areas_backfilled": "Umsatzbereiche zugeordnet",
 	"exports.protokolle_csv": "Protokolle exportiert",
 	"exports.umsaetze_csv": "Umsätze exportiert",

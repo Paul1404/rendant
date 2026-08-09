@@ -35,6 +35,9 @@ update the appropriate canonical documentation in the same change.
 - External side effects such as S3 uploads and email must not allow a retry to
   create duplicate accounting records. Prefer recoverable partial states and
   explicit regeneration.
+- Historical protocol review phases store exact row memberships and progress.
+  Changing a working value reopens affected checks, and only the explicit final
+  import may create historical revenue records.
 
 ## Versions and release notes
 

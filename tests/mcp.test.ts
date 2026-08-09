@@ -113,6 +113,20 @@ describe("Rendant MCP", () => {
 		expect(result.tools.map((tool) => tool.name)).toContain(
 			"update_protocol_import_draft_item",
 		);
+		const reviewUpdate = result.tools.find(
+			(tool) => tool.name === "apply_protocol_import_review_update",
+		);
+		expect(reviewUpdate?.annotations?.destructiveHint).toBe(false);
+		expect(result.tools.map((tool) => tool.name)).toEqual(
+			expect.arrayContaining([
+				"plan_protocol_import_review_phase",
+				"create_protocol_import_review_phase",
+				"list_protocol_import_review_phases",
+				"query_protocol_import_review_phase_items",
+				"plan_protocol_import_review_update",
+				"complete_protocol_import_review_phase",
+			]),
+		);
 		await client.close();
 		await server.close();
 	});

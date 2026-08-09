@@ -201,3 +201,106 @@ export type HistoricalProtocolDraftItemPage = {
 		HistoricalProtocolDraftItem | HistoricalProtocolDraftCompactItem
 	>;
 };
+
+export type HistoricalProtocolReviewPhaseKind =
+	| "source"
+	| "date"
+	| "amount"
+	| "assignment"
+	| "tax"
+	| "denomination"
+	| "final";
+
+export type HistoricalProtocolReviewPhaseStatus = "active" | "completed";
+export type HistoricalProtocolReviewItemStatus =
+	| "pending"
+	| "accepted"
+	| "issue"
+	| "not_applicable";
+
+export type HistoricalProtocolReviewIssue =
+	| "derived_date"
+	| "vat_warning"
+	| "denomination_warning"
+	| "missing_area"
+	| "unclear_register";
+
+export type HistoricalProtocolReviewPhaseFilters = {
+	year_from?: number;
+	year_to?: number;
+	decisions?: HistoricalProtocolDraftDecision[];
+	issue?: HistoricalProtocolReviewIssue;
+	query?: string;
+};
+
+export type HistoricalProtocolReviewPhaseSummary = {
+	id: string;
+	draftId: string;
+	name: string;
+	kind: HistoricalProtocolReviewPhaseKind;
+	status: HistoricalProtocolReviewPhaseStatus;
+	filters: HistoricalProtocolReviewPhaseFilters;
+	revision: number;
+	createdByName: string;
+	createdAt: Date;
+	updatedAt: Date;
+	completedByName: string | null;
+	completedAt: Date | null;
+	counts: Record<HistoricalProtocolReviewItemStatus, number> & {
+		total: number;
+		completed: number;
+	};
+	progressPercent: number;
+	totals: {
+		revenueCent: number;
+		expensesCent: number;
+		cardCent: number;
+	};
+};
+
+export type HistoricalProtocolReviewPhasePlan = {
+	draft: HistoricalProtocolDraftSummary;
+	name: string;
+	kind: HistoricalProtocolReviewPhaseKind;
+	filters: HistoricalProtocolReviewPhaseFilters;
+	selectionHash: string;
+	matched: number;
+	totals: {
+		revenueCent: number;
+		expensesCent: number;
+		cardCent: number;
+	};
+};
+
+export type HistoricalProtocolReviewPhaseItem = {
+	id: string;
+	phaseId: string;
+	itemId: string;
+	status: HistoricalProtocolReviewItemStatus;
+	note: string | null;
+	revision: number;
+	updatedAt: Date;
+	updatedByName: string;
+	item: HistoricalProtocolDraftCompactItem;
+};
+
+export type HistoricalProtocolReviewPhaseItemPage = {
+	phase: HistoricalProtocolReviewPhaseSummary;
+	page: number;
+	pageSize: number;
+	total: number;
+	pageCount: number;
+	items: HistoricalProtocolReviewPhaseItem[];
+};
+
+export type HistoricalProtocolReviewUpdatePlan = {
+	phase: HistoricalProtocolReviewPhaseSummary;
+	status: HistoricalProtocolReviewItemStatus;
+	selectionHash: string;
+	matched: number;
+	totals: {
+		revenueCent: number;
+		expensesCent: number;
+		cardCent: number;
+	};
+};

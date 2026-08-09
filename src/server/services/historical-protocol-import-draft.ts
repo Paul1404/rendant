@@ -34,12 +34,15 @@ import { type DbOrTx, db } from "@/server/db";
 import {
 	historicalProtocolImportDrafts,
 	historicalProtocolImportItems,
+	historicalProtocolImportReviewItems,
+	historicalProtocolImportReviewPhases,
 } from "@/server/db/schema";
 import type { AuthUser } from "@/server/orpc/base";
 import {
 	type RecordAuditInput,
 	recordAuditEventStrict,
 } from "@/server/services/audit";
+import { invalidateHistoricalProtocolReviewsForItems } from "@/server/services/historical-protocol-review-invalidation";
 import { createHistoricalRevenueWithDb } from "@/server/services/historical-revenue";
 import { historicalProtocolSourceUuid } from "@/server/services/historical-revenue-import";
 
@@ -73,6 +76,19 @@ export type HistoricalProtocolDraftValidation = {
 		path: string;
 		reasons: string[];
 	}>;
+	reviewPhases: {
+		total: number;
+		completed: number;
+		active: number;
+		uncoveredIncluded: number;
+	};
+};
+
+const emptyReviewPhases = {
+	total: 0,
+	completed: 0,
+	active: 0,
+	uncoveredIncluded: 0,
 };
 
 function defaultDecision(
@@ -599,7 +615,14 @@ function assertCorrectionNote(
 	) {
 		throw new HistoricalProtocolDraftValidationError(
 			"Für korrigierte oder unsicher erkannte Werte ist ein kurzer Korrekturhinweis erforderlich",
-			{ valid: false, include: 0, review: 0, exclude: 0, invalidIncluded: [] },
+			{
+				valid: false,
+				include: 0,
+				review: 0,
+				exclude: 0,
+				invalidIncluded: [],
+				reviewPhases: emptyReviewPhases,
+			},
 		);
 	}
 }
@@ -680,6 +703,11 @@ export async function updateHistoricalProtocolImportDraftItem(
 			.update(historicalProtocolImportItems)
 			.set(values)
 			.where(eq(historicalProtocolImportItems.id, input.item_id));
+		const reopenedChecks = await invalidateHistoricalProtocolReviewsForItems(
+			tx,
+			[input.item_id],
+			actor,
+		);
 		await recordAuditEventStrict(tx, {
 			...audit,
 			category: "umsaetze",
@@ -697,6 +725,7 @@ export async function updateHistoricalProtocolImportDraftItem(
 				felder: Object.keys(input).filter(
 					(key) => !["draft_id", "item_id", "expected_revision"].includes(key),
 				),
+				zurückgesetzte_prüfungen: reopenedChecks,
 			},
 		});
 	});
@@ -714,7 +743,14 @@ export async function bulkUpdateHistoricalProtocolImportDraftItems(
 	) {
 		throw new HistoricalProtocolDraftValidationError(
 			"Für die gesammelte Übernahme oder Korrektur ist ein Korrekturhinweis erforderlich",
-			{ valid: false, include: 0, review: 0, exclude: 0, invalidIncluded: [] },
+			{
+				valid: false,
+				include: 0,
+				review: 0,
+				exclude: 0,
+				invalidIncluded: [],
+				reviewPhases: emptyReviewPhases,
+			},
 		);
 	}
 	await db.transaction(async (tx) => {
@@ -764,6 +800,11 @@ export async function bulkUpdateHistoricalProtocolImportDraftItems(
 				"Keine passenden Importzeilen gefunden",
 			);
 		}
+		const reopenedChecks = await invalidateHistoricalProtocolReviewsForItems(
+			tx,
+			changed.map((item) => item.id),
+			actor,
+		);
 		await recordAuditEventStrict(tx, {
 			...audit,
 			category: "umsaetze",
@@ -779,6 +820,7 @@ export async function bulkUpdateHistoricalProtocolImportDraftItems(
 				geändert: changed.length,
 				entscheidung: input.decision,
 				umsatzbereich: input.umsatzbereich,
+				zurückgesetzte_prüfungen: reopenedChecks,
 			},
 		});
 	});
@@ -789,6 +831,78 @@ export async function validateHistoricalProtocolImportDraft(
 	id: string,
 ): Promise<HistoricalProtocolDraftValidation> {
 	const draft = await getHistoricalProtocolImportDraft(id);
+	return validateDraftDetail(db, draft);
+}
+
+async function reviewPhaseValidation(
+	database: DbOrTx,
+	draftId: string,
+): Promise<HistoricalProtocolDraftValidation["reviewPhases"]> {
+	const [counts] = await database
+		.select({
+			total: sql<number>`count(*)`,
+			completed: sql<number>`count(*) filter (where ${historicalProtocolImportReviewPhases.status} = 'completed')`,
+		})
+		.from(historicalProtocolImportReviewPhases)
+		.where(eq(historicalProtocolImportReviewPhases.draft_id, draftId));
+	const total = Number(counts?.total ?? 0);
+	const completed = Number(counts?.completed ?? 0);
+	if (total === 0) {
+		return emptyReviewPhases;
+	}
+	const [coverage] = await database
+		.select({
+			count: sql<number>`count(distinct ${historicalProtocolImportReviewItems.item_id})`,
+		})
+		.from(historicalProtocolImportReviewItems)
+		.innerJoin(
+			historicalProtocolImportReviewPhases,
+			eq(
+				historicalProtocolImportReviewPhases.id,
+				historicalProtocolImportReviewItems.phase_id,
+			),
+		)
+		.innerJoin(
+			historicalProtocolImportItems,
+			eq(
+				historicalProtocolImportItems.id,
+				historicalProtocolImportReviewItems.item_id,
+			),
+		)
+		.where(
+			and(
+				eq(historicalProtocolImportReviewPhases.draft_id, draftId),
+				eq(historicalProtocolImportReviewPhases.kind, "final"),
+				eq(historicalProtocolImportReviewPhases.status, "completed"),
+				eq(historicalProtocolImportReviewItems.status, "accepted"),
+				eq(historicalProtocolImportItems.decision, "include"),
+			),
+		);
+	const coveredIncluded = Number(coverage?.count ?? 0);
+	const [included] = await database
+		.select({ count: sql<number>`count(*)` })
+		.from(historicalProtocolImportItems)
+		.where(
+			and(
+				eq(historicalProtocolImportItems.draft_id, draftId),
+				eq(historicalProtocolImportItems.decision, "include"),
+			),
+		);
+	return {
+		total,
+		completed,
+		active: total - completed,
+		uncoveredIncluded: Math.max(
+			0,
+			Number(included?.count ?? 0) - coveredIncluded,
+		),
+	};
+}
+
+async function validateDraftDetail(
+	database: DbOrTx,
+	draft: HistoricalProtocolDraftDetail,
+): Promise<HistoricalProtocolDraftValidation> {
 	const invalidIncluded = draft.items.flatMap((item) => {
 		const reasons = itemReasons(item);
 		return reasons.length > 0
@@ -798,13 +912,19 @@ export async function validateHistoricalProtocolImportDraft(
 	const review = draft.items.filter(
 		(item) => item.decision === "review",
 	).length;
+	const reviewPhases = await reviewPhaseValidation(database, draft.id);
 	return {
 		valid:
-			review === 0 && invalidIncluded.length === 0 && draft.counts.include > 0,
+			review === 0 &&
+			invalidIncluded.length === 0 &&
+			draft.counts.include > 0 &&
+			reviewPhases.active === 0 &&
+			reviewPhases.uncoveredIncluded === 0,
 		include: draft.counts.include,
 		review,
 		exclude: draft.counts.exclude,
 		invalidIncluded,
+		reviewPhases,
 	};
 }
 
@@ -914,7 +1034,7 @@ export async function applyHistoricalProtocolImportDraft(
 				"Der Entwurf ist nicht mehr in der freigegebenen Version",
 			);
 		}
-		const validation = await validateDraftDetail(draft);
+		const validation = await validateDraftDetail(tx, draft);
 		if (!validation.valid) {
 			throw new HistoricalProtocolDraftValidationError(
 				"Der Entwurf ist nicht vollständig importierbar",
@@ -1013,25 +1133,4 @@ export async function applyHistoricalProtocolImportDraft(
 		});
 		return { created, skipped };
 	});
-}
-
-async function validateDraftDetail(
-	draft: HistoricalProtocolDraftDetail,
-): Promise<HistoricalProtocolDraftValidation> {
-	const invalidIncluded = draft.items.flatMap((item) => {
-		const reasons = itemReasons(item);
-		return reasons.length > 0
-			? [{ id: item.id, path: item.path, reasons }]
-			: [];
-	});
-	return {
-		valid:
-			draft.counts.review === 0 &&
-			invalidIncluded.length === 0 &&
-			draft.counts.include > 0,
-		include: draft.counts.include,
-		review: draft.counts.review,
-		exclude: draft.counts.exclude,
-		invalidIncluded,
-	};
 }

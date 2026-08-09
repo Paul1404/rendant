@@ -594,6 +594,108 @@ export const historicalProtocolImportItems = pgTable(
 	],
 );
 
+export const historicalProtocolImportReviewPhases = pgTable(
+	"historical_protocol_import_review_phases",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		draft_id: uuid("draft_id")
+			.notNull()
+			.references(() => historicalProtocolImportDrafts.id, {
+				onDelete: "cascade",
+			}),
+		name: text("name").notNull(),
+		kind: text("kind").notNull(),
+		status: text("status").notNull().default("active"),
+		filters: jsonb("filters").$type<Record<string, unknown>>().notNull(),
+		revision: integer("revision").notNull().default(1),
+		created_by_user_id: text("created_by_user_id").notNull(),
+		created_by_name: text("created_by_name").notNull(),
+		created_at: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		updated_at: timestamp("updated_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		completed_by_user_id: text("completed_by_user_id"),
+		completed_by_name: text("completed_by_name"),
+		completed_at: timestamp("completed_at", { withTimezone: true }),
+	},
+	(t) => [
+		uniqueIndex("historical_protocol_import_review_phases_name_unique").on(
+			t.draft_id,
+			t.name,
+		),
+		index("idx_historical_protocol_import_review_phases_draft_status").on(
+			t.draft_id,
+			t.status,
+		),
+		check(
+			"historical_protocol_import_review_phases_kind_check",
+			sql`${t.kind} IN ('source', 'date', 'amount', 'assignment', 'tax', 'denomination', 'final')`,
+		),
+		check(
+			"historical_protocol_import_review_phases_status_check",
+			sql`${t.status} IN ('active', 'completed')`,
+		),
+		check(
+			"historical_protocol_import_review_phases_name_check",
+			sql`length(trim(${t.name})) BETWEEN 3 AND 120`,
+		),
+		check(
+			"historical_protocol_import_review_phases_revision_check",
+			sql`${t.revision} >= 1`,
+		),
+	],
+);
+
+export const historicalProtocolImportReviewItems = pgTable(
+	"historical_protocol_import_review_items",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		phase_id: uuid("phase_id")
+			.notNull()
+			.references(() => historicalProtocolImportReviewPhases.id, {
+				onDelete: "cascade",
+			}),
+		item_id: uuid("item_id")
+			.notNull()
+			.references(() => historicalProtocolImportItems.id, {
+				onDelete: "cascade",
+			}),
+		status: text("status").notNull().default("pending"),
+		note: text("note"),
+		revision: integer("revision").notNull().default(1),
+		updated_by_user_id: text("updated_by_user_id").notNull(),
+		updated_by_name: text("updated_by_name").notNull(),
+		updated_at: timestamp("updated_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		uniqueIndex("historical_protocol_import_review_items_unique").on(
+			t.phase_id,
+			t.item_id,
+		),
+		index("idx_historical_protocol_import_review_items_phase_status").on(
+			t.phase_id,
+			t.status,
+		),
+		index("idx_historical_protocol_import_review_items_item").on(t.item_id),
+		check(
+			"historical_protocol_import_review_items_status_check",
+			sql`${t.status} IN ('pending', 'accepted', 'issue', 'not_applicable')`,
+		),
+		check(
+			"historical_protocol_import_review_items_note_check",
+			sql`${t.note} IS NULL OR length(trim(${t.note})) BETWEEN 3 AND 1000`,
+		),
+		check(
+			"historical_protocol_import_review_items_revision_check",
+			sql`${t.revision} >= 1`,
+		),
+	],
+);
+
 export const belegnummerSequences = pgTable(
 	"belegnummer_sequences",
 	{

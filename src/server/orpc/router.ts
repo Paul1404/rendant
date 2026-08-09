@@ -16,6 +16,13 @@ import {
 	HistoricalProtocolDraftQuerySchema,
 	HistoricalProtocolDraftTransitionSchema,
 	HistoricalProtocolDraftUpdateItemSchema,
+	HistoricalProtocolReviewPhaseCreateSchema,
+	HistoricalProtocolReviewPhaseListSchema,
+	HistoricalProtocolReviewPhasePlanSchema,
+	HistoricalProtocolReviewPhaseQuerySchema,
+	HistoricalProtocolReviewPhaseTransitionSchema,
+	HistoricalProtocolReviewUpdateApplySchema,
+	HistoricalProtocolReviewUpdatePlanSchema,
 	HistoricalRevenueCancelSchema,
 	HistoricalRevenueCreateSchema,
 	InviteAcceptSchema,
@@ -74,6 +81,16 @@ import {
 	updateHistoricalProtocolImportDraftItem,
 	validateHistoricalProtocolImportDraft,
 } from "@/server/services/historical-protocol-import-draft";
+import {
+	applyHistoricalProtocolReviewUpdate,
+	completeHistoricalProtocolReviewPhase,
+	createHistoricalProtocolReviewPhase,
+	listHistoricalProtocolReviewPhases,
+	planHistoricalProtocolReviewPhase,
+	planHistoricalProtocolReviewUpdate,
+	queryHistoricalProtocolReviewPhaseItems,
+	reopenHistoricalProtocolReviewPhase,
+} from "@/server/services/historical-protocol-review-phase";
 import {
 	cancelHistoricalRevenue,
 	createHistoricalRevenue,
@@ -1024,6 +1041,74 @@ const historicalProtocolImport = {
 	validate: adminOnly
 		.input(HistoricalProtocolDraftGetSchema)
 		.handler(({ input }) => validateHistoricalProtocolImportDraft(input.id)),
+
+	planReviewPhase: adminOnly
+		.input(HistoricalProtocolReviewPhasePlanSchema)
+		.handler(({ input }) => planHistoricalProtocolReviewPhase(input)),
+
+	createReviewPhase: adminOnly
+		.input(HistoricalProtocolReviewPhaseCreateSchema)
+		.handler(async ({ input, context }) => {
+			try {
+				return await createHistoricalProtocolReviewPhase(input, context.user, {
+					request: requestAuditContext(context),
+				});
+			} catch (error) {
+				throwHistoricalProtocolDraftError(error);
+			}
+		}),
+
+	listReviewPhases: adminOnly
+		.input(HistoricalProtocolReviewPhaseListSchema)
+		.handler(({ input }) => listHistoricalProtocolReviewPhases(input.draft_id)),
+
+	queryReviewPhaseItems: adminOnly
+		.input(HistoricalProtocolReviewPhaseQuerySchema)
+		.handler(({ input }) => queryHistoricalProtocolReviewPhaseItems(input)),
+
+	planReviewUpdate: adminOnly
+		.input(HistoricalProtocolReviewUpdatePlanSchema)
+		.handler(({ input }) => planHistoricalProtocolReviewUpdate(input)),
+
+	applyReviewUpdate: adminOnly
+		.input(HistoricalProtocolReviewUpdateApplySchema)
+		.handler(async ({ input, context }) => {
+			try {
+				return await applyHistoricalProtocolReviewUpdate(input, context.user, {
+					request: requestAuditContext(context),
+				});
+			} catch (error) {
+				throwHistoricalProtocolDraftError(error);
+			}
+		}),
+
+	completeReviewPhase: adminOnly
+		.input(HistoricalProtocolReviewPhaseTransitionSchema)
+		.handler(async ({ input, context }) => {
+			try {
+				return await completeHistoricalProtocolReviewPhase(
+					input,
+					context.user,
+					{
+						request: requestAuditContext(context),
+					},
+				);
+			} catch (error) {
+				throwHistoricalProtocolDraftError(error);
+			}
+		}),
+
+	reopenReviewPhase: adminOnly
+		.input(HistoricalProtocolReviewPhaseTransitionSchema)
+		.handler(async ({ input, context }) => {
+			try {
+				return await reopenHistoricalProtocolReviewPhase(input, context.user, {
+					request: requestAuditContext(context),
+				});
+			} catch (error) {
+				throwHistoricalProtocolDraftError(error);
+			}
+		}),
 
 	markReady: adminOnly
 		.input(HistoricalProtocolDraftTransitionSchema)

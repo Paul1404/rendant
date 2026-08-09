@@ -15,6 +15,13 @@ import {
 	HistoricalProtocolDraftQuerySchema,
 	HistoricalProtocolDraftTransitionSchema,
 	HistoricalProtocolDraftUpdateItemSchema,
+	HistoricalProtocolReviewPhaseCreateSchema,
+	HistoricalProtocolReviewPhaseListSchema,
+	HistoricalProtocolReviewPhasePlanSchema,
+	HistoricalProtocolReviewPhaseQuerySchema,
+	HistoricalProtocolReviewPhaseTransitionSchema,
+	HistoricalProtocolReviewUpdateApplySchema,
+	HistoricalProtocolReviewUpdatePlanSchema,
 	HistoricalRevenueCancelSchema,
 	HistoricalRevenueCreateSchema,
 	InviteCreateSchema,
@@ -276,6 +283,100 @@ const TOOLS: McpTool[] = [
 		annotations: WRITE,
 		execute: (context, input) =>
 			call(router.historicalProtocolImport.markReady, input, { context }),
+	}),
+	defineTool({
+		name: "plan_protocol_import_review_phase",
+		description:
+			"Preview an exact, server-side filtered review phase without changing the draft. Returns selection hash, totals and the current draft revision.",
+		minMode: "admin",
+		input: HistoricalProtocolReviewPhasePlanSchema,
+		annotations: READ_ONLY,
+		execute: (context, input) =>
+			call(router.historicalProtocolImport.planReviewPhase, input, { context }),
+	}),
+	defineTool({
+		name: "create_protocol_import_review_phase",
+		description:
+			"Persist a previously planned review phase with exact membership. This only creates a review workspace and does not import revenue records.",
+		minMode: "admin",
+		input: HistoricalProtocolReviewPhaseCreateSchema,
+		annotations: WRITE,
+		execute: (context, input) =>
+			call(router.historicalProtocolImport.createReviewPhase, input, {
+				context,
+			}),
+	}),
+	defineTool({
+		name: "list_protocol_import_review_phases",
+		description:
+			"List persisted review phases with progress, issue counts and accounting totals for one historical protocol draft.",
+		minMode: "admin",
+		input: HistoricalProtocolReviewPhaseListSchema,
+		annotations: READ_ONLY,
+		execute: (context, input) =>
+			call(router.historicalProtocolImport.listReviewPhases, input, {
+				context,
+			}),
+	}),
+	defineTool({
+		name: "query_protocol_import_review_phase_items",
+		description:
+			"Query a bounded page of rows in one review phase, optionally restricted to pending, accepted, issue or not_applicable.",
+		minMode: "admin",
+		input: HistoricalProtocolReviewPhaseQuerySchema,
+		annotations: READ_ONLY,
+		execute: (context, input) =>
+			call(router.historicalProtocolImport.queryReviewPhaseItems, input, {
+				context,
+			}),
+	}),
+	defineTool({
+		name: "plan_protocol_import_review_update",
+		description:
+			"Preview an exact review-status update for selected phase rows and return the hash required to apply it.",
+		minMode: "admin",
+		input: HistoricalProtocolReviewUpdatePlanSchema,
+		annotations: READ_ONLY,
+		execute: (context, input) =>
+			call(router.historicalProtocolImport.planReviewUpdate, input, {
+				context,
+			}),
+	}),
+	defineTool({
+		name: "apply_protocol_import_review_update",
+		description:
+			"Apply an audited accepted, issue or not_applicable review result to an exact previewed selection. This does not create historical revenue records.",
+		minMode: "admin",
+		input: HistoricalProtocolReviewUpdateApplySchema,
+		annotations: WRITE,
+		execute: (context, input) =>
+			call(router.historicalProtocolImport.applyReviewUpdate, input, {
+				context,
+			}),
+	}),
+	defineTool({
+		name: "complete_protocol_import_review_phase",
+		description:
+			"Complete an active review phase only when no pending or issue rows remain. This does not import revenue records.",
+		minMode: "admin",
+		input: HistoricalProtocolReviewPhaseTransitionSchema,
+		annotations: WRITE,
+		execute: (context, input) =>
+			call(router.historicalProtocolImport.completeReviewPhase, input, {
+				context,
+			}),
+	}),
+	defineTool({
+		name: "reopen_protocol_import_review_phase",
+		description:
+			"Reopen a completed review phase for additional audited work. This does not import revenue records.",
+		minMode: "admin",
+		input: HistoricalProtocolReviewPhaseTransitionSchema,
+		annotations: WRITE,
+		execute: (context, input) =>
+			call(router.historicalProtocolImport.reopenReviewPhase, input, {
+				context,
+			}),
 	}),
 	defineTool({
 		name: "reopen_protocol_import_draft",

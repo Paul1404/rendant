@@ -55,6 +55,8 @@ import type {
 	HistoricalProtocolDraftDetail,
 	HistoricalProtocolDraftItem,
 	HistoricalProtocolDraftSummary,
+	HistoricalProtocolReviewPhaseKind,
+	HistoricalProtocolReviewPhaseSummary,
 } from "@/lib/historical-protocol-import";
 import { orpcClient } from "@/lib/orpc";
 import {
@@ -88,6 +90,17 @@ const DECISIONS: Record<
 	},
 	exclude: { label: "Auslassen", className: "bg-muted text-muted-foreground" },
 };
+
+const STANDARD_REVIEW_PHASES: Array<{
+	name: string;
+	kind: HistoricalProtocolReviewPhaseKind;
+}> = [
+	{ name: "Quellen und Erkennung", kind: "source" },
+	{ name: "Datum und Zeitraum", kind: "date" },
+	{ name: "Umsatz, Ausgaben und Karte", kind: "amount" },
+	{ name: "Umsatzbereiche und Details", kind: "assignment" },
+	{ name: "Abschlusskontrolle", kind: "final" },
+];
 
 type Validation = Awaited<
 	ReturnType<typeof orpcClient.historicalProtocolImport.validate>
@@ -145,6 +158,9 @@ export function HistoricalProtocolFolderImport() {
 		null,
 	);
 	const [validation, setValidation] = useState<Validation | null>(null);
+	const [reviewPhases, setReviewPhases] = useState<
+		HistoricalProtocolReviewPhaseSummary[]
+	>([]);
 	const [decisionFilter, setDecisionFilter] = useState<
 		HistoricalProtocolDraftDecision | "all"
 	>("review");
@@ -175,6 +191,23 @@ export function HistoricalProtocolFolderImport() {
 		void refreshDrafts();
 	}, [refreshDrafts]);
 
+	const refreshReviewPhases = useCallback(async (draftId: string) => {
+		try {
+			setReviewPhases(
+				await orpcClient.historicalProtocolImport.listReviewPhases({
+					draft_id: draftId,
+				}),
+			);
+		} catch {
+			setReviewPhases([]);
+		}
+	}, []);
+
+	useEffect(() => {
+		if (draft) void refreshReviewPhases(draft.id);
+		else setReviewPhases([]);
+	}, [draft, refreshReviewPhases]);
+
 	async function analyzeFolder() {
 		if (files.length === 0) return;
 		setLoading("analyze");
@@ -186,6 +219,7 @@ export function HistoricalProtocolFolderImport() {
 			if (!response.ok) throw new Error(await responseError(response));
 			const result = (await response.json()) as HistoricalProtocolDraftDetail;
 			setDraft(result);
+			setReviewPhases([]);
 			setValidation(null);
 			setDecisionFilter(result.counts.review > 0 ? "review" : "include");
 			await refreshDrafts();
@@ -204,6 +238,7 @@ export function HistoricalProtocolFolderImport() {
 		try {
 			const result = await orpcClient.historicalProtocolImport.get({ id });
 			setDraft(result);
+			await refreshReviewPhases(result.id);
 			setValidation(null);
 			setDecisionFilter(result.counts.review > 0 ? "review" : "include");
 		} catch (error) {
@@ -228,18 +263,111 @@ export function HistoricalProtocolFolderImport() {
 		}
 		setLoading(item.id);
 		try {
-			setDraft(
-				await orpcClient.historicalProtocolImport.updateItem({
-					draft_id: draft.id,
-					item_id: item.id,
-					expected_revision: draft.revision,
-					decision,
-				}),
-			);
+			const next = await orpcClient.historicalProtocolImport.updateItem({
+				draft_id: draft.id,
+				item_id: item.id,
+				expected_revision: draft.revision,
+				decision,
+			});
+			setDraft(next);
+			await refreshReviewPhases(next.id);
 			setValidation(null);
 		} catch (error) {
 			toast.error(
 				error instanceof Error ? error.message : "Änderung fehlgeschlagen",
+			);
+		} finally {
+			setLoading(null);
+		}
+	}
+
+	async function createStandardReviewPhases() {
+		if (draft?.status !== "editing") return;
+		setLoading("review-phases");
+		try {
+			let currentRevision = draft.revision;
+			const existingNames = new Set(reviewPhases.map((phase) => phase.name));
+			let created = 0;
+			for (const definition of STANDARD_REVIEW_PHASES) {
+				if (existingNames.has(definition.name)) continue;
+				const input = {
+					draft_id: draft.id,
+					name: definition.name,
+					kind: definition.kind,
+					year_from: 2022,
+					year_to: 2026,
+					decisions: [
+						"include",
+						"review",
+						"exclude",
+					] as HistoricalProtocolDraftDecision[],
+				};
+				const plan =
+					await orpcClient.historicalProtocolImport.planReviewPhase(input);
+				const result =
+					await orpcClient.historicalProtocolImport.createReviewPhase({
+						...input,
+						expected_revision: currentRevision,
+						selection_hash: plan.selectionHash,
+					});
+				currentRevision = result.draft.revision;
+				created += 1;
+			}
+			const next = await orpcClient.historicalProtocolImport.get({
+				id: draft.id,
+			});
+			setDraft(next);
+			await refreshReviewPhases(draft.id);
+			toast.success(
+				created > 0
+					? `${created} Prüfphasen angelegt`
+					: "Die Prüfphasen sind bereits angelegt",
+			);
+		} catch (error) {
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Prüfphasen konnten nicht angelegt werden",
+			);
+			await refreshReviewPhases(draft.id);
+		} finally {
+			setLoading(null);
+		}
+	}
+
+	async function transitionReviewPhase(
+		phase: HistoricalProtocolReviewPhaseSummary,
+		action: "complete" | "reopen",
+	) {
+		if (!draft) return;
+		setLoading(`phase-${phase.id}`);
+		try {
+			const input = {
+				phase_id: phase.id,
+				expected_phase_revision: phase.revision,
+				expected_draft_revision: draft.revision,
+			};
+			if (action === "complete") {
+				await orpcClient.historicalProtocolImport.completeReviewPhase(input);
+			} else {
+				await orpcClient.historicalProtocolImport.reopenReviewPhase(input);
+			}
+			const next = await orpcClient.historicalProtocolImport.get({
+				id: draft.id,
+			});
+			setDraft(next);
+			await refreshReviewPhases(draft.id);
+			setValidation(null);
+			toast.success(
+				action === "complete"
+					? "Prüfphase abgeschlossen"
+					: "Prüfphase wieder geöffnet",
+			);
+		} catch (error) {
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Prüfphase konnte nicht geändert werden",
 			);
 		} finally {
 			setLoading(null);
@@ -585,6 +713,107 @@ export function HistoricalProtocolFolderImport() {
 							</div>
 						</div>
 
+						<div className="space-y-3 rounded-lg border border-primary/20 bg-primary/[0.025] p-3">
+							<div className="flex flex-wrap items-start justify-between gap-3">
+								<div>
+									<p className="text-sm font-semibold">
+										Prüfplan 2022 bis 2026
+									</p>
+									<p className="text-xs text-muted-foreground">
+										Gespeicherter Fortschritt für Rendant und MCP. Noch keine
+										Prüfphase erzeugt Altumsätze.
+									</p>
+								</div>
+								{draft.status === "editing" ? (
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										onClick={() => void createStandardReviewPhases()}
+										disabled={loading != null}
+									>
+										{loading === "review-phases" ? (
+											<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+										) : (
+											<ShieldCheck className="mr-2 h-4 w-4" />
+										)}
+										{reviewPhases.length === 0
+											? "Prüfplan anlegen"
+											: "Prüfplan vervollständigen"}
+									</Button>
+								) : null}
+							</div>
+							{reviewPhases.length > 0 ? (
+								<div className="grid gap-2 lg:grid-cols-2">
+									{reviewPhases.map((phase) => (
+										<div
+											key={phase.id}
+											className="rounded-lg border bg-background p-3"
+										>
+											<div className="flex items-start justify-between gap-2">
+												<div>
+													<p className="text-sm font-medium">{phase.name}</p>
+													<p className="text-[11px] text-muted-foreground">
+														{phase.counts.completed} von {phase.counts.total}{" "}
+														geprüft
+														{phase.counts.issue > 0
+															? ` · ${phase.counts.issue} beanstandet`
+															: ""}
+													</p>
+												</div>
+												<Badge
+													variant={
+														phase.status === "completed" ? "default" : "outline"
+													}
+												>
+													{phase.status === "completed"
+														? "Abgeschlossen"
+														: "Aktiv"}
+												</Badge>
+											</div>
+											<div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+												<div
+													className="h-full rounded-full bg-primary transition-[width]"
+													style={{ width: `${phase.progressPercent}%` }}
+												/>
+											</div>
+											<div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+												<span>{phase.progressPercent} Prozent</span>
+												{draft.status === "editing" &&
+												(phase.status === "completed" ||
+													(phase.counts.pending === 0 &&
+														phase.counts.issue === 0)) ? (
+													<Button
+														type="button"
+														variant="ghost"
+														size="sm"
+														onClick={() =>
+															void transitionReviewPhase(
+																phase,
+																phase.status === "completed"
+																	? "reopen"
+																	: "complete",
+															)
+														}
+														disabled={loading != null}
+													>
+														{phase.status === "completed"
+															? "Öffnen"
+															: "Abschließen"}
+													</Button>
+												) : null}
+											</div>
+										</div>
+									))}
+								</div>
+							) : (
+								<p className="text-xs text-muted-foreground">
+									Noch kein Prüfplan. Der bisherige Zeilenworkflow bleibt
+									verfügbar.
+								</p>
+							)}
+						</div>
+
 						<div className="flex flex-wrap items-center gap-2">
 							<Input
 								value={query}
@@ -690,7 +919,9 @@ export function HistoricalProtocolFolderImport() {
 							<div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
 								<strong>Noch nicht importierbar:</strong> {validation.review}{" "}
 								offene Prüffälle, {validation.invalidIncluded.length}{" "}
-								unvollständige Übernahmen.
+								unvollständige Übernahmen, {validation.reviewPhases.active}{" "}
+								aktive Prüfphasen, {validation.reviewPhases.uncoveredIncluded}{" "}
+								Übernahmen ohne Abschlusskontrolle.
 							</div>
 						) : null}
 						{draft.status === "editing" ? (
@@ -755,6 +986,7 @@ export function HistoricalProtocolFolderImport() {
 					setDraft(next);
 					setEditing(null);
 					setValidation(null);
+					void refreshReviewPhases(next.id);
 				}}
 			/>
 		</Card>

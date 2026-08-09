@@ -413,6 +413,116 @@ export const HistoricalProtocolDraftBulkUpdateSchema = v.pipe(
 	),
 );
 
+export const HistoricalProtocolReviewPhaseKindSchema = v.picklist([
+	"source",
+	"date",
+	"amount",
+	"assignment",
+	"tax",
+	"denomination",
+	"final",
+]);
+
+export const HistoricalProtocolReviewItemStatusSchema = v.picklist([
+	"pending",
+	"accepted",
+	"issue",
+	"not_applicable",
+]);
+
+export const HistoricalProtocolReviewIssueSchema = v.picklist([
+	"derived_date",
+	"vat_warning",
+	"denomination_warning",
+	"missing_area",
+	"unclear_register",
+]);
+
+const HistoricalProtocolReviewPhaseFiltersEntries = {
+	year_from: v.optional(
+		v.pipe(v.number(), v.integer(), v.minValue(2000), v.maxValue(2100)),
+	),
+	year_to: v.optional(
+		v.pipe(v.number(), v.integer(), v.minValue(2000), v.maxValue(2100)),
+	),
+	decisions: v.optional(
+		v.pipe(
+			v.array(HistoricalProtocolDraftDecisionSchema),
+			v.minLength(1),
+			v.maxLength(3),
+		),
+	),
+	issue: v.optional(HistoricalProtocolReviewIssueSchema),
+	query: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(120))),
+};
+
+const HistoricalProtocolReviewPhasePlanEntries = {
+	draft_id: draftId,
+	name: v.pipe(v.string(), v.trim(), v.minLength(3), v.maxLength(120)),
+	kind: HistoricalProtocolReviewPhaseKindSchema,
+	...HistoricalProtocolReviewPhaseFiltersEntries,
+};
+
+export const HistoricalProtocolReviewPhasePlanSchema = v.pipe(
+	v.object(HistoricalProtocolReviewPhasePlanEntries),
+	v.check(
+		(input) =>
+			input.year_from === undefined ||
+			input.year_to === undefined ||
+			input.year_from <= input.year_to,
+		"Das Startjahr darf nicht nach dem Endjahr liegen",
+	),
+);
+
+export const HistoricalProtocolReviewPhaseCreateSchema = v.pipe(
+	v.object({
+		...HistoricalProtocolReviewPhasePlanEntries,
+		expected_revision: draftRevision,
+		selection_hash: v.pipe(v.string(), v.regex(/^[a-f0-9]{64}$/)),
+	}),
+	v.check(
+		(input) =>
+			input.year_from === undefined ||
+			input.year_to === undefined ||
+			input.year_from <= input.year_to,
+		"Das Startjahr darf nicht nach dem Endjahr liegen",
+	),
+);
+
+export const HistoricalProtocolReviewPhaseListSchema = v.object({
+	draft_id: draftId,
+});
+
+export const HistoricalProtocolReviewPhaseQuerySchema = v.object({
+	phase_id: draftId,
+	status: v.optional(HistoricalProtocolReviewItemStatusSchema),
+	page: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1)), 1),
+	page_size: v.optional(
+		v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(200)),
+		50,
+	),
+});
+
+export const HistoricalProtocolReviewUpdatePlanSchema = v.object({
+	phase_id: draftId,
+	item_ids: v.pipe(v.array(draftId), v.minLength(1), v.maxLength(1500)),
+	status: HistoricalProtocolReviewItemStatusSchema,
+	note: v.pipe(v.string(), v.trim(), v.minLength(3), v.maxLength(1000)),
+});
+
+export const HistoricalProtocolReviewUpdateApplySchema = v.object({
+	...HistoricalProtocolReviewUpdatePlanSchema.entries,
+	expected_phase_revision: draftRevision,
+	expected_draft_revision: draftRevision,
+	selection_hash: v.pipe(v.string(), v.regex(/^[a-f0-9]{64}$/)),
+});
+
+export const HistoricalProtocolReviewPhaseTransitionSchema = v.object({
+	phase_id: draftId,
+	expected_phase_revision: draftRevision,
+	expected_draft_revision: draftRevision,
+});
+
 export const HistoricalProtocolDraftTransitionSchema = v.object({
 	id: draftId,
 	expected_revision: draftRevision,

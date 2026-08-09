@@ -3,6 +3,17 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.31.0 - 2026-08-09
+
+- Historische Zählprotokolle lassen sich jetzt in gespeicherten Prüfphasen
+  bearbeiten. Der Fortschritt bleibt sichtbar und kann später fortgesetzt
+  werden, ohne bereits Altumsätze anzulegen.
+- Der Prüfplan trennt Quellen, Zeitangaben, Beträge, Zuordnungen und die
+  Abschlusskontrolle. Offene und beanstandete Zeilen sind je Phase erkennbar.
+- Wird ein bereits geprüfter Arbeitswert geändert, öffnet Rendant nur die
+  betroffenen Prüfungen erneut. Der verbindliche Import bleibt ein eigener,
+  ausdrücklich ausgelöster letzter Schritt.
+
 ## 1.30.2 - 2026-08-09
 
 - Die Protokollliste zeigt auf Computer und Smartphone wieder Monatsabschnitte
