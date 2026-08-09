@@ -5,6 +5,7 @@ import {
 	filterByRange,
 	filterByYear,
 	parseDateWindow,
+	parseTimeRange,
 } from "@/lib/dashboard-stats";
 import {
 	computeContext,
@@ -110,6 +111,12 @@ describe("year filters", () => {
 	it("filters a selected business year", () => {
 		expect(filterByYear(rows, 2026)).toEqual([rows[1], rows[3]]);
 		expect(filterByYear(rows, undefined)).toEqual(rows);
+	});
+
+	it("uses the current year as the safe default while preserving all years", () => {
+		expect(parseTimeRange(undefined)).toBe("year");
+		expect(parseTimeRange("invalid")).toBe("year");
+		expect(parseTimeRange("all")).toBe("all");
 	});
 });
 

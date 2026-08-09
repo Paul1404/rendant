@@ -52,8 +52,15 @@ export function filterByDateWindow<T extends { anlass_datum: string }>(
 }
 
 export function parseTimeRange(value: string | undefined): TimeRange {
-	if (value === "month" || value === "30d" || value === "year") return value;
-	return "all";
+	if (
+		value === "month" ||
+		value === "30d" ||
+		value === "year" ||
+		value === "all"
+	) {
+		return value;
+	}
+	return "year";
 }
 
 export function filterByRange<T extends { anlass_datum: string }>(

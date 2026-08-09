@@ -6,10 +6,10 @@ import type { TimeRange } from "@/lib/dashboard-stats";
 import { cn } from "@/lib/utils";
 
 const RANGES: { value: TimeRange; label: string }[] = [
-	{ value: "all", label: "Alle" },
 	{ value: "year", label: "Dieses Jahr" },
-	{ value: "30d", label: "30 Tage" },
 	{ value: "month", label: "Dieser Monat" },
+	{ value: "30d", label: "30 Tage" },
+	{ value: "all", label: "Alle Jahre" },
 ];
 
 type Props = {
@@ -72,7 +72,7 @@ export function DashboardToolbar({
 					updated.q = next.q.trim() ? next.q.trim() : undefined;
 				}
 				if (next.range !== undefined) {
-					updated.range = next.range === "all" ? undefined : next.range;
+					updated.range = next.range === "year" ? undefined : next.range;
 				}
 				if ("jahr" in next) {
 					updated.jahr = next.jahr ?? undefined;

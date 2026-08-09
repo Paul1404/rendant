@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.31.3 - 2026-08-09
+
+- Das Hauptdashboard zeigt beim Öffnen jetzt das laufende Kalenderjahr. Auch
+  Kennzahlen, Diagramme, Umsatzsteuer und Protokollliste bleiben damit auf den
+  aktuellen Zeitraum begrenzt.
+- Frühere Jahre lassen sich weiterhin ausdrücklich gemeinsam anzeigen oder
+  einzeln für die Jahresauswertung auswählen.
+
 ## 1.31.2 - 2026-08-09
 
 - Eine Prüfphase zeigt erst dann 100 Prozent Fortschritt, wenn wirklich alle

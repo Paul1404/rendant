@@ -254,7 +254,7 @@ export function rangeToDates(
 }
 
 export const RANGE_LABELS: Record<TimeRange, string> = {
-	all: "Gesamt",
+	all: "Alle Jahre",
 	year: "Dieses Jahr",
 	"30d": "Letzte 30 Tage",
 	month: "Dieser Monat",

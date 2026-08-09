@@ -52,12 +52,13 @@ const historicalRevenueQueryOptions = orpc.historicalRevenue.list.queryOptions({
 export const Route = createFileRoute("/protokolle/")({
 	validateSearch: (search: Record<string, unknown>): ProtokolleSearch => {
 		const drilldown = parseDateWindow(search.von, search.bis);
-		const range = parseTimeRange(
-			typeof search.range === "string" ? search.range : undefined,
-		);
+		const range =
+			typeof search.range === "string"
+				? parseTimeRange(search.range)
+				: undefined;
 		return {
 			q: typeof search.q === "string" && search.q ? search.q : undefined,
-			range: range === "all" ? undefined : range,
+			range,
 			storno:
 				search.storno === true || search.storno === "true" ? true : undefined,
 			jahr:
@@ -91,7 +92,7 @@ function ProtokolleListPage() {
 	const { data: historical } = useSuspenseQuery(historicalRevenueQueryOptions);
 
 	const includeStorniert = search.storno === true;
-	const timeRange: TimeRange = search.range ?? "all";
+	const timeRange: TimeRange = search.range ?? "year";
 	const selectedYear = search.jahr;
 	const query = (search.q ?? "").trim();
 	const selectedDrilldown = parseDateWindow(search.von, search.bis);
@@ -124,7 +125,7 @@ function ProtokolleListPage() {
 
 	const hasAnyData = all.length > 0 || historical.length > 0;
 	const hasFilters =
-		!!query || timeRange !== "all" || includeStorniert || !!selectedYear;
+		!!query || timeRange !== "year" || includeStorniert || !!selectedYear;
 	const visibleSumCent = items
 		.filter((p) => !p.storniert_am)
 		.reduce((s, p) => s + revenueOf(p), 0);
@@ -159,7 +160,10 @@ function ProtokolleListPage() {
 					seriesNow={
 						selectedYear ? new Date(selectedYear, 11, 31, 12) : new Date()
 					}
-					initialGranularity={search.chart ?? (selectedYear ? "month" : "day")}
+					initialGranularity={
+						search.chart ??
+						(selectedYear || timeRange === "year" ? "month" : "day")
+					}
 					selectedDrilldown={selectedDrilldown}
 					onChartChange={(granularity, window) => {
 						navigate({
