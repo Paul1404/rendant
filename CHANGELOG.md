@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.30.2 - 2026-08-09
+
+- Die Protokollliste zeigt auf Computer und Smartphone wieder Monatsabschnitte
+  mit Anzahl und Gesamtsumme des jeweiligen Monats.
+- Pro Seite lassen sich jetzt 10, 25, 50 oder 100 Einträge anzeigen.
+
 ## 1.30.1 - 2026-08-09
 
 - Release-Hinweise beschreiben Neuerungen jetzt verständlich aus Sicht der

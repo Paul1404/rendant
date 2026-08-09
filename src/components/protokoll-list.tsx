@@ -3,6 +3,7 @@ import {
 	type ColumnDef,
 	createPaginatedRowModel,
 	flexRender,
+	type Row,
 	rowPaginationFeature,
 	tableFeatures,
 	useTable,
@@ -12,6 +13,13 @@ import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Money } from "@/components/ui/money";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import {
 	Table,
 	TableBody,
@@ -137,8 +145,20 @@ export function ProtokollList({ items }: Props) {
 		getRowId: (row) => row.id,
 		initialState: { pagination: { pageIndex: 0, pageSize: 25 } },
 	});
-	const pageItems = table.getRowModel().rows.map((row) => row.original);
-	const groups = groupByMonth(pageItems);
+	const pageRows = table.getRowModel().rows;
+	const pageItems = pageRows.map((row) => row.original);
+	const rowsById = new Map(pageRows.map((row) => [row.id, row]));
+	const monthTotals = new Map(
+		groupByMonth(items).map((group) => [group.key, group]),
+	);
+	const groups = groupByMonth(pageItems).map((group) => {
+		const total = monthTotals.get(group.key);
+		return {
+			...group,
+			count: total?.count ?? group.count,
+			sumActiveCent: total?.sumActiveCent ?? group.sumActiveCent,
+		};
+	});
 
 	return (
 		<>
@@ -172,23 +192,15 @@ export function ProtokollList({ items }: Props) {
 						))}
 					</TableHeader>
 					<TableBody>
-						{table.getRowModel().rows.map((row) => (
-							<TableRow
-								key={row.id}
-								className="group transition-colors hover:bg-muted/30"
-							>
-								{row.getAllCells().map((cell) => (
-									<TableCell
-										key={cell.id}
-										className={cn(
-											cell.column.id === "tageseinnahmen" && "text-right",
-											cell.column.id === "actions" && "text-right",
-										)}
-									>
-										{flexRender(cell.column.columnDef.cell, cell.getContext())}
-									</TableCell>
-								))}
-							</TableRow>
+						{groups.map((group) => (
+							<MonthRows
+								key={group.key}
+								label={group.label}
+								count={group.count}
+								sumActiveCent={group.sumActiveCent}
+								rowIds={group.items.map((item) => item.id)}
+								rowsById={rowsById}
+							/>
 						))}
 					</TableBody>
 				</Table>
@@ -221,14 +233,32 @@ export function ProtokollList({ items }: Props) {
 				))}
 			</ul>
 
-			{table.getPageCount() > 1 ? (
-				<div className="flex items-center justify-between gap-3 px-1 text-xs text-muted-foreground">
+			{items.length > 10 ? (
+				<div className="flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-muted-foreground">
 					<span>
 						Seite {table.state.pagination.pageIndex + 1} von{" "}
-						{table.getPageCount()} · bis zu {table.state.pagination.pageSize}
-						{" Einträge"}
+						{table.getPageCount()}
 					</span>
-					<div className="flex gap-1">
+					<div className="flex items-center gap-2">
+						<span>Einträge pro Seite</span>
+						<Select
+							value={String(table.state.pagination.pageSize)}
+							onValueChange={(value) => {
+								table.setPageIndex(0);
+								table.setPageSize(Number(value));
+							}}
+						>
+							<SelectTrigger size="sm" aria-label="Einträge pro Seite">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								{[10, 25, 50, 100].map((size) => (
+									<SelectItem key={size} value={String(size)}>
+										{size}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
 						<Button
 							type="button"
 							size="icon-sm"
@@ -252,6 +282,62 @@ export function ProtokollList({ items }: Props) {
 					</div>
 				</div>
 			) : null}
+		</>
+	);
+}
+
+function MonthRows({
+	label,
+	count,
+	sumActiveCent,
+	rowIds,
+	rowsById,
+}: {
+	label: string;
+	count: number;
+	sumActiveCent: number;
+	rowIds: string[];
+	rowsById: Map<string, Row<typeof dashboardTableFeatures, ProtokollRow>>;
+}) {
+	return (
+		<>
+			<TableRow className="border-t-0 bg-muted/40 hover:bg-muted/40">
+				<TableCell
+					colSpan={6}
+					className="px-4 py-2 text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground"
+				>
+					<div className="flex items-baseline justify-between gap-3">
+						<span>{label}</span>
+						<span className="flex items-baseline gap-1.5 tabular-nums">
+							{count} {count === 1 ? "Eintrag" : "Einträge"}
+							<span className="text-muted-foreground/40">·</span>
+							<Money cent={sumActiveCent} className="text-foreground" />
+						</span>
+					</div>
+				</TableCell>
+			</TableRow>
+			{rowIds.map((rowId) => {
+				const row = rowsById.get(rowId);
+				if (!row) return null;
+				return (
+					<TableRow
+						key={row.id}
+						className="group transition-colors hover:bg-muted/30"
+					>
+						{row.getAllCells().map((cell) => (
+							<TableCell
+								key={cell.id}
+								className={cn(
+									cell.column.id === "tageseinnahmen" && "text-right",
+									cell.column.id === "actions" && "text-right",
+								)}
+							>
+								{flexRender(cell.column.columnDef.cell, cell.getContext())}
+							</TableCell>
+						))}
+					</TableRow>
+				);
+			})}
 		</>
 	);
 }
