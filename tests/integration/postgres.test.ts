@@ -11,8 +11,10 @@ import {
 	protokolle,
 } from "@/server/db/schema";
 import {
+	analyzeHistoricalProtocolImportDraft,
 	createHistoricalProtocolImportDraft,
 	HistoricalProtocolDraftConflictError,
+	queryHistoricalProtocolImportDraftItems,
 	updateHistoricalProtocolImportDraftItem,
 } from "@/server/services/historical-protocol-import-draft";
 import {
@@ -197,6 +199,32 @@ describe("PostgreSQL production paths", () => {
 
 		const draft = await createHistoricalProtocolImportDraft(preview, actor, audit);
 		try {
+			const analysis = await analyzeHistoricalProtocolImportDraft({
+				id: draft.id,
+				decision: "include",
+			});
+			expect(analysis).toMatchObject({
+				matched: 1,
+				totals: { revenueCent: 10_000, expensesCent: 0, cardCent: 0 },
+			});
+			expect(analysis.facets.classificationKeys).toEqual([
+				{ value: "integration", count: 1 },
+			]);
+
+			const page = await queryHistoricalProtocolImportDraftItems({
+				id: draft.id,
+				page: 1,
+				page_size: 1,
+				sort: "file_index",
+				direction: "asc",
+				include_evidence: false,
+			});
+			expect(page).toMatchObject({ total: 1, pageCount: 1 });
+			expect(page.items[0]).toMatchObject({
+				path: "2020/Test.xlsx",
+				evidence: { dateOrigin: "workbook", warnings: [] },
+			});
+
 			const input = {
 				draft_id: draft.id,
 				item_id: draft.items[0].id,

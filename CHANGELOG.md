@@ -3,6 +3,17 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.30.0 - 2026-08-09
+
+- MCP kann historische Importentwürfe jetzt zuerst als kompakte Facettenanalyse
+  auswerten und anschließend gezielt gefilterte, sortierte Seiten laden. Volle
+  Parserbelege werden nur noch angefordert, wenn sie für die Prüfung nötig sind.
+- Entwurfsübersichten werden direkt in PostgreSQL aggregiert. Große
+  Arbeitsstände müssen dafür nicht mehr vollständig samt Quelldaten eingelesen
+  und übertragen werden.
+- Die Hauptliste der Kassenzählprotokolle auf dem Dashboard nutzt TanStack Table
+  mit stabilen Zeilenkennungen und gemeinsamer Pagination für Desktop und Mobil.
+
 ## 1.29.4 - 2026-08-04
 
 - Liegen Original und nummerierte Korrektur am selben Änderungsdatum, gewinnt

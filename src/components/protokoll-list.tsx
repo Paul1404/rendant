@@ -1,6 +1,16 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowUpRight } from "lucide-react";
+import {
+	type ColumnDef,
+	createPaginatedRowModel,
+	flexRender,
+	rowPaginationFeature,
+	tableFeatures,
+	useTable,
+} from "@tanstack/react-table";
+import { ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Money } from "@/components/ui/money";
 import {
 	Table,
@@ -42,45 +52,143 @@ type Props = {
 	items: ProtokollRow[];
 };
 
+const dashboardTableFeatures = tableFeatures({
+	rowPaginationFeature,
+	paginatedRowModel: createPaginatedRowModel(),
+});
+
 export function ProtokollList({ items }: Props) {
-	const groups = groupByMonth(items);
 	const today = new Date();
 	const todayKey = formatDateDe(today);
+	const columns = useMemo<
+		ColumnDef<typeof dashboardTableFeatures, ProtokollRow>[]
+	>(
+		() => [
+			{
+				accessorKey: "belegnummer",
+				header: "Belegnummer",
+				cell: ({ row }) => (
+					<span className="font-mono text-sm font-medium">
+						{row.original.belegnummer}
+					</span>
+				),
+			},
+			{
+				accessorKey: "anlass_datum",
+				header: "Datum",
+				cell: ({ row }) => {
+					const isToday = formatDateDe(row.original.anlass_datum) === todayKey;
+					return (
+						<span className="inline-flex items-center gap-1.5 text-sm">
+							{formatDateDe(row.original.anlass_datum)}
+							{isToday ? <HeuteBadge /> : null}
+						</span>
+					);
+				},
+			},
+			{
+				accessorKey: "anlass",
+				header: "Veranstaltung",
+				cell: ({ row }) => (
+					<span className="block max-w-[320px] truncate text-sm">
+						{row.original.anlass}
+					</span>
+				),
+			},
+			{
+				id: "tageseinnahmen",
+				header: "Tageseinnahmen",
+				cell: ({ row }) => (
+					<Money
+						cent={row.original.tageseinnahmen_cent}
+						tone={row.original.storniert_am ? "muted" : "default"}
+						className={cn(row.original.storniert_am && "line-through")}
+					/>
+				),
+			},
+			{
+				id: "status",
+				header: "Status",
+				cell: ({ row }) => (
+					<StatusPill storniert={Boolean(row.original.storniert_am)} />
+				),
+			},
+			{
+				id: "actions",
+				header: "",
+				cell: ({ row }) => (
+					<Link
+						to="/protokolle/$id"
+						params={{ id: row.original.id }}
+						className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-sm font-medium text-primary transition-colors hover:bg-primary/10 hover:underline"
+					>
+						Anzeigen
+						<ArrowUpRight className="h-3.5 w-3.5" />
+					</Link>
+				),
+			},
+		],
+		[todayKey],
+	);
+	const table = useTable({
+		features: dashboardTableFeatures,
+		data: items,
+		columns,
+		getRowId: (row) => row.id,
+		initialState: { pagination: { pageIndex: 0, pageSize: 25 } },
+	});
+	const pageItems = table.getRowModel().rows.map((row) => row.original);
+	const groups = groupByMonth(pageItems);
 
 	return (
 		<>
 			<div className="hidden overflow-x-auto rounded-xl border border-border/60 bg-card shadow-sm md:block">
 				<Table>
 					<TableHeader className="bg-muted/40">
-						<TableRow className="hover:bg-transparent">
-							<TableHead className="w-[140px] text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
-								Belegnummer
-							</TableHead>
-							<TableHead className="w-[120px] text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
-								Datum
-							</TableHead>
-							<TableHead className="text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
-								Veranstaltung
-							</TableHead>
-							<TableHead className="w-[160px] text-right text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
-								Tageseinnahmen
-							</TableHead>
-							<TableHead className="w-[110px] text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
-								Status
-							</TableHead>
-							<TableHead className="w-[110px]"></TableHead>
-						</TableRow>
+						{table.getHeaderGroups().map((group) => (
+							<TableRow key={group.id} className="hover:bg-transparent">
+								{group.headers.map((header) => (
+									<TableHead
+										key={header.id}
+										className={cn(
+											"text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground",
+											header.column.id === "belegnummer" && "w-[140px]",
+											header.column.id === "anlass_datum" && "w-[120px]",
+											header.column.id === "tageseinnahmen" &&
+												"w-[160px] text-right",
+											header.column.id === "status" && "w-[110px]",
+											header.column.id === "actions" && "w-[110px]",
+										)}
+									>
+										{header.isPlaceholder
+											? null
+											: flexRender(
+													header.column.columnDef.header,
+													header.getContext(),
+												)}
+									</TableHead>
+								))}
+							</TableRow>
+						))}
 					</TableHeader>
 					<TableBody>
-						{groups.map((g) => (
-							<GroupBlock
-								key={g.key}
-								groupLabel={g.label}
-								count={g.count}
-								sumActiveCent={g.sumActiveCent}
-								items={g.items}
-								todayKey={todayKey}
-							/>
+						{table.getRowModel().rows.map((row) => (
+							<TableRow
+								key={row.id}
+								className="group transition-colors hover:bg-muted/30"
+							>
+								{row.getAllCells().map((cell) => (
+									<TableCell
+										key={cell.id}
+										className={cn(
+											cell.column.id === "tageseinnahmen" && "text-right",
+											cell.column.id === "actions" && "text-right",
+										)}
+									>
+										{flexRender(cell.column.columnDef.cell, cell.getContext())}
+									</TableCell>
+								))}
+							</TableRow>
 						))}
 					</TableBody>
 				</Table>
@@ -112,82 +220,38 @@ export function ProtokollList({ items }: Props) {
 					</li>
 				))}
 			</ul>
-		</>
-	);
-}
 
-function GroupBlock({
-	groupLabel,
-	count,
-	sumActiveCent,
-	items,
-	todayKey,
-}: {
-	groupLabel: string;
-	count: number;
-	sumActiveCent: number;
-	items: ProtokollRow[];
-	todayKey: string;
-}) {
-	return (
-		<>
-			<TableRow className="border-t-0 bg-muted/40 hover:bg-muted/40">
-				<TableCell
-					colSpan={6}
-					className="px-4 py-2 text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground"
-				>
-					<div className="flex items-baseline justify-between gap-3">
-						<span>{groupLabel}</span>
-						<span className="flex items-baseline gap-1.5 tabular-nums">
-							{count} {count === 1 ? "Eintrag" : "Einträge"}
-							<span className="text-muted-foreground/40">·</span>
-							<Money cent={sumActiveCent} className="text-foreground" />
-						</span>
+			{table.getPageCount() > 1 ? (
+				<div className="flex items-center justify-between gap-3 px-1 text-xs text-muted-foreground">
+					<span>
+						Seite {table.state.pagination.pageIndex + 1} von{" "}
+						{table.getPageCount()} · bis zu {table.state.pagination.pageSize}
+						{" Einträge"}
+					</span>
+					<div className="flex gap-1">
+						<Button
+							type="button"
+							size="icon-sm"
+							variant="outline"
+							onClick={() => table.previousPage()}
+							disabled={!table.getCanPreviousPage()}
+						>
+							<ChevronLeft />
+							<span className="sr-only">Vorherige Seite</span>
+						</Button>
+						<Button
+							type="button"
+							size="icon-sm"
+							variant="outline"
+							onClick={() => table.nextPage()}
+							disabled={!table.getCanNextPage()}
+						>
+							<ChevronRight />
+							<span className="sr-only">Nächste Seite</span>
+						</Button>
 					</div>
-				</TableCell>
-			</TableRow>
-			{items.map((p) => {
-				const isToday = formatDateDe(p.anlass_datum) === todayKey;
-				return (
-					<TableRow
-						key={p.id}
-						className="group transition-colors hover:bg-muted/30"
-					>
-						<TableCell className="font-mono text-sm font-medium">
-							{p.belegnummer}
-						</TableCell>
-						<TableCell className="text-sm">
-							<span className="inline-flex items-center gap-1.5">
-								{formatDateDe(p.anlass_datum)}
-								{isToday ? <HeuteBadge /> : null}
-							</span>
-						</TableCell>
-						<TableCell className="max-w-[260px] truncate text-sm">
-							{p.anlass}
-						</TableCell>
-						<TableCell className="text-right">
-							<Money
-								cent={p.tageseinnahmen_cent}
-								tone={p.storniert_am ? "muted" : "default"}
-								className={cn(p.storniert_am && "line-through")}
-							/>
-						</TableCell>
-						<TableCell>
-							<StatusPill storniert={!!p.storniert_am} />
-						</TableCell>
-						<TableCell className="text-right">
-							<Link
-								to="/protokolle/$id"
-								params={{ id: p.id }}
-								className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-sm font-medium text-primary transition-colors hover:bg-primary/10 hover:underline"
-							>
-								Anzeigen
-								<ArrowUpRight className="h-3.5 w-3.5" />
-							</Link>
-						</TableCell>
-					</TableRow>
-				);
-			})}
+				</div>
+			) : null}
 		</>
 	);
 }

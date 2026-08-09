@@ -10,8 +10,10 @@ import {
 	CreateProtokollSchema,
 	EmailSettingsSchema,
 	ExportQuerySchema,
+	HistoricalProtocolDraftAnalyzeSchema,
 	HistoricalProtocolDraftBulkUpdateSchema,
 	HistoricalProtocolDraftGetSchema,
+	HistoricalProtocolDraftQuerySchema,
 	HistoricalProtocolDraftTransitionSchema,
 	HistoricalProtocolDraftUpdateItemSchema,
 	HistoricalRevenueCancelSchema,
@@ -57,14 +59,17 @@ import {
 	updateEmailSettings,
 } from "@/server/services/email";
 import {
+	analyzeHistoricalProtocolImportDraft,
 	applyHistoricalProtocolImportDraft,
 	bulkUpdateHistoricalProtocolImportDraftItems,
 	getHistoricalProtocolImportDraft,
+	getHistoricalProtocolImportDraftSummary,
 	HistoricalProtocolDraftConflictError,
 	HistoricalProtocolDraftNotFoundError,
 	HistoricalProtocolDraftValidationError,
 	listHistoricalProtocolImportDrafts,
 	markHistoricalProtocolImportDraftReady,
+	queryHistoricalProtocolImportDraftItems,
 	reopenHistoricalProtocolImportDraft,
 	updateHistoricalProtocolImportDraftItem,
 	validateHistoricalProtocolImportDraft,
@@ -947,6 +952,36 @@ function throwHistoricalProtocolDraftError(error: unknown): never {
 
 const historicalProtocolImport = {
 	list: adminOnly.handler(() => listHistoricalProtocolImportDrafts()),
+
+	summary: adminOnly
+		.input(HistoricalProtocolDraftGetSchema)
+		.handler(async ({ input }) => {
+			try {
+				return await getHistoricalProtocolImportDraftSummary(input.id);
+			} catch (error) {
+				throwHistoricalProtocolDraftError(error);
+			}
+		}),
+
+	analyze: adminOnly
+		.input(HistoricalProtocolDraftAnalyzeSchema)
+		.handler(async ({ input }) => {
+			try {
+				return await analyzeHistoricalProtocolImportDraft(input);
+			} catch (error) {
+				throwHistoricalProtocolDraftError(error);
+			}
+		}),
+
+	queryItems: adminOnly
+		.input(HistoricalProtocolDraftQuerySchema)
+		.handler(async ({ input }) => {
+			try {
+				return await queryHistoricalProtocolImportDraftItems(input);
+			} catch (error) {
+				throwHistoricalProtocolDraftError(error);
+			}
+		}),
 
 	get: adminOnly
 		.input(HistoricalProtocolDraftGetSchema)

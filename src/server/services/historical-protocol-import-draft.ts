@@ -1,15 +1,32 @@
-import { and, desc, eq, inArray, type SQL, sql } from "drizzle-orm";
+import {
+	and,
+	asc,
+	desc,
+	eq,
+	ilike,
+	inArray,
+	isNull,
+	or,
+	type SQL,
+	sql,
+} from "drizzle-orm";
 import type * as v from "valibot";
 import type {
+	HistoricalProtocolDraftAnalysis,
+	HistoricalProtocolDraftCompactItem,
 	HistoricalProtocolDraftDecision,
 	HistoricalProtocolDraftDetail,
+	HistoricalProtocolDraftFacet,
 	HistoricalProtocolDraftItem,
+	HistoricalProtocolDraftItemPage,
 	HistoricalProtocolDraftSummary,
 	HistoricalProtocolParsedRow,
 	HistoricalProtocolPreview,
 } from "@/lib/historical-protocol-import";
 import type {
+	HistoricalProtocolDraftAnalyzeSchema,
 	HistoricalProtocolDraftBulkUpdateSchema,
+	HistoricalProtocolDraftQuerySchema,
 	HistoricalProtocolDraftUpdateItemSchema,
 } from "@/lib/schemas";
 import { isUmsatzbereich } from "@/lib/umsatzbereich";
@@ -32,6 +49,8 @@ type UpdateItemInput = v.InferOutput<
 type BulkUpdateInput = v.InferOutput<
 	typeof HistoricalProtocolDraftBulkUpdateSchema
 >;
+type AnalyzeInput = v.InferOutput<typeof HistoricalProtocolDraftAnalyzeSchema>;
+type QueryInput = v.InferOutput<typeof HistoricalProtocolDraftQuerySchema>;
 
 export class HistoricalProtocolDraftNotFoundError extends Error {}
 export class HistoricalProtocolDraftConflictError extends Error {}
@@ -141,6 +160,90 @@ function summarize(
 	};
 }
 
+type DraftAggregate = {
+	draftId: string;
+	include: number | string;
+	review: number | string;
+	exclude: number | string;
+	invalidIncluded: number | string;
+	revenueCent: number | string | null;
+	expensesCent: number | string | null;
+	cardCent: number | string | null;
+};
+
+const draftAggregateSelection = {
+	draftId: historicalProtocolImportItems.draft_id,
+	include: sql<number>`count(*) filter (where ${historicalProtocolImportItems.decision} = 'include')`,
+	review: sql<number>`count(*) filter (where ${historicalProtocolImportItems.decision} = 'review')`,
+	exclude: sql<number>`count(*) filter (where ${historicalProtocolImportItems.decision} = 'exclude')`,
+	invalidIncluded: sql<number>`count(*) filter (where ${historicalProtocolImportItems.decision} = 'include' and (coalesce(${historicalProtocolImportItems.detected_row} -> 'source', 'null'::jsonb) = 'null'::jsonb or ${historicalProtocolImportItems.effective_date} is null or length(trim(${historicalProtocolImportItems.detail})) = 0 or ${historicalProtocolImportItems.umsatzbereich} is null or ${historicalProtocolImportItems.revenue_cent} is null or ${historicalProtocolImportItems.expenses_cent} is null))`,
+	revenueCent: sql<number>`coalesce(sum(${historicalProtocolImportItems.revenue_cent}) filter (where ${historicalProtocolImportItems.decision} = 'include'), 0)`,
+	expensesCent: sql<number>`coalesce(sum(${historicalProtocolImportItems.expenses_cent}) filter (where ${historicalProtocolImportItems.decision} = 'include'), 0)`,
+	cardCent: sql<number>`coalesce(sum(coalesce((${historicalProtocolImportItems.detected_row} #>> '{source,cardCent}')::integer, 0)) filter (where ${historicalProtocolImportItems.decision} = 'include'), 0)`,
+};
+
+function summaryFromAggregate(
+	draft: typeof historicalProtocolImportDrafts.$inferSelect,
+	aggregate?: DraftAggregate,
+): HistoricalProtocolDraftSummary {
+	return {
+		id: draft.id,
+		folderName: draft.folder_name,
+		digest: draft.digest,
+		status: draft.status as HistoricalProtocolDraftSummary["status"],
+		revision: draft.revision,
+		files: draft.files,
+		spreadsheetFiles: draft.spreadsheet_files,
+		createdAt: draft.created_at,
+		updatedAt: draft.updated_at,
+		createdByName: draft.created_by_name,
+		importedAt: draft.imported_at,
+		resultCreated: draft.result_created,
+		resultSkipped: draft.result_skipped,
+		counts: {
+			include: Number(aggregate?.include ?? 0),
+			review: Number(aggregate?.review ?? 0),
+			exclude: Number(aggregate?.exclude ?? 0),
+			invalidIncluded: Number(aggregate?.invalidIncluded ?? 0),
+		},
+		totals: {
+			revenueCent: Number(aggregate?.revenueCent ?? 0),
+			expensesCent: Number(aggregate?.expensesCent ?? 0),
+			cardCent: Number(aggregate?.cardCent ?? 0),
+		},
+	};
+}
+
+async function loadDraftSummary(
+	database: DbOrTx,
+	id: string,
+): Promise<HistoricalProtocolDraftSummary | null> {
+	const [draft] = await database
+		.select()
+		.from(historicalProtocolImportDrafts)
+		.where(eq(historicalProtocolImportDrafts.id, id))
+		.limit(1);
+	if (!draft) return null;
+	const [aggregate] = await database
+		.select(draftAggregateSelection)
+		.from(historicalProtocolImportItems)
+		.where(eq(historicalProtocolImportItems.draft_id, id))
+		.groupBy(historicalProtocolImportItems.draft_id);
+	return summaryFromAggregate(draft, aggregate);
+}
+
+export async function getHistoricalProtocolImportDraftSummary(
+	id: string,
+): Promise<HistoricalProtocolDraftSummary> {
+	const summary = await loadDraftSummary(db, id);
+	if (!summary) {
+		throw new HistoricalProtocolDraftNotFoundError(
+			"Import-Entwurf nicht gefunden",
+		);
+	}
+	return summary;
+}
+
 async function loadDraft(
 	database: DbOrTx,
 	id: string,
@@ -181,22 +284,214 @@ export async function listHistoricalProtocolImportDrafts(): Promise<
 		.from(historicalProtocolImportDrafts)
 		.orderBy(desc(historicalProtocolImportDrafts.updated_at));
 	if (drafts.length === 0) return [];
-	const rows = await db
-		.select()
+	const aggregates = await db
+		.select(draftAggregateSelection)
 		.from(historicalProtocolImportItems)
 		.where(
 			inArray(
 				historicalProtocolImportItems.draft_id,
 				drafts.map((draft) => draft.id),
 			),
-		);
-	const byDraft = new Map<string, HistoricalProtocolDraftItem[]>();
-	for (const row of rows) {
-		const items = byDraft.get(row.draft_id) ?? [];
-		items.push(mapItem(row));
-		byDraft.set(row.draft_id, items);
+		)
+		.groupBy(historicalProtocolImportItems.draft_id);
+	const byDraft = new Map(aggregates.map((row) => [row.draftId, row]));
+	return drafts.map((draft) =>
+		summaryFromAggregate(draft, byDraft.get(draft.id)),
+	);
+}
+
+function draftItemFilters(input: AnalyzeInput | QueryInput): SQL[] {
+	const filters: SQL[] = [eq(historicalProtocolImportItems.draft_id, input.id)];
+	if (input.decision) {
+		filters.push(eq(historicalProtocolImportItems.decision, input.decision));
 	}
-	return drafts.map((draft) => summarize(draft, byDraft.get(draft.id) ?? []));
+	if (input.parser_status) {
+		filters.push(
+			eq(historicalProtocolImportItems.parser_status, input.parser_status),
+		);
+	}
+	if (input.parser_reason) {
+		filters.push(
+			eq(historicalProtocolImportItems.parser_reason, input.parser_reason),
+		);
+	}
+	if (input.classification_key) {
+		filters.push(
+			eq(
+				historicalProtocolImportItems.classification_key,
+				input.classification_key,
+			),
+		);
+	}
+	if (input.classification_confidence) {
+		filters.push(
+			eq(
+				historicalProtocolImportItems.classification_confidence,
+				input.classification_confidence,
+			),
+		);
+	}
+	if (input.umsatzbereich === "missing") {
+		filters.push(isNull(historicalProtocolImportItems.umsatzbereich));
+	} else if (input.umsatzbereich) {
+		filters.push(
+			eq(historicalProtocolImportItems.umsatzbereich, input.umsatzbereich),
+		);
+	}
+	if (input.date_origin) {
+		filters.push(
+			sql`${historicalProtocolImportItems.detected_row} #>> '{source,dateOrigin}' = ${input.date_origin}`,
+		);
+	}
+	if (input.warning) {
+		filters.push(
+			sql`coalesce(${historicalProtocolImportItems.detected_row} #> '{source,warnings}', '[]'::jsonb) @> ${JSON.stringify([input.warning])}::jsonb`,
+		);
+	}
+	if (input.query) {
+		const pattern = `%${input.query}%`;
+		const search = or(
+			ilike(historicalProtocolImportItems.path, pattern),
+			ilike(historicalProtocolImportItems.detail, pattern),
+			ilike(historicalProtocolImportItems.parser_reason, pattern),
+			ilike(historicalProtocolImportItems.classification_key, pattern),
+		);
+		if (search) filters.push(search);
+	}
+	return filters;
+}
+
+function facets(
+	values: Array<string | null | undefined>,
+): HistoricalProtocolDraftFacet[] {
+	const counts = new Map<string, number>();
+	for (const value of values) {
+		const key = value || "missing";
+		counts.set(key, (counts.get(key) ?? 0) + 1);
+	}
+	return Array.from(counts, ([value, count]) => ({ value, count })).sort(
+		(a, b) => b.count - a.count || a.value.localeCompare(b.value, "de"),
+	);
+}
+
+function compactItem(
+	item: HistoricalProtocolDraftItem,
+): HistoricalProtocolDraftCompactItem {
+	const { detected, ...working } = item;
+	return {
+		...working,
+		evidence: {
+			dateOrigin: detected.source?.dateOrigin ?? null,
+			warnings: detected.source?.warnings ?? [],
+			cardCent: detected.source?.cardCent ?? 0,
+			cashRegisterNumber: detected.source?.cashRegisterNumber ?? null,
+			cashRegisterLabel: detected.source?.cashRegisterLabel ?? null,
+			protocolNumber: detected.source?.protocolNumber ?? null,
+		},
+	};
+}
+
+export async function analyzeHistoricalProtocolImportDraft(
+	input: AnalyzeInput,
+): Promise<HistoricalProtocolDraftAnalysis> {
+	const draft = await getHistoricalProtocolImportDraftSummary(input.id);
+	const filters = draftItemFilters(input);
+	const rows = await db
+		.select({
+			decision: historicalProtocolImportItems.decision,
+			parserStatus: historicalProtocolImportItems.parser_status,
+			parserReason: historicalProtocolImportItems.parser_reason,
+			classificationKey: historicalProtocolImportItems.classification_key,
+			classificationConfidence:
+				historicalProtocolImportItems.classification_confidence,
+			area: historicalProtocolImportItems.umsatzbereich,
+			revenueCent: historicalProtocolImportItems.revenue_cent,
+			expensesCent: historicalProtocolImportItems.expenses_cent,
+			dateOrigin: sql<
+				string | null
+			>`${historicalProtocolImportItems.detected_row} #>> '{source,dateOrigin}'`,
+			warnings: sql<
+				string[]
+			>`coalesce(${historicalProtocolImportItems.detected_row} #> '{source,warnings}', '[]'::jsonb)`,
+			cardCent: sql<number>`coalesce((${historicalProtocolImportItems.detected_row} #>> '{source,cardCent}')::integer, 0)`,
+		})
+		.from(historicalProtocolImportItems)
+		.where(and(...filters));
+	const warningValues = rows.flatMap((row) => row.warnings ?? []);
+	const hasWarning = (row: (typeof rows)[number], pattern: RegExp) =>
+		(row.warnings ?? []).some((warning) => pattern.test(warning));
+	return {
+		draft,
+		matched: rows.length,
+		totals: rows.reduce(
+			(sum, row) => ({
+				revenueCent: sum.revenueCent + Number(row.revenueCent ?? 0),
+				expensesCent: sum.expensesCent + Number(row.expensesCent ?? 0),
+				cardCent: sum.cardCent + Number(row.cardCent ?? 0),
+			}),
+			{ revenueCent: 0, expensesCent: 0, cardCent: 0 },
+		),
+		issues: {
+			missingArea: rows.filter((row) => !row.area).length,
+			derivedDate: rows.filter((row) => row.dateOrigin === "file_modified")
+				.length,
+			vatWarning: rows.filter((row) => hasWarning(row, /USt|Steuer/i)).length,
+			denominationWarning: rows.filter((row) => hasWarning(row, /Stückelung/i))
+				.length,
+			unclearRegister: rows.filter((row) =>
+				hasWarning(row, /Kassenbezeichnung|Umsatzbereich/i),
+			).length,
+		},
+		facets: {
+			decisions: facets(rows.map((row) => row.decision)),
+			parserStatuses: facets(rows.map((row) => row.parserStatus)),
+			parserReasons: facets(rows.map((row) => row.parserReason)),
+			classificationKeys: facets(rows.map((row) => row.classificationKey)),
+			classificationConfidence: facets(
+				rows.map((row) => row.classificationConfidence),
+			),
+			areas: facets(rows.map((row) => row.area)),
+			dateOrigins: facets(rows.map((row) => row.dateOrigin)),
+			warnings: facets(warningValues),
+		},
+	};
+}
+
+export async function queryHistoricalProtocolImportDraftItems(
+	input: QueryInput,
+): Promise<HistoricalProtocolDraftItemPage> {
+	const draft = await getHistoricalProtocolImportDraftSummary(input.id);
+	const filters = draftItemFilters(input);
+	const [countRow] = await db
+		.select({ count: sql<number>`count(*)` })
+		.from(historicalProtocolImportItems)
+		.where(and(...filters));
+	const total = Number(countRow?.count ?? 0);
+	const sortColumn =
+		input.sort === "date"
+			? historicalProtocolImportItems.effective_date
+			: input.sort === "revenue"
+				? historicalProtocolImportItems.revenue_cent
+				: input.sort === "updated_at"
+					? historicalProtocolImportItems.updated_at
+					: historicalProtocolImportItems.file_index;
+	const order = input.direction === "desc" ? desc(sortColumn) : asc(sortColumn);
+	const rows = await db
+		.select()
+		.from(historicalProtocolImportItems)
+		.where(and(...filters))
+		.orderBy(order, asc(historicalProtocolImportItems.file_index))
+		.limit(input.page_size)
+		.offset((input.page - 1) * input.page_size);
+	const items = rows.map(mapItem);
+	return {
+		draft,
+		page: input.page,
+		pageSize: input.page_size,
+		total,
+		pageCount: Math.ceil(total / input.page_size),
+		items: input.include_evidence ? items : items.map(compactItem),
+	};
 }
 
 export async function createHistoricalProtocolImportDraft(

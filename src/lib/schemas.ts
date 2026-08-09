@@ -318,6 +318,51 @@ const draftAmount = v.pipe(intGte0, v.maxValue(2_147_483_647));
 
 export const HistoricalProtocolDraftGetSchema = v.object({ id: draftId });
 
+const HistoricalProtocolImportStatusSchema = v.picklist([
+	"ready",
+	"review",
+	"already_imported",
+	"existing_protocol",
+	"duplicate_file",
+	"skipped",
+	"error",
+]);
+
+const HistoricalProtocolDraftFiltersSchema = v.object({
+	id: draftId,
+	decision: v.optional(HistoricalProtocolDraftDecisionSchema),
+	parser_status: v.optional(HistoricalProtocolImportStatusSchema),
+	parser_reason: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(500))),
+	classification_key: v.optional(
+		v.pipe(v.string(), v.trim(), v.maxLength(160)),
+	),
+	classification_confidence: v.optional(v.picklist(["high", "medium", "low"])),
+	umsatzbereich: v.optional(
+		v.union([UmsatzbereichSchema, v.literal("missing")]),
+	),
+	date_origin: v.optional(v.picklist(["workbook", "file_modified"])),
+	warning: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(200))),
+	query: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(120))),
+});
+
+export const HistoricalProtocolDraftAnalyzeSchema =
+	HistoricalProtocolDraftFiltersSchema;
+
+export const HistoricalProtocolDraftQuerySchema = v.object({
+	...HistoricalProtocolDraftFiltersSchema.entries,
+	page: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1)), 1),
+	page_size: v.optional(
+		v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(200)),
+		50,
+	),
+	sort: v.optional(
+		v.picklist(["file_index", "date", "revenue", "updated_at"]),
+		"file_index",
+	),
+	direction: v.optional(v.picklist(["asc", "desc"]), "asc"),
+	include_evidence: v.optional(v.boolean(), false),
+});
+
 export const HistoricalProtocolDraftUpdateItemSchema = v.object({
 	draft_id: draftId,
 	item_id: draftId,
@@ -341,17 +386,7 @@ export const HistoricalProtocolDraftBulkUpdateSchema = v.pipe(
 		expected_revision: draftRevision,
 		item_ids: v.optional(v.pipe(v.array(draftId), v.maxLength(1500))),
 		classification_key: v.optional(v.pipe(v.string(), v.maxLength(160))),
-		parser_status: v.optional(
-			v.picklist([
-				"ready",
-				"review",
-				"already_imported",
-				"existing_protocol",
-				"duplicate_file",
-				"skipped",
-				"error",
-			]),
-		),
+		parser_status: v.optional(HistoricalProtocolImportStatusSchema),
 		parser_reason: v.optional(v.pipe(v.string(), v.maxLength(500))),
 		decision: v.optional(HistoricalProtocolDraftDecisionSchema),
 		umsatzbereich: v.optional(UmsatzbereichSchema),

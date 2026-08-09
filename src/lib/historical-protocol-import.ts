@@ -144,3 +144,60 @@ export type HistoricalProtocolDraftSummary = {
 export type HistoricalProtocolDraftDetail = HistoricalProtocolDraftSummary & {
 	items: HistoricalProtocolDraftItem[];
 };
+
+export type HistoricalProtocolDraftCompactItem = Omit<
+	HistoricalProtocolDraftItem,
+	"detected"
+> & {
+	evidence: {
+		dateOrigin: "workbook" | "file_modified" | null;
+		warnings: string[];
+		cardCent: number;
+		cashRegisterNumber: string | null;
+		cashRegisterLabel: string | null;
+		protocolNumber: string | null;
+	};
+};
+
+export type HistoricalProtocolDraftFacet = {
+	value: string;
+	count: number;
+};
+
+export type HistoricalProtocolDraftAnalysis = {
+	draft: HistoricalProtocolDraftSummary;
+	matched: number;
+	totals: {
+		revenueCent: number;
+		expensesCent: number;
+		cardCent: number;
+	};
+	issues: {
+		missingArea: number;
+		derivedDate: number;
+		vatWarning: number;
+		denominationWarning: number;
+		unclearRegister: number;
+	};
+	facets: {
+		decisions: HistoricalProtocolDraftFacet[];
+		parserStatuses: HistoricalProtocolDraftFacet[];
+		parserReasons: HistoricalProtocolDraftFacet[];
+		classificationKeys: HistoricalProtocolDraftFacet[];
+		classificationConfidence: HistoricalProtocolDraftFacet[];
+		areas: HistoricalProtocolDraftFacet[];
+		dateOrigins: HistoricalProtocolDraftFacet[];
+		warnings: HistoricalProtocolDraftFacet[];
+	};
+};
+
+export type HistoricalProtocolDraftItemPage = {
+	draft: HistoricalProtocolDraftSummary;
+	page: number;
+	pageSize: number;
+	total: number;
+	pageCount: number;
+	items: Array<
+		HistoricalProtocolDraftItem | HistoricalProtocolDraftCompactItem
+	>;
+};

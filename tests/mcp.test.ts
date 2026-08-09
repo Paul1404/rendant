@@ -105,6 +105,12 @@ describe("Rendant MCP", () => {
 			"get_protocol_import_draft",
 		);
 		expect(result.tools.map((tool) => tool.name)).toContain(
+			"analyze_protocol_import_draft",
+		);
+		expect(result.tools.map((tool) => tool.name)).toContain(
+			"query_protocol_import_draft_items",
+		);
+		expect(result.tools.map((tool) => tool.name)).toContain(
 			"update_protocol_import_draft_item",
 		);
 		await client.close();

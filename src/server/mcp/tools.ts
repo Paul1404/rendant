@@ -9,8 +9,10 @@ import {
 	CashRegisterSchema,
 	CreateProtokollSchema,
 	ExportQuerySchema,
+	HistoricalProtocolDraftAnalyzeSchema,
 	HistoricalProtocolDraftBulkUpdateSchema,
 	HistoricalProtocolDraftGetSchema,
+	HistoricalProtocolDraftQuerySchema,
 	HistoricalProtocolDraftTransitionSchema,
 	HistoricalProtocolDraftUpdateItemSchema,
 	HistoricalRevenueCancelSchema,
@@ -196,12 +198,32 @@ const TOOLS: McpTool[] = [
 	defineTool({
 		name: "get_protocol_import_draft",
 		description:
-			"Get one structured historical protocol import draft including parser evidence, editable working values, decisions, corrections and current revision.",
+			"Get one complete structured historical protocol import draft. This compatibility tool returns every row and can be large; prefer analyze_protocol_import_draft and query_protocol_import_draft_items for efficient work.",
 		minMode: "admin",
 		input: HistoricalProtocolDraftGetSchema,
 		annotations: READ_ONLY,
 		execute: (context, input) =>
 			call(router.historicalProtocolImport.get, input, { context }),
+	}),
+	defineTool({
+		name: "analyze_protocol_import_draft",
+		description:
+			"Analyze a historical protocol import draft with SQL-side filters. Returns matched totals, issue counts and facets without transferring full spreadsheet evidence. Use this first to identify safe working groups.",
+		minMode: "admin",
+		input: HistoricalProtocolDraftAnalyzeSchema,
+		annotations: READ_ONLY,
+		execute: (context, input) =>
+			call(router.historicalProtocolImport.analyze, input, { context }),
+	}),
+	defineTool({
+		name: "query_protocol_import_draft_items",
+		description:
+			"Query one bounded page of historical protocol import rows with SQL-side filters and sorting. Compact evidence is returned by default; request include_evidence only when full parser evidence is needed.",
+		minMode: "admin",
+		input: HistoricalProtocolDraftQuerySchema,
+		annotations: READ_ONLY,
+		execute: (context, input) =>
+			call(router.historicalProtocolImport.queryItems, input, { context }),
 	}),
 	defineTool({
 		name: "validate_protocol_import_draft",
@@ -220,8 +242,14 @@ const TOOLS: McpTool[] = [
 		minMode: "admin",
 		input: HistoricalProtocolDraftUpdateItemSchema,
 		annotations: WRITE,
-		execute: (context, input) =>
-			call(router.historicalProtocolImport.updateItem, input, { context }),
+		execute: async (context, input) => {
+			const { items: _, ...summary } = await call(
+				router.historicalProtocolImport.updateItem,
+				input,
+				{ context },
+			);
+			return summary;
+		},
 	}),
 	defineTool({
 		name: "bulk_update_protocol_import_draft_items",
@@ -230,8 +258,14 @@ const TOOLS: McpTool[] = [
 		minMode: "admin",
 		input: HistoricalProtocolDraftBulkUpdateSchema,
 		annotations: WRITE,
-		execute: (context, input) =>
-			call(router.historicalProtocolImport.bulkUpdate, input, { context }),
+		execute: async (context, input) => {
+			const { items: _, ...summary } = await call(
+				router.historicalProtocolImport.bulkUpdate,
+				input,
+				{ context },
+			);
+			return summary;
+		},
 	}),
 	defineTool({
 		name: "mark_protocol_import_draft_ready",
