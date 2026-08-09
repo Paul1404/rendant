@@ -3,16 +3,19 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.30.1 - 2026-08-09
+
+- Release-Hinweise beschreiben Neuerungen jetzt verständlich aus Sicht der
+  Anwender. Technische Einzelheiten stehen nicht mehr im Vordergrund.
+
 ## 1.30.0 - 2026-08-09
 
-- MCP kann historische Importentwürfe jetzt zuerst als kompakte Facettenanalyse
-  auswerten und anschließend gezielt gefilterte, sortierte Seiten laden. Volle
-  Parserbelege werden nur noch angefordert, wenn sie für die Prüfung nötig sind.
-- Entwurfsübersichten werden direkt in PostgreSQL aggregiert. Große
-  Arbeitsstände müssen dafür nicht mehr vollständig samt Quelldaten eingelesen
-  und übertragen werden.
-- Die Hauptliste der Kassenzählprotokolle auf dem Dashboard nutzt TanStack Table
-  mit stabilen Zeilenkennungen und gemeinsamer Pagination für Desktop und Mobil.
+- Rendant kann bei großen historischen Importen gezielt nur die gerade
+  benötigten Prüffälle bereitstellen. Dadurch werden Korrekturläufe schneller
+  und übersichtlicher, während die Originaldaten unverändert bleiben.
+- Die Protokollliste auf der Startseite ist jetzt in übersichtliche Seiten mit
+  jeweils 25 Einträgen aufgeteilt. Das funktioniert am Computer und auf dem
+  Smartphone.
 
 ## 1.29.4 - 2026-08-04
 

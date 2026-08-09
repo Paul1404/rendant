@@ -45,6 +45,9 @@ update the appropriate canonical documentation in the same change.
   and major for breaking changes.
 - Add the matching dated, newest-first German entry to `CHANGELOG.md`. The
   in-app release-notes dialog reads that file at build time.
+- Release notes explain the visible workflow benefit in plain German. Keep
+  framework, database, MCP, and other implementation details out unless users
+  need them to act.
 - Before choosing a version during concurrent work, refresh and inspect the
   latest `package.json` and top of `CHANGELOG.md` to avoid duplicate or
   out-of-order releases.
