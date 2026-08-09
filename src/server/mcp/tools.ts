@@ -12,6 +12,7 @@ import {
 	HistoricalProtocolDraftAnalyzeSchema,
 	HistoricalProtocolDraftBulkUpdateSchema,
 	HistoricalProtocolDraftGetSchema,
+	HistoricalProtocolDraftListSchema,
 	HistoricalProtocolDraftQuerySchema,
 	HistoricalProtocolDraftTransitionSchema,
 	HistoricalProtocolDraftUpdateItemSchema,
@@ -197,10 +198,30 @@ const TOOLS: McpTool[] = [
 		description:
 			"List persistent historical protocol import drafts with status, revision, decision counts and selected totals. UI and MCP share these drafts.",
 		minMode: "admin",
-		input: EmptyInput,
+		input: HistoricalProtocolDraftListSchema,
 		annotations: READ_ONLY,
-		execute: (context) =>
-			call(router.historicalProtocolImport.list, undefined, { context }),
+		execute: (context, input) =>
+			call(router.historicalProtocolImport.list, input, { context }),
+	}),
+	defineTool({
+		name: "archive_protocol_import_draft",
+		description:
+			"Archive one exact open historical protocol draft revision. Archived drafts remain recoverable and auditable but disappear from the default work list.",
+		minMode: "admin",
+		input: HistoricalProtocolDraftTransitionSchema,
+		annotations: WRITE,
+		execute: (context, input) =>
+			call(router.historicalProtocolImport.archive, input, { context }),
+	}),
+	defineTool({
+		name: "restore_protocol_import_draft",
+		description:
+			"Restore one exact archived historical protocol draft revision as an editable work state.",
+		minMode: "admin",
+		input: HistoricalProtocolDraftTransitionSchema,
+		annotations: WRITE,
+		execute: (context, input) =>
+			call(router.historicalProtocolImport.restore, input, { context }),
 	}),
 	defineTool({
 		name: "get_protocol_import_draft",

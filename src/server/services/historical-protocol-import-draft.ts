@@ -6,6 +6,7 @@ import {
 	ilike,
 	inArray,
 	isNull,
+	ne,
 	or,
 	type SQL,
 	sql,
@@ -158,6 +159,8 @@ function summarize(
 		importedAt: draft.imported_at,
 		resultCreated: draft.result_created,
 		resultSkipped: draft.result_skipped,
+		archivedAt: draft.archived_at,
+		archivedByName: draft.archived_by_name,
 		counts: {
 			include: included.length,
 			review: items.filter((item) => item.decision === "review").length,
@@ -216,6 +219,8 @@ function summaryFromAggregate(
 		importedAt: draft.imported_at,
 		resultCreated: draft.result_created,
 		resultSkipped: draft.result_skipped,
+		archivedAt: draft.archived_at,
+		archivedByName: draft.archived_by_name,
 		counts: {
 			include: Number(aggregate?.include ?? 0),
 			review: Number(aggregate?.review ?? 0),
@@ -292,12 +297,17 @@ export async function getHistoricalProtocolImportDraft(
 	return draft;
 }
 
-export async function listHistoricalProtocolImportDrafts(): Promise<
-	HistoricalProtocolDraftSummary[]
-> {
+export async function listHistoricalProtocolImportDrafts(
+	includeArchived = false,
+): Promise<HistoricalProtocolDraftSummary[]> {
 	const drafts = await db
 		.select()
 		.from(historicalProtocolImportDrafts)
+		.where(
+			includeArchived
+				? undefined
+				: ne(historicalProtocolImportDrafts.status, "archived"),
+		)
 		.orderBy(desc(historicalProtocolImportDrafts.updated_at));
 	if (drafts.length === 0) return [];
 	const aggregates = await db
@@ -533,12 +543,43 @@ export async function createHistoricalProtocolImportDraft(
 			.returning({ id: historicalProtocolImportDrafts.id });
 		if (!created) {
 			const [existing] = await tx
-				.select({ id: historicalProtocolImportDrafts.id })
+				.select({
+					id: historicalProtocolImportDrafts.id,
+					status: historicalProtocolImportDrafts.status,
+				})
 				.from(historicalProtocolImportDrafts)
 				.where(eq(historicalProtocolImportDrafts.digest, preview.digest))
 				.limit(1);
 			if (!existing)
 				throw new Error("Import-Entwurf konnte nicht geladen werden");
+			if (existing.status === "archived") {
+				await tx
+					.update(historicalProtocolImportDrafts)
+					.set({
+						status: "editing",
+						revision: sql`${historicalProtocolImportDrafts.revision} + 1`,
+						updated_at: new Date(),
+						archived_at: null,
+						archived_by_user_id: null,
+						archived_by_name: null,
+					})
+					.where(eq(historicalProtocolImportDrafts.id, existing.id));
+				await recordAuditEventStrict(tx, {
+					...audit,
+					category: "umsaetze",
+					action: "umsaetze.protocol_import_draft_restored",
+					actor,
+					subject: {
+						type: "historischer_protokollordner_entwurf",
+						id: existing.id,
+						label: preview.folderName,
+					},
+					metadata: {
+						...audit.metadata,
+						grund: "Ordner erneut analysiert",
+					},
+				});
+			}
 			return existing.id;
 		}
 
@@ -1014,6 +1055,90 @@ export async function reopenHistoricalProtocolImportDraft(
 		});
 	});
 	return getHistoricalProtocolImportDraft(id);
+}
+
+export async function archiveHistoricalProtocolImportDraft(
+	id: string,
+	expectedRevision: number,
+	actor: AuthUser,
+	audit: Omit<RecordAuditInput, "category" | "action" | "actor">,
+): Promise<HistoricalProtocolDraftSummary> {
+	await db.transaction(async (tx) => {
+		const [updated] = await tx
+			.update(historicalProtocolImportDrafts)
+			.set({
+				status: "archived",
+				revision: sql`${historicalProtocolImportDrafts.revision} + 1`,
+				updated_at: new Date(),
+				archived_at: new Date(),
+				archived_by_user_id: actor.id,
+				archived_by_name: actor.name,
+			})
+			.where(
+				and(
+					eq(historicalProtocolImportDrafts.id, id),
+					inArray(historicalProtocolImportDrafts.status, ["editing", "ready"]),
+					eq(historicalProtocolImportDrafts.revision, expectedRevision),
+				),
+			)
+			.returning({ revision: historicalProtocolImportDrafts.revision });
+		if (!updated) {
+			throw new HistoricalProtocolDraftConflictError(
+				"Nur ein unveränderter, offener Arbeitsstand kann archiviert werden",
+			);
+		}
+		await recordAuditEventStrict(tx, {
+			...audit,
+			category: "umsaetze",
+			action: "umsaetze.protocol_import_draft_archived",
+			actor,
+			subject: { type: "historischer_protokollordner_entwurf", id },
+			metadata: { ...audit.metadata, revision: updated.revision },
+		});
+	});
+	return getHistoricalProtocolImportDraftSummary(id);
+}
+
+export async function restoreHistoricalProtocolImportDraft(
+	id: string,
+	expectedRevision: number,
+	actor: AuthUser,
+	audit: Omit<RecordAuditInput, "category" | "action" | "actor">,
+): Promise<HistoricalProtocolDraftSummary> {
+	await db.transaction(async (tx) => {
+		const [updated] = await tx
+			.update(historicalProtocolImportDrafts)
+			.set({
+				status: "editing",
+				revision: sql`${historicalProtocolImportDrafts.revision} + 1`,
+				updated_at: new Date(),
+				archived_at: null,
+				archived_by_user_id: null,
+				archived_by_name: null,
+			})
+			.where(
+				and(
+					eq(historicalProtocolImportDrafts.id, id),
+					eq(historicalProtocolImportDrafts.status, "archived"),
+					eq(historicalProtocolImportDrafts.revision, expectedRevision),
+				),
+			)
+			.returning({ revision: historicalProtocolImportDrafts.revision });
+		if (!updated) {
+			throw new HistoricalProtocolDraftConflictError(
+				"Der archivierte Arbeitsstand wurde zwischenzeitlich geändert",
+			);
+		}
+		await recordAuditEventStrict(tx, {
+			...audit,
+			category: "umsaetze",
+			action: "umsaetze.protocol_import_draft_restored",
+			actor,
+			subject: { type: "historischer_protokollordner_entwurf", id },
+			metadata: { ...audit.metadata, revision: updated.revision },
+		});
+	});
+	return getHistoricalProtocolImportDraftSummary(id);
 }
 
 export async function applyHistoricalProtocolImportDraft(

@@ -88,7 +88,11 @@ export type HistoricalProtocolClassificationOverrides = Record<
 	Umsatzbereich
 >;
 
-export type HistoricalProtocolDraftStatus = "editing" | "ready" | "imported";
+export type HistoricalProtocolDraftStatus =
+	| "editing"
+	| "ready"
+	| "imported"
+	| "archived";
 
 export type HistoricalProtocolDraftDecision = "include" | "review" | "exclude";
 
@@ -128,6 +132,8 @@ export type HistoricalProtocolDraftSummary = {
 	importedAt: Date | null;
 	resultCreated: number | null;
 	resultSkipped: number | null;
+	archivedAt: Date | null;
+	archivedByName: string | null;
 	counts: {
 		include: number;
 		review: number;

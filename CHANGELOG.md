@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.31.1 - 2026-08-09
+
+- Gespeicherte Import-Arbeitsstände zeigen jetzt Erstellungsdatum, Uhrzeit,
+  Kurz-ID und Revision. Mehrere Analysen desselben Ordners lassen sich dadurch
+  eindeutig unterscheiden.
+- Nicht mehr benötigte Arbeitsstände können archiviert werden. Sie verschwinden
+  aus der offenen Liste, bleiben aber vollständig erhalten, nachvollziehbar und
+  wiederherstellbar.
+
 ## 1.31.0 - 2026-08-09
 
 - Historische Zählprotokolle lassen sich jetzt in gespeicherten Prüfphasen

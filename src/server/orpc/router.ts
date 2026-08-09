@@ -13,6 +13,7 @@ import {
 	HistoricalProtocolDraftAnalyzeSchema,
 	HistoricalProtocolDraftBulkUpdateSchema,
 	HistoricalProtocolDraftGetSchema,
+	HistoricalProtocolDraftListSchema,
 	HistoricalProtocolDraftQuerySchema,
 	HistoricalProtocolDraftTransitionSchema,
 	HistoricalProtocolDraftUpdateItemSchema,
@@ -68,6 +69,7 @@ import {
 import {
 	analyzeHistoricalProtocolImportDraft,
 	applyHistoricalProtocolImportDraft,
+	archiveHistoricalProtocolImportDraft,
 	bulkUpdateHistoricalProtocolImportDraftItems,
 	getHistoricalProtocolImportDraft,
 	getHistoricalProtocolImportDraftSummary,
@@ -78,6 +80,7 @@ import {
 	markHistoricalProtocolImportDraftReady,
 	queryHistoricalProtocolImportDraftItems,
 	reopenHistoricalProtocolImportDraft,
+	restoreHistoricalProtocolImportDraft,
 	updateHistoricalProtocolImportDraftItem,
 	validateHistoricalProtocolImportDraft,
 } from "@/server/services/historical-protocol-import-draft";
@@ -968,7 +971,11 @@ function throwHistoricalProtocolDraftError(error: unknown): never {
 }
 
 const historicalProtocolImport = {
-	list: adminOnly.handler(() => listHistoricalProtocolImportDrafts()),
+	list: adminOnly
+		.input(HistoricalProtocolDraftListSchema)
+		.handler(({ input }) =>
+			listHistoricalProtocolImportDrafts(input.include_archived),
+		),
 
 	summary: adminOnly
 		.input(HistoricalProtocolDraftGetSchema)
@@ -1130,6 +1137,36 @@ const historicalProtocolImport = {
 		.handler(async ({ input, context }) => {
 			try {
 				return await reopenHistoricalProtocolImportDraft(
+					input.id,
+					input.expected_revision,
+					context.user,
+					{ request: requestAuditContext(context) },
+				);
+			} catch (error) {
+				throwHistoricalProtocolDraftError(error);
+			}
+		}),
+
+	archive: adminOnly
+		.input(HistoricalProtocolDraftTransitionSchema)
+		.handler(async ({ input, context }) => {
+			try {
+				return await archiveHistoricalProtocolImportDraft(
+					input.id,
+					input.expected_revision,
+					context.user,
+					{ request: requestAuditContext(context) },
+				);
+			} catch (error) {
+				throwHistoricalProtocolDraftError(error);
+			}
+		}),
+
+	restore: adminOnly
+		.input(HistoricalProtocolDraftTransitionSchema)
+		.handler(async ({ input, context }) => {
+			try {
+				return await restoreHistoricalProtocolImportDraft(
 					input.id,
 					input.expected_revision,
 					context.user,

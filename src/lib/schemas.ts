@@ -527,3 +527,7 @@ export const HistoricalProtocolDraftTransitionSchema = v.object({
 	id: draftId,
 	expected_revision: draftRevision,
 });
+
+export const HistoricalProtocolDraftListSchema = v.object({
+	include_archived: v.optional(v.boolean(), false),
+});

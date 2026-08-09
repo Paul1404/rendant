@@ -501,6 +501,9 @@ export const historicalProtocolImportDrafts = pgTable(
 		imported_by_name: text("imported_by_name"),
 		result_created: integer("result_created"),
 		result_skipped: integer("result_skipped"),
+		archived_at: timestamp("archived_at", { withTimezone: true }),
+		archived_by_user_id: text("archived_by_user_id"),
+		archived_by_name: text("archived_by_name"),
 	},
 	(t) => [
 		index("idx_historical_protocol_import_drafts_status_updated").on(
@@ -509,7 +512,7 @@ export const historicalProtocolImportDrafts = pgTable(
 		),
 		check(
 			"historical_protocol_import_drafts_status_check",
-			sql`${t.status} IN ('editing', 'ready', 'imported')`,
+			sql`${t.status} IN ('editing', 'ready', 'imported', 'archived')`,
 		),
 		check(
 			"historical_protocol_import_drafts_revision_check",

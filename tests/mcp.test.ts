@@ -119,6 +119,8 @@ describe("Rendant MCP", () => {
 		expect(reviewUpdate?.annotations?.destructiveHint).toBe(false);
 		expect(result.tools.map((tool) => tool.name)).toEqual(
 			expect.arrayContaining([
+				"archive_protocol_import_draft",
+				"restore_protocol_import_draft",
 				"plan_protocol_import_review_phase",
 				"create_protocol_import_review_phase",
 				"list_protocol_import_review_phases",

@@ -148,6 +148,17 @@ function parseCent(value: string): number | null {
 		: null;
 }
 
+function draftIdentity(draft: HistoricalProtocolDraftSummary): string {
+	const createdAt = new Date(draft.createdAt).toLocaleString("de-DE", {
+		day: "2-digit",
+		month: "2-digit",
+		year: "numeric",
+		hour: "2-digit",
+		minute: "2-digit",
+	});
+	return `${createdAt} · ${draft.id.slice(0, 8)}`;
+}
+
 export function HistoricalProtocolFolderImport() {
 	const router = useRouter();
 	const queryClient = useQueryClient();
@@ -181,7 +192,11 @@ export function HistoricalProtocolFolderImport() {
 
 	const refreshDrafts = useCallback(async () => {
 		try {
-			setDrafts(await orpcClient.historicalProtocolImport.list());
+			setDrafts(
+				await orpcClient.historicalProtocolImport.list({
+					include_archived: false,
+				}),
+			);
 		} catch {
 			// The main page remains usable if the resume list cannot be loaded.
 		}
@@ -246,6 +261,32 @@ export function HistoricalProtocolFolderImport() {
 				error instanceof Error
 					? error.message
 					: "Entwurf konnte nicht geladen werden",
+			);
+		} finally {
+			setLoading(null);
+		}
+	}
+
+	async function archiveDraft(item: HistoricalProtocolDraftSummary) {
+		if (
+			!window.confirm(
+				`Arbeitsstand ${draftIdentity(item)} archivieren? Er bleibt im Auditlog erhalten und kann wiederhergestellt werden.`,
+			)
+		)
+			return;
+		setLoading(`archive-${item.id}`);
+		try {
+			await orpcClient.historicalProtocolImport.archive({
+				id: item.id,
+				expected_revision: item.revision,
+			});
+			await refreshDrafts();
+			toast.success("Arbeitsstand archiviert");
+		} catch (error) {
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Arbeitsstand konnte nicht archiviert werden",
 			);
 		} finally {
 			setLoading(null);
@@ -606,16 +647,44 @@ export function HistoricalProtocolFolderImport() {
 								)
 								.slice(0, 5)
 								.map((item) => (
-									<Button
+									<div
 										key={item.id}
-										type="button"
-										variant="outline"
-										size="sm"
-										onClick={() => void openDraft(item.id)}
-										disabled={loading != null}
+										className="flex items-stretch overflow-hidden rounded-md border bg-background"
 									>
-										{item.folderName} · {item.counts.review} offen
-									</Button>
+										<Button
+											type="button"
+											variant="ghost"
+											size="sm"
+											onClick={() => void openDraft(item.id)}
+											disabled={loading != null}
+											className="h-auto rounded-none px-3 py-2 text-left"
+										>
+											<span>
+												<span className="block font-medium">
+													{draftIdentity(item)}
+												</span>
+												<span className="block text-[11px] text-muted-foreground">
+													{item.counts.review} offen · Revision {item.revision}
+												</span>
+											</span>
+										</Button>
+										<Button
+											type="button"
+											variant="ghost"
+											size="icon-sm"
+											className="h-auto rounded-none border-l"
+											onClick={() => void archiveDraft(item)}
+											disabled={loading != null}
+											title="Arbeitsstand archivieren"
+										>
+											{loading === `archive-${item.id}` ? (
+												<Loader2 className="animate-spin" />
+											) : (
+												<Archive />
+											)}
+											<span className="sr-only">Arbeitsstand archivieren</span>
+										</Button>
+									</div>
 								))}
 						</div>
 					</div>
@@ -677,8 +746,9 @@ export function HistoricalProtocolFolderImport() {
 							<div>
 								<h3 className="font-semibold">{draft.folderName}</h3>
 								<p className="text-xs text-muted-foreground">
-									Revision {draft.revision} · {draft.spreadsheetFiles} erkannte
-									Tabellen · Bearbeitbar in Rendant und per MCP
+									{draftIdentity(draft)} · Revision {draft.revision} ·{" "}
+									{draft.spreadsheetFiles} erkannte Tabellen · Bearbeitbar in
+									Rendant und per MCP
 								</p>
 							</div>
 							<Badge variant="outline">
@@ -686,7 +756,9 @@ export function HistoricalProtocolFolderImport() {
 									? "In Bearbeitung"
 									: draft.status === "ready"
 										? "Geprüft und gesperrt"
-										: "Importiert"}
+										: draft.status === "archived"
+											? "Archiviert"
+											: "Importiert"}
 							</Badge>
 						</div>
 						<div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -1203,11 +1275,13 @@ function Steps({
 }) {
 	const active = !hasDraft
 		? 1
-		: status === "editing"
-			? 2
-			: status === "ready"
-				? 3
-				: 4;
+		: status === "archived"
+			? 1
+			: status === "editing"
+				? 2
+				: status === "ready"
+					? 3
+					: 4;
 	return (
 		<ol className="grid gap-2 sm:grid-cols-4">
 			{[
