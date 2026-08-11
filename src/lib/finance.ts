@@ -70,6 +70,8 @@ export type HistoricalRevenueLike = {
 	vergleichsgruppe: string;
 	umsatz_cent: number;
 	ausgaben_cent: number;
+	kartenzahlung_cent?: number | null;
+	tageseinnahmen_bar_cent?: number | null;
 	quellreferenz?: string | null;
 };
 
@@ -119,7 +121,17 @@ export function computePeriod(
 		}
 	}
 	for (const item of historical) {
-		revenueHistorical += item.umsatz_cent;
+		if (
+			item.kartenzahlung_cent != null &&
+			item.tageseinnahmen_bar_cent != null &&
+			item.kartenzahlung_cent + item.tageseinnahmen_bar_cent ===
+				item.umsatz_cent
+		) {
+			revenueCashNet += item.tageseinnahmen_bar_cent;
+			revenueCard += item.kartenzahlung_cent;
+		} else {
+			revenueHistorical += item.umsatz_cent;
+		}
 		expenses += item.ausgaben_cent;
 		const key = item.anlass.trim();
 		if (key) {

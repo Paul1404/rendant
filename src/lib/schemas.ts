@@ -306,6 +306,65 @@ export type HistoricalRevenueCancelInput = v.InferOutput<
 	typeof HistoricalRevenueCancelSchema
 >;
 
+export const HistoricalRevenuePageSchema = v.object({
+	page: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1)), 1),
+	page_size: v.optional(v.picklist([25, 50, 100]), 25),
+	query: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(120))),
+	year: v.optional(
+		v.pipe(v.number(), v.integer(), v.minValue(1900), v.maxValue(9999)),
+	),
+	umsatzbereich: v.optional(UmsatzbereichSchema),
+	include_storniert: v.optional(v.boolean(), false),
+	sort: v.optional(
+		v.picklist(["date", "revenue", "expenses", "result", "created_at"]),
+		"date",
+	),
+	direction: v.optional(v.picklist(["asc", "desc"]), "desc"),
+});
+export type HistoricalRevenuePageInput = v.InferOutput<
+	typeof HistoricalRevenuePageSchema
+>;
+
+export const HistoricalRevenueGetSchema = v.object({
+	id: v.pipe(v.string(), v.uuid()),
+});
+
+export const HistoricalRevenueCorrectSchema = v.object({
+	id: v.pipe(v.string(), v.uuid()),
+	idempotency_key: v.pipe(v.string(), v.uuid()),
+	anlass_datum: historicalRevenueDate,
+	anlass_katalog_id: v.optional(v.nullable(v.pipe(v.string(), v.uuid())), null),
+	umsatzbereich: UmsatzbereichSchema,
+	veranstaltungsbezeichnung: v.pipe(
+		v.string(),
+		v.trim(),
+		v.minLength(1, "Bitte Details angeben"),
+		v.maxLength(120),
+	),
+	umsatz_cent: v.pipe(
+		v.number(),
+		v.integer(),
+		v.minValue(0),
+		v.maxValue(2_147_483_647),
+	),
+	ausgaben_cent: v.pipe(
+		v.number(),
+		v.integer(),
+		v.minValue(0),
+		v.maxValue(2_147_483_647),
+	),
+	bemerkung: historicalRevenueOptionalText(2000),
+	korrektur_grund: v.pipe(
+		v.string(),
+		v.trim(),
+		v.minLength(5, "Bitte eine Korrekturbegründung angeben"),
+		v.maxLength(500),
+	),
+});
+export type HistoricalRevenueCorrectInput = v.InferOutput<
+	typeof HistoricalRevenueCorrectSchema
+>;
+
 export const HistoricalProtocolDraftDecisionSchema = v.picklist([
 	"include",
 	"review",

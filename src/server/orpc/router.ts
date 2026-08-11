@@ -25,7 +25,10 @@ import {
 	HistoricalProtocolReviewUpdateApplySchema,
 	HistoricalProtocolReviewUpdatePlanSchema,
 	HistoricalRevenueCancelSchema,
+	HistoricalRevenueCorrectSchema,
 	HistoricalRevenueCreateSchema,
+	HistoricalRevenueGetSchema,
+	HistoricalRevenuePageSchema,
 	InviteAcceptSchema,
 	InviteCreateSchema,
 	StornoSchema,
@@ -96,11 +99,14 @@ import {
 } from "@/server/services/historical-protocol-review-phase";
 import {
 	cancelHistoricalRevenue,
+	correctHistoricalRevenue,
 	createHistoricalRevenue,
+	getHistoricalRevenueDetails,
 	HistoricalRevenueCatalogError,
 	HistoricalRevenueConflictError,
 	HistoricalRevenueInputError,
 	HistoricalRevenueNotFoundError,
+	listHistoricalRevenuePage,
 	listHistoricalRevenues,
 } from "@/server/services/historical-revenue";
 import {
@@ -908,6 +914,19 @@ const profile = {
 
 const historicalRevenue = {
 	list: authed.handler(() => listHistoricalRevenues()),
+	page: authed
+		.input(HistoricalRevenuePageSchema)
+		.handler(({ input }) => listHistoricalRevenuePage(input)),
+	get: authed.input(HistoricalRevenueGetSchema).handler(async ({ input }) => {
+		try {
+			return await getHistoricalRevenueDetails(input.id);
+		} catch (error) {
+			if (error instanceof HistoricalRevenueNotFoundError) {
+				throw new ORPCError("NOT_FOUND", { message: error.message });
+			}
+			throw error;
+		}
+	}),
 
 	create: adminOnly
 		.input(HistoricalRevenueCreateSchema)
@@ -945,6 +964,30 @@ const historicalRevenue = {
 			} catch (error) {
 				if (error instanceof HistoricalRevenueNotFoundError) {
 					throw new ORPCError("NOT_FOUND", { message: error.message });
+				}
+				if (error instanceof HistoricalRevenueConflictError) {
+					throw new ORPCError("CONFLICT", { message: error.message });
+				}
+				throw error;
+			}
+		}),
+
+	correct: adminOnly
+		.input(HistoricalRevenueCorrectSchema)
+		.handler(async ({ input, context }) => {
+			try {
+				return await correctHistoricalRevenue(input, context.user, {
+					request: requestAuditContext(context),
+				});
+			} catch (error) {
+				if (error instanceof HistoricalRevenueNotFoundError) {
+					throw new ORPCError("NOT_FOUND", { message: error.message });
+				}
+				if (
+					error instanceof HistoricalRevenueCatalogError ||
+					error instanceof HistoricalRevenueInputError
+				) {
+					throw new ORPCError("BAD_REQUEST", { message: error.message });
 				}
 				if (error instanceof HistoricalRevenueConflictError) {
 					throw new ORPCError("CONFLICT", { message: error.message });

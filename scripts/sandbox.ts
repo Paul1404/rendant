@@ -15,6 +15,8 @@ import {
 	type ServerResponse,
 } from "node:http";
 import type { AddressInfo } from "node:net";
+import { createConnection } from "node:net";
+import { Client } from "pg";
 
 const DEFAULT_PORT = 3100;
 const POSTGRES_IMAGE = "postgres:17.10-alpine3.23";
@@ -211,6 +213,25 @@ function run(
 	return options.capture ? result.stdout : "";
 }
 
+function runAsync(
+	command: string,
+	args: string[],
+	env: NodeJS.ProcessEnv,
+): Promise<void> {
+	return new Promise((resolve, reject) => {
+		const child = spawn(command, args, {
+			cwd: process.cwd(),
+			env,
+			stdio: "inherit",
+		});
+		child.once("error", reject);
+		child.once("exit", (code) => {
+			if (code === 0) resolve();
+			else reject(new Error(`${command} ${args.join(" ")} ist mit Status ${code ?? 1} beendet.`));
+		});
+	});
+}
+
 function sandboxContainerIds(): string[] {
 	const output = run(
 		"docker",
@@ -254,6 +275,47 @@ async function waitForPostgres(containerName: string): Promise<void> {
 		await new Promise((resolve) => setTimeout(resolve, 250));
 	}
 	throw new Error("Die Sandbox-Datenbank wurde nicht rechtzeitig bereit.");
+}
+
+async function waitForPublishedPort(port: number): Promise<void> {
+	const deadline = Date.now() + 30_000;
+	while (Date.now() < deadline) {
+		const connected = await new Promise<boolean>((resolve) => {
+			const socket = createConnection({ host: "127.0.0.1", port });
+			const finish = (result: boolean) => {
+				socket.removeAllListeners();
+				socket.destroy();
+				resolve(result);
+			};
+			socket.setTimeout(1_000, () => finish(false));
+			socket.once("connect", () => finish(true));
+			socket.once("error", () => finish(false));
+		});
+		if (connected) return;
+		await new Promise((resolve) => setTimeout(resolve, 250));
+	}
+	throw new Error("Der veröffentlichte PostgreSQL-Port wurde nicht rechtzeitig bereit.");
+}
+
+async function waitForDatabaseConnection(connectionString: string): Promise<void> {
+	const deadline = Date.now() + 30_000;
+	let lastError: unknown;
+	while (Date.now() < deadline) {
+		const client = new Client({ connectionString, connectionTimeoutMillis: 2_000 });
+		try {
+			await client.connect();
+			await client.query("select 1");
+			await client.end();
+			return;
+		} catch (error) {
+			lastError = error;
+			await client.end().catch(() => undefined);
+			await new Promise((resolve) => setTimeout(resolve, 250));
+		}
+	}
+	throw new Error("Die Sandbox-Datenbank ist über den Host nicht erreichbar", {
+		cause: lastError,
+	});
 }
 
 async function waitUntilReady(baseUrl: string, server: ChildProcess): Promise<void> {
@@ -333,6 +395,7 @@ export async function main(): Promise<void> {
 		const databasePort = parsePublishedPort(
 			run("docker", ["port", containerName, "5432/tcp"], { capture: true }),
 		);
+		await waitForPublishedPort(databasePort);
 
 		console.log("[sandbox] temporären Objektspeicher starten…");
 		objectStore = await startObjectStore();
@@ -354,9 +417,11 @@ export async function main(): Promise<void> {
 			VEREINSNAME: "SV Untereuerheim Sandbox",
 			LFIO_INGEST_TOKEN: "",
 		};
+		await waitForDatabaseConnection(sandboxEnv.DATABASE_URL as string);
 
 		console.log("[sandbox] Migrationen anwenden und Admin anlegen…");
 		run("bun", ["src/server/db/migrate.ts"], { env: sandboxEnv });
+		await runAsync("bun", ["scripts/sandbox-seed.ts"], sandboxEnv);
 		if (stopRequested) return;
 
 		console.log("[sandbox] App starten…");

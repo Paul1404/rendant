@@ -2,7 +2,6 @@ import { useForm } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import {
-	Ban,
 	CalendarDays,
 	ChevronDown,
 	ChevronUp,
@@ -17,18 +16,7 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-	AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
+import { HistoricalRevenueTable } from "@/components/historical-revenue-table";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -61,11 +49,7 @@ import { formatCentPlain, parseGermanAmount } from "@/lib/money";
 import { orpcClient } from "@/lib/orpc";
 import { orpcMessage } from "@/lib/orpc-error";
 import type { ProtokollRow } from "@/lib/protokoll-types";
-import {
-	UMSATZBEREICHE,
-	type Umsatzbereich,
-	umsatzbereichLabel,
-} from "@/lib/umsatzbereich";
+import { UMSATZBEREICHE, type Umsatzbereich } from "@/lib/umsatzbereich";
 import { cn } from "@/lib/utils";
 
 export type HistoricalRevenue = {
@@ -587,26 +571,14 @@ export function HistoricalRevenueOverview({
 				)}
 			</section>
 
-			{historical.length > 0 ? (
-				<HistoricalEntries
-					entries={historical}
-					catalogById={catalogById}
-					canCancel={canCreate}
-					onCanceled={(id, reason) =>
-						setHistorical((entries) =>
-							entries.map((entry) =>
-								entry.id === id
-									? {
-											...entry,
-											storniert_am: new Date(),
-											storno_grund: reason,
-										}
-									: entry,
-							),
-						)
-					}
-				/>
-			) : null}
+			<HistoricalRevenueTable
+				years={Array.from(
+					new Set(
+						historical.map((entry) => Number(entry.anlass_datum.slice(0, 4))),
+					),
+				).sort((a, b) => b - a)}
+				canManage={canCreate}
+			/>
 		</div>
 	);
 }
@@ -663,7 +635,7 @@ function ComparisonCard({
 	onSaved: () => Promise<void>;
 }) {
 	const initialTarget = group.unmapped ? "" : group.key;
-	const [expanded, setExpanded] = useState(false);
+	const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set());
 	const [selected, setSelected] = useState<Set<string>>(new Set());
 	const [targetId, setTargetId] = useState(initialTarget);
 	const [targetName, setTargetName] = useState(group.label);
@@ -689,6 +661,15 @@ function ComparisonCard({
 	function selectTarget(id: string) {
 		setTargetId(id);
 		setTargetName(catalog.find((entry) => entry.id === id)?.name ?? "");
+	}
+
+	function toggleYear(year: number) {
+		setExpandedYears((current) => {
+			const next = new Set(current);
+			if (next.has(year)) next.delete(year);
+			else next.add(year);
+			return next;
+		});
 	}
 
 	function startGroupEdit() {
@@ -790,20 +771,6 @@ function ComparisonCard({
 								<Pencil className="h-4 w-4" />
 							</Button>
 						) : null}
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon-sm"
-							aria-label={expanded ? "Einträge schließen" : "Einträge anzeigen"}
-							aria-expanded={expanded}
-							onClick={() => setExpanded((value) => !value)}
-						>
-							{expanded ? (
-								<ChevronUp className="h-4 w-4" />
-							) : (
-								<ChevronDown className="h-4 w-4" />
-							)}
-						</Button>
 					</div>
 				</div>
 				{delta != null ? (
@@ -898,173 +865,182 @@ function ComparisonCard({
 						</div>
 					</div>
 				) : null}
-				{years.map((year) => (
-					<div
-						key={year.year}
-						className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-xl bg-muted/35 px-3 py-3 sm:grid-cols-[4rem_1fr_1fr] sm:items-center"
-					>
-						<div className="row-span-2 flex items-center gap-2 font-semibold tabular-nums sm:row-span-1">
-							<CalendarDays className="h-3.5 w-3.5 text-primary" />
-							{year.year}
-						</div>
-						<div className="flex items-center justify-between gap-2 sm:flex-col sm:items-start sm:gap-0.5">
-							<span className="text-xs text-muted-foreground">Umsatz</span>
-							<Money cent={year.revenueCent} emphasis />
-						</div>
-						<div className="flex items-center justify-between gap-2 sm:flex-col sm:items-start sm:gap-0.5">
-							<span className="text-xs text-muted-foreground">Ergebnis</span>
-							<Money
-								cent={year.revenueCent - year.expensesCent}
-								tone={
-									year.revenueCent - year.expensesCent < 0
-										? "negative"
-										: "default"
-								}
-							/>
-						</div>
-						<div className="col-start-2 text-[11px] text-muted-foreground sm:col-span-2 sm:col-start-2">
-							{group.typ === "wiederkehrend" ? (
-								<span className="font-medium text-foreground/70">
-									{year.dates.size}{" "}
-									{year.dates.size === 1 ? "Termin" : "Termine"}
-									{year.dates.size > 0
-										? ` · Ø ${formatCentPlain(
-												Math.round(year.revenueCent / year.dates.size),
-											)} EUR/Termin`
-										: ""}
-									{" · "}
-								</span>
-							) : null}
-							{sourceSummary(year)}, zuletzt am {formatDateDe(year.latestDate)}
-						</div>
-					</div>
-				))}
-				<Button
-					type="button"
-					variant="ghost"
-					size="sm"
-					className="w-full"
-					onClick={() => setExpanded((value) => !value)}
-				>
-					{expanded
-						? "Einträge schließen"
-						: `${entries.length} Einträge anzeigen`}
-					{expanded ? (
-						<ChevronUp className="ml-2 h-4 w-4" />
-					) : (
-						<ChevronDown className="ml-2 h-4 w-4" />
-					)}
-				</Button>
-				{expanded ? (
-					<div className="space-y-3 border-t border-border/60 pt-3">
-						<div className="flex items-center justify-between gap-2">
-							<p className="text-xs font-semibold">Zugeordnete Einträge</p>
-							{canManage ? (
-								<button
-									type="button"
-									className="text-xs font-medium text-primary hover:underline"
-									onClick={() =>
-										setSelected(
-											selected.size === entries.length
-												? new Set()
-												: new Set(entries.map((entry) => entry.id)),
-										)
-									}
-								>
-									{selected.size === entries.length
-										? "Auswahl aufheben"
-										: "Alle auswählen"}
-								</button>
-							) : null}
-						</div>
-						<div className="max-h-64 space-y-1 overflow-y-auto">
-							{[...entries]
-								.sort((a, b) => b.date.localeCompare(a.date))
-								.map((entry) => (
-									<div
-										key={`${entry.source}-${entry.id}`}
-										className="grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-lg bg-muted/30 px-2.5 py-2 text-xs"
-									>
-										{canManage ? (
-											<input
-												type="checkbox"
-												aria-label={`${entry.label} auswählen`}
-												checked={selected.has(entry.id)}
-												onChange={(event) => {
-													const next = new Set(selected);
-													if (event.target.checked) next.add(entry.id);
-													else next.delete(entry.id);
-													setSelected(next);
-												}}
-												className="h-4 w-4 accent-primary"
-											/>
-										) : (
-											<span className="h-1.5 w-1.5 rounded-full bg-primary" />
-										)}
-										<span className="min-w-0">
-											<span className="block truncate font-medium">
-												{entry.label}
-											</span>
-											<span className="text-muted-foreground">
-												{formatDateDe(entry.date)} · {entry.reference}
-											</span>
-										</span>
-										<Money cent={entry.revenueCent} />
-									</div>
-								))}
-						</div>
-						{canManage ? (
-							<div className="space-y-3 rounded-xl border border-primary/20 bg-primary/[0.03] p-3">
-								<p className="text-xs text-muted-foreground">
-									Ausgewählte Einträge einer Umsatzgruppe zuordnen. Der
-									ursprüngliche Belegtext bleibt aus Gründen der
-									Nachvollziehbarkeit erhalten.
-								</p>
-								<div className="grid gap-2 sm:grid-cols-2">
-									<div className="space-y-1.5">
-										<Label>Ziel-Umsatzgruppe</Label>
-										<Select value={targetId} onValueChange={selectTarget}>
-											<SelectTrigger className="w-full">
-												<SelectValue placeholder="Umsatzgruppe wählen" />
-											</SelectTrigger>
-											<SelectContent>
-												{catalog.map((entry) => (
-													<SelectItem key={entry.id} value={entry.id}>
-														{entry.name}
-													</SelectItem>
-												))}
-											</SelectContent>
-										</Select>
-									</div>
-									<div className="space-y-1.5">
-										<Label htmlFor={`bulk-name-${group.key}`}>
-											Katalogname
-										</Label>
-										<Input
-											id={`bulk-name-${group.key}`}
-											value={targetName}
-											onChange={(event) => setTargetName(event.target.value)}
-											maxLength={120}
-											disabled={!targetId}
-										/>
-									</div>
+				{years.map((year) => {
+					const expanded = expandedYears.has(year.year);
+					const yearEntries = entries.filter(
+						(entry) => Number(entry.date.slice(0, 4)) === year.year,
+					);
+					return (
+						<div
+							key={year.year}
+							className="overflow-hidden rounded-xl bg-muted/35"
+						>
+							<button
+								type="button"
+								aria-expanded={expanded}
+								onClick={() => toggleYear(year.year)}
+								className="grid w-full grid-cols-[auto_1fr_auto] gap-x-4 gap-y-1 px-3 py-3 text-left transition-colors hover:bg-muted/60 sm:grid-cols-[4rem_1fr_1fr_auto] sm:items-center"
+							>
+								<div className="row-span-2 flex items-center gap-2 font-semibold tabular-nums sm:row-span-1">
+									<CalendarDays className="h-3.5 w-3.5 text-primary" />
+									{year.year}
 								</div>
-								<Button
-									type="button"
-									size="sm"
-									className="w-full"
-									disabled={!targetId || selected.size === 0 || saving}
-									onClick={() => void applyBulkEdit()}
-								>
-									{saving ? (
-										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								<div className="flex items-center justify-between gap-2 sm:flex-col sm:items-start sm:gap-0.5">
+									<span className="text-xs text-muted-foreground">Umsatz</span>
+									<Money cent={year.revenueCent} emphasis />
+								</div>
+								<div className="flex items-center justify-between gap-2 sm:flex-col sm:items-start sm:gap-0.5">
+									<span className="text-xs text-muted-foreground">
+										Ergebnis
+									</span>
+									<Money
+										cent={year.revenueCent - year.expensesCent}
+										tone={
+											year.revenueCent - year.expensesCent < 0
+												? "negative"
+												: "default"
+										}
+									/>
+								</div>
+								{expanded ? (
+									<ChevronUp className="row-span-2 h-4 w-4 self-center sm:row-span-1" />
+								) : (
+									<ChevronDown className="row-span-2 h-4 w-4 self-center sm:row-span-1" />
+								)}
+								<div className="col-start-2 text-[11px] text-muted-foreground sm:col-span-2 sm:col-start-2">
+									{group.typ === "wiederkehrend" ? (
+										<span className="font-medium text-foreground/70">
+											{year.dates.size}{" "}
+											{year.dates.size === 1 ? "Termin" : "Termine"}
+											{year.dates.size > 0
+												? ` · Ø ${formatCentPlain(
+														Math.round(year.revenueCent / year.dates.size),
+													)} EUR/Termin`
+												: ""}
+											{" · "}
+										</span>
 									) : null}
-									{selected.size} ausgewählte übernehmen
-								</Button>
-							</div>
-						) : null}
-					</div>
-				) : null}
+									{sourceSummary(year)}, zuletzt am{" "}
+									{formatDateDe(year.latestDate)}
+								</div>
+							</button>
+							{expanded ? (
+								<div className="space-y-3 border-border/60 border-t bg-background/55 p-3">
+									<div className="flex items-center justify-between gap-2">
+										<p className="text-xs font-semibold">
+											Einträge {year.year}
+										</p>
+										{canManage ? (
+											<button
+												type="button"
+												className="text-xs font-medium text-primary hover:underline"
+												onClick={() =>
+													setSelected(
+														selected.size === yearEntries.length
+															? new Set()
+															: new Set(yearEntries.map((entry) => entry.id)),
+													)
+												}
+											>
+												{selected.size === yearEntries.length
+													? "Auswahl aufheben"
+													: "Alle auswählen"}
+											</button>
+										) : null}
+									</div>
+									<div className="max-h-64 space-y-1 overflow-y-auto">
+										{[...yearEntries]
+											.sort((a, b) => b.date.localeCompare(a.date))
+											.map((entry) => (
+												<div
+													key={`${entry.source}-${entry.id}`}
+													className="grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-lg bg-muted/30 px-2.5 py-2 text-xs"
+												>
+													{canManage ? (
+														<input
+															type="checkbox"
+															aria-label={`${entry.label} auswählen`}
+															checked={selected.has(entry.id)}
+															onChange={(event) => {
+																const next = new Set(selected);
+																if (event.target.checked) next.add(entry.id);
+																else next.delete(entry.id);
+																setSelected(next);
+															}}
+															className="h-4 w-4 accent-primary"
+														/>
+													) : (
+														<span className="h-1.5 w-1.5 rounded-full bg-primary" />
+													)}
+													<span className="min-w-0">
+														<span className="block truncate font-medium">
+															{entry.label}
+														</span>
+														<span className="text-muted-foreground">
+															{formatDateDe(entry.date)} · {entry.reference}
+														</span>
+													</span>
+													<Money cent={entry.revenueCent} />
+												</div>
+											))}
+									</div>
+									{canManage ? (
+										<div className="space-y-3 rounded-xl border border-primary/20 bg-primary/[0.03] p-3">
+											<p className="text-xs text-muted-foreground">
+												Ausgewählte Einträge einer Umsatzgruppe zuordnen. Der
+												ursprüngliche Belegtext bleibt aus Gründen der
+												Nachvollziehbarkeit erhalten.
+											</p>
+											<div className="grid gap-2 sm:grid-cols-2">
+												<div className="space-y-1.5">
+													<Label>Ziel-Umsatzgruppe</Label>
+													<Select value={targetId} onValueChange={selectTarget}>
+														<SelectTrigger className="w-full">
+															<SelectValue placeholder="Umsatzgruppe wählen" />
+														</SelectTrigger>
+														<SelectContent>
+															{catalog.map((entry) => (
+																<SelectItem key={entry.id} value={entry.id}>
+																	{entry.name}
+																</SelectItem>
+															))}
+														</SelectContent>
+													</Select>
+												</div>
+												<div className="space-y-1.5">
+													<Label htmlFor={`bulk-name-${group.key}`}>
+														Katalogname
+													</Label>
+													<Input
+														id={`bulk-name-${group.key}`}
+														value={targetName}
+														onChange={(event) =>
+															setTargetName(event.target.value)
+														}
+														maxLength={120}
+														disabled={!targetId}
+													/>
+												</div>
+											</div>
+											<Button
+												type="button"
+												size="sm"
+												className="w-full"
+												disabled={!targetId || selected.size === 0 || saving}
+												onClick={() => void applyBulkEdit()}
+											>
+												{saving ? (
+													<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+												) : null}
+												{selected.size} ausgewählte übernehmen
+											</Button>
+										</div>
+									) : null}
+								</div>
+							) : null}
+						</div>
+					);
+				})}
 			</CardContent>
 		</Card>
 	);
@@ -1083,184 +1059,6 @@ function sourceSummary(year: OccasionYear): string {
 		);
 	}
 	return parts.join(", ");
-}
-
-function HistoricalEntries({
-	entries,
-	catalogById,
-	canCancel,
-	onCanceled,
-}: {
-	entries: HistoricalRevenue[];
-	catalogById: Map<string, AnlassKatalogEntry>;
-	canCancel: boolean;
-	onCanceled: (id: string, reason: string) => void;
-}) {
-	const sorted = [...entries].sort((a, b) =>
-		b.anlass_datum.localeCompare(a.anlass_datum),
-	);
-	return (
-		<section className="space-y-4" aria-labelledby="historical-list-heading">
-			<div>
-				<h2 id="historical-list-heading" className="text-lg font-semibold">
-					Erfasste Altunterlagen
-				</h2>
-				<p className="mt-1 text-sm text-muted-foreground">
-					Nachvollziehbare Einzelwerte hinter dem Vergleich.
-				</p>
-			</div>
-			<Card className="gap-0 py-0">
-				{sorted.map((entry, index) => (
-					<div
-						key={entry.id}
-						className={cn(
-							"grid gap-3 px-4 py-4 sm:grid-cols-[7rem_minmax(0,1fr)_auto] sm:items-center",
-							index > 0 && "border-border/60 border-t",
-						)}
-					>
-						<div className="text-xs tabular-nums text-muted-foreground">
-							{formatDateDe(entry.anlass_datum)}
-						</div>
-						<div className="min-w-0">
-							<div className="flex flex-wrap items-center gap-2">
-								<p className="truncate font-medium">{entry.anlass}</p>
-								<Badge variant="outline">Altunterlage</Badge>
-								<Badge
-									variant={entry.storniert_am ? "destructive" : "secondary"}
-								>
-									{entry.storniert_am ? "Storniert" : "Aktiv"}
-								</Badge>
-							</div>
-							<p className="mt-1 text-xs text-muted-foreground">
-								Umsatzbereich:{" "}
-								{entry.umsatzbereich
-									? umsatzbereichLabel(entry.umsatzbereich as Umsatzbereich)
-									: ((entry.anlass_katalog_id
-											? catalogById.get(entry.anlass_katalog_id)?.name
-											: null) ?? entry.vergleichsgruppe)}
-								{entry.quellreferenz ? ` · Quelle: ${entry.quellreferenz}` : ""}
-							</p>
-							{entry.storniert_am ? (
-								<p className="mt-1 text-xs text-destructive">
-									Storniert
-									{entry.storniert_von_name
-										? ` von ${entry.storniert_von_name}`
-										: ""}
-									{entry.storno_grund ? `: ${entry.storno_grund}` : ""}
-								</p>
-							) : null}
-						</div>
-						<div className="flex items-center justify-between gap-3 sm:justify-end">
-							<div className="text-left sm:text-right">
-								<Money cent={entry.umsatz_cent} emphasis />
-								<p className="mt-1 text-xs text-muted-foreground">
-									Ergebnis{" "}
-									<Money
-										cent={entry.umsatz_cent - entry.ausgaben_cent}
-										className="text-xs"
-									/>
-								</p>
-							</div>
-							{canCancel && !entry.storniert_am ? (
-								<HistoricalCancelDialog entry={entry} onCanceled={onCanceled} />
-							) : null}
-						</div>
-					</div>
-				))}
-			</Card>
-		</section>
-	);
-}
-
-function HistoricalCancelDialog({
-	entry,
-	onCanceled,
-}: {
-	entry: HistoricalRevenue;
-	onCanceled: (id: string, reason: string) => void;
-}) {
-	const router = useRouter();
-	const queryClient = useQueryClient();
-	const [open, setOpen] = useState(false);
-	const [reason, setReason] = useState("");
-	const [pending, setPending] = useState(false);
-	const trimmed = reason.trim();
-
-	async function cancel() {
-		if (trimmed.length < 5) {
-			toast.error("Bitte mindestens 5 Zeichen Begründung angeben");
-			return;
-		}
-		setPending(true);
-		try {
-			await orpcClient.historicalRevenue.cancel({
-				id: entry.id,
-				storno_grund: trimmed,
-			});
-			onCanceled(entry.id, trimmed);
-			setOpen(false);
-			setReason("");
-			toast.success("Historischer Umsatz storniert");
-			await queryClient.invalidateQueries();
-			await router.invalidate();
-		} catch (error) {
-			toast.error(orpcMessage(error, "Stornierung fehlgeschlagen"));
-		} finally {
-			setPending(false);
-		}
-	}
-
-	return (
-		<AlertDialog open={open} onOpenChange={setOpen}>
-			<AlertDialogTrigger asChild>
-				<Button
-					type="button"
-					variant="ghost"
-					size="icon-sm"
-					aria-label={`${entry.anlass} stornieren`}
-					className="shrink-0 text-muted-foreground hover:text-destructive"
-				>
-					<Ban className="h-4 w-4" />
-				</Button>
-			</AlertDialogTrigger>
-			<AlertDialogContent>
-				<AlertDialogHeader>
-					<AlertDialogTitle>Historischen Umsatz stornieren</AlertDialogTitle>
-					<AlertDialogDescription>
-						Der Eintrag bleibt erhalten und wird aus dem Vergleich entfernt.
-						Eine Stornierung kann nicht rückgängig gemacht werden.
-					</AlertDialogDescription>
-				</AlertDialogHeader>
-				<div className="space-y-2">
-					<Label htmlFor={`historical-cancel-${entry.id}`}>Begründung</Label>
-					<Textarea
-						id={`historical-cancel-${entry.id}`}
-						value={reason}
-						onChange={(event) => setReason(event.target.value)}
-						minLength={5}
-						maxLength={500}
-						placeholder="Grund für die Stornierung"
-					/>
-					<p className="text-xs text-muted-foreground">
-						Mindestens 5 Zeichen, maximal 500.
-					</p>
-				</div>
-				<AlertDialogFooter>
-					<AlertDialogCancel disabled={pending}>Abbrechen</AlertDialogCancel>
-					<AlertDialogAction
-						disabled={trimmed.length < 5 || pending}
-						onClick={(event) => {
-							event.preventDefault();
-							void cancel();
-						}}
-					>
-						{pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-						Stornieren
-					</AlertDialogAction>
-				</AlertDialogFooter>
-			</AlertDialogContent>
-		</AlertDialog>
-	);
 }
 
 function MonthSelect({

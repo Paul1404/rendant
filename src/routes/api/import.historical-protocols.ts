@@ -11,6 +11,11 @@ import {
 } from "@/server/services/historical-protocol-folder";
 import { createHistoricalProtocolImportDraft } from "@/server/services/historical-protocol-import-draft";
 import { enrichHistoricalProtocolPreview } from "@/server/services/historical-revenue-import";
+import {
+	archiveHistoricalSource,
+	historicalSourceContentType,
+	recordHistoricalSourceArchiveAudit,
+} from "@/server/services/historical-source-archive";
 
 function safeRelativePath(value: unknown): value is string {
 	if (typeof value !== "string" || value.length < 1 || value.length > 1_000) {
@@ -123,10 +128,56 @@ export const Route = createFileRoute("/api/import/historical-protocols")({
 				const preview = await enrichHistoricalProtocolPreview(
 					buildHistoricalProtocolPreview(files, rows, digest),
 				);
+				const actor = auditActor(session.user);
+				const archiveCandidates = preview.rows.flatMap((row) => {
+					const file = files[row.fileIndex];
+					return row.source && file
+						? [{ file, sha256: row.source.sha256 }]
+						: [];
+				});
+				let archiveCreated = 0;
+				let archiveExisting = 0;
+				let archiveIndex = 0;
+				async function archiveWorker() {
+					while (archiveIndex < archiveCandidates.length) {
+						const index = archiveIndex;
+						archiveIndex += 1;
+						const candidate = archiveCandidates[index];
+						const result = await archiveHistoricalSource(
+							{
+								bytes: candidate.file.bytes,
+								expectedSha256: candidate.sha256,
+								originalFilename: candidate.file.path,
+								contentType: historicalSourceContentType(candidate.file.path),
+							},
+							actor,
+						);
+						if (result.created) archiveCreated += 1;
+						else archiveExisting += 1;
+					}
+				}
+				await Promise.all(
+					Array.from(
+						{ length: Math.min(6, archiveCandidates.length) },
+						archiveWorker,
+					),
+				);
+				if (archiveCandidates.length > 0) {
+					await recordHistoricalSourceArchiveAudit(
+						actor,
+						{ request: auditRequest(request) },
+						{
+							dateien: archiveCandidates.length,
+							neu: archiveCreated,
+							bereits_archiviert: archiveExisting,
+							quelle: "Ordneranalyse",
+						},
+					);
+				}
 
 				const draft = await createHistoricalProtocolImportDraft(
 					preview,
-					auditActor(session.user),
+					actor,
 					{ request: auditRequest(request) },
 				);
 				return Response.json(draft);

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+	type AnyPgColumn,
 	bigserial,
 	boolean,
 	check,
@@ -20,6 +21,38 @@ export type HistoricalRevenueVatSplit = {
 	ust_basis_punkte: number;
 	betrag_cent: number;
 };
+
+// Immutable source files are stored once per content hash. Drafts and booked
+// historical revenues refer to them through their already persisted SHA256.
+export const historicalSourceArchives = pgTable(
+	"historical_source_archives",
+	{
+		sha256: text("sha256").primaryKey(),
+		object_key: text("object_key").notNull().unique(),
+		original_filename: text("original_filename").notNull(),
+		content_type: text("content_type").notNull(),
+		size_bytes: integer("size_bytes").notNull(),
+		archived_at: timestamp("archived_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		archived_by_user_id: text("archived_by_user_id").notNull(),
+		archived_by_name: text("archived_by_name").notNull(),
+	},
+	(t) => [
+		check(
+			"historical_source_archives_sha256_check",
+			sql`${t.sha256} ~ '^[0-9a-f]{64}$'`,
+		),
+		check(
+			"historical_source_archives_size_check",
+			sql`${t.size_bytes} > 0 AND ${t.size_bytes} <= 41943040`,
+		),
+		check(
+			"historical_source_archives_filename_check",
+			sql`length(trim(${t.original_filename})) BETWEEN 1 AND 255`,
+		),
+	],
+);
 
 // Money is always stored as integer cents. Conversion happens only at the
 // form input and at display time.
@@ -403,6 +436,10 @@ export const historicalRevenues = pgTable(
 		stueckelung: jsonb("stueckelung").$type<DenominationCounts>(),
 		umsatz_ust: jsonb("umsatz_ust").$type<HistoricalRevenueVatSplit[]>(),
 		import_warnungen: jsonb("import_warnungen").$type<string[]>(),
+		korrigiert_von_id: uuid("korrigiert_von_id").references(
+			(): AnyPgColumn => historicalRevenues.id,
+			{ onDelete: "restrict" },
+		),
 		erstellt_von_user_id: text("erstellt_von_user_id").notNull(),
 		erstellt_von_name: text("erstellt_von_name").notNull(),
 		erstellt_von_email: text("erstellt_von_email").notNull(),
@@ -419,6 +456,9 @@ export const historicalRevenues = pgTable(
 		uniqueIndex("historical_revenues_quelle_sha256_unique")
 			.on(t.quelle_sha256)
 			.where(sql`${t.quelle_sha256} IS NOT NULL`),
+		uniqueIndex("historical_revenues_korrigiert_von_unique")
+			.on(t.korrigiert_von_id)
+			.where(sql`${t.korrigiert_von_id} IS NOT NULL`),
 		index("idx_historical_revenues_anlass_datum").on(t.anlass_datum),
 		index("idx_historical_revenues_anlass_katalog_id").on(t.anlass_katalog_id),
 		index("idx_historical_revenues_umsatzbereich").on(t.umsatzbereich),

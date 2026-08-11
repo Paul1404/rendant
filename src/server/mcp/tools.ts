@@ -24,7 +24,10 @@ import {
 	HistoricalProtocolReviewUpdateApplySchema,
 	HistoricalProtocolReviewUpdatePlanSchema,
 	HistoricalRevenueCancelSchema,
+	HistoricalRevenueCorrectSchema,
 	HistoricalRevenueCreateSchema,
+	HistoricalRevenueGetSchema,
+	HistoricalRevenuePageSchema,
 	InviteCreateSchema,
 	UmsatzUstBasisSettingsSchema,
 	VereinSettingsSchema,
@@ -192,6 +195,26 @@ const TOOLS: McpTool[] = [
 				items: matched.slice(0, input.limit),
 			};
 		},
+	}),
+	defineTool({
+		name: "query_historical_revenues",
+		description:
+			"Query historical revenue directly in PostgreSQL with bounded filters, sorting and pagination. Use this instead of loading the complete history for review work.",
+		minMode: "readonly",
+		input: HistoricalRevenuePageSchema,
+		annotations: READ_ONLY,
+		execute: (context, input) =>
+			call(router.historicalRevenue.page, input, { context }),
+	}),
+	defineTool({
+		name: "get_historical_revenue",
+		description:
+			"Get one historical revenue with source evidence, archived original-file status and correction predecessor or successor.",
+		minMode: "readonly",
+		input: HistoricalRevenueGetSchema,
+		annotations: READ_ONLY,
+		execute: (context, input) =>
+			call(router.historicalRevenue.get, input, { context }),
 	}),
 	defineTool({
 		name: "list_protocol_import_drafts",
@@ -422,7 +445,7 @@ const TOOLS: McpTool[] = [
 	defineTool({
 		name: "revenue_summary",
 		description:
-			"Summarize active protocol and historical revenue for a period, with revenue, expenses, result, card payments and totals per revenue area.",
+			"Summarize active protocol and historical revenue for a period. revenueCent is always gross revenue and is split into cashCent, cardCent and unknownPaymentCent without double counting.",
 		minMode: "readonly",
 		input: ExportQuerySchema,
 		annotations: READ_ONLY,
@@ -437,28 +460,36 @@ const TOOLS: McpTool[] = [
 					protocols: number;
 					historical: number;
 					revenueCent: number;
+					cashCent: number;
 					expensesCent: number;
 					cardCent: number;
+					unknownPaymentCent: number;
 				}
 			>();
 			const add = (
 				key: string,
 				type: "protocols" | "historical",
 				revenueCent: number,
+				cashCent: number,
 				expensesCent: number,
 				cardCent: number,
+				unknownPaymentCent: number,
 			) => {
 				const group = groups.get(key) ?? {
 					protocols: 0,
 					historical: 0,
 					revenueCent: 0,
+					cashCent: 0,
 					expensesCent: 0,
 					cardCent: 0,
+					unknownPaymentCent: 0,
 				};
 				group[type] += 1;
 				group.revenueCent += revenueCent;
+				group.cashCent += cashCent;
 				group.expensesCent += expensesCent;
 				group.cardCent += cardCent;
+				group.unknownPaymentCent += unknownPaymentCent;
 				groups.set(key, group);
 			};
 			for (const row of protocols) {
@@ -467,9 +498,11 @@ const TOOLS: McpTool[] = [
 				add(
 					row.umsatzbereich ?? "legacy",
 					"protocols",
+					row.tageseinnahmen_cent + row.kartenzahlung_cent,
 					row.tageseinnahmen_cent,
 					row.ausgaben_cent,
 					row.kartenzahlung_cent,
+					0,
 				);
 			}
 			for (const row of historical) {
@@ -479,12 +512,19 @@ const TOOLS: McpTool[] = [
 					row.anlass_datum > input.bis
 				)
 					continue;
+				const paymentKnown =
+					row.tageseinnahmen_bar_cent != null &&
+					row.kartenzahlung_cent != null &&
+					row.tageseinnahmen_bar_cent + row.kartenzahlung_cent ===
+						row.umsatz_cent;
 				add(
 					row.umsatzbereich ?? "legacy",
 					"historical",
 					row.umsatz_cent,
+					paymentKnown ? (row.tageseinnahmen_bar_cent ?? 0) : 0,
 					row.ausgaben_cent,
-					row.kartenzahlung_cent ?? 0,
+					paymentKnown ? (row.kartenzahlung_cent ?? 0) : 0,
+					paymentKnown ? 0 : row.umsatz_cent,
 				);
 			}
 			const byRevenueArea = Array.from(groups, ([revenueArea, values]) => ({
@@ -497,16 +537,20 @@ const TOOLS: McpTool[] = [
 					protocols: sum.protocols + row.protocols,
 					historical: sum.historical + row.historical,
 					revenueCent: sum.revenueCent + row.revenueCent,
+					cashCent: sum.cashCent + row.cashCent,
 					expensesCent: sum.expensesCent + row.expensesCent,
 					cardCent: sum.cardCent + row.cardCent,
+					unknownPaymentCent: sum.unknownPaymentCent + row.unknownPaymentCent,
 					resultCent: sum.resultCent + row.resultCent,
 				}),
 				{
 					protocols: 0,
 					historical: 0,
 					revenueCent: 0,
+					cashCent: 0,
 					expensesCent: 0,
 					cardCent: 0,
+					unknownPaymentCent: 0,
 					resultCent: 0,
 				},
 			);
@@ -644,6 +688,16 @@ const TOOLS: McpTool[] = [
 		annotations: DESTRUCTIVE,
 		execute: (context, input) =>
 			call(router.historicalRevenue.cancel, input, { context }),
+	}),
+	defineTool({
+		name: "correct_historical_revenue",
+		description:
+			"Create an audited correction for one active historical revenue. The original is cancelled and preserved, while a linked replacement is created atomically. Requires explicit user authorization.",
+		minMode: "admin",
+		input: HistoricalRevenueCorrectSchema,
+		annotations: WRITE,
+		execute: (context, input) =>
+			call(router.historicalRevenue.correct, input, { context }),
 	}),
 	defineTool({
 		name: "create_cash_register",

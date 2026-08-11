@@ -26,17 +26,29 @@ export function getS3BucketName(): string {
 }
 
 export async function uploadPdf(key: string, body: Buffer): Promise<void> {
+	return uploadObject(key, body, "application/pdf");
+}
+
+export async function uploadObject(
+	key: string,
+	body: Buffer | Uint8Array,
+	contentType: string,
+): Promise<void> {
 	await getS3Client().send(
 		new PutObjectCommand({
 			Bucket: getS3BucketName(),
 			Key: key,
 			Body: body,
-			ContentType: "application/pdf",
+			ContentType: contentType,
 		}),
 	);
 }
 
 export async function downloadPdf(key: string): Promise<Buffer> {
+	return downloadObject(key);
+}
+
+export async function downloadObject(key: string): Promise<Buffer> {
 	const res = await getS3Client().send(
 		new GetObjectCommand({
 			Bucket: getS3BucketName(),
@@ -49,6 +61,10 @@ export async function downloadPdf(key: string): Promise<Buffer> {
 }
 
 export async function deletePdf(key: string): Promise<void> {
+	return deleteObject(key);
+}
+
+export async function deleteObject(key: string): Promise<void> {
 	await getS3Client().send(
 		new DeleteObjectCommand({
 			Bucket: getS3BucketName(),

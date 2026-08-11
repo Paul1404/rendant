@@ -72,6 +72,8 @@ describe("Rendant MCP", () => {
 		const names = result.tools.map((tool) => tool.name);
 		expect(names).toContain("list_protocols");
 		expect(names).toContain("list_historical_revenues");
+		expect(names).toContain("query_historical_revenues");
+		expect(names).toContain("get_historical_revenue");
 		expect(names).toContain("revenue_summary");
 		expect(names).toContain("list_cash_registers");
 		expect(names).toContain("get_settings");
@@ -100,6 +102,9 @@ describe("Rendant MCP", () => {
 		);
 		expect(importDraft?.annotations?.destructiveHint).toBe(true);
 		expect(result.tools.map((tool) => tool.name)).toContain("create_protocol");
+		expect(result.tools.map((tool) => tool.name)).toContain(
+			"correct_historical_revenue",
+		);
 		expect(result.tools.map((tool) => tool.name)).toContain("list_audit_events");
 		expect(result.tools.map((tool) => tool.name)).toContain(
 			"get_protocol_import_draft",

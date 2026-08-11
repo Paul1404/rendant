@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import * as v from "valibot";
 import {
 	HistoricalRevenueCancelSchema,
+	HistoricalRevenueCorrectSchema,
 	HistoricalRevenueCreateSchema,
+	HistoricalRevenuePageSchema,
 } from "@/lib/schemas";
 
 const validCreate = {
@@ -104,6 +106,46 @@ describe("HistoricalRevenueCancelSchema", () => {
 			v.safeParse(HistoricalRevenueCancelSchema, {
 				id: "not-an-id",
 				storno_grund: "Nein",
+			}).success,
+		).toBe(false);
+	});
+});
+
+describe("historical revenue review schemas", () => {
+	it("applies safe bounded page defaults", () => {
+		const result = v.parse(HistoricalRevenuePageSchema, {});
+		expect(result).toEqual({
+			page: 1,
+			page_size: 25,
+			include_storniert: false,
+			sort: "date",
+			direction: "desc",
+		});
+		expect(
+			v.safeParse(HistoricalRevenuePageSchema, { page_size: 1_000 }).success,
+		).toBe(false);
+	});
+
+	it("requires a complete, reasoned correction", () => {
+		const correction = {
+			id: validCreate.idempotency_key,
+			idempotency_key: validCreate.anlass_katalog_id,
+			anlass_datum: validCreate.anlass_datum,
+			anlass_katalog_id: null,
+			umsatzbereich: validCreate.umsatzbereich,
+			veranstaltungsbezeichnung: validCreate.veranstaltungsbezeichnung,
+			umsatz_cent: validCreate.umsatz_cent,
+			ausgaben_cent: validCreate.ausgaben_cent,
+			bemerkung: validCreate.bemerkung,
+			korrektur_grund: "Veranstaltung eindeutig zugeordnet",
+		};
+		expect(v.safeParse(HistoricalRevenueCorrectSchema, correction).success).toBe(
+			true,
+		);
+		expect(
+			v.safeParse(HistoricalRevenueCorrectSchema, {
+				...correction,
+				korrektur_grund: "Nein",
 			}).success,
 		).toBe(false);
 	});

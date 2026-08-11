@@ -74,6 +74,30 @@ describe("combined finance calculations", () => {
 		expect(period.cardSharePct).toBeNull();
 	});
 
+	it("uses a complete historical cash and card split without double counting", () => {
+		const period = computePeriod([], [
+			{
+				anlass: "Sommerfest",
+				vergleichsgruppe: "Veranstaltungen",
+				anlass_datum: "2025-07-05",
+				umsatz_cent: 10_000,
+				ausgaben_cent: 500,
+				tageseinnahmen_bar_cent: 7_000,
+				kartenzahlung_cent: 3_000,
+			},
+		]);
+
+		expect(period).toMatchObject({
+			revenueCashNet: 7_000,
+			revenueCard: 3_000,
+			revenueHistorical: 0,
+			revenueTotal: 10_000,
+			expenses: 500,
+			net: 9_500,
+			cardSharePct: 30,
+		});
+	});
+
 	it("compares the same occasion across years ignoring case and whitespace", () => {
 		const result = computeOccasionComparisons(
 			[protokoll("Biergarteneröffnung", "2026-05-01", 12_000)],

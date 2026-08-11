@@ -736,7 +736,7 @@ export function HistoricalProtocolFolderImport() {
 					<p className="text-xs text-muted-foreground">
 						{files.length
 							? `${files.length} Dateien ausgewählt`
-							: "Bis 1.500 Dateien und 40 MB. Originaldateien werden nicht verändert und nicht dauerhaft gespeichert."}
+							: "Bis 1.500 Dateien und 40 MB. Erkannte Originaldateien werden unverändert und prüfbar zum Import archiviert."}
 					</p>
 				</div>
 

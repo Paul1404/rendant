@@ -19,6 +19,7 @@ import {
 } from "@/server/services/historical-protocol-import-draft";
 import {
 	cancelHistoricalRevenue,
+	correctHistoricalRevenue,
 	createHistoricalRevenue,
 	HistoricalRevenueConflictError,
 } from "@/server/services/historical-revenue";
@@ -124,6 +125,86 @@ describe("PostgreSQL production paths", () => {
 			await db
 				.delete(historicalRevenues)
 				.where(eq(historicalRevenues.idempotency_key, idempotencyKey));
+			await db.delete(anlassKatalog).where(eq(anlassKatalog.id, catalogId));
+		}
+	});
+
+	it("preserves the original and creates exactly one linked correction", async () => {
+		const catalogId = randomUUID();
+		const originalKey = randomUUID();
+		const correctionKey = randomUUID();
+		await db.insert(anlassKatalog).values({
+			id: catalogId,
+			name: `Korrektur ${catalogId}`,
+			typ: "einmalig",
+		});
+		let originalId: string | undefined;
+		let replacementId: string | undefined;
+		try {
+			const created = await createHistoricalRevenue(
+				{
+					idempotency_key: originalKey,
+					anlass_datum: "2025-07-05",
+					anlass_katalog_id: catalogId,
+					umsatzbereich: "veranstaltungen",
+					veranstaltungsbezeichnung: "Sommerfest",
+					umsatz_cent: 20_000,
+					ausgaben_cent: 1_000,
+					bemerkung: "Vor Korrektur",
+					quellreferenz: "Integration",
+				},
+				actor,
+				audit,
+			);
+			originalId = created.row.id;
+			const correction = {
+				id: originalId,
+				idempotency_key: correctionKey,
+				anlass_datum: "2025-07-05",
+				anlass_katalog_id: catalogId,
+				umsatzbereich: "veranstaltungen" as const,
+				veranstaltungsbezeichnung: "Sommerfest 2025",
+				umsatz_cent: 20_000,
+				ausgaben_cent: 1_250,
+				bemerkung: "Beleg ergänzt",
+				korrektur_grund: "Ausgabe aus dem Originalbeleg ergänzt",
+			};
+			const first = await correctHistoricalRevenue(correction, actor, audit);
+			const replay = await correctHistoricalRevenue(correction, actor, audit);
+			replacementId = first.replacement.id;
+
+			expect(replay.replacement.id).toBe(replacementId);
+			expect(first.original.storniert_am).not.toBeNull();
+			expect(first.replacement).toMatchObject({
+				korrigiert_von_id: originalId,
+				ausgaben_cent: 1_250,
+			});
+			const corrections = await db
+				.select()
+				.from(historicalRevenues)
+				.where(eq(historicalRevenues.korrigiert_von_id, originalId));
+			expect(corrections).toHaveLength(1);
+			const [auditRow] = await db
+				.select()
+				.from(auditEvents)
+				.where(
+					and(
+						eq(auditEvents.action, "umsaetze.corrected"),
+						eq(auditEvents.subject_id, replacementId),
+					),
+				);
+			expect(auditRow).toBeTruthy();
+		} finally {
+			if (replacementId) {
+				await db
+					.delete(historicalRevenues)
+					.where(eq(historicalRevenues.id, replacementId));
+			}
+			if (originalId) {
+				await db
+					.delete(historicalRevenues)
+					.where(eq(historicalRevenues.id, originalId));
+			}
 			await db.delete(anlassKatalog).where(eq(anlassKatalog.id, catalogId));
 		}
 	});

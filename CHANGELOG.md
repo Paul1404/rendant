@@ -3,6 +3,23 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.32.0 - 2026-08-11
+
+- Im Vorjahresvergleich lassen sich jetzt einzelne Jahre aufklappen. Die
+  zugehörigen Termine erscheinen direkt unter dem gewählten Jahr, ohne alle
+  Einträge einer Umsatzgruppe gleichzeitig auszuklappen.
+- Altunterlagen stehen in einer durchsuchbaren, filterbaren Liste mit 25, 50
+  oder 100 Einträgen pro Seite. Details, Herkunft und Status bleiben auch bei
+  großen historischen Beständen übersichtlich.
+- Erkannte Originaldateien werden unverändert archiviert und können am
+  historischen Umsatz wieder heruntergeladen werden. Bereits importierte
+  Dateien lassen sich nachträglich anhand ihrer Prüfsumme zuordnen.
+- Korrekturen ersetzen keinen bestehenden Datensatz. Rendant storniert den
+  bisherigen Wert, legt einen verknüpften Nachfolger an und hält den gesamten
+  Vorgang im Audit-Log fest.
+- Historisch erkannte Bar- und Kartenzahlungen fließen jetzt getrennt und ohne
+  Doppelzählung in die Zahlungsübersicht ein.
+
 ## 1.31.3 - 2026-08-09
 
 - Das Hauptdashboard zeigt beim Öffnen jetzt das laufende Kalenderjahr. Auch
