@@ -3,6 +3,18 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.34.0 - 2026-08-16
+
+- Jede Abteilung sieht jetzt ihr erarbeitetes Guthaben, ihre gebuchten Ausgaben
+  und das noch verfügbare Budget. Der Stundenwert startet bei 6,00 Euro und
+  kann von Admins direkt im Helferstunden-Bereich geändert werden.
+- Einkäufe lassen sich einer Abteilung zuordnen und vom Guthaben abziehen.
+  Fehlerhafte Buchungen werden mit Begründung storniert, statt spurlos gelöscht
+  zu werden.
+- Für jede Abteilung steht eine formatierte Excel-Übersicht mit Kennzahlen,
+  Helferstunden und Ausgaben bereit. Formeln und stornierte Buchungen bleiben in
+  der Datei nachvollziehbar.
+
 ## 1.33.0 - 2026-08-16
 
 - Helferstunden haben jetzt einen eigenen Bereich neben den Protokollen. Neue

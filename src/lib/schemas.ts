@@ -1,7 +1,10 @@
 import * as v from "valibot";
 import { isIsoCalendarDate, todayIsoDate } from "@/lib/date";
 import { DENOMINATION_KEYS } from "@/lib/denominations";
-import { HELPER_HOUR_CATEGORIES } from "@/lib/helper-hours";
+import {
+	HELPER_HOUR_CATEGORIES,
+	HELPER_HOUR_CATEGORY_CODES,
+} from "@/lib/helper-hours";
 import { UMSATZBEREICHE } from "@/lib/umsatzbereich";
 
 // Validation schemas in Valibot, shared between the oRPC procedures (server)
@@ -193,6 +196,37 @@ export const HelperHourCreateSchema = v.object({
 export type HelperHourCreateInput = v.InferOutput<
 	typeof HelperHourCreateSchema
 >;
+
+export const HelperHourValueSchema = v.object({
+	wert_cent: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(100000)),
+});
+
+export const HelperHourExpenseCreateSchema = v.object({
+	idempotency_key: v.pipe(v.string(), v.uuid()),
+	abteilung: v.picklist(HELPER_HOUR_CATEGORY_CODES),
+	datum: isoCalendarDate,
+	bezeichnung: v.pipe(
+		v.string(),
+		v.trim(),
+		v.minLength(1, "Bitte eine Bezeichnung angeben"),
+		v.maxLength(200),
+	),
+	betrag_cent: v.pipe(
+		v.number(),
+		v.integer(),
+		v.minValue(1),
+		v.maxValue(100000000),
+	),
+	bemerkung: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(1000)), ""),
+});
+export type HelperHourExpenseCreateInput = v.InferOutput<
+	typeof HelperHourExpenseCreateSchema
+>;
+
+export const HelperHourExpenseCancelSchema = v.object({
+	id: v.pipe(v.string(), v.uuid()),
+	grund: v.pipe(v.string(), v.trim(), v.minLength(5), v.maxLength(500)),
+});
 
 export const StornoSchema = v.object({
 	storno_grund: v.pipe(v.string(), v.minLength(5), v.maxLength(500)),

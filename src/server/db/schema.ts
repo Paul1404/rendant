@@ -285,6 +285,9 @@ export const appSettings = pgTable(
 			.default("long"),
 		belegnummer_separator: text("belegnummer_separator").notNull().default("-"),
 		umsatz_ust_basis: text("umsatz_ust_basis").notNull().default("post_card"),
+		helferstunde_wert_cent: integer("helferstunde_wert_cent")
+			.notNull()
+			.default(600),
 		// Club this deployment runs for. Empty means "fall back to the VEREINSNAME
 		// env var, then a generic default". Configured in-app under Einstellungen.
 		vereinsname: text("vereinsname").notNull().default(""),
@@ -333,6 +336,10 @@ export const appSettings = pgTable(
 		check(
 			"app_settings_umsatz_ust_basis_check",
 			sql`${t.umsatz_ust_basis} IN ('pre_card', 'post_card')`,
+		),
+		check(
+			"app_settings_helferstunde_wert_check",
+			sql`${t.helferstunde_wert_cent} BETWEEN 1 AND 100000`,
 		),
 		check(
 			"app_settings_smtp_security_check",
@@ -406,6 +413,44 @@ export const helperHours = pgTable(
 		check(
 			"helper_hours_manual_total_check",
 			sql`${t.quelle} = 'excel' OR ${t.gemeldete_summe_minuten} = ${t.gesamtverein_minuten} + ${t.fussball_minuten} + ${t.korbball_minuten} + ${t.tischtennis_minuten} + ${t.darts_minuten} + ${t.gymnastik_minuten} + ${t.senioren_minuten} + ${t.combo_minuten}`,
+		),
+	],
+);
+
+export const helperHourExpenses = pgTable(
+	"helper_hour_expenses",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		idempotency_key: uuid("idempotency_key").notNull().unique(),
+		abteilung: text("abteilung").notNull(),
+		datum: date("datum", { mode: "string" }).notNull(),
+		bezeichnung: text("bezeichnung").notNull(),
+		betrag_cent: integer("betrag_cent").notNull(),
+		bemerkung: text("bemerkung").notNull().default(""),
+		storniert_am: timestamp("storniert_am", { withTimezone: true }),
+		storno_grund: text("storno_grund"),
+		storniert_von_user_id: text("storniert_von_user_id"),
+		storniert_von_name: text("storniert_von_name"),
+		erstellt_von_user_id: text("erstellt_von_user_id").notNull(),
+		erstellt_von_name: text("erstellt_von_name").notNull(),
+		erstellt_am: timestamp("erstellt_am", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		index("idx_helper_hour_expenses_department_date").on(t.abteilung, t.datum),
+		check(
+			"helper_hour_expenses_department_check",
+			sql`${t.abteilung} IN ('gesamtverein', 'fussball', 'korbball', 'tischtennis', 'darts', 'gymnastik', 'senioren', 'combo')`,
+		),
+		check(
+			"helper_hour_expenses_description_check",
+			sql`length(trim(${t.bezeichnung})) BETWEEN 1 AND 200`,
+		),
+		check("helper_hour_expenses_amount_check", sql`${t.betrag_cent} > 0`),
+		check(
+			"helper_hour_expenses_cancellation_check",
+			sql`(${t.storniert_am} IS NULL AND ${t.storno_grund} IS NULL AND ${t.storniert_von_user_id} IS NULL AND ${t.storniert_von_name} IS NULL) OR (${t.storniert_am} IS NOT NULL AND length(trim(${t.storno_grund})) >= 5 AND ${t.storniert_von_user_id} IS NOT NULL AND ${t.storniert_von_name} IS NOT NULL)`,
 		),
 	],
 );

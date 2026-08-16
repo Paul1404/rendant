@@ -162,6 +162,13 @@
       "when": 1786893023673,
       "tag": "0022_hot_smiling_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1786893815750,
+      "tag": "0023_amused_namora",
+      "breakpoints": true
     }
   ]
 }
