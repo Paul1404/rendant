@@ -1,13 +1,21 @@
-import { desc, eq, sql } from "drizzle-orm";
-import type { HelperHourCreateInput } from "@/lib/schemas";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import {
+	HELPER_HOUR_CATEGORIES,
+	type HelperHourCategory,
+} from "@/lib/helper-hours";
+import type {
+	HelperHourCreateInput,
+	HelperHourExpenseCreateInput,
+} from "@/lib/schemas";
 import { db } from "@/server/db";
-import { helperHours } from "@/server/db/schema";
+import { helperHourExpenses, helperHours } from "@/server/db/schema";
 import type { AuthUser } from "@/server/orpc/base";
 import {
 	type RecordAuditInput,
 	recordAuditEventStrict,
 } from "@/server/services/audit";
 import type { HelperHoursImportRow } from "@/server/services/helper-hours-import";
+import { getHelperHourValueCent } from "@/server/services/settings";
 
 const CATEGORY_COLUMNS = {
 	gesamtverein: "gesamtverein_minuten",
@@ -21,7 +29,8 @@ const CATEGORY_COLUMNS = {
 } as const;
 
 export async function listHelperHours() {
-	const [items, summary] = await Promise.all([
+	const valueCent = await getHelperHourValueCent();
+	const [items, summary, allocation, spent, expenses] = await Promise.all([
 		db
 			.select()
 			.from(helperHours)
@@ -34,14 +43,212 @@ export async function listHelperHours() {
 				minutes: sql<number>`coalesce(sum(${helperHours.gemeldete_summe_minuten}), 0)`,
 			})
 			.from(helperHours),
+		db
+			.select({
+				gesamtverein: sql<number>`coalesce(sum(${helperHours.gesamtverein_minuten}), 0)`,
+				fussball: sql<number>`coalesce(sum(${helperHours.fussball_minuten}), 0)`,
+				korbball: sql<number>`coalesce(sum(${helperHours.korbball_minuten}), 0)`,
+				tischtennis: sql<number>`coalesce(sum(${helperHours.tischtennis_minuten}), 0)`,
+				darts: sql<number>`coalesce(sum(${helperHours.darts_minuten}), 0)`,
+				gymnastik: sql<number>`coalesce(sum(${helperHours.gymnastik_minuten}), 0)`,
+				senioren: sql<number>`coalesce(sum(${helperHours.senioren_minuten}), 0)`,
+				combo: sql<number>`coalesce(sum(${helperHours.combo_minuten}), 0)`,
+				gesamtvereinCent: sql<number>`coalesce(sum(round(${helperHours.gesamtverein_minuten} * ${valueCent} / 60.0)), 0)`,
+				fussballCent: sql<number>`coalesce(sum(round(${helperHours.fussball_minuten} * ${valueCent} / 60.0)), 0)`,
+				korbballCent: sql<number>`coalesce(sum(round(${helperHours.korbball_minuten} * ${valueCent} / 60.0)), 0)`,
+				tischtennisCent: sql<number>`coalesce(sum(round(${helperHours.tischtennis_minuten} * ${valueCent} / 60.0)), 0)`,
+				dartsCent: sql<number>`coalesce(sum(round(${helperHours.darts_minuten} * ${valueCent} / 60.0)), 0)`,
+				gymnastikCent: sql<number>`coalesce(sum(round(${helperHours.gymnastik_minuten} * ${valueCent} / 60.0)), 0)`,
+				seniorenCent: sql<number>`coalesce(sum(round(${helperHours.senioren_minuten} * ${valueCent} / 60.0)), 0)`,
+				comboCent: sql<number>`coalesce(sum(round(${helperHours.combo_minuten} * ${valueCent} / 60.0)), 0)`,
+			})
+			.from(helperHours),
+		db
+			.select({
+				abteilung: helperHourExpenses.abteilung,
+				cent: sql<number>`coalesce(sum(${helperHourExpenses.betrag_cent}), 0)`,
+			})
+			.from(helperHourExpenses)
+			.where(isNull(helperHourExpenses.storniert_am))
+			.groupBy(helperHourExpenses.abteilung),
+		db
+			.select()
+			.from(helperHourExpenses)
+			.orderBy(
+				desc(helperHourExpenses.datum),
+				desc(helperHourExpenses.erstellt_am),
+			)
+			.limit(500),
 	]);
+	const allocationRow = allocation[0];
+	const spentByDepartment = new Map(
+		spent.map((entry) => [entry.abteilung, Number(entry.cent)]),
+	);
+	const budgets = HELPER_HOUR_CATEGORIES.map((category) => {
+		const minutes = Number(allocationRow?.[category.code] ?? 0);
+		const earnedCent = Number(
+			allocationRow?.[`${category.code}Cent` as keyof typeof allocationRow] ??
+				0,
+		);
+		const spentCent = spentByDepartment.get(category.code) ?? 0;
+		return {
+			...category,
+			minutes,
+			earnedCent,
+			spentCent,
+			balanceCent: earnedCent - spentCent,
+		};
+	});
 	return {
 		items,
+		expenses,
+		budgets,
+		valueCent,
 		summary: {
 			entries: Number(summary[0]?.entries ?? 0),
 			helpers: Number(summary[0]?.helpers ?? 0),
 			minutes: Number(summary[0]?.minutes ?? 0),
 		},
+	};
+}
+
+export async function createHelperHourExpense(
+	input: HelperHourExpenseCreateInput,
+	actor: AuthUser,
+	audit: Pick<RecordAuditInput, "request">,
+) {
+	return db.transaction(async (tx) => {
+		const [row] = await tx
+			.insert(helperHourExpenses)
+			.values({
+				idempotency_key: input.idempotency_key,
+				abteilung: input.abteilung,
+				datum: input.datum,
+				bezeichnung: input.bezeichnung,
+				betrag_cent: input.betrag_cent,
+				bemerkung: input.bemerkung,
+				erstellt_von_user_id: actor.id,
+				erstellt_von_name: actor.name,
+			})
+			.onConflictDoNothing({ target: helperHourExpenses.idempotency_key })
+			.returning();
+		if (!row) {
+			const [existing] = await tx
+				.select()
+				.from(helperHourExpenses)
+				.where(eq(helperHourExpenses.idempotency_key, input.idempotency_key))
+				.limit(1);
+			if (!existing) throw new Error("Ausgabe konnte nicht gespeichert werden");
+			if (
+				existing.abteilung !== input.abteilung ||
+				existing.datum !== input.datum ||
+				existing.bezeichnung !== input.bezeichnung ||
+				existing.betrag_cent !== input.betrag_cent ||
+				existing.bemerkung !== input.bemerkung
+			) {
+				throw new Error(
+					"Diese Ausgabe wurde bereits mit anderen Angaben gespeichert",
+				);
+			}
+			return existing;
+		}
+		await recordAuditEventStrict(tx, {
+			category: "helferstunden",
+			action: "helferstunden.expense_created",
+			actor,
+			request: audit.request,
+			subject: {
+				type: "helferstunden_ausgabe",
+				id: row.id,
+				label: row.bezeichnung,
+			},
+			metadata: {
+				abteilung: row.abteilung,
+				datum: row.datum,
+				betrag_cent: row.betrag_cent,
+			},
+		});
+		return row;
+	});
+}
+
+export async function cancelHelperHourExpense(
+	id: string,
+	reason: string,
+	actor: AuthUser,
+	audit: Pick<RecordAuditInput, "request">,
+) {
+	return db.transaction(async (tx) => {
+		const [row] = await tx
+			.update(helperHourExpenses)
+			.set({
+				storniert_am: new Date(),
+				storno_grund: reason,
+				storniert_von_user_id: actor.id,
+				storniert_von_name: actor.name,
+			})
+			.where(
+				and(
+					eq(helperHourExpenses.id, id),
+					isNull(helperHourExpenses.storniert_am),
+				),
+			)
+			.returning();
+		if (!row) {
+			const [existing] = await tx
+				.select({ id: helperHourExpenses.id })
+				.from(helperHourExpenses)
+				.where(eq(helperHourExpenses.id, id))
+				.limit(1);
+			throw new Error(
+				existing ? "Ausgabe wurde bereits storniert" : "Ausgabe nicht gefunden",
+			);
+		}
+		await recordAuditEventStrict(tx, {
+			category: "helferstunden",
+			action: "helferstunden.expense_cancelled",
+			actor,
+			request: audit.request,
+			subject: {
+				type: "helferstunden_ausgabe",
+				id: row.id,
+				label: row.bezeichnung,
+			},
+			metadata: {
+				abteilung: row.abteilung,
+				betrag_cent: row.betrag_cent,
+				grund: reason,
+			},
+		});
+		return row;
+	});
+}
+
+export async function loadHelperHourExport(category: HelperHourCategory) {
+	const [dashboard, hours, expenses] = await Promise.all([
+		listHelperHours(),
+		db
+			.select()
+			.from(helperHours)
+			.where(sql`${helperHours[CATEGORY_COLUMNS[category]]} > 0`)
+			.orderBy(helperHours.datum, helperHours.nachname, helperHours.vorname),
+		db
+			.select()
+			.from(helperHourExpenses)
+			.where(eq(helperHourExpenses.abteilung, category))
+			.orderBy(helperHourExpenses.datum, helperHourExpenses.erstellt_am),
+	]);
+	const budget = dashboard.budgets.find((entry) => entry.code === category);
+	if (!budget) throw new Error("Abteilung nicht gefunden");
+	return {
+		category,
+		budget,
+		valueCent: dashboard.valueCent,
+		hours: hours.map((row) => ({
+			...row,
+			allocatedMinutes: row[CATEGORY_COLUMNS[category]],
+		})),
+		expenses,
 	};
 }
 

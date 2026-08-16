@@ -33,6 +33,7 @@ import { Route as ApiImportHistoricalProtocolsRouteImport } from './routes/api/i
 import { Route as ApiImportHistoricalSourcesRouteImport } from './routes/api/import.historical-sources'
 import { Route as ApiImportRevenueRouteImport } from './routes/api/import.revenue'
 import { Route as ApiRpcSplatRouteImport } from './routes/api/rpc/$'
+import { Route as ApiExportHelperHoursXlsxRouteImport } from './routes/api/export.helper-hours.xlsx'
 import { Route as ApiExportRevenueXlsxRouteImport } from './routes/api/export.revenue.xlsx'
 import { Route as ApiHistoricalRevenuesIdSourceRouteImport } from './routes/api/historical-revenues/$id/source'
 import { Route as ApiImportRevenueTemplateRouteImport } from './routes/api/import.revenue.template'
@@ -161,6 +162,12 @@ const ApiRpcSplatRoute = ApiRpcSplatRouteImport.update({
   path: '/api/rpc/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiExportHelperHoursXlsxRoute =
+  ApiExportHelperHoursXlsxRouteImport.update({
+    id: '/helper-hours/xlsx',
+    path: '/helper-hours/xlsx',
+    getParentRoute: () => ApiExportRoute,
+  } as any)
 const ApiExportRevenueXlsxRoute = ApiExportRevenueXlsxRouteImport.update({
   id: '/xlsx',
   path: '/xlsx',
@@ -215,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/api/import/historical-sources': typeof ApiImportHistoricalSourcesRoute
   '/api/import/revenue': typeof ApiImportRevenueRouteWithChildren
   '/api/rpc/$': typeof ApiRpcSplatRoute
+  '/api/export/helper-hours/xlsx': typeof ApiExportHelperHoursXlsxRoute
   '/api/export/revenue/xlsx': typeof ApiExportRevenueXlsxRoute
   '/api/historical-revenues/$id/source': typeof ApiHistoricalRevenuesIdSourceRoute
   '/api/import/revenue/template': typeof ApiImportRevenueTemplateRoute
@@ -245,6 +253,7 @@ export interface FileRoutesByTo {
   '/api/import/historical-sources': typeof ApiImportHistoricalSourcesRoute
   '/api/import/revenue': typeof ApiImportRevenueRouteWithChildren
   '/api/rpc/$': typeof ApiRpcSplatRoute
+  '/api/export/helper-hours/xlsx': typeof ApiExportHelperHoursXlsxRoute
   '/api/export/revenue/xlsx': typeof ApiExportRevenueXlsxRoute
   '/api/historical-revenues/$id/source': typeof ApiHistoricalRevenuesIdSourceRoute
   '/api/import/revenue/template': typeof ApiImportRevenueTemplateRoute
@@ -277,6 +286,7 @@ export interface FileRoutesById {
   '/api/import/historical-sources': typeof ApiImportHistoricalSourcesRoute
   '/api/import/revenue': typeof ApiImportRevenueRouteWithChildren
   '/api/rpc/$': typeof ApiRpcSplatRoute
+  '/api/export/helper-hours/xlsx': typeof ApiExportHelperHoursXlsxRoute
   '/api/export/revenue/xlsx': typeof ApiExportRevenueXlsxRoute
   '/api/historical-revenues/$id/source': typeof ApiHistoricalRevenuesIdSourceRoute
   '/api/import/revenue/template': typeof ApiImportRevenueTemplateRoute
@@ -310,6 +320,7 @@ export interface FileRouteTypes {
     | '/api/import/historical-sources'
     | '/api/import/revenue'
     | '/api/rpc/$'
+    | '/api/export/helper-hours/xlsx'
     | '/api/export/revenue/xlsx'
     | '/api/historical-revenues/$id/source'
     | '/api/import/revenue/template'
@@ -340,6 +351,7 @@ export interface FileRouteTypes {
     | '/api/import/historical-sources'
     | '/api/import/revenue'
     | '/api/rpc/$'
+    | '/api/export/helper-hours/xlsx'
     | '/api/export/revenue/xlsx'
     | '/api/historical-revenues/$id/source'
     | '/api/import/revenue/template'
@@ -371,6 +383,7 @@ export interface FileRouteTypes {
     | '/api/import/historical-sources'
     | '/api/import/revenue'
     | '/api/rpc/$'
+    | '/api/export/helper-hours/xlsx'
     | '/api/export/revenue/xlsx'
     | '/api/historical-revenues/$id/source'
     | '/api/import/revenue/template'
@@ -567,6 +580,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRpcSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/export/helper-hours/xlsx': {
+      id: '/api/export/helper-hours/xlsx'
+      path: '/helper-hours/xlsx'
+      fullPath: '/api/export/helper-hours/xlsx'
+      preLoaderRoute: typeof ApiExportHelperHoursXlsxRouteImport
+      parentRoute: typeof ApiExportRoute
+    }
     '/api/export/revenue/xlsx': {
       id: '/api/export/revenue/xlsx'
       path: '/xlsx'
@@ -646,12 +666,14 @@ interface ApiExportRouteChildren {
   ApiExportJsonRoute: typeof ApiExportJsonRoute
   ApiExportRevenueRoute: typeof ApiExportRevenueRouteWithChildren
   ApiExportUstRoute: typeof ApiExportUstRoute
+  ApiExportHelperHoursXlsxRoute: typeof ApiExportHelperHoursXlsxRoute
 }
 
 const ApiExportRouteChildren: ApiExportRouteChildren = {
   ApiExportJsonRoute: ApiExportJsonRoute,
   ApiExportRevenueRoute: ApiExportRevenueRouteWithChildren,
   ApiExportUstRoute: ApiExportUstRoute,
+  ApiExportHelperHoursXlsxRoute: ApiExportHelperHoursXlsxRoute,
 }
 
 const ApiExportRouteWithChildren = ApiExportRoute._addFileChildren(

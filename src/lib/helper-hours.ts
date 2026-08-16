@@ -12,6 +12,16 @@ export const HELPER_HOUR_CATEGORIES = [
 export type HelperHourCategory =
 	(typeof HELPER_HOUR_CATEGORIES)[number]["code"];
 
+export const HELPER_HOUR_CATEGORY_CODES = HELPER_HOUR_CATEGORIES.map(
+	(entry) => entry.code,
+);
+
+export function helperHourCategoryLabel(code: HelperHourCategory): string {
+	return (
+		HELPER_HOUR_CATEGORIES.find((entry) => entry.code === code)?.label ?? code
+	);
+}
+
 export function formatMinutes(minutes: number): string {
 	return new Intl.NumberFormat("de-DE", { maximumFractionDigits: 2 }).format(
 		minutes / 60,

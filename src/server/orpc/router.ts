@@ -11,6 +11,9 @@ import {
 	EmailSettingsSchema,
 	ExportQuerySchema,
 	HelperHourCreateSchema,
+	HelperHourExpenseCancelSchema,
+	HelperHourExpenseCreateSchema,
+	HelperHourValueSchema,
 	HistoricalProtocolDraftAnalyzeSchema,
 	HistoricalProtocolDraftBulkUpdateSchema,
 	HistoricalProtocolDraftGetSchema,
@@ -71,7 +74,9 @@ import {
 	updateEmailSettings,
 } from "@/server/services/email";
 import {
+	cancelHelperHourExpense,
 	createHelperHour,
+	createHelperHourExpense,
 	listHelperHours,
 } from "@/server/services/helper-hours";
 import {
@@ -136,9 +141,11 @@ import {
 import { vatSummary } from "@/server/services/reports";
 import {
 	getBelegnummerSettings,
+	getHelperHourValueCent,
 	getUmsatzUstBasisDefault,
 	getVereinStammdaten,
 	updateBelegnummerSettings,
+	updateHelperHourValueCent,
 	updateUmsatzUstBasisDefault,
 	updateVereinStammdaten,
 } from "@/server/services/settings";
@@ -342,6 +349,27 @@ const settings = {
 			);
 			return { umsatz_ust_basis };
 		}),
+
+	getHelperHourValue: authed.handler(async () => ({
+		wert_cent: await getHelperHourValueCent(),
+	})),
+
+	updateHelperHourValue: adminOnly
+		.input(HelperHourValueSchema)
+		.handler(async ({ input, context }) => ({
+			wert_cent: await updateHelperHourValueCent(input.wert_cent, {
+				category: "settings",
+				action: "settings.helferstunde_wert_changed",
+				actor: context.user,
+				subject: {
+					type: "settings",
+					id: "helferstunde_wert",
+					label: "Helferstundenwert",
+				},
+				request: requestAuditContext(context),
+				metadata: { wert_cent: input.wert_cent },
+			}),
+		})),
 
 	getVerein: authed.handler(() => getVereinStammdaten()),
 
@@ -1256,6 +1284,20 @@ const helperHours = {
 			request: requestAuditContext(context),
 		}),
 	),
+	createExpense: adminOnly
+		.input(HelperHourExpenseCreateSchema)
+		.handler(({ input, context }) =>
+			createHelperHourExpense(input, context.user, {
+				request: requestAuditContext(context),
+			}),
+		),
+	cancelExpense: adminOnly
+		.input(HelperHourExpenseCancelSchema)
+		.handler(({ input, context }) =>
+			cancelHelperHourExpense(input.id, input.grund, context.user, {
+				request: requestAuditContext(context),
+			}),
+		),
 };
 
 // ---- Audit log ----------------------------------------------------------

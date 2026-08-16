@@ -28,6 +28,7 @@ export const DEFAULT_BELEGNUMMER_SETTINGS: BelegnummerSettings = {
 };
 
 export const DEFAULT_UMSATZ_UST_BASIS: UmsatzUstBasis = "post_card";
+export const DEFAULT_HELPER_HOUR_VALUE_CENT = 600;
 
 type SettingsRow = typeof appSettings.$inferSelect;
 
@@ -108,6 +109,29 @@ export async function updateUmsatzUstBasisDefault(
 		}
 		await recordAuditEventStrict(tx, audit);
 		return normalizeUmsatzUstBasis(rows[0].umsatz_ust_basis);
+	});
+}
+
+export async function getHelperHourValueCent(): Promise<number> {
+	const row = await loadRow();
+	return Number(row?.helferstunde_wert_cent ?? DEFAULT_HELPER_HOUR_VALUE_CENT);
+}
+
+export async function updateHelperHourValueCent(
+	valueCent: number,
+	audit: RecordAuditInput,
+): Promise<number> {
+	return db.transaction(async (tx) => {
+		const rows = await tx
+			.update(appSettings)
+			.set({ helferstunde_wert_cent: valueCent, updated_at: new Date() })
+			.where(eq(appSettings.id, 1))
+			.returning({ valueCent: appSettings.helferstunde_wert_cent });
+		if (rows.length === 0) {
+			throw new Error("Einstellungen konnten nicht aktualisiert werden");
+		}
+		await recordAuditEventStrict(tx, audit);
+		return Number(rows[0].valueCent);
 	});
 }
 

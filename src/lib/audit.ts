@@ -88,11 +88,13 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
 	"exports.protokolle_csv": "Protokolle exportiert",
 	"exports.umsaetze_csv": "Umsätze exportiert",
 	"exports.umsaetze_xlsx": "Umsätze als Excel exportiert",
+	"exports.helferstunden_xlsx": "Helferstunden-Budget exportiert",
 	"exports.umsaetze_import_vorlage": "Umsatz-Importvorlage exportiert",
 	"exports.ust_csv": "USt. exportiert",
 	"exports.backup_json": "Datensicherung exportiert",
 	"settings.belegnummer_changed": "Belegnummern geändert",
 	"settings.ust_basis_changed": "USt.-Grundlage geändert",
+	"settings.helferstunde_wert_changed": "Helferstundenwert geändert",
 	"settings.verein_changed": "Vereinsdaten geändert",
 	"settings.email_changed": "E-Mail-Einstellungen geändert",
 	"settings.test_email_sent": "Test-E-Mail versendet",
@@ -106,6 +108,8 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
 	"helferstunden.created": "Helferstunde erfasst",
 	"helferstunden.import_previewed": "Helferstundenimport geprüft",
 	"helferstunden.imported": "Helferstunden importiert",
+	"helferstunden.expense_created": "Abteilungsausgabe erfasst",
+	"helferstunden.expense_cancelled": "Abteilungsausgabe storniert",
 };
 
 export function auditActionLabel(action: string): string {

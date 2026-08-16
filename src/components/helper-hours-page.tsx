@@ -1,6 +1,15 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileCheck2, Loader2, Plus, Upload } from "lucide-react";
-import { useRef, useState } from "react";
+import {
+	Download,
+	FileCheck2,
+	Loader2,
+	Plus,
+	ReceiptText,
+	RotateCcw,
+	Settings2,
+	Upload,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +34,9 @@ import {
 	formatMinutes,
 	HELPER_HOUR_CATEGORIES,
 	type HelperHourCategory,
+	helperHourCategoryLabel,
 } from "@/lib/helper-hours";
+import { formatCent, formatCentPlain, parseGermanAmount } from "@/lib/money";
 import { orpc, orpcClient } from "@/lib/orpc";
 
 type Preview = {
@@ -59,6 +70,8 @@ function parseHours(value: string): number | null {
 export function HelperHoursPage({ isAdmin }: { isAdmin: boolean }) {
 	const queryClient = useQueryClient();
 	const { data, isLoading } = useQuery(orpc.helperHours.list.queryOptions());
+	const [selectedDepartment, setSelectedDepartment] =
+		useState<HelperHourCategory>("gesamtverein");
 	const [saving, setSaving] = useState(false);
 	const key = useRef<string | null>(null);
 	const [form, setForm] = useState({
@@ -128,6 +141,19 @@ export function HelperHoursPage({ isAdmin }: { isAdmin: boolean }) {
 					</Card>
 				))}
 			</div>
+			<HelperHoursBudgets
+				budgets={data?.budgets ?? []}
+				expenses={data?.expenses ?? []}
+				valueCent={data?.valueCent ?? 600}
+				selected={selectedDepartment}
+				onSelected={setSelectedDepartment}
+				isAdmin={isAdmin}
+				onChanged={() =>
+					queryClient.invalidateQueries({
+						queryKey: orpc.helperHours.list.queryKey(),
+					})
+				}
+			/>
 			<Card variant="hero">
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
@@ -311,6 +337,403 @@ export function HelperHoursPage({ isAdmin }: { isAdmin: boolean }) {
 					) : null}
 				</CardContent>
 			</Card>
+		</div>
+	);
+}
+
+type Budget = {
+	code: HelperHourCategory;
+	label: string;
+	minutes: number;
+	earnedCent: number;
+	spentCent: number;
+	balanceCent: number;
+};
+
+type DepartmentExpense = {
+	id: string;
+	abteilung: string;
+	datum: string;
+	bezeichnung: string;
+	betrag_cent: number;
+	bemerkung: string;
+	storniert_am: Date | string | null;
+	storno_grund: string | null;
+};
+
+function HelperHoursBudgets({
+	budgets,
+	expenses,
+	valueCent,
+	selected,
+	onSelected,
+	isAdmin,
+	onChanged,
+}: {
+	budgets: Budget[];
+	expenses: DepartmentExpense[];
+	valueCent: number;
+	selected: HelperHourCategory;
+	onSelected: (value: HelperHourCategory) => void;
+	isAdmin: boolean;
+	onChanged: () => Promise<unknown>;
+}) {
+	const budget = budgets.find((entry) => entry.code === selected);
+	const visibleExpenses = expenses.filter(
+		(entry) => entry.abteilung === selected,
+	);
+	const [expenseForm, setExpenseForm] = useState({
+		datum: todayIsoDate(),
+		bezeichnung: "",
+		betrag: "",
+		bemerkung: "",
+	});
+	const [rateInput, setRateInput] = useState(formatCentPlain(valueCent));
+	const [saving, setSaving] = useState<"expense" | "rate" | "cancel" | null>(
+		null,
+	);
+	const expenseKey = useRef<string | null>(null);
+	useEffect(() => setRateInput(formatCentPlain(valueCent)), [valueCent]);
+
+	async function saveExpense(event: React.FormEvent) {
+		event.preventDefault();
+		const amount = parseGermanAmount(expenseForm.betrag);
+		if (!amount || amount <= 0) {
+			toast.error("Bitte einen positiven Betrag angeben");
+			return;
+		}
+		setSaving("expense");
+		try {
+			expenseKey.current ??= crypto.randomUUID();
+			await orpcClient.helperHours.createExpense({
+				idempotency_key: expenseKey.current,
+				abteilung: selected,
+				datum: expenseForm.datum,
+				bezeichnung: expenseForm.bezeichnung,
+				betrag_cent: amount,
+				bemerkung: expenseForm.bemerkung,
+			});
+			expenseKey.current = null;
+			setExpenseForm({
+				...expenseForm,
+				bezeichnung: "",
+				betrag: "",
+				bemerkung: "",
+			});
+			await onChanged();
+			toast.success("Ausgabe vom Abteilungsbudget abgezogen");
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Speichern fehlgeschlagen",
+			);
+		} finally {
+			setSaving(null);
+		}
+	}
+
+	async function saveRate() {
+		const amount = parseGermanAmount(rateInput);
+		if (!amount || amount <= 0) {
+			toast.error("Bitte einen positiven Stundenwert angeben");
+			return;
+		}
+		setSaving("rate");
+		try {
+			await orpcClient.settings.updateHelperHourValue({ wert_cent: amount });
+			await onChanged();
+			toast.success("Stundenwert gespeichert");
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Speichern fehlgeschlagen",
+			);
+		} finally {
+			setSaving(null);
+		}
+	}
+
+	async function cancelExpense(id: string) {
+		const reason = window.prompt("Warum wird diese Ausgabe storniert?");
+		if (!reason) return;
+		if (reason.trim().length < 5) {
+			toast.error("Bitte einen kurzen Stornogrund angeben");
+			return;
+		}
+		setSaving("cancel");
+		try {
+			await orpcClient.helperHours.cancelExpense({ id, grund: reason });
+			await onChanged();
+			toast.success("Ausgabe storniert");
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Stornierung fehlgeschlagen",
+			);
+		} finally {
+			setSaving(null);
+		}
+	}
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle className="flex items-center gap-2">
+					<ReceiptText className="h-4 w-4 text-primary" />
+					Abteilungsbudgets
+				</CardTitle>
+				<CardDescription>
+					Helferstunden werden mit {formatCent(valueCent)} bewertet. Käufe
+					mindern das verfügbare Budget der gewählten Abteilung.
+				</CardDescription>
+			</CardHeader>
+			<CardContent className="space-y-5">
+				<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+					{budgets.map((entry) => (
+						<button
+							key={entry.code}
+							type="button"
+							onClick={() => onSelected(entry.code)}
+							className={`rounded-xl border p-3 text-left transition-colors ${
+								selected === entry.code
+									? "border-primary bg-primary/5"
+									: "border-border/60 hover:bg-muted/50"
+							}`}
+						>
+							<p className="text-xs text-muted-foreground">{entry.label}</p>
+							<p
+								className={`mt-1 font-heading text-lg tabular-nums ${
+									entry.balanceCent < 0 ? "text-destructive" : ""
+								}`}
+							>
+								{formatCent(entry.balanceCent)}
+							</p>
+							<p className="mt-1 text-xs text-muted-foreground">
+								{formatMinutes(entry.minutes)} h · {formatCent(entry.spentCent)}{" "}
+								ausgegeben
+							</p>
+						</button>
+					))}
+				</div>
+				<div className="grid gap-3 rounded-xl bg-muted/30 p-4 sm:grid-cols-3">
+					<BudgetNumber label="Erarbeitet" value={budget?.earnedCent ?? 0} />
+					<BudgetNumber label="Ausgegeben" value={budget?.spentCent ?? 0} />
+					<BudgetNumber
+						label="Verfügbar"
+						value={budget?.balanceCent ?? 0}
+						emphasized
+					/>
+				</div>
+				<div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+					<div>
+						<p className="font-medium">{helperHourCategoryLabel(selected)}</p>
+						<p className="text-xs text-muted-foreground">
+							Export mit Übersicht, Helferstunden und Ausgaben.
+						</p>
+					</div>
+					<Button asChild variant="outline">
+						<a
+							href={`/api/export/helper-hours/xlsx?abteilung=${selected}`}
+							download
+						>
+							<Download className="mr-1 h-4 w-4" />
+							Excel-Übersicht
+						</a>
+					</Button>
+				</div>
+				{isAdmin ? (
+					<div className="grid gap-4 border-t pt-5 lg:grid-cols-[1fr_2fr]">
+						<div className="space-y-3">
+							<div className="flex items-center gap-2 font-medium">
+								<Settings2 className="h-4 w-4 text-primary" />
+								Stundenwert
+							</div>
+							<p className="text-xs text-muted-foreground">
+								Der Wert gilt für alle vorhandenen und neuen Helferstunden.
+							</p>
+							<div className="flex gap-2">
+								<Input
+									aria-label="Wert einer Helferstunde"
+									inputMode="decimal"
+									value={rateInput}
+									onChange={(event) => setRateInput(event.target.value)}
+								/>
+								<Button
+									type="button"
+									variant="secondary"
+									disabled={saving !== null}
+									onClick={() => void saveRate()}
+								>
+									Speichern
+								</Button>
+							</div>
+						</div>
+						<form className="grid gap-3 sm:grid-cols-2" onSubmit={saveExpense}>
+							<div className="sm:col-span-2">
+								<p className="font-medium">Ausgabe für {budget?.label}</p>
+								<p className="text-xs text-muted-foreground">
+									Der Betrag wird direkt vom Abteilungsbudget abgezogen.
+								</p>
+							</div>
+							<div className="space-y-1.5">
+								<Label htmlFor="hh-expense-date">Datum</Label>
+								<Input
+									id="hh-expense-date"
+									type="date"
+									value={expenseForm.datum}
+									onChange={(event) =>
+										setExpenseForm({
+											...expenseForm,
+											datum: event.target.value,
+										})
+									}
+									required
+								/>
+							</div>
+							<div className="space-y-1.5">
+								<Label htmlFor="hh-expense-amount">Betrag</Label>
+								<Input
+									id="hh-expense-amount"
+									inputMode="decimal"
+									placeholder="49,90"
+									value={expenseForm.betrag}
+									onChange={(event) =>
+										setExpenseForm({
+											...expenseForm,
+											betrag: event.target.value,
+										})
+									}
+									required
+								/>
+							</div>
+							<div className="space-y-1.5 sm:col-span-2">
+								<Label htmlFor="hh-expense-description">Gekauft</Label>
+								<Input
+									id="hh-expense-description"
+									placeholder="z. B. neue Trainingsbälle"
+									value={expenseForm.bezeichnung}
+									onChange={(event) =>
+										setExpenseForm({
+											...expenseForm,
+											bezeichnung: event.target.value,
+										})
+									}
+									maxLength={200}
+									required
+								/>
+							</div>
+							<div className="space-y-1.5 sm:col-span-2">
+								<Label htmlFor="hh-expense-note">Bemerkung</Label>
+								<Input
+									id="hh-expense-note"
+									placeholder="Optional, z. B. Belegnummer"
+									value={expenseForm.bemerkung}
+									onChange={(event) =>
+										setExpenseForm({
+											...expenseForm,
+											bemerkung: event.target.value,
+										})
+									}
+								/>
+							</div>
+							<Button disabled={saving !== null} className="sm:col-span-2">
+								{saving === "expense" ? (
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								) : (
+									<Plus className="mr-2 h-4 w-4" />
+								)}
+								Ausgabe abziehen
+							</Button>
+						</form>
+					</div>
+				) : null}
+				{visibleExpenses.length ? (
+					<div className="overflow-x-auto border-t pt-4">
+						<table className="w-full min-w-[620px] text-sm">
+							<thead>
+								<tr className="border-b text-left text-xs text-muted-foreground">
+									<th className="py-2 pr-3">Datum</th>
+									<th className="px-3 py-2">Ausgabe</th>
+									<th className="px-3 py-2">Status</th>
+									<th className="px-3 py-2 text-right">Betrag</th>
+									{isAdmin ? <th className="py-2 pl-3" /> : null}
+								</tr>
+							</thead>
+							<tbody>
+								{visibleExpenses.map((entry) => (
+									<tr
+										key={entry.id}
+										className="border-b border-border/50 last:border-0"
+									>
+										<td className="py-2.5 pr-3">{formatDateDe(entry.datum)}</td>
+										<td className="px-3 py-2.5">
+											<p
+												className={
+													entry.storniert_am ? "line-through" : "font-medium"
+												}
+											>
+												{entry.bezeichnung}
+											</p>
+											{entry.bemerkung ? (
+												<p className="text-xs text-muted-foreground">
+													{entry.bemerkung}
+												</p>
+											) : null}
+											{entry.storno_grund ? (
+												<p className="text-xs text-destructive">
+													Storno: {entry.storno_grund}
+												</p>
+											) : null}
+										</td>
+										<td className="px-3 py-2.5 text-xs text-muted-foreground">
+											{entry.storniert_am ? "Storniert" : "Aktiv"}
+										</td>
+										<td className="px-3 py-2.5 text-right font-semibold tabular-nums">
+											{formatCent(entry.betrag_cent)}
+										</td>
+										{isAdmin ? (
+											<td className="py-2.5 pl-3 text-right">
+												{!entry.storniert_am ? (
+													<Button
+														type="button"
+														variant="ghost"
+														size="sm"
+														disabled={saving !== null}
+														onClick={() => void cancelExpense(entry.id)}
+													>
+														<RotateCcw className="mr-1 h-3.5 w-3.5" />
+														Stornieren
+													</Button>
+												) : null}
+											</td>
+										) : null}
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				) : null}
+			</CardContent>
+		</Card>
+	);
+}
+
+function BudgetNumber({
+	label,
+	value,
+	emphasized = false,
+}: {
+	label: string;
+	value: number;
+	emphasized?: boolean;
+}) {
+	return (
+		<div>
+			<p className="text-xs text-muted-foreground">{label}</p>
+			<p
+				className={`mt-1 font-heading text-xl tabular-nums ${
+					emphasized && value < 0 ? "text-destructive" : ""
+				}`}
+			>
+				{formatCent(value)}
+			</p>
 		</div>
 	);
 }
