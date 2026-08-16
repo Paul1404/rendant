@@ -1,6 +1,7 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import {
 	HELPER_HOUR_BUDGET_CATEGORIES,
+	HELPER_HOUR_CATEGORIES,
 	type HelperHourBudgetCategory,
 } from "@/lib/helper-hours";
 import type {
@@ -28,12 +29,29 @@ const CATEGORY_COLUMNS = {
 	combo: "combo_minuten",
 } as const;
 
-export async function listHelperHours() {
+export async function listHelperHours(year?: number) {
 	const valueCent = await getHelperHourValueCent();
-	const [items, summary, allocation, spent, expenses] = await Promise.all([
+	const period = year
+		? and(
+				gte(helperHours.datum, `${year}-01-01`),
+				lt(helperHours.datum, `${year + 1}-01-01`),
+			)
+		: undefined;
+	const yearExpression = sql<number>`extract(year from ${helperHours.datum})::int`;
+	const [
+		items,
+		summary,
+		allocation,
+		periodAllocation,
+		spent,
+		expenses,
+		years,
+		helperRows,
+	] = await Promise.all([
 		db
 			.select()
 			.from(helperHours)
+			.where(period)
 			.orderBy(desc(helperHours.datum), desc(helperHours.erstellt_am))
 			.limit(250),
 		db
@@ -42,7 +60,8 @@ export async function listHelperHours() {
 				helpers: sql<number>`count(distinct nullif(lower(trim(${helperHours.nachname}) || ',' || trim(${helperHours.vorname})), ','))`,
 				minutes: sql<number>`coalesce(sum(${helperHours.gemeldete_summe_minuten}), 0)`,
 			})
-			.from(helperHours),
+			.from(helperHours)
+			.where(period),
 		db
 			.select({
 				gesamtverein: sql<number>`coalesce(sum(${helperHours.gesamtverein_minuten}), 0)`,
@@ -65,6 +84,19 @@ export async function listHelperHours() {
 			.from(helperHours),
 		db
 			.select({
+				gesamtverein: sql<number>`coalesce(sum(${helperHours.gesamtverein_minuten}), 0)`,
+				fussball: sql<number>`coalesce(sum(${helperHours.fussball_minuten}), 0)`,
+				korbball: sql<number>`coalesce(sum(${helperHours.korbball_minuten}), 0)`,
+				tischtennis: sql<number>`coalesce(sum(${helperHours.tischtennis_minuten}), 0)`,
+				darts: sql<number>`coalesce(sum(${helperHours.darts_minuten}), 0)`,
+				gymnastik: sql<number>`coalesce(sum(${helperHours.gymnastik_minuten}), 0)`,
+				senioren: sql<number>`coalesce(sum(${helperHours.senioren_minuten}), 0)`,
+				combo: sql<number>`coalesce(sum(${helperHours.combo_minuten}), 0)`,
+			})
+			.from(helperHours)
+			.where(period),
+		db
+			.select({
 				abteilung: helperHourExpenses.abteilung,
 				cent: sql<number>`coalesce(sum(${helperHourExpenses.betrag_cent}), 0)`,
 			})
@@ -79,6 +111,43 @@ export async function listHelperHours() {
 				desc(helperHourExpenses.erstellt_am),
 			)
 			.limit(500),
+		db
+			.select({ year: yearExpression })
+			.from(helperHours)
+			.groupBy(yearExpression)
+			.orderBy(desc(yearExpression)),
+		db
+			.select({
+				vorname: sql<string>`min(trim(${helperHours.vorname}))`,
+				nachname: sql<string>`min(trim(${helperHours.nachname}))`,
+				entries: sql<number>`count(*)`,
+				events: sql<number>`count(distinct lower(trim(${helperHours.veranstaltung})))`,
+				minutes: sql<number>`coalesce(sum(${helperHours.gemeldete_summe_minuten}), 0)`,
+				lastDate: sql<string>`max(${helperHours.datum})`,
+				gesamtverein: sql<number>`coalesce(sum(${helperHours.gesamtverein_minuten}), 0)`,
+				fussball: sql<number>`coalesce(sum(${helperHours.fussball_minuten}), 0)`,
+				korbball: sql<number>`coalesce(sum(${helperHours.korbball_minuten}), 0)`,
+				tischtennis: sql<number>`coalesce(sum(${helperHours.tischtennis_minuten}), 0)`,
+				darts: sql<number>`coalesce(sum(${helperHours.darts_minuten}), 0)`,
+				gymnastik: sql<number>`coalesce(sum(${helperHours.gymnastik_minuten}), 0)`,
+				senioren: sql<number>`coalesce(sum(${helperHours.senioren_minuten}), 0)`,
+				combo: sql<number>`coalesce(sum(${helperHours.combo_minuten}), 0)`,
+			})
+			.from(helperHours)
+			.where(
+				and(
+					period,
+					sql`length(trim(${helperHours.vorname} || ${helperHours.nachname})) > 0`,
+				),
+			)
+			.groupBy(
+				sql`lower(trim(${helperHours.vorname}))`,
+				sql`lower(trim(${helperHours.nachname}))`,
+			)
+			.orderBy(
+				desc(sql`sum(${helperHours.gemeldete_summe_minuten})`),
+				sql`min(trim(${helperHours.nachname}))`,
+			),
 	]);
 	const allocationRow = allocation[0];
 	const spentByDepartment = new Map(
@@ -105,11 +174,34 @@ export async function listHelperHours() {
 		minutes: Number(allocationRow?.gesamtverein ?? 0),
 		earnedCent: Number(allocationRow?.gesamtvereinCent ?? 0),
 	};
+	const periodAllocationRow = periodAllocation[0];
+	const distribution = HELPER_HOUR_CATEGORIES.map((category) => ({
+		...category,
+		minutes: Number(periodAllocationRow?.[category.code] ?? 0),
+	})).filter((category) => category.minutes > 0);
+	const helpers = helperRows.map((helper) => ({
+		vorname: helper.vorname,
+		nachname: helper.nachname,
+		entries: Number(helper.entries),
+		events: Number(helper.events),
+		minutes: Number(helper.minutes),
+		lastDate: helper.lastDate,
+		allocations: Object.fromEntries(
+			HELPER_HOUR_CATEGORIES.map((category) => [
+				category.code,
+				Number(helper[category.code]),
+			]),
+		) as Record<(typeof HELPER_HOUR_CATEGORIES)[number]["code"], number>,
+	}));
 	return {
 		items,
 		expenses,
 		budgets,
 		contribution,
+		distribution,
+		helpers,
+		years: years.map((entry) => Number(entry.year)),
+		selectedYear: year ?? null,
 		valueCent,
 		summary: {
 			entries: Number(summary[0]?.entries ?? 0),

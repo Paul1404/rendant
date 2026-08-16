@@ -3,6 +3,19 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.37.0 - 2026-08-16
+
+- Die Helferstunden haben jetzt eine Jahresauswahl. Kennzahlen, Zuordnungen und
+  letzte Einsätze lassen sich für ein einzelnes Jahr oder über alle Jahre
+  betrachten.
+- Eine neue Übersicht zeigt für jeden Helfer Stunden, Einsatzanzahl,
+  unterschiedliche Veranstaltungen, den letzten Einsatz und die wichtigsten
+  Zuordnungen. Suche, sortierbare Spalten und Seitennavigation halten auch
+  größere Helferlisten übersichtlich.
+- Die Jahresauswertung zeigt zusätzlich den Durchschnitt pro Helfer und die
+  Verteilung der Stunden. Vereinsbeitrag und Abteilungsbudgets bleiben bewusst
+  kumuliert, damit ein Jahreswechsel kein verfügbares Guthaben ausblendet.
+
 ## 1.36.0 - 2026-08-16
 
 - Dem Gesamtverein zugeordnete Helferstunden erscheinen jetzt getrennt als

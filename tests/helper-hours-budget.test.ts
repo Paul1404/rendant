@@ -8,6 +8,7 @@ import {
 import {
 	HelperHourCreateSchema,
 	HelperHourExpenseCreateSchema,
+	HelperHourListSchema,
 } from "@/lib/schemas";
 
 const baseExpense = {
@@ -19,6 +20,17 @@ const baseExpense = {
 };
 
 describe("helper-hour club contribution", () => {
+	it("validates optional reporting years", () => {
+		expect(v.safeParse(HelperHourListSchema, {}).success).toBe(true);
+		expect(v.safeParse(HelperHourListSchema, { jahr: 2026 }).success).toBe(true);
+		expect(v.safeParse(HelperHourListSchema, { jahr: 1999 }).success).toBe(
+			false,
+		);
+		expect(v.safeParse(HelperHourListSchema, { jahr: 2026.5 }).success).toBe(
+			false,
+		);
+	});
+
 	it("keeps the club contribution as an hour allocation but not a budget", () => {
 		expect(HELPER_HOUR_CATEGORY_CODES).toContain("gesamtverein");
 		expect(HELPER_HOUR_BUDGET_CATEGORY_CODES).not.toContain("gesamtverein");

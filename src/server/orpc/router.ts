@@ -13,6 +13,7 @@ import {
 	HelperHourCreateSchema,
 	HelperHourExpenseCancelSchema,
 	HelperHourExpenseCreateSchema,
+	HelperHourListSchema,
 	HelperHourValueSchema,
 	HistoricalProtocolDraftAnalyzeSchema,
 	HistoricalProtocolDraftBulkUpdateSchema,
@@ -1278,7 +1279,9 @@ const reports = {
 };
 
 const helperHours = {
-	list: authed.handler(() => listHelperHours()),
+	list: authed
+		.input(HelperHourListSchema)
+		.handler(({ input }) => listHelperHours(input.jahr)),
 	create: authed.input(HelperHourCreateSchema).handler(({ input, context }) =>
 		createHelperHour(input, context.user, {
 			request: requestAuditContext(context),
