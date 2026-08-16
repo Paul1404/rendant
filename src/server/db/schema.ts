@@ -345,6 +345,71 @@ export const appSettings = pgTable(
 	],
 );
 
+export const helperHours = pgTable(
+	"helper_hours",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		idempotency_key: uuid("idempotency_key").notNull().unique(),
+		datum: date("datum", { mode: "string" }).notNull(),
+		veranstaltung: text("veranstaltung").notNull(),
+		nachname: text("nachname").notNull().default(""),
+		vorname: text("vorname").notNull().default(""),
+		gesamtverein_minuten: integer("gesamtverein_minuten").notNull().default(0),
+		fussball_minuten: integer("fussball_minuten").notNull().default(0),
+		korbball_minuten: integer("korbball_minuten").notNull().default(0),
+		tischtennis_minuten: integer("tischtennis_minuten").notNull().default(0),
+		darts_minuten: integer("darts_minuten").notNull().default(0),
+		gymnastik_minuten: integer("gymnastik_minuten").notNull().default(0),
+		senioren_minuten: integer("senioren_minuten").notNull().default(0),
+		combo_minuten: integer("combo_minuten").notNull().default(0),
+		gemeldete_summe_minuten: integer("gemeldete_summe_minuten").notNull(),
+		bemerkung: text("bemerkung").notNull().default(""),
+		quelle: text("quelle").notNull().default("manuell"),
+		quelle_datei: text("quelle_datei"),
+		quelle_sha256: text("quelle_sha256"),
+		quelle_blatt: text("quelle_blatt"),
+		quelle_zeile: integer("quelle_zeile"),
+		import_warnungen: jsonb("import_warnungen")
+			.$type<string[]>()
+			.notNull()
+			.default([]),
+		erstellt_von_user_id: text("erstellt_von_user_id").notNull(),
+		erstellt_von_name: text("erstellt_von_name").notNull(),
+		erstellt_am: timestamp("erstellt_am", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		uniqueIndex("helper_hours_source_row_unique").on(
+			t.quelle_sha256,
+			t.quelle_blatt,
+			t.quelle_zeile,
+		),
+		index("idx_helper_hours_datum").on(t.datum),
+		index("idx_helper_hours_name").on(t.nachname, t.vorname),
+		check(
+			"helper_hours_event_check",
+			sql`length(trim(${t.veranstaltung})) BETWEEN 1 AND 160`,
+		),
+		check(
+			"helper_hours_name_check",
+			sql`length(trim(${t.nachname} || ${t.vorname})) > 0 OR ${t.quelle} = 'excel'`,
+		),
+		check(
+			"helper_hours_source_check",
+			sql`${t.quelle} IN ('manuell', 'excel')`,
+		),
+		check(
+			"helper_hours_minutes_check",
+			sql`${t.gesamtverein_minuten} >= 0 AND ${t.fussball_minuten} >= 0 AND ${t.korbball_minuten} >= 0 AND ${t.tischtennis_minuten} >= 0 AND ${t.darts_minuten} >= 0 AND ${t.gymnastik_minuten} >= 0 AND ${t.senioren_minuten} >= 0 AND ${t.combo_minuten} >= 0 AND ${t.gemeldete_summe_minuten} > 0`,
+		),
+		check(
+			"helper_hours_manual_total_check",
+			sql`${t.quelle} = 'excel' OR ${t.gemeldete_summe_minuten} = ${t.gesamtverein_minuten} + ${t.fussball_minuten} + ${t.korbball_minuten} + ${t.tischtennis_minuten} + ${t.darts_minuten} + ${t.gymnastik_minuten} + ${t.senioren_minuten} + ${t.combo_minuten}`,
+		),
+	],
+);
+
 export const loginAttempts = pgTable(
 	"login_attempts",
 	{

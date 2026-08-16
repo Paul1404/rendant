@@ -21,12 +21,14 @@ import { Route as ProtokolleIdRouteImport } from './routes/protokolle/$id'
 import { Route as ProtokolleAuditRouteImport } from './routes/protokolle/audit'
 import { Route as ProtokolleEinstellungenRouteImport } from './routes/protokolle/einstellungen'
 import { Route as ProtokolleExportRouteImport } from './routes/protokolle/export'
+import { Route as ProtokolleHelferstundenRouteImport } from './routes/protokolle/helferstunden'
 import { Route as ProtokolleNeuRouteImport } from './routes/protokolle/neu'
 import { Route as ProtokolleUmsaetzeRouteImport } from './routes/protokolle/umsaetze'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiExportJsonRouteImport } from './routes/api/export.json'
 import { Route as ApiExportRevenueRouteImport } from './routes/api/export.revenue'
 import { Route as ApiExportUstRouteImport } from './routes/api/export.ust'
+import { Route as ApiImportHelperHoursRouteImport } from './routes/api/import.helper-hours'
 import { Route as ApiImportHistoricalProtocolsRouteImport } from './routes/api/import.historical-protocols'
 import { Route as ApiImportHistoricalSourcesRouteImport } from './routes/api/import.historical-sources'
 import { Route as ApiImportRevenueRouteImport } from './routes/api/import.revenue'
@@ -97,6 +99,11 @@ const ProtokolleExportRoute = ProtokolleExportRouteImport.update({
   path: '/export',
   getParentRoute: () => ProtokolleRouteRoute,
 } as any)
+const ProtokolleHelferstundenRoute = ProtokolleHelferstundenRouteImport.update({
+  id: '/helferstunden',
+  path: '/helferstunden',
+  getParentRoute: () => ProtokolleRouteRoute,
+} as any)
 const ProtokolleNeuRoute = ProtokolleNeuRouteImport.update({
   id: '/neu',
   path: '/neu',
@@ -126,6 +133,11 @@ const ApiExportUstRoute = ApiExportUstRouteImport.update({
   id: '/ust',
   path: '/ust',
   getParentRoute: () => ApiExportRoute,
+} as any)
+const ApiImportHelperHoursRoute = ApiImportHelperHoursRouteImport.update({
+  id: '/api/import/helper-hours',
+  path: '/api/import/helper-hours',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiImportHistoricalProtocolsRoute =
   ApiImportHistoricalProtocolsRouteImport.update({
@@ -190,6 +202,7 @@ export interface FileRoutesByFullPath {
   '/protokolle/audit': typeof ProtokolleAuditRoute
   '/protokolle/einstellungen': typeof ProtokolleEinstellungenRoute
   '/protokolle/export': typeof ProtokolleExportRoute
+  '/protokolle/helferstunden': typeof ProtokolleHelferstundenRoute
   '/protokolle/neu': typeof ProtokolleNeuRoute
   '/protokolle/umsaetze': typeof ProtokolleUmsaetzeRoute
   '/protokolle/': typeof ProtokolleIndexRoute
@@ -197,6 +210,7 @@ export interface FileRoutesByFullPath {
   '/api/export/json': typeof ApiExportJsonRoute
   '/api/export/revenue': typeof ApiExportRevenueRouteWithChildren
   '/api/export/ust': typeof ApiExportUstRoute
+  '/api/import/helper-hours': typeof ApiImportHelperHoursRoute
   '/api/import/historical-protocols': typeof ApiImportHistoricalProtocolsRoute
   '/api/import/historical-sources': typeof ApiImportHistoricalSourcesRoute
   '/api/import/revenue': typeof ApiImportRevenueRouteWithChildren
@@ -218,6 +232,7 @@ export interface FileRoutesByTo {
   '/protokolle/audit': typeof ProtokolleAuditRoute
   '/protokolle/einstellungen': typeof ProtokolleEinstellungenRoute
   '/protokolle/export': typeof ProtokolleExportRoute
+  '/protokolle/helferstunden': typeof ProtokolleHelferstundenRoute
   '/protokolle/neu': typeof ProtokolleNeuRoute
   '/protokolle/umsaetze': typeof ProtokolleUmsaetzeRoute
   '/protokolle': typeof ProtokolleIndexRoute
@@ -225,6 +240,7 @@ export interface FileRoutesByTo {
   '/api/export/json': typeof ApiExportJsonRoute
   '/api/export/revenue': typeof ApiExportRevenueRouteWithChildren
   '/api/export/ust': typeof ApiExportUstRoute
+  '/api/import/helper-hours': typeof ApiImportHelperHoursRoute
   '/api/import/historical-protocols': typeof ApiImportHistoricalProtocolsRoute
   '/api/import/historical-sources': typeof ApiImportHistoricalSourcesRoute
   '/api/import/revenue': typeof ApiImportRevenueRouteWithChildren
@@ -248,6 +264,7 @@ export interface FileRoutesById {
   '/protokolle/audit': typeof ProtokolleAuditRoute
   '/protokolle/einstellungen': typeof ProtokolleEinstellungenRoute
   '/protokolle/export': typeof ProtokolleExportRoute
+  '/protokolle/helferstunden': typeof ProtokolleHelferstundenRoute
   '/protokolle/neu': typeof ProtokolleNeuRoute
   '/protokolle/umsaetze': typeof ProtokolleUmsaetzeRoute
   '/protokolle/': typeof ProtokolleIndexRoute
@@ -255,6 +272,7 @@ export interface FileRoutesById {
   '/api/export/json': typeof ApiExportJsonRoute
   '/api/export/revenue': typeof ApiExportRevenueRouteWithChildren
   '/api/export/ust': typeof ApiExportUstRoute
+  '/api/import/helper-hours': typeof ApiImportHelperHoursRoute
   '/api/import/historical-protocols': typeof ApiImportHistoricalProtocolsRoute
   '/api/import/historical-sources': typeof ApiImportHistoricalSourcesRoute
   '/api/import/revenue': typeof ApiImportRevenueRouteWithChildren
@@ -279,6 +297,7 @@ export interface FileRouteTypes {
     | '/protokolle/audit'
     | '/protokolle/einstellungen'
     | '/protokolle/export'
+    | '/protokolle/helferstunden'
     | '/protokolle/neu'
     | '/protokolle/umsaetze'
     | '/protokolle/'
@@ -286,6 +305,7 @@ export interface FileRouteTypes {
     | '/api/export/json'
     | '/api/export/revenue'
     | '/api/export/ust'
+    | '/api/import/helper-hours'
     | '/api/import/historical-protocols'
     | '/api/import/historical-sources'
     | '/api/import/revenue'
@@ -307,6 +327,7 @@ export interface FileRouteTypes {
     | '/protokolle/audit'
     | '/protokolle/einstellungen'
     | '/protokolle/export'
+    | '/protokolle/helferstunden'
     | '/protokolle/neu'
     | '/protokolle/umsaetze'
     | '/protokolle'
@@ -314,6 +335,7 @@ export interface FileRouteTypes {
     | '/api/export/json'
     | '/api/export/revenue'
     | '/api/export/ust'
+    | '/api/import/helper-hours'
     | '/api/import/historical-protocols'
     | '/api/import/historical-sources'
     | '/api/import/revenue'
@@ -336,6 +358,7 @@ export interface FileRouteTypes {
     | '/protokolle/audit'
     | '/protokolle/einstellungen'
     | '/protokolle/export'
+    | '/protokolle/helferstunden'
     | '/protokolle/neu'
     | '/protokolle/umsaetze'
     | '/protokolle/'
@@ -343,6 +366,7 @@ export interface FileRouteTypes {
     | '/api/export/json'
     | '/api/export/revenue'
     | '/api/export/ust'
+    | '/api/import/helper-hours'
     | '/api/import/historical-protocols'
     | '/api/import/historical-sources'
     | '/api/import/revenue'
@@ -363,6 +387,7 @@ export interface RootRouteChildren {
   ApiMcpRoute: typeof ApiMcpRoute
   InviteTokenRoute: typeof InviteTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiImportHelperHoursRoute: typeof ApiImportHelperHoursRoute
   ApiImportHistoricalProtocolsRoute: typeof ApiImportHistoricalProtocolsRoute
   ApiImportHistoricalSourcesRoute: typeof ApiImportHistoricalSourcesRoute
   ApiImportRevenueRoute: typeof ApiImportRevenueRouteWithChildren
@@ -458,6 +483,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtokolleExportRouteImport
       parentRoute: typeof ProtokolleRouteRoute
     }
+    '/protokolle/helferstunden': {
+      id: '/protokolle/helferstunden'
+      path: '/helferstunden'
+      fullPath: '/protokolle/helferstunden'
+      preLoaderRoute: typeof ProtokolleHelferstundenRouteImport
+      parentRoute: typeof ProtokolleRouteRoute
+    }
     '/protokolle/neu': {
       id: '/protokolle/neu'
       path: '/neu'
@@ -499,6 +531,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/export/ust'
       preLoaderRoute: typeof ApiExportUstRouteImport
       parentRoute: typeof ApiExportRoute
+    }
+    '/api/import/helper-hours': {
+      id: '/api/import/helper-hours'
+      path: '/api/import/helper-hours'
+      fullPath: '/api/import/helper-hours'
+      preLoaderRoute: typeof ApiImportHelperHoursRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/import/historical-protocols': {
       id: '/api/import/historical-protocols'
@@ -571,6 +610,7 @@ interface ProtokolleRouteRouteChildren {
   ProtokolleAuditRoute: typeof ProtokolleAuditRoute
   ProtokolleEinstellungenRoute: typeof ProtokolleEinstellungenRoute
   ProtokolleExportRoute: typeof ProtokolleExportRoute
+  ProtokolleHelferstundenRoute: typeof ProtokolleHelferstundenRoute
   ProtokolleNeuRoute: typeof ProtokolleNeuRoute
   ProtokolleUmsaetzeRoute: typeof ProtokolleUmsaetzeRoute
   ProtokolleIndexRoute: typeof ProtokolleIndexRoute
@@ -581,6 +621,7 @@ const ProtokolleRouteRouteChildren: ProtokolleRouteRouteChildren = {
   ProtokolleAuditRoute: ProtokolleAuditRoute,
   ProtokolleEinstellungenRoute: ProtokolleEinstellungenRoute,
   ProtokolleExportRoute: ProtokolleExportRoute,
+  ProtokolleHelferstundenRoute: ProtokolleHelferstundenRoute,
   ProtokolleNeuRoute: ProtokolleNeuRoute,
   ProtokolleUmsaetzeRoute: ProtokolleUmsaetzeRoute,
   ProtokolleIndexRoute: ProtokolleIndexRoute,
@@ -637,6 +678,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMcpRoute: ApiMcpRoute,
   InviteTokenRoute: InviteTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiImportHelperHoursRoute: ApiImportHelperHoursRoute,
   ApiImportHistoricalProtocolsRoute: ApiImportHistoricalProtocolsRoute,
   ApiImportHistoricalSourcesRoute: ApiImportHistoricalSourcesRoute,
   ApiImportRevenueRoute: ApiImportRevenueRouteWithChildren,

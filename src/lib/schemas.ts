@@ -1,6 +1,7 @@
 import * as v from "valibot";
 import { isIsoCalendarDate, todayIsoDate } from "@/lib/date";
 import { DENOMINATION_KEYS } from "@/lib/denominations";
+import { HELPER_HOUR_CATEGORIES } from "@/lib/helper-hours";
 import { UMSATZBEREICHE } from "@/lib/umsatzbereich";
 
 // Validation schemas in Valibot, shared between the oRPC procedures (server)
@@ -157,6 +158,41 @@ export const CreateProtokollSchema = v.object({
 	umsatz_ust_basis: v.optional(UmsatzUstBasisSchema, "post_card"),
 });
 export type CreateProtokollInput = v.InferOutput<typeof CreateProtokollSchema>;
+
+export const HelperHourCreateSchema = v.object({
+	idempotency_key: v.pipe(v.string(), v.uuid()),
+	datum: isoCalendarDate,
+	veranstaltung: v.pipe(
+		v.string(),
+		v.trim(),
+		v.minLength(1, "Bitte eine Veranstaltung angeben"),
+		v.maxLength(160),
+	),
+	nachname: v.pipe(
+		v.string(),
+		v.trim(),
+		v.minLength(1, "Bitte den Nachnamen angeben"),
+		v.maxLength(120),
+	),
+	vorname: v.pipe(
+		v.string(),
+		v.trim(),
+		v.minLength(1, "Bitte den Vornamen angeben"),
+		v.maxLength(120),
+	),
+	kategorie: v.picklist(HELPER_HOUR_CATEGORIES.map((entry) => entry.code)),
+	minuten: v.pipe(
+		v.number(),
+		v.integer(),
+		v.minValue(15),
+		v.maxValue(1440),
+		v.check((value) => value % 15 === 0, "Bitte auf Viertelstunden runden"),
+	),
+	bemerkung: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(1000)), ""),
+});
+export type HelperHourCreateInput = v.InferOutput<
+	typeof HelperHourCreateSchema
+>;
 
 export const StornoSchema = v.object({
 	storno_grund: v.pipe(v.string(), v.minLength(5), v.maxLength(500)),
