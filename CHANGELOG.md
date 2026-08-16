@@ -3,6 +3,17 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.33.0 - 2026-08-16
+
+- Helferstunden haben jetzt einen eigenen Bereich neben den Protokollen. Neue
+  Einsätze lassen sich mit Datum, Person, Veranstaltung, Zuordnung und schnellen
+  Stundenvorschlägen erfassen.
+- Die bisherige SVU-Excel-Liste kann vor dem Import vollständig geprüft werden.
+  Rendant zeigt fehlende Namen, Summenabweichungen und bereits übernommene
+  Zeilen, bevor Daten verbindlich gespeichert werden.
+- Die Übersicht zeigt Gesamtstunden, Helferzahl und die neuesten Einträge.
+  Dateiherkunft und Importhinweise bleiben für spätere Rückfragen erhalten.
+
 ## 1.32.0 - 2026-08-11
 
 - Im Vorjahresvergleich lassen sich jetzt einzelne Jahre aufklappen. Die

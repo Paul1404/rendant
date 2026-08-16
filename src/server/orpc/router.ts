@@ -10,6 +10,7 @@ import {
 	CreateProtokollSchema,
 	EmailSettingsSchema,
 	ExportQuerySchema,
+	HelperHourCreateSchema,
 	HistoricalProtocolDraftAnalyzeSchema,
 	HistoricalProtocolDraftBulkUpdateSchema,
 	HistoricalProtocolDraftGetSchema,
@@ -69,6 +70,10 @@ import {
 	sendTestEmail,
 	updateEmailSettings,
 } from "@/server/services/email";
+import {
+	createHelperHour,
+	listHelperHours,
+} from "@/server/services/helper-hours";
 import {
 	analyzeHistoricalProtocolImportDraft,
 	applyHistoricalProtocolImportDraft,
@@ -1244,6 +1249,15 @@ const reports = {
 		.handler(({ input }) => vatSummary(input.von, input.bis)),
 };
 
+const helperHours = {
+	list: authed.handler(() => listHelperHours()),
+	create: authed.input(HelperHourCreateSchema).handler(({ input, context }) =>
+		createHelperHour(input, context.user, {
+			request: requestAuditContext(context),
+		}),
+	),
+};
+
 // ---- Audit log ----------------------------------------------------------
 
 const audit = {
@@ -1284,6 +1298,7 @@ export const router = {
 	profile,
 	historicalRevenue,
 	historicalProtocolImport,
+	helperHours,
 	reports,
 	audit,
 	health,

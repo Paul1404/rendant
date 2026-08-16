@@ -148,6 +148,20 @@
       "when": 1786460115780,
       "tag": "0020_mysterious_sway",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1786892918772,
+      "tag": "0021_charming_ultimo",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1786893023673,
+      "tag": "0022_hot_smiling_tiger",
+      "breakpoints": true
     }
   ]
 }

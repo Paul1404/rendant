@@ -1,6 +1,7 @@
 import {
 	ChartNoAxesColumnIncreasing,
 	Download,
+	HandHelping,
 	List,
 	type LucideIcon,
 	Plus,
@@ -12,6 +13,7 @@ export type AppNavHref =
 	| "/protokolle"
 	| "/protokolle/neu"
 	| "/protokolle/umsaetze"
+	| "/protokolle/helferstunden"
 	| "/protokolle/export"
 	| "/protokolle/audit"
 	| "/protokolle/einstellungen";
@@ -31,6 +33,11 @@ export const APP_NAV_ITEMS: readonly AppNavItem[] = [
 		label: "Protokolle",
 		icon: List,
 		exact: true,
+	},
+	{
+		href: "/protokolle/helferstunden",
+		label: "Helferstunden",
+		icon: HandHelping,
 	},
 	{
 		href: "/protokolle/neu",

@@ -38,6 +38,9 @@ update the appropriate canonical documentation in the same change.
 - Historical protocol review phases store exact row memberships and progress.
   Changing a working value reopens affected checks, and only the explicit final
   import may create historical revenue records.
+- Helferstunden imports use preview, file digest and source sheet/row
+  idempotency. Preserve reported totals and category allocations separately so
+  legacy discrepancies stay visible instead of being silently rewritten.
 
 ## Versions and release notes
 

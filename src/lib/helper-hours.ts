@@ -1,0 +1,19 @@
+export const HELPER_HOUR_CATEGORIES = [
+	{ code: "gesamtverein", label: "Gesamtverein" },
+	{ code: "fussball", label: "Fußball" },
+	{ code: "korbball", label: "Korbball" },
+	{ code: "tischtennis", label: "Tischtennis" },
+	{ code: "darts", label: "Darts" },
+	{ code: "gymnastik", label: "Gymnastik" },
+	{ code: "senioren", label: "Senioren" },
+	{ code: "combo", label: "Combo" },
+] as const;
+
+export type HelperHourCategory =
+	(typeof HELPER_HOUR_CATEGORIES)[number]["code"];
+
+export function formatMinutes(minutes: number): string {
+	return new Intl.NumberFormat("de-DE", { maximumFractionDigits: 2 }).format(
+		minutes / 60,
+	);
+}

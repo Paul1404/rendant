@@ -7,6 +7,7 @@ export const AUDIT_CATEGORIES = [
 	"settings",
 	"kassen",
 	"anlass",
+	"helferstunden",
 ] as const;
 
 export type AuditCategory = (typeof AUDIT_CATEGORIES)[number];
@@ -39,6 +40,7 @@ export const AUDIT_CATEGORY_LABELS: Record<string, string> = {
 	settings: "Einstellungen",
 	kassen: "Kassen",
 	anlass: "Umsatzgruppen",
+	helferstunden: "Helferstunden",
 };
 
 export const AUDIT_ACTION_LABELS: Record<string, string> = {
@@ -101,6 +103,9 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
 	"anlass.updated": "Umsatzgruppe geändert",
 	"anlass.deleted": "Umsatzgruppe gelöscht",
 	"anlass.bulk_assigned": "Umsatzgruppen gesammelt zugeordnet",
+	"helferstunden.created": "Helferstunde erfasst",
+	"helferstunden.import_previewed": "Helferstundenimport geprüft",
+	"helferstunden.imported": "Helferstunden importiert",
 };
 
 export function auditActionLabel(action: string): string {
