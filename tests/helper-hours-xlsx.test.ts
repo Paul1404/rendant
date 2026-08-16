@@ -38,6 +38,8 @@ function exportData() {
 				quelle_blatt: null,
 				quelle_zeile: null,
 				import_warnungen: [],
+				import_originalwerte: null,
+				import_korrektur: null,
 				erstellt_von_user_id: "user-1",
 				erstellt_von_name: "Admin",
 				erstellt_am: new Date("2026-07-12T12:00:00Z"),

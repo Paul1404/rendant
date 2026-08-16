@@ -330,6 +330,10 @@ export async function importHelperHours(
 	rows: HelperHoursImportRow[],
 	actor: AuthUser,
 	audit: Pick<RecordAuditInput, "request" | "subject">,
+	review: { corrected: number; accepted: number } = {
+		corrected: 0,
+		accepted: 0,
+	},
 ) {
 	return db.transaction(async (tx) => {
 		let created = 0;
@@ -351,6 +355,8 @@ export async function importHelperHours(
 					quelle_blatt: row.sheet,
 					quelle_zeile: row.rowNumber,
 					import_warnungen: row.warnings,
+					import_originalwerte: row.originalValues,
+					import_korrektur: row.correction,
 					erstellt_von_user_id: actor.id,
 					erstellt_von_name: actor.name,
 				})
@@ -370,7 +376,12 @@ export async function importHelperHours(
 			actor,
 			request: audit.request,
 			subject: audit.subject,
-			metadata: { erstellt: created, zeilen: rows.length },
+			metadata: {
+				erstellt: created,
+				zeilen: rows.length,
+				korrigierte_zeilen: review.corrected,
+				bewusst_uebernommene_hinweise: review.accepted,
+			},
 		});
 		return { created, skipped: rows.length - created };
 	});

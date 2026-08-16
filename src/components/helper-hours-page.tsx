@@ -1,8 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+	AlertTriangle,
+	CheckCircle2,
 	Download,
 	FileCheck2,
 	Loader2,
+	Pencil,
 	Plus,
 	ReceiptText,
 	RotateCcw,
@@ -19,6 +22,14 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -49,6 +60,7 @@ type Preview = {
 	warnings: number;
 	errors: Array<{ sheet: string; row: number; message: string }>;
 	warningSample: Array<{ sheet: string; row: number; warnings: string[] }>;
+	reviewRows: HelperHoursReviewRow[];
 	sample: Array<{
 		sheet: string;
 		row: number;
@@ -59,6 +71,34 @@ type Preview = {
 		warnings: string[];
 	}>;
 };
+
+type HelperHoursImportIssue =
+	| "missing_name"
+	| "derived_total"
+	| "unassigned"
+	| "total_mismatch";
+type HelperHoursAllocations = Record<`${HelperHourCategory}_minuten`, number>;
+type HelperHoursReviewRow = {
+	sheet: string;
+	rowNumber: number;
+	date: string;
+	event: string;
+	vorname: string;
+	nachname: string;
+	allocations: HelperHoursAllocations;
+	gemeldete_summe_minuten: number;
+	issues: HelperHoursImportIssue[];
+	warnings: string[];
+};
+type HelperHoursCorrection = Pick<
+	HelperHoursReviewRow,
+	| "sheet"
+	| "rowNumber"
+	| "vorname"
+	| "nachname"
+	| "allocations"
+	| "gemeldete_summe_minuten"
+> & { acceptedIssues: HelperHoursImportIssue[] };
 
 function parseHours(value: string): number | null {
 	const hours = Number(value.trim().replace(",", "."));
@@ -746,7 +786,27 @@ function HelperHoursImport({
 	const input = useRef<HTMLInputElement | null>(null);
 	const [file, setFile] = useState<File | null>(null);
 	const [preview, setPreview] = useState<Preview | null>(null);
+	const [corrections, setCorrections] = useState<
+		Record<string, HelperHoursCorrection>
+	>({});
+	const [editing, setEditing] = useState<HelperHoursReviewRow | null>(null);
 	const [loading, setLoading] = useState<"preview" | "apply" | null>(null);
+	const reviewKey = (row: Pick<HelperHoursReviewRow, "sheet" | "rowNumber">) =>
+		`${row.sheet}:${row.rowNumber}`;
+	const resolvedIssues = preview
+		? preview.reviewRows.reduce((sum, row) => {
+				const correction = corrections[reviewKey(row)];
+				return (
+					sum +
+					row.issues.filter((issue) =>
+						isHelperHoursIssueResolved(issue, correction),
+					).length
+				);
+			}, 0)
+		: 0;
+	const totalIssues =
+		preview?.reviewRows.reduce((sum, row) => sum + row.issues.length, 0) ?? 0;
+	const openIssues = totalIssues - resolvedIssues;
 	async function send(mode: "preview" | "apply") {
 		if (!file) return;
 		setLoading(mode);
@@ -756,6 +816,8 @@ function HelperHoursImport({
 			body.set("mode", mode);
 			if (mode === "apply" && preview)
 				body.set("confirm_digest", preview.digest);
+			if (mode === "apply")
+				body.set("corrections", JSON.stringify(Object.values(corrections)));
 			const response = await fetch("/api/import/helper-hours", {
 				method: "POST",
 				body,
@@ -768,6 +830,22 @@ function HelperHoursImport({
 				throw new Error(result.error ?? "Import fehlgeschlagen");
 			if (mode === "preview") {
 				setPreview(result);
+				setCorrections(
+					Object.fromEntries(
+						result.reviewRows.map((row) => [
+							reviewKey(row),
+							{
+								sheet: row.sheet,
+								rowNumber: row.rowNumber,
+								vorname: row.vorname,
+								nachname: row.nachname,
+								allocations: { ...row.allocations },
+								gemeldete_summe_minuten: row.gemeldete_summe_minuten,
+								acceptedIssues: [],
+							},
+						]),
+					),
+				);
 				toast[result.valid ? "success" : "error"](
 					result.valid
 						? "Datei erfolgreich geprüft"
@@ -777,6 +855,7 @@ function HelperHoursImport({
 				toast.success(`${result.created ?? 0} Helferstunden importiert`);
 				setFile(null);
 				setPreview(null);
+				setCorrections({});
 				if (input.current) input.current.value = "";
 				await onImported();
 			}
@@ -789,7 +868,7 @@ function HelperHoursImport({
 		}
 	}
 	function confirmImport() {
-		if (!preview?.valid || preview.toImport <= 0) return;
+		if (!preview?.valid || preview.toImport <= 0 || openIssues > 0) return;
 		const hint =
 			preview.warnings > 0
 				? ` ${preview.warnings} Hinweise bleiben zur Herkunft gespeichert.`
@@ -822,6 +901,7 @@ function HelperHoursImport({
 						onChange={(e) => {
 							setFile(e.target.files?.[0] ?? null);
 							setPreview(null);
+							setCorrections({});
 						}}
 					/>
 					<Button
@@ -856,19 +936,79 @@ function HelperHoursImport({
 								))}
 							</ul>
 						) : null}
-						{preview.warningSample.length ? (
-							<ul className="mt-3 space-y-1 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-100">
-								{preview.warningSample.map((entry) => (
-									<li key={`${entry.sheet}-${entry.row}`}>
-										{entry.sheet} Zeile {entry.row}: {entry.warnings.join(" ")}
-									</li>
-								))}
-							</ul>
+						{preview.reviewRows.length ? (
+							<div className="mt-4 space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
+								<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+									<div>
+										<p className="flex items-center gap-2 text-sm font-semibold text-amber-950 dark:text-amber-50">
+											<AlertTriangle className="h-4 w-4" />
+											{resolvedIssues} von {totalIssues} Hinweisen geklärt
+										</p>
+										<p className="mt-0.5 text-xs text-amber-900/80 dark:text-amber-100/80">
+											Originalwerte bleiben erhalten. Öffne eine Zeile zum
+											Korrigieren.
+										</p>
+									</div>
+									<div className="h-2 w-full overflow-hidden rounded-full bg-amber-950/10 sm:w-40">
+										<div
+											className="h-full rounded-full bg-primary transition-all"
+											style={{
+												width: `${totalIssues ? (resolvedIssues / totalIssues) * 100 : 100}%`,
+											}}
+										/>
+									</div>
+								</div>
+								<div className="grid gap-2 lg:grid-cols-2">
+									{preview.reviewRows.map((row) => {
+										const correction = corrections[reviewKey(row)];
+										const resolved = row.issues.every((issue) =>
+											isHelperHoursIssueResolved(issue, correction),
+										);
+										return (
+											<button
+												type="button"
+												key={reviewKey(row)}
+												className="flex items-start gap-3 rounded-lg border bg-background/80 p-3 text-left transition-colors hover:bg-background"
+												onClick={() => setEditing(row)}
+											>
+												{resolved ? (
+													<CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+												) : (
+													<Pencil className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" />
+												)}
+												<span className="min-w-0 flex-1">
+													<span className="block text-xs font-semibold">
+														{row.sheet} · Zeile {row.rowNumber} · {row.event}
+													</span>
+													<span className="mt-1 block text-xs text-muted-foreground">
+														{resolved ? "Geprüft" : row.warnings.join(" ")}
+													</span>
+												</span>
+											</button>
+										);
+									})}
+								</div>
+							</div>
 						) : null}
 						{preview.valid && preview.toImport > 0 ? (
 							<Button
 								className="mt-4 w-full"
-								onClick={confirmImport}
+								onClick={() => {
+									if (openIssues > 0) {
+										const next = preview.reviewRows.find((row) =>
+											row.issues.some(
+												(issue) =>
+													!isHelperHoursIssueResolved(
+														issue,
+														corrections[reviewKey(row)],
+													),
+											),
+										);
+										setEditing(next ?? null);
+										return;
+									}
+									confirmImport();
+								}}
 								disabled={loading !== null}
 							>
 								{loading === "apply" ? (
@@ -876,12 +1016,334 @@ function HelperHoursImport({
 								) : (
 									<Upload className="mr-2 h-4 w-4" />
 								)}
-								{preview.toImport} Einträge importieren
+								{openIssues > 0
+									? `${openIssues} Hinweise prüfen`
+									: `${preview.toImport} geprüfte Einträge importieren`}
 							</Button>
 						) : null}
 					</div>
 				) : null}
 			</CardContent>
+			<HelperHoursCorrectionDialog
+				row={editing}
+				value={editing ? corrections[reviewKey(editing)] : undefined}
+				onOpenChange={(open) => {
+					if (!open) setEditing(null);
+				}}
+				onSave={(value) => {
+					setCorrections((current) => ({
+						...current,
+						[reviewKey(value)]: value,
+					}));
+					setEditing(null);
+				}}
+			/>
 		</Card>
+	);
+}
+
+function isHelperHoursIssueResolved(
+	issue: HelperHoursImportIssue,
+	correction: HelperHoursCorrection | undefined,
+) {
+	if (!correction) return false;
+	if (correction.acceptedIssues.includes(issue)) return true;
+	if (issue === "missing_name")
+		return Boolean(correction.vorname.trim() && correction.nachname.trim());
+	const allocated = Object.values(correction.allocations).reduce(
+		(sum, value) => sum + value,
+		0,
+	);
+	if (issue === "total_mismatch")
+		return correction.gemeldete_summe_minuten === allocated;
+	if (issue === "unassigned")
+		return (
+			correction.allocations.gesamtverein_minuten !==
+			correction.gemeldete_summe_minuten
+		);
+	return false;
+}
+
+function HelperHoursCorrectionDialog({
+	row,
+	value,
+	onOpenChange,
+	onSave,
+}: {
+	row: HelperHoursReviewRow | null;
+	value: HelperHoursCorrection | undefined;
+	onOpenChange: (open: boolean) => void;
+	onSave: (value: HelperHoursCorrection) => void;
+}) {
+	const [working, setWorking] = useState<HelperHoursCorrection | null>(null);
+	useEffect(() => {
+		if (row && value)
+			setWorking({
+				...value,
+				allocations: { ...value.allocations },
+				acceptedIssues: [...value.acceptedIssues],
+			});
+	}, [row, value]);
+	if (!row || !working) return null;
+	const allocated = Object.values(working.allocations).reduce(
+		(sum, minutes) => sum + minutes,
+		0,
+	);
+	function toggleAccepted(issue: HelperHoursImportIssue) {
+		setWorking((current) =>
+			current
+				? {
+						...current,
+						acceptedIssues: current.acceptedIssues.includes(issue)
+							? current.acceptedIssues.filter((entry) => entry !== issue)
+							: [...current.acceptedIssues, issue],
+					}
+				: current,
+		);
+	}
+	function assignTotal(category: HelperHourCategory) {
+		setWorking((current) => {
+			if (!current) return current;
+			return {
+				...current,
+				acceptedIssues: current.acceptedIssues.filter(
+					(issue) => issue !== "unassigned" && issue !== "total_mismatch",
+				),
+				allocations: Object.fromEntries(
+					HELPER_HOUR_CATEGORIES.map((entry) => [
+						`${entry.code}_minuten`,
+						entry.code === category ? current.gemeldete_summe_minuten : 0,
+					]),
+				) as HelperHoursAllocations,
+			};
+		});
+	}
+	return (
+		<Dialog open onOpenChange={onOpenChange}>
+			<DialogContent className="sm:max-w-3xl">
+				<DialogHeader>
+					<DialogTitle>Importhinweise prüfen</DialogTitle>
+					<DialogDescription>
+						{row.sheet}, Zeile {row.rowNumber}: {row.event}. Korrekturen ändern
+						die Excel-Datei nicht.
+					</DialogDescription>
+				</DialogHeader>
+				<div className="space-y-5">
+					{row.issues.includes("missing_name") ? (
+						<CorrectionSection
+							title="Name vervollständigen"
+							resolved={isHelperHoursIssueResolved("missing_name", working)}
+							onAccept={() => toggleAccepted("missing_name")}
+							accepted={working.acceptedIssues.includes("missing_name")}
+						>
+							<div className="grid gap-3 sm:grid-cols-2">
+								<div className="space-y-1.5">
+									<Label>Vorname</Label>
+									<Input
+										value={working.vorname}
+										onChange={(event) =>
+											setWorking({
+												...working,
+												vorname: event.target.value,
+												acceptedIssues: working.acceptedIssues.filter(
+													(issue) => issue !== "missing_name",
+												),
+											})
+										}
+										maxLength={120}
+									/>
+								</div>
+								<div className="space-y-1.5">
+									<Label>Nachname</Label>
+									<Input
+										value={working.nachname}
+										onChange={(event) =>
+											setWorking({
+												...working,
+												nachname: event.target.value,
+												acceptedIssues: working.acceptedIssues.filter(
+													(issue) => issue !== "missing_name",
+												),
+											})
+										}
+										maxLength={120}
+									/>
+								</div>
+							</div>
+						</CorrectionSection>
+					) : null}
+					{row.issues.some((issue) => issue !== "missing_name") ? (
+						<CorrectionSection
+							title="Stunden und Zuordnung prüfen"
+							resolved={row.issues
+								.filter((issue) => issue !== "missing_name")
+								.every((issue) => isHelperHoursIssueResolved(issue, working))}
+						>
+							<div className="grid gap-3 sm:grid-cols-2">
+								<div className="rounded-lg border bg-muted/20 p-3">
+									<p className="text-xs text-muted-foreground">
+										Gemeldete Summe
+									</p>
+									<p className="mt-1 text-lg font-semibold tabular-nums">
+										{formatMinutes(working.gemeldete_summe_minuten)} h
+									</p>
+								</div>
+								<div className="rounded-lg border bg-muted/20 p-3">
+									<p className="text-xs text-muted-foreground">Zuordnung</p>
+									<p className="mt-1 text-lg font-semibold tabular-nums">
+										{formatMinutes(allocated)} h
+									</p>
+								</div>
+							</div>
+							{row.issues.includes("total_mismatch") ? (
+								<div className="space-y-2">
+									<div className="flex flex-col gap-2 sm:flex-row">
+										<Button
+											type="button"
+											variant="secondary"
+											onClick={() =>
+												setWorking({
+													...working,
+													gemeldete_summe_minuten: allocated,
+													acceptedIssues: working.acceptedIssues.filter(
+														(issue) => issue !== "total_mismatch",
+													),
+												})
+											}
+										>
+											Zuordnung als Summe verwenden
+										</Button>
+										<Button
+											type="button"
+											variant={
+												working.acceptedIssues.includes("total_mismatch")
+													? "default"
+													: "outline"
+											}
+											onClick={() => toggleAccepted("total_mismatch")}
+										>
+											Abweichung bewusst übernehmen
+										</Button>
+									</div>
+									<div className="space-y-1.5">
+										<Label>Oder gemeldete Summe vollständig zuordnen</Label>
+										<Select
+											onValueChange={(value) =>
+												assignTotal(value as HelperHourCategory)
+											}
+										>
+											<SelectTrigger className="w-full">
+												<SelectValue placeholder="Abteilung wählen" />
+											</SelectTrigger>
+											<SelectContent>
+												{HELPER_HOUR_CATEGORIES.map((entry) => (
+													<SelectItem key={entry.code} value={entry.code}>
+														{entry.label}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+									</div>
+								</div>
+							) : null}
+							{row.issues.includes("unassigned") ? (
+								<div className="space-y-1.5">
+									<Label>Gemeldete Summe einer Abteilung zuordnen</Label>
+									<Select
+										onValueChange={(value) =>
+											assignTotal(value as HelperHourCategory)
+										}
+									>
+										<SelectTrigger className="w-full">
+											<SelectValue placeholder="Abteilung wählen" />
+										</SelectTrigger>
+										<SelectContent>
+											{HELPER_HOUR_CATEGORIES.map((entry) => (
+												<SelectItem key={entry.code} value={entry.code}>
+													{entry.label}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+									<Button
+										type="button"
+										variant={
+											working.acceptedIssues.includes("unassigned")
+												? "default"
+												: "outline"
+										}
+										onClick={() => toggleAccepted("unassigned")}
+									>
+										Beim Gesamtverein belassen
+									</Button>
+								</div>
+							) : null}
+							{row.issues.includes("derived_total") ? (
+								<Button
+									type="button"
+									variant={
+										working.acceptedIssues.includes("derived_total")
+											? "default"
+											: "outline"
+									}
+									onClick={() => toggleAccepted("derived_total")}
+								>
+									Berechnete Summe übernehmen
+								</Button>
+							) : null}
+						</CorrectionSection>
+					) : null}
+				</div>
+				<DialogFooter>
+					<Button
+						type="button"
+						variant="outline"
+						onClick={() => onOpenChange(false)}
+					>
+						Abbrechen
+					</Button>
+					<Button type="button" onClick={() => onSave(working)}>
+						Prüfung speichern
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+function CorrectionSection({
+	title,
+	resolved,
+	children,
+	onAccept,
+	accepted,
+}: {
+	title: string;
+	resolved: boolean;
+	children: React.ReactNode;
+	onAccept?: () => void;
+	accepted?: boolean;
+}) {
+	return (
+		<section className="space-y-3 rounded-xl border p-4">
+			<div className="flex items-center justify-between gap-3">
+				<p className="font-semibold">{title}</p>
+				{resolved ? (
+					<span className="flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+						<CheckCircle2 className="h-4 w-4" /> Geklärt
+					</span>
+				) : null}
+			</div>
+			{children}
+			{onAccept ? (
+				<Button
+					type="button"
+					variant={accepted ? "default" : "outline"}
+					onClick={onAccept}
+				>
+					{accepted ? "Bewusst übernommen" : "Unvollständig übernehmen"}
+				</Button>
+			) : null}
+		</section>
 	);
 }

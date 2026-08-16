@@ -11,7 +11,9 @@ import {
 	importHelperHours,
 } from "@/server/services/helper-hours";
 import {
+	applyHelperHoursImportCorrections,
 	HELPER_HOURS_IMPORT_MAX_BYTES,
+	parseHelperHoursImportCorrections,
 	parseHelperHoursWorkbook,
 } from "@/server/services/helper-hours-import";
 
@@ -95,14 +97,31 @@ export const Route = createFileRoute("/api/import/helper-hours")({
 						toImport: pending.length,
 						alreadyImported: parsed.rows.length - pending.length,
 						hours,
-						warnings: parsed.warnings,
+						warnings: pending.reduce(
+							(sum, row) => sum + row.warnings.length,
+							0,
+						),
 						errors: parsed.errors.slice(0, 100),
-						warningSample: parsed.rows
+						warningSample: pending
 							.filter((row) => row.warnings.length > 0)
 							.slice(0, 12)
 							.map((row) => ({
 								sheet: row.sheet,
 								row: row.rowNumber,
+								warnings: row.warnings,
+							})),
+						reviewRows: pending
+							.filter((row) => row.issues.length > 0)
+							.map((row) => ({
+								sheet: row.sheet,
+								rowNumber: row.rowNumber,
+								date: row.datum,
+								event: row.veranstaltung,
+								vorname: row.vorname,
+								nachname: row.nachname,
+								allocations: row.allocations,
+								gemeldete_summe_minuten: row.gemeldete_summe_minuten,
+								issues: row.issues,
 								warnings: row.warnings,
 							})),
 						sample: parsed.rows.slice(0, 8).map((row) => ({
@@ -129,15 +148,44 @@ export const Route = createFileRoute("/api/import/helper-hours")({
 						{ error: "Die Datei enthält Fehler. Bitte erneut prüfen." },
 						{ status: 400 },
 					);
+				const corrections = parseHelperHoursImportCorrections(
+					formData.get("corrections"),
+				);
+				if (!corrections)
+					return Response.json(
+						{ error: "Die Korrekturen sind ungültig. Bitte erneut prüfen." },
+						{ status: 400 },
+					);
+				const reviewed = applyHelperHoursImportCorrections(
+					pending,
+					corrections,
+				);
+				if (reviewed.errors.length > 0)
+					return Response.json({ error: reviewed.errors[0] }, { status: 400 });
+				if (reviewed.openIssues > 0)
+					return Response.json(
+						{
+							error: `${reviewed.openIssues} Hinweise sind noch nicht geklärt.`,
+						},
+						{ status: 409 },
+					);
 				const actor = auditActor(session.user);
-				const result = await importHelperHours(pending, actor, {
-					request: auditRequest(request),
-					subject: {
-						type: "helferstunden_import",
-						id: digest,
-						label: file.name.slice(0, 200),
+				const result = await importHelperHours(
+					reviewed.rows,
+					actor,
+					{
+						request: auditRequest(request),
+						subject: {
+							type: "helferstunden_import",
+							id: digest,
+							label: file.name.slice(0, 200),
+						},
 					},
-				});
+					{
+						corrected: reviewed.corrected,
+						accepted: reviewed.accepted,
+					},
+				);
 				return Response.json({ ok: true, ...result });
 			},
 		},

@@ -380,6 +380,19 @@ export const helperHours = pgTable(
 			.$type<string[]>()
 			.notNull()
 			.default([]),
+		import_originalwerte: jsonb("import_originalwerte").$type<{
+			vorname: string;
+			nachname: string;
+			allocations: Record<string, number>;
+			gemeldete_summe_minuten: number;
+		}>(),
+		import_korrektur: jsonb("import_korrektur").$type<{
+			vorname: string;
+			nachname: string;
+			allocations: Record<string, number>;
+			gemeldete_summe_minuten: number;
+			acceptedIssues: string[];
+		}>(),
 		erstellt_von_user_id: text("erstellt_von_user_id").notNull(),
 		erstellt_von_name: text("erstellt_von_name").notNull(),
 		erstellt_am: timestamp("erstellt_am", { withTimezone: true })

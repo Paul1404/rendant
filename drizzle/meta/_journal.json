@@ -169,6 +169,13 @@
       "when": 1786893815750,
       "tag": "0023_amused_namora",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1786897904802,
+      "tag": "0024_outgoing_human_torch",
+      "breakpoints": true
     }
   ]
 }
