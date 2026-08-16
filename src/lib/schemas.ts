@@ -203,6 +203,30 @@ export const HelperHourListSchema = v.object({
 	),
 });
 
+export const HelperHourEntriesSchema = v.object({
+	jahr: v.optional(
+		v.pipe(v.number(), v.integer(), v.minValue(2000), v.maxValue(2100)),
+	),
+	page: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1)), 1),
+	page_size: v.optional(
+		v.pipe(v.number(), v.integer(), v.minValue(10), v.maxValue(100)),
+		25,
+	),
+	query: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(120))),
+	quelle: v.optional(v.picklist(["manuell", "excel"])),
+	kategorie: v.optional(
+		v.picklist(HELPER_HOUR_CATEGORIES.map((entry) => entry.code)),
+	),
+	sort: v.optional(
+		v.picklist(["date", "helper", "event", "source", "hours"]),
+		"date",
+	),
+	direction: v.optional(v.picklist(["asc", "desc"]), "desc"),
+});
+export type HelperHourEntriesInput = v.InferOutput<
+	typeof HelperHourEntriesSchema
+>;
+
 export const HelperHourValueSchema = v.object({
 	wert_cent: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(100000)),
 });

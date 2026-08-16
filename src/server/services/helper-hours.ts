@@ -1,4 +1,15 @@
-import { and, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
+import {
+	and,
+	asc,
+	desc,
+	eq,
+	gte,
+	ilike,
+	isNull,
+	lt,
+	or,
+	sql,
+} from "drizzle-orm";
 import {
 	HELPER_HOUR_BUDGET_CATEGORIES,
 	HELPER_HOUR_CATEGORIES,
@@ -6,6 +17,7 @@ import {
 } from "@/lib/helper-hours";
 import type {
 	HelperHourCreateInput,
+	HelperHourEntriesInput,
 	HelperHourExpenseCreateInput,
 } from "@/lib/schemas";
 import { db } from "@/server/db";
@@ -39,7 +51,6 @@ export async function listHelperHours(year?: number) {
 		: undefined;
 	const yearExpression = sql<number>`extract(year from ${helperHours.datum})::int`;
 	const [
-		items,
 		summary,
 		allocation,
 		periodAllocation,
@@ -48,12 +59,6 @@ export async function listHelperHours(year?: number) {
 		years,
 		helperRows,
 	] = await Promise.all([
-		db
-			.select()
-			.from(helperHours)
-			.where(period)
-			.orderBy(desc(helperHours.datum), desc(helperHours.erstellt_am))
-			.limit(250),
 		db
 			.select({
 				entries: sql<number>`count(*)`,
@@ -194,7 +199,6 @@ export async function listHelperHours(year?: number) {
 		) as Record<(typeof HELPER_HOUR_CATEGORIES)[number]["code"], number>,
 	}));
 	return {
-		items,
 		expenses,
 		budgets,
 		contribution,
@@ -208,6 +212,68 @@ export async function listHelperHours(year?: number) {
 			helpers: Number(summary[0]?.helpers ?? 0),
 			minutes: Number(summary[0]?.minutes ?? 0),
 		},
+	};
+}
+
+export async function listHelperHourEntries(input: HelperHourEntriesInput) {
+	const conditions = [];
+	if (input.jahr) {
+		conditions.push(
+			gte(helperHours.datum, `${input.jahr}-01-01`),
+			lt(helperHours.datum, `${input.jahr + 1}-01-01`),
+		);
+	}
+	if (input.quelle) conditions.push(eq(helperHours.quelle, input.quelle));
+	if (input.kategorie) {
+		conditions.push(sql`${helperHours[CATEGORY_COLUMNS[input.kategorie]]} > 0`);
+	}
+	if (input.query) {
+		const escaped = input.query.replace(/[\\%_]/g, "\\$&");
+		const pattern = `%${escaped}%`;
+		const search = or(
+			ilike(
+				sql<string>`trim(${helperHours.vorname} || ' ' || ${helperHours.nachname})`,
+				pattern,
+			),
+			ilike(helperHours.veranstaltung, pattern),
+			ilike(helperHours.bemerkung, pattern),
+			ilike(helperHours.quelle_blatt, pattern),
+		);
+		if (search) conditions.push(search);
+	}
+	const where = conditions.length ? and(...conditions) : undefined;
+	const sortColumn = {
+		date: helperHours.datum,
+		helper: sql<string>`lower(trim(${helperHours.nachname} || ' ' || ${helperHours.vorname}))`,
+		event: sql<string>`lower(${helperHours.veranstaltung})`,
+		source: helperHours.quelle,
+		hours: helperHours.gemeldete_summe_minuten,
+	}[input.sort];
+	const order = input.direction === "asc" ? asc : desc;
+	const [{ total = 0 } = { total: 0 }] = await db
+		.select({ total: sql<number>`count(*)` })
+		.from(helperHours)
+		.where(where);
+	const pageCount = Math.ceil(Number(total) / input.page_size);
+	const page = Math.min(input.page, Math.max(pageCount, 1));
+	const items = await db
+		.select()
+		.from(helperHours)
+		.where(where)
+		.orderBy(
+			order(sortColumn),
+			desc(helperHours.datum),
+			desc(helperHours.erstellt_am),
+			desc(helperHours.id),
+		)
+		.limit(input.page_size)
+		.offset((page - 1) * input.page_size);
+	return {
+		items,
+		total: Number(total),
+		page,
+		pageSize: input.page_size,
+		pageCount,
 	};
 }
 

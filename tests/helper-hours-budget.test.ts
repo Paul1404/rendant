@@ -7,6 +7,7 @@ import {
 } from "@/lib/helper-hours";
 import {
 	HelperHourCreateSchema,
+	HelperHourEntriesSchema,
 	HelperHourExpenseCreateSchema,
 	HelperHourListSchema,
 } from "@/lib/schemas";
@@ -29,6 +30,28 @@ describe("helper-hour club contribution", () => {
 		expect(v.safeParse(HelperHourListSchema, { jahr: 2026.5 }).success).toBe(
 			false,
 		);
+	});
+
+	it("validates server-side entry table controls", () => {
+		expect(
+			v.safeParse(HelperHourEntriesSchema, {
+				jahr: 2026,
+				page: 2,
+				page_size: 50,
+				query: "Sommerfest",
+				quelle: "excel",
+				kategorie: "fussball",
+				sort: "hours",
+				direction: "asc",
+			}).success,
+		).toBe(true);
+		expect(
+			v.safeParse(HelperHourEntriesSchema, { page: 0, page_size: 250 })
+				.success,
+		).toBe(false);
+		expect(
+			v.safeParse(HelperHourEntriesSchema, { quelle: "unbekannt" }).success,
+		).toBe(false);
 	});
 
 	it("keeps the club contribution as an hour allocation but not a budget", () => {
