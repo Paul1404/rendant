@@ -43,7 +43,9 @@ update the appropriate canonical documentation in the same change.
   audited records and must be cancelled with a reason, never deleted or hidden.
 - Helferstunden imports use preview, file digest and source sheet/row
   idempotency. Preserve reported totals and category allocations separately so
-  legacy discrepancies stay visible instead of being silently rewritten.
+  legacy discrepancies stay visible instead of being silently rewritten. In-app
+  corrections must retain the original parsed values and require every warning
+  to be corrected or explicitly accepted before the final import.
 
 ## Versions and release notes
 

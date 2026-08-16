@@ -3,6 +3,17 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.35.0 - 2026-08-16
+
+- Hinweise aus der Helferstunden-Datei lassen sich jetzt direkt vor dem Import
+  bearbeiten. Fehlende Namen, unklare Abteilungszuordnungen und abweichende
+  Summen werden in einem geführten Prüfmodus geklärt.
+- Jede Unstimmigkeit muss korrigiert oder bewusst übernommen werden, bevor der
+  Import möglich ist. Ein Fortschrittsbalken zeigt jederzeit, was noch offen ist.
+- Originalwerte und die getroffene Importentscheidung bleiben getrennt
+  nachvollziehbar, damit spätere Rückfragen ohne erneute Excel-Suche geklärt
+  werden können.
+
 ## 1.34.0 - 2026-08-16
 
 - Jede Abteilung sieht jetzt ihr erarbeitetes Guthaben, ihre gebuchten Ausgaben

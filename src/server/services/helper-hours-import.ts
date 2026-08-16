@@ -5,7 +5,7 @@ import { isIsoCalendarDate } from "@/lib/date";
 export const HELPER_HOURS_IMPORT_MAX_BYTES = 5_000_000;
 export const HELPER_HOURS_IMPORT_MAX_ROWS = 2_000;
 
-type Allocations = {
+export type HelperHoursAllocations = {
 	gesamtverein_minuten: number;
 	fussball_minuten: number;
 	korbball_minuten: number;
@@ -15,16 +15,35 @@ type Allocations = {
 	senioren_minuten: number;
 	combo_minuten: number;
 };
+export type HelperHoursImportIssueCode =
+	| "missing_name"
+	| "derived_total"
+	| "unassigned"
+	| "total_mismatch";
+export type HelperHoursImportOriginalValues = {
+	vorname: string;
+	nachname: string;
+	allocations: HelperHoursAllocations;
+	gemeldete_summe_minuten: number;
+};
+export type HelperHoursImportCorrection = HelperHoursImportOriginalValues & {
+	sheet: string;
+	rowNumber: number;
+	acceptedIssues: HelperHoursImportIssueCode[];
+};
 export type HelperHoursImportRow = {
 	idempotency_key: string;
 	datum: string;
 	veranstaltung: string;
 	nachname: string;
 	vorname: string;
-	allocations: Allocations;
+	allocations: HelperHoursAllocations;
 	gemeldete_summe_minuten: number;
 	bemerkung: string;
 	warnings: string[];
+	issues: HelperHoursImportIssueCode[];
+	originalValues: HelperHoursImportOriginalValues;
+	correction: HelperHoursImportCorrection | null;
 	sheet: string;
 	rowNumber: number;
 	sourceFile: string;
@@ -35,6 +54,201 @@ export type HelperHoursImportResult = {
 	errors: Array<{ sheet: string; row: number; message: string }>;
 	warnings: number;
 };
+
+const ISSUE_MESSAGES: Record<HelperHoursImportIssueCode, string> = {
+	missing_name: "Vor- oder Nachname fehlt in der Quelldatei.",
+	derived_total: "Summe fehlte und wurde aus der Zuordnung übernommen.",
+	unassigned: "Ohne Zuordnung dem Gesamtverein zugeteilt.",
+	total_mismatch: "Gemeldete Summe weicht von der Zuordnung ab.",
+};
+const ISSUE_CODES = new Set<HelperHoursImportIssueCode>(
+	Object.keys(ISSUE_MESSAGES) as HelperHoursImportIssueCode[],
+);
+const ALLOCATION_KEYS = [
+	"gesamtverein_minuten",
+	"fussball_minuten",
+	"korbball_minuten",
+	"tischtennis_minuten",
+	"darts_minuten",
+	"gymnastik_minuten",
+	"senioren_minuten",
+	"combo_minuten",
+] as const;
+
+export function parseHelperHoursImportCorrections(
+	value: FormDataEntryValue | null,
+): HelperHoursImportCorrection[] | null {
+	if (typeof value !== "string" || value.length > 100_000) return null;
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(value);
+	} catch {
+		return null;
+	}
+	if (!Array.isArray(parsed) || parsed.length > HELPER_HOURS_IMPORT_MAX_ROWS)
+		return null;
+	const corrections: HelperHoursImportCorrection[] = [];
+	for (const entry of parsed) {
+		if (!entry || typeof entry !== "object") return null;
+		const candidate = entry as Record<string, unknown>;
+		const allocations = candidate.allocations;
+		if (!allocations || typeof allocations !== "object") return null;
+		const allocationRecord = allocations as Record<string, unknown>;
+		if (
+			typeof candidate.sheet !== "string" ||
+			candidate.sheet.length > 120 ||
+			!Number.isInteger(candidate.rowNumber) ||
+			Number(candidate.rowNumber) <= 0 ||
+			typeof candidate.vorname !== "string" ||
+			typeof candidate.nachname !== "string" ||
+			!Number.isInteger(candidate.gemeldete_summe_minuten) ||
+			!Array.isArray(candidate.acceptedIssues) ||
+			!candidate.acceptedIssues.every(
+				(issue) =>
+					typeof issue === "string" &&
+					ISSUE_CODES.has(issue as HelperHoursImportIssueCode),
+			) ||
+			!ALLOCATION_KEYS.every((key) => Number.isInteger(allocationRecord[key]))
+		)
+			return null;
+		corrections.push({
+			sheet: candidate.sheet,
+			rowNumber: Number(candidate.rowNumber),
+			vorname: candidate.vorname,
+			nachname: candidate.nachname,
+			gemeldete_summe_minuten: Number(candidate.gemeldete_summe_minuten),
+			acceptedIssues: candidate.acceptedIssues as HelperHoursImportIssueCode[],
+			allocations: Object.fromEntries(
+				ALLOCATION_KEYS.map((key) => [key, Number(allocationRecord[key])]),
+			) as HelperHoursAllocations,
+		});
+	}
+	return corrections;
+}
+
+export function helperHoursImportIssueMessage(
+	issue: HelperHoursImportIssueCode,
+	row?: Pick<HelperHoursImportRow, "gemeldete_summe_minuten" | "allocations">,
+): string {
+	if (issue !== "total_mismatch" || !row) return ISSUE_MESSAGES[issue];
+	const allocated = Object.values(row.allocations).reduce((a, b) => a + b, 0);
+	return `Gemeldete Summe ${row.gemeldete_summe_minuten / 60} h weicht von der Zuordnung ${allocated / 60} h ab.`;
+}
+
+function correctionKey(sheet: string, rowNumber: number) {
+	return `${sheet}:${rowNumber}`;
+}
+
+export function applyHelperHoursImportCorrections(
+	rows: HelperHoursImportRow[],
+	corrections: HelperHoursImportCorrection[],
+): {
+	rows: HelperHoursImportRow[];
+	errors: string[];
+	openIssues: number;
+	corrected: number;
+	accepted: number;
+} {
+	const errors: string[] = [];
+	const byRow = new Map<string, HelperHoursImportCorrection>();
+	for (const correction of corrections) {
+		const key = correctionKey(correction.sheet, correction.rowNumber);
+		if (byRow.has(key))
+			errors.push(
+				`${correction.sheet} Zeile ${correction.rowNumber}: Korrektur ist doppelt vorhanden.`,
+			);
+		byRow.set(key, correction);
+	}
+	let openIssues = 0;
+	let corrected = 0;
+	let accepted = 0;
+	const knownRows = new Set(
+		rows.map((row) => correctionKey(row.sheet, row.rowNumber)),
+	);
+	for (const correction of corrections) {
+		if (!knownRows.has(correctionKey(correction.sheet, correction.rowNumber)))
+			errors.push(
+				`${correction.sheet} Zeile ${correction.rowNumber}: Gehört nicht zu dieser Importprüfung.`,
+			);
+	}
+	const nextRows = rows.map((row) => {
+		if (row.issues.length === 0) return row;
+		const correction = byRow.get(correctionKey(row.sheet, row.rowNumber));
+		if (!correction) {
+			openIssues += row.issues.length;
+			return row;
+		}
+		const values = [
+			correction.gemeldete_summe_minuten,
+			...Object.values(correction.allocations),
+		];
+		if (
+			values.some(
+				(value) => !Number.isInteger(value) || value < 0 || value > 10_080,
+			) ||
+			correction.gemeldete_summe_minuten <= 0
+		) {
+			errors.push(
+				`${row.sheet} Zeile ${row.rowNumber}: Stunden sind ungültig.`,
+			);
+			return row;
+		}
+		if (correction.vorname.length > 120 || correction.nachname.length > 120) {
+			errors.push(`${row.sheet} Zeile ${row.rowNumber}: Der Name ist zu lang.`);
+			return row;
+		}
+		const acceptedIssues = new Set(correction.acceptedIssues);
+		if (correction.acceptedIssues.some((issue) => !row.issues.includes(issue)))
+			errors.push(
+				`${row.sheet} Zeile ${row.rowNumber}: Eine übernommene Abweichung gehört nicht zu dieser Zeile.`,
+			);
+		const allocated = Object.values(correction.allocations).reduce(
+			(sum, value) => sum + value,
+			0,
+		);
+		const unresolved = row.issues.filter((issue) => {
+			if (acceptedIssues.has(issue)) return false;
+			if (issue === "missing_name")
+				return !correction.vorname.trim() || !correction.nachname.trim();
+			if (issue === "total_mismatch")
+				return correction.gemeldete_summe_minuten !== allocated;
+			if (issue === "unassigned")
+				return (
+					correction.allocations.gesamtverein_minuten ===
+					correction.gemeldete_summe_minuten
+				);
+			return true;
+		});
+		openIssues += unresolved.length;
+		accepted += row.issues.filter((issue) => acceptedIssues.has(issue)).length;
+		const changed =
+			correction.vorname.trim() !== row.vorname ||
+			correction.nachname.trim() !== row.nachname ||
+			correction.gemeldete_summe_minuten !== row.gemeldete_summe_minuten ||
+			Object.entries(correction.allocations).some(
+				([key, value]) =>
+					value !== row.allocations[key as keyof HelperHoursAllocations],
+			);
+		if (changed) corrected++;
+		const next = {
+			...row,
+			vorname: correction.vorname.trim(),
+			nachname: correction.nachname.trim(),
+			allocations: correction.allocations,
+			gemeldete_summe_minuten: correction.gemeldete_summe_minuten,
+			correction,
+		};
+		return {
+			...next,
+			warnings: row.issues.map((issue) => {
+				const message = helperHoursImportIssueMessage(issue, row);
+				if (acceptedIssues.has(issue)) return `${message} Bewusst übernommen.`;
+				return `${message} In der Importprüfung korrigiert.`;
+			}),
+		};
+	});
+	return { rows: nextRows, errors, openIssues, corrected, accepted };
+}
 
 function uuidFor(digest: string, sheet: string, row: number): string {
 	const bytes = createHash("sha256")
@@ -183,7 +397,7 @@ export async function parseHelperHoursWorkbook(
 				"senioren_minuten",
 				"combo_minuten",
 			] as const;
-			const allocations = {} as Allocations;
+			const allocations = {} as HelperHoursAllocations;
 			let invalid = false;
 			keys.forEach((key, i) => {
 				const parsed = decimalHours(cell(categoryNames[i]));
@@ -192,7 +406,8 @@ export async function parseHelperHoursWorkbook(
 			});
 			const reported = decimalHours(cell("Summe"));
 			const allocated = Object.values(allocations).reduce((a, b) => a + b, 0);
-			const warnings: string[] = [];
+			const sourceAllocations = { ...allocations };
+			const issues: HelperHoursImportIssueCode[] = [];
 			if (!datum)
 				errors.push({
 					sheet: sheet.name,
@@ -211,29 +426,31 @@ export async function parseHelperHoursWorkbook(
 					row: r,
 					message: "Stunden fehlen oder sind ungültig.",
 				});
-			if (!last || !first)
-				warnings.push("Vor- oder Nachname fehlt in der Quelldatei.");
+			if (!last || !first) issues.push("missing_name");
 			const total =
 				reported == null || (reported === 0 && allocated > 0)
 					? allocated
 					: reported;
 			if ((reported == null || reported === 0) && allocated > 0)
-				warnings.push("Summe fehlte und wurde aus der Zuordnung übernommen.");
+				issues.push("derived_total");
 			if (allocated === 0 && total > 0) {
 				allocations.gesamtverein_minuten = total;
-				warnings.push("Ohne Zuordnung dem Gesamtverein zugeteilt.");
-			} else if (total !== allocated)
-				warnings.push(
-					`Gemeldete Summe ${total / 60} h weicht von der Zuordnung ${allocated / 60} h ab.`,
-				);
+				issues.push("unassigned");
+			} else if (total !== allocated) issues.push("total_mismatch");
 			if (
 				datum &&
 				event &&
 				!invalid &&
 				(reported != null || allocated > 0) &&
 				total > 0
-			)
-				rows.push({
+			) {
+				const originalValues = {
+					vorname: first.slice(0, 120),
+					nachname: last.slice(0, 120),
+					allocations: sourceAllocations,
+					gemeldete_summe_minuten: reported ?? 0,
+				};
+				const row = {
 					idempotency_key: uuidFor(sourceDigest, sheet.name, r),
 					datum,
 					veranstaltung: event.slice(0, 160),
@@ -242,12 +459,20 @@ export async function parseHelperHoursWorkbook(
 					allocations,
 					gemeldete_summe_minuten: total || allocated,
 					bemerkung: text(cell("Sonstiges")).slice(0, 1000),
-					warnings,
+					warnings: [] as string[],
+					issues,
+					originalValues,
+					correction: null,
 					sheet: sheet.name,
 					rowNumber: r,
 					sourceFile: sourceFile.slice(0, 255),
 					sourceDigest,
-				});
+				};
+				row.warnings = issues.map((issue) =>
+					helperHoursImportIssueMessage(issue, row),
+				);
+				rows.push(row);
+			}
 			if (rows.length > HELPER_HOURS_IMPORT_MAX_ROWS)
 				return {
 					rows: [],
