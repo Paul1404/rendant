@@ -11,6 +11,7 @@ import {
 	EmailSettingsSchema,
 	ExportQuerySchema,
 	HelperHourCreateSchema,
+	HelperHourEntriesSchema,
 	HelperHourExpenseCancelSchema,
 	HelperHourExpenseCreateSchema,
 	HelperHourListSchema,
@@ -78,6 +79,7 @@ import {
 	cancelHelperHourExpense,
 	createHelperHour,
 	createHelperHourExpense,
+	listHelperHourEntries,
 	listHelperHours,
 } from "@/server/services/helper-hours";
 import {
@@ -1282,6 +1284,9 @@ const helperHours = {
 	list: authed
 		.input(HelperHourListSchema)
 		.handler(({ input }) => listHelperHours(input.jahr)),
+	entries: authed
+		.input(HelperHourEntriesSchema)
+		.handler(({ input }) => listHelperHourEntries(input)),
 	create: authed.input(HelperHourCreateSchema).handler(({ input, context }) =>
 		createHelperHour(input, context.user, {
 			request: requestAuditContext(context),

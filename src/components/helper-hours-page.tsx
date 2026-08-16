@@ -7,8 +7,10 @@ import {
 	createSortedRowModel,
 	filterFn_includesString,
 	globalFilteringFeature,
+	type PaginationState,
 	rowPaginationFeature,
 	rowSortingFeature,
+	type SortingState,
 	sortFn_text,
 	tableFeatures,
 	useTable,
@@ -33,7 +35,7 @@ import {
 	Settings2,
 	Upload,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -163,6 +165,16 @@ export function HelperHoursPage({
 		kategorie: "gesamtverein" as HelperHourCategory,
 		bemerkung: "",
 	});
+	async function refreshHours() {
+		await Promise.all([
+			queryClient.invalidateQueries({
+				queryKey: orpc.helperHours.list.key({ type: "query" }),
+			}),
+			queryClient.invalidateQueries({
+				queryKey: orpc.helperHours.entries.key({ type: "query" }),
+			}),
+		]);
+	}
 	async function submit(event: React.FormEvent) {
 		event.preventDefault();
 		const minuten = parseHours(form.stunden);
@@ -191,9 +203,7 @@ export function HelperHoursPage({
 				stunden: "",
 				bemerkung: "",
 			});
-			await queryClient.invalidateQueries({
-				queryKey: orpc.helperHours.list.key({ type: "query" }),
-			});
+			await refreshHours();
 			toast.success("Helferstunde gespeichert");
 		} catch (error) {
 			toast.error(
@@ -366,65 +376,365 @@ export function HelperHoursPage({
 					</form>
 				</CardContent>
 			</Card>
-			{isAdmin ? (
-				<HelperHoursImport
-					onImported={() =>
-						queryClient.invalidateQueries({
-							queryKey: orpc.helperHours.list.key({ type: "query" }),
-						})
-					}
-				/>
-			) : null}
-			<Card>
-				<CardHeader>
-					<CardTitle>Letzte Einträge</CardTitle>
-					<CardDescription>
-						Die neuesten Helferstunden{" "}
-						{year ? `aus ${year}` : "aus allen Jahren"}.
-					</CardDescription>
-				</CardHeader>
-				<CardContent className="overflow-x-auto">
-					<table className="w-full min-w-[680px] text-sm">
-						<thead>
-							<tr className="border-b text-left text-xs text-muted-foreground">
-								<th className="py-2 pr-3">Datum</th>
-								<th className="px-3 py-2">Helfer</th>
-								<th className="px-3 py-2">Veranstaltung</th>
-								<th className="px-3 py-2">Quelle</th>
-								<th className="py-2 pl-3 text-right">Stunden</th>
-							</tr>
-						</thead>
-						<tbody>
-							{data?.items.map((item) => (
-								<tr
-									key={item.id}
-									className="border-b border-border/50 last:border-0"
-								>
-									<td className="py-2.5 pr-3 tabular-nums">
-										{formatDateDe(item.datum)}
-									</td>
-									<td className="px-3 py-2.5 font-medium">
-										{`${item.vorname} ${item.nachname}`.trim() || "Ohne Namen"}
-									</td>
-									<td className="px-3 py-2.5">{item.veranstaltung}</td>
-									<td className="px-3 py-2.5 text-xs text-muted-foreground">
-										{item.quelle === "excel" ? item.quelle_blatt : "Manuell"}
-									</td>
-									<td className="py-2.5 pl-3 text-right font-semibold tabular-nums">
-										{formatMinutes(item.gemeldete_summe_minuten)}
-									</td>
-								</tr>
-							))}
-						</tbody>
-					</table>
-					{!isLoading && !data?.items.length ? (
-						<p className="py-8 text-center text-muted-foreground">
-							Noch keine Helferstunden erfasst.
-						</p>
-					) : null}
-				</CardContent>
-			</Card>
+			{isAdmin ? <HelperHoursImport onImported={refreshHours} /> : null}
+			<HelperHoursEntries year={year} />
 		</div>
+	);
+}
+
+type HelperHourEntriesPage = Awaited<
+	ReturnType<typeof orpcClient.helperHours.entries>
+>;
+type HelperHourEntry = HelperHourEntriesPage["items"][number];
+type HelperHourEntrySort = "date" | "helper" | "event" | "source" | "hours";
+type HelperHourEntrySource = "alle" | "manuell" | "excel";
+type HelperHourEntryCategory = "alle" | HelperHourCategory;
+
+const helperHourEntryTableFeatures = tableFeatures({
+	rowSortingFeature,
+	rowPaginationFeature,
+});
+const EMPTY_HELPER_HOUR_ENTRIES: HelperHourEntry[] = [];
+
+function entryAllocations(entry: HelperHourEntry): string {
+	return (
+		HELPER_HOUR_CATEGORIES.map((category) => ({
+			label: category.label,
+			minutes: Number(
+				entry[`${category.code}_minuten` as keyof HelperHourEntry],
+			),
+		}))
+			.filter((allocation) => allocation.minutes > 0)
+			.map(
+				(allocation) =>
+					`${allocation.label}: ${formatMinutes(allocation.minutes)} h`,
+			)
+			.join(" · ") || "Ohne Zuordnung"
+	);
+}
+
+function HelperHoursEntries({ year }: { year?: number }) {
+	const [query, setQuery] = useState("");
+	const deferredQuery = useDeferredValue(query.trim());
+	const [source, setSource] = useState<HelperHourEntrySource>("alle");
+	const [category, setCategory] = useState<HelperHourEntryCategory>("alle");
+	const [sorting, setSorting] = useState<SortingState>([
+		{ id: "date", desc: true },
+	]);
+	const [pagination, setPagination] = useState<PaginationState>({
+		pageIndex: 0,
+		pageSize: 25,
+	});
+	const sort = (sorting[0]?.id ?? "date") as HelperHourEntrySort;
+	const entriesQuery = useQuery({
+		...orpc.helperHours.entries.queryOptions({
+			input: {
+				jahr: year,
+				page: pagination.pageIndex + 1,
+				page_size: pagination.pageSize,
+				query: deferredQuery || undefined,
+				quelle: source === "alle" ? undefined : source,
+				kategorie: category === "alle" ? undefined : category,
+				sort,
+				direction: sorting[0]?.desc === false ? "asc" : "desc",
+			},
+		}),
+		placeholderData: (previous) => previous,
+	});
+	const data = entriesQuery.data;
+	useEffect(() => {
+		setPagination((current) => ({ ...current, pageIndex: 0 }));
+	}, [year]);
+	useEffect(() => {
+		if (
+			data &&
+			!entriesQuery.isPlaceholderData &&
+			data.page - 1 !== pagination.pageIndex
+		) {
+			setPagination((current) => ({
+				...current,
+				pageIndex: data.page - 1,
+			}));
+		}
+	}, [data, entriesQuery.isPlaceholderData, pagination.pageIndex]);
+	function firstPage() {
+		setPagination((current) => ({ ...current, pageIndex: 0 }));
+	}
+	const columns = useMemo<
+		ColumnDef<typeof helperHourEntryTableFeatures, HelperHourEntry>[]
+	>(
+		() => [
+			{
+				id: "date",
+				accessorKey: "datum",
+				header: "Datum",
+				cell: ({ row }) => (
+					<span className="tabular-nums">
+						{formatDateDe(row.original.datum)}
+					</span>
+				),
+			},
+			{
+				id: "helper",
+				accessorFn: (entry) => `${entry.vorname} ${entry.nachname}`,
+				header: "Helfer",
+				cell: ({ row }) => (
+					<span className="font-medium">
+						{`${row.original.vorname} ${row.original.nachname}`.trim() ||
+							"Ohne Namen"}
+					</span>
+				),
+			},
+			{
+				id: "event",
+				accessorKey: "veranstaltung",
+				header: "Veranstaltung",
+			},
+			{
+				id: "allocations",
+				header: "Zuordnung",
+				enableSorting: false,
+				cell: ({ row }) => (
+					<span className="text-xs text-muted-foreground">
+						{entryAllocations(row.original)}
+					</span>
+				),
+			},
+			{
+				id: "source",
+				accessorKey: "quelle",
+				header: "Quelle",
+				cell: ({ row }) => (
+					<span className="text-xs text-muted-foreground">
+						{row.original.quelle === "excel"
+							? (row.original.quelle_blatt ?? "Excel")
+							: "Manuell"}
+					</span>
+				),
+			},
+			{
+				id: "hours",
+				accessorKey: "gemeldete_summe_minuten",
+				header: "Stunden",
+				cell: ({ row }) => (
+					<span className="font-semibold tabular-nums">
+						{formatMinutes(row.original.gemeldete_summe_minuten)} h
+					</span>
+				),
+			},
+		],
+		[],
+	);
+	const table = useTable({
+		features: helperHourEntryTableFeatures,
+		data: data?.items ?? EMPTY_HELPER_HOUR_ENTRIES,
+		columns,
+		getRowId: (entry) => entry.id,
+		rowCount: data?.total,
+		manualSorting: true,
+		manualPagination: true,
+		enableMultiSort: false,
+		enableSortingRemoval: false,
+		state: { sorting, pagination },
+		onSortingChange: (updater) => {
+			setSorting(updater);
+			firstPage();
+		},
+		onPaginationChange: setPagination,
+	});
+	const rows = table.getRowModel().rows;
+	const total = data?.total ?? 0;
+	const start =
+		total === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1;
+	const end = Math.min((pagination.pageIndex + 1) * pagination.pageSize, total);
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>Alle Einträge</CardTitle>
+				<CardDescription>
+					Vollständige Helferstundenliste{" "}
+					{year ? `aus ${year}` : "aus allen Jahren"}.
+				</CardDescription>
+			</CardHeader>
+			<CardContent className="space-y-4">
+				<div className="grid gap-3 lg:grid-cols-[minmax(16rem,1fr)_13rem_13rem]">
+					<div className="relative">
+						<Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+						<Input
+							value={query}
+							onChange={(event) => {
+								setQuery(event.target.value);
+								firstPage();
+							}}
+							placeholder="Helfer oder Veranstaltung suchen"
+							aria-label="Helferstunden durchsuchen"
+							className="pl-9"
+						/>
+					</div>
+					<Select
+						value={source}
+						onValueChange={(value) => {
+							setSource(value as HelperHourEntrySource);
+							firstPage();
+						}}
+					>
+						<SelectTrigger aria-label="Quelle filtern">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="alle">Alle Quellen</SelectItem>
+							<SelectItem value="manuell">Manuell</SelectItem>
+							<SelectItem value="excel">Excel-Import</SelectItem>
+						</SelectContent>
+					</Select>
+					<Select
+						value={category}
+						onValueChange={(value) => {
+							setCategory(value as HelperHourEntryCategory);
+							firstPage();
+						}}
+					>
+						<SelectTrigger aria-label="Zuordnung filtern">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="alle">Alle Zuordnungen</SelectItem>
+							{HELPER_HOUR_CATEGORIES.map((entry) => (
+								<SelectItem key={entry.code} value={entry.code}>
+									{entry.label}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</div>
+				<div className="overflow-x-auto rounded-xl border">
+					<Table className="min-w-[900px]">
+						<TableHeader className="bg-muted/35">
+							{table.getHeaderGroups().map((group) => (
+								<TableRow key={group.id} className="hover:bg-transparent">
+									{group.headers.map((header) => {
+										const sorted = header.column.getIsSorted();
+										const right = header.column.id === "hours";
+										return (
+											<TableHead
+												key={header.id}
+												className={right ? "text-right" : undefined}
+											>
+												{header.column.getCanSort() ? (
+													<Button
+														type="button"
+														variant="ghost"
+														size="sm"
+														className={right ? "ml-auto -mr-2" : "-ml-2"}
+														onClick={() => header.column.toggleSorting()}
+													>
+														<table.FlexRender header={header} />
+														{sorted === "asc" ? (
+															<ArrowUp className="h-3.5 w-3.5" />
+														) : sorted === "desc" ? (
+															<ArrowDown className="h-3.5 w-3.5" />
+														) : (
+															<ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+														)}
+													</Button>
+												) : header.isPlaceholder ? null : (
+													<table.FlexRender header={header} />
+												)}
+											</TableHead>
+										);
+									})}
+								</TableRow>
+							))}
+						</TableHeader>
+						<TableBody>
+							{entriesQuery.isLoading ? (
+								<TableRow>
+									<TableCell
+										colSpan={columns.length}
+										className="py-10 text-center text-muted-foreground"
+									>
+										Helferstunden werden geladen
+									</TableCell>
+								</TableRow>
+							) : rows.length === 0 ? (
+								<TableRow>
+									<TableCell
+										colSpan={columns.length}
+										className="py-10 text-center text-muted-foreground"
+									>
+										Keine passenden Helferstunden gefunden.
+									</TableCell>
+								</TableRow>
+							) : (
+								rows.map((row) => (
+									<TableRow key={row.id}>
+										{row.getAllCells().map((cell) => (
+											<TableCell
+												key={cell.id}
+												className={
+													cell.column.id === "hours" ? "text-right" : undefined
+												}
+											>
+												<table.FlexRender cell={cell} />
+											</TableCell>
+										))}
+									</TableRow>
+								))
+							)}
+						</TableBody>
+					</Table>
+				</div>
+				<div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+					<p className="text-xs text-muted-foreground">
+						{start} bis {end} von {total} Einträgen
+						{entriesQuery.isFetching ? " · Wird aktualisiert" : ""}
+					</p>
+					<div className="flex flex-wrap items-center gap-2">
+						<Select
+							value={String(pagination.pageSize)}
+							onValueChange={(value) =>
+								setPagination({ pageIndex: 0, pageSize: Number(value) })
+							}
+						>
+							<SelectTrigger size="sm" aria-label="Einträge pro Seite">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								{[10, 25, 50, 100].map((size) => (
+									<SelectItem key={size} value={String(size)}>
+										{size} pro Seite
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+						<Button
+							type="button"
+							size="icon-sm"
+							variant="outline"
+							onClick={() => table.previousPage()}
+							disabled={!table.getCanPreviousPage()}
+						>
+							<ChevronLeft />
+							<span className="sr-only">Vorherige Seite</span>
+						</Button>
+						<span className="min-w-24 text-center text-xs text-muted-foreground">
+							Seite {pagination.pageIndex + 1} von{" "}
+							{Math.max(table.getPageCount(), 1)}
+						</span>
+						<Button
+							type="button"
+							size="icon-sm"
+							variant="outline"
+							onClick={() => table.nextPage()}
+							disabled={!table.getCanNextPage()}
+						>
+							<ChevronRight />
+							<span className="sr-only">Nächste Seite</span>
+						</Button>
+					</div>
+				</div>
+			</CardContent>
+		</Card>
 	);
 }
 

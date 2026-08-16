@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.38.0 - 2026-08-16
+
+- Die vollständige Liste der Helferstunden bietet jetzt Suche, Filter für Quelle
+  und Zuordnung sowie sortierbare Spalten.
+- Seitennavigation und Seitengröße greifen auf den gesamten Datenbestand zu.
+  Dadurch bleiben auch umfangreiche Listen vollständig und schnell bedienbar.
+- Jede Zeile zeigt ihre tatsächlichen Zuordnungen, damit gemeldete Stunden und
+  Abteilungsverteilung ohne Umwege geprüft werden können.
+
 ## 1.37.0 - 2026-08-16
 
 - Die Helferstunden haben jetzt eine Jahresauswahl. Kennzahlen, Zuordnungen und
