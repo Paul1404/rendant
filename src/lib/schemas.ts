@@ -2,8 +2,8 @@ import * as v from "valibot";
 import { isIsoCalendarDate, todayIsoDate } from "@/lib/date";
 import { DENOMINATION_KEYS } from "@/lib/denominations";
 import {
+	HELPER_HOUR_BUDGET_CATEGORY_CODES,
 	HELPER_HOUR_CATEGORIES,
-	HELPER_HOUR_CATEGORY_CODES,
 } from "@/lib/helper-hours";
 import { UMSATZBEREICHE } from "@/lib/umsatzbereich";
 
@@ -203,7 +203,7 @@ export const HelperHourValueSchema = v.object({
 
 export const HelperHourExpenseCreateSchema = v.object({
 	idempotency_key: v.pipe(v.string(), v.uuid()),
-	abteilung: v.picklist(HELPER_HOUR_CATEGORY_CODES),
+	abteilung: v.picklist(HELPER_HOUR_BUDGET_CATEGORY_CODES),
 	datum: isoCalendarDate,
 	bezeichnung: v.pipe(
 		v.string(),

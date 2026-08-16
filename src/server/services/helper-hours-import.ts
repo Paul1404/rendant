@@ -58,7 +58,7 @@ export type HelperHoursImportResult = {
 const ISSUE_MESSAGES: Record<HelperHoursImportIssueCode, string> = {
 	missing_name: "Vor- oder Nachname fehlt in der Quelldatei.",
 	derived_total: "Summe fehlte und wurde aus der Zuordnung übernommen.",
-	unassigned: "Ohne Zuordnung dem Gesamtverein zugeteilt.",
+	unassigned: "Ohne Zuordnung als Vereinsbeitrag übernommen.",
 	total_mismatch: "Gemeldete Summe weicht von der Zuordnung ab.",
 };
 const ISSUE_CODES = new Set<HelperHoursImportIssueCode>(

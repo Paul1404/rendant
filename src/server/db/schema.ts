@@ -454,7 +454,7 @@ export const helperHourExpenses = pgTable(
 		index("idx_helper_hour_expenses_department_date").on(t.abteilung, t.datum),
 		check(
 			"helper_hour_expenses_department_check",
-			sql`${t.abteilung} IN ('gesamtverein', 'fussball', 'korbball', 'tischtennis', 'darts', 'gymnastik', 'senioren', 'combo')`,
+			sql`${t.abteilung} IN ('fussball', 'korbball', 'tischtennis', 'darts', 'gymnastik', 'senioren', 'combo')`,
 		),
 		check(
 			"helper_hour_expenses_description_check",

@@ -44,6 +44,7 @@ import { formatDateDe, todayIsoDate } from "@/lib/date";
 import {
 	formatMinutes,
 	HELPER_HOUR_CATEGORIES,
+	type HelperHourBudgetCategory,
 	type HelperHourCategory,
 	helperHourCategoryLabel,
 } from "@/lib/helper-hours";
@@ -111,7 +112,7 @@ export function HelperHoursPage({ isAdmin }: { isAdmin: boolean }) {
 	const queryClient = useQueryClient();
 	const { data, isLoading } = useQuery(orpc.helperHours.list.queryOptions());
 	const [selectedDepartment, setSelectedDepartment] =
-		useState<HelperHourCategory>("gesamtverein");
+		useState<HelperHourBudgetCategory>("fussball");
 	const [saving, setSaving] = useState(false);
 	const key = useRef<string | null>(null);
 	const [form, setForm] = useState({
@@ -183,6 +184,14 @@ export function HelperHoursPage({ isAdmin }: { isAdmin: boolean }) {
 			</div>
 			<HelperHoursBudgets
 				budgets={data?.budgets ?? []}
+				contribution={
+					data?.contribution ?? {
+						code: "gesamtverein",
+						label: "Vereinsbeitrag",
+						minutes: 0,
+						earnedCent: 0,
+					}
+				}
 				expenses={data?.expenses ?? []}
 				valueCent={data?.valueCent ?? 600}
 				selected={selectedDepartment}
@@ -382,12 +391,19 @@ export function HelperHoursPage({ isAdmin }: { isAdmin: boolean }) {
 }
 
 type Budget = {
-	code: HelperHourCategory;
+	code: HelperHourBudgetCategory;
 	label: string;
 	minutes: number;
 	earnedCent: number;
 	spentCent: number;
 	balanceCent: number;
+};
+
+type ClubContribution = {
+	code: "gesamtverein";
+	label: string;
+	minutes: number;
+	earnedCent: number;
 };
 
 type DepartmentExpense = {
@@ -403,6 +419,7 @@ type DepartmentExpense = {
 
 function HelperHoursBudgets({
 	budgets,
+	contribution,
 	expenses,
 	valueCent,
 	selected,
@@ -411,10 +428,11 @@ function HelperHoursBudgets({
 	onChanged,
 }: {
 	budgets: Budget[];
+	contribution: ClubContribution;
 	expenses: DepartmentExpense[];
 	valueCent: number;
-	selected: HelperHourCategory;
-	onSelected: (value: HelperHourCategory) => void;
+	selected: HelperHourBudgetCategory;
+	onSelected: (value: HelperHourBudgetCategory) => void;
 	isAdmin: boolean;
 	onChanged: () => Promise<unknown>;
 }) {
@@ -517,14 +535,33 @@ function HelperHoursBudgets({
 			<CardHeader>
 				<CardTitle className="flex items-center gap-2">
 					<ReceiptText className="h-4 w-4 text-primary" />
-					Abteilungsbudgets
+					Vereinsbeitrag und Abteilungsbudgets
 				</CardTitle>
 				<CardDescription>
 					Helferstunden werden mit {formatCent(valueCent)} bewertet. Käufe
-					mindern das verfügbare Budget der gewählten Abteilung.
+					mindern nur das verfügbare Budget der gewählten Abteilung.
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-5">
+				<div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+					<div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+						<div>
+							<p className="font-medium">Interner Vereinsbeitrag</p>
+							<p className="mt-1 text-xs text-muted-foreground">
+								Dem Gesamtverein zugeordnete Stunden gelten als Beitrag an den
+								Verein und stehen nicht für Abteilungskäufe zur Verfügung.
+							</p>
+						</div>
+						<div className="sm:text-right">
+							<p className="font-heading text-xl tabular-nums">
+								{formatCent(contribution.earnedCent)}
+							</p>
+							<p className="text-xs text-muted-foreground">
+								{formatMinutes(contribution.minutes)} h
+							</p>
+						</div>
+					</div>
+				</div>
 				<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
 					{budgets.map((entry) => (
 						<button
@@ -1248,7 +1285,7 @@ function HelperHoursCorrectionDialog({
 							) : null}
 							{row.issues.includes("unassigned") ? (
 								<div className="space-y-1.5">
-									<Label>Gemeldete Summe einer Abteilung zuordnen</Label>
+									<Label>Gemeldete Summe zuordnen</Label>
 									<Select
 										onValueChange={(value) =>
 											assignTotal(value as HelperHourCategory)
@@ -1274,7 +1311,7 @@ function HelperHoursCorrectionDialog({
 										}
 										onClick={() => toggleAccepted("unassigned")}
 									>
-										Beim Gesamtverein belassen
+										Als Vereinsbeitrag übernehmen
 									</Button>
 								</div>
 							) : null}

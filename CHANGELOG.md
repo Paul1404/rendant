@@ -3,6 +3,18 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.36.0 - 2026-08-16
+
+- Dem Gesamtverein zugeordnete Helferstunden erscheinen jetzt getrennt als
+  interner Vereinsbeitrag. Stunden und Gegenwert bleiben sichtbar, gelten aber
+  nicht als frei verfügbares Abteilungsbudget.
+- Einkäufe können nur noch den sieben Abteilungen Fußball, Korbball,
+  Tischtennis, Darts, Gymnastik, Senioren und Combo zugeordnet werden. Der
+  Vereinsbeitrag ist auch technisch gegen Ausgabenbuchungen geschützt.
+- Bei Erfassung und Import heißt die bisherige Zuordnung zum Gesamtverein nun
+  Vereinsbeitrag. Bestehende Stunden und ihre Herkunft bleiben unverändert
+  nachvollziehbar.
+
 ## 1.35.0 - 2026-08-16
 
 - Hinweise aus der Helferstunden-Datei lassen sich jetzt direkt vor dem Import

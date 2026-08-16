@@ -1,0 +1,2 @@
+ALTER TABLE "helper_hour_expenses" DROP CONSTRAINT "helper_hour_expenses_department_check";--> statement-breakpoint
+ALTER TABLE "helper_hour_expenses" ADD CONSTRAINT "helper_hour_expenses_department_check" CHECK ("helper_hour_expenses"."abteilung" IN ('fussball', 'korbball', 'tischtennis', 'darts', 'gymnastik', 'senioren', 'combo'));
