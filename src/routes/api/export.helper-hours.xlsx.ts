@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import * as v from "valibot";
 import { secureDownloadHeaders } from "@/lib/download-headers";
-import { HELPER_HOUR_CATEGORY_CODES } from "@/lib/helper-hours";
+import { HELPER_HOUR_BUDGET_CATEGORY_CODES } from "@/lib/helper-hours";
 import { auth } from "@/server/auth";
 import {
 	auditActor,
@@ -20,7 +20,7 @@ export const Route = createFileRoute("/api/export/helper-hours/xlsx")({
 					return Response.json({ error: "Nicht angemeldet" }, { status: 401 });
 				}
 				const parsed = v.safeParse(
-					v.picklist(HELPER_HOUR_CATEGORY_CODES),
+					v.picklist(HELPER_HOUR_BUDGET_CATEGORY_CODES),
 					new URL(request.url).searchParams.get("abteilung"),
 				);
 				if (!parsed.success) {

@@ -1,7 +1,7 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import {
-	HELPER_HOUR_CATEGORIES,
-	type HelperHourCategory,
+	HELPER_HOUR_BUDGET_CATEGORIES,
+	type HelperHourBudgetCategory,
 } from "@/lib/helper-hours";
 import type {
 	HelperHourCreateInput,
@@ -84,7 +84,7 @@ export async function listHelperHours() {
 	const spentByDepartment = new Map(
 		spent.map((entry) => [entry.abteilung, Number(entry.cent)]),
 	);
-	const budgets = HELPER_HOUR_CATEGORIES.map((category) => {
+	const budgets = HELPER_HOUR_BUDGET_CATEGORIES.map((category) => {
 		const minutes = Number(allocationRow?.[category.code] ?? 0);
 		const earnedCent = Number(
 			allocationRow?.[`${category.code}Cent` as keyof typeof allocationRow] ??
@@ -99,10 +99,17 @@ export async function listHelperHours() {
 			balanceCent: earnedCent - spentCent,
 		};
 	});
+	const contribution = {
+		code: "gesamtverein" as const,
+		label: "Vereinsbeitrag",
+		minutes: Number(allocationRow?.gesamtverein ?? 0),
+		earnedCent: Number(allocationRow?.gesamtvereinCent ?? 0),
+	};
 	return {
 		items,
 		expenses,
 		budgets,
+		contribution,
 		valueCent,
 		summary: {
 			entries: Number(summary[0]?.entries ?? 0),
@@ -224,7 +231,7 @@ export async function cancelHelperHourExpense(
 	});
 }
 
-export async function loadHelperHourExport(category: HelperHourCategory) {
+export async function loadHelperHourExport(category: HelperHourBudgetCategory) {
 	const [dashboard, hours, expenses] = await Promise.all([
 		listHelperHours(),
 		db
