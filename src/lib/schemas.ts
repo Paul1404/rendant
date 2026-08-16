@@ -197,6 +197,12 @@ export type HelperHourCreateInput = v.InferOutput<
 	typeof HelperHourCreateSchema
 >;
 
+export const HelperHourListSchema = v.object({
+	jahr: v.optional(
+		v.pipe(v.number(), v.integer(), v.minValue(2000), v.maxValue(2100)),
+	),
+});
+
 export const HelperHourValueSchema = v.object({
 	wert_cent: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(100000)),
 });

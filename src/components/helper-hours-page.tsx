@@ -1,7 +1,27 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+	type ColumnDef,
+	columnFilteringFeature,
+	createFilteredRowModel,
+	createPaginatedRowModel,
+	createSortedRowModel,
+	filterFn_includesString,
+	globalFilteringFeature,
+	rowPaginationFeature,
+	rowSortingFeature,
+	sortFn_text,
+	tableFeatures,
+	useTable,
+} from "@tanstack/react-table";
+import {
 	AlertTriangle,
+	ArrowDown,
+	ArrowUp,
+	CalendarRange,
 	CheckCircle2,
+	ChevronLeft,
+	ChevronRight,
+	ChevronsUpDown,
 	Download,
 	FileCheck2,
 	Loader2,
@@ -9,10 +29,11 @@ import {
 	Plus,
 	ReceiptText,
 	RotateCcw,
+	Search,
 	Settings2,
 	Upload,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,6 +60,14 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDateDe, todayIsoDate } from "@/lib/date";
 import {
@@ -108,9 +137,19 @@ function parseHours(value: string): number | null {
 	return minutes % 15 === 0 ? minutes : null;
 }
 
-export function HelperHoursPage({ isAdmin }: { isAdmin: boolean }) {
+export function HelperHoursPage({
+	isAdmin,
+	year,
+	onYearChange,
+}: {
+	isAdmin: boolean;
+	year?: number;
+	onYearChange: (year?: number) => void;
+}) {
 	const queryClient = useQueryClient();
-	const { data, isLoading } = useQuery(orpc.helperHours.list.queryOptions());
+	const { data, isLoading } = useQuery(
+		orpc.helperHours.list.queryOptions({ input: { jahr: year } }),
+	);
 	const [selectedDepartment, setSelectedDepartment] =
 		useState<HelperHourBudgetCategory>("fussball");
 	const [saving, setSaving] = useState(false);
@@ -153,7 +192,7 @@ export function HelperHoursPage({ isAdmin }: { isAdmin: boolean }) {
 				bemerkung: "",
 			});
 			await queryClient.invalidateQueries({
-				queryKey: orpc.helperHours.list.queryKey(),
+				queryKey: orpc.helperHours.list.key({ type: "query" }),
 			});
 			toast.success("Helferstunde gespeichert");
 		} catch (error) {
@@ -166,22 +205,20 @@ export function HelperHoursPage({ isAdmin }: { isAdmin: boolean }) {
 	}
 	return (
 		<div className="space-y-6">
-			<div className="grid gap-3 sm:grid-cols-3">
-				{[
-					["Stunden", formatMinutes(data?.summary.minutes ?? 0)],
-					["Helfer", String(data?.summary.helpers ?? 0)],
-					["Einträge", String(data?.summary.entries ?? 0)],
-				].map(([label, value]) => (
-					<Card key={label} size="sm" variant="quiet">
-						<CardContent>
-							<p className="text-xs text-muted-foreground">{label}</p>
-							<p className="mt-1 font-heading text-2xl tabular-nums">
-								{isLoading ? "…" : value}
-							</p>
-						</CardContent>
-					</Card>
-				))}
-			</div>
+			<HelperHoursPeriodOverview
+				year={year}
+				years={data?.years ?? []}
+				summary={data?.summary ?? { entries: 0, helpers: 0, minutes: 0 }}
+				distribution={data?.distribution ?? []}
+				isLoading={isLoading}
+				onYearChange={onYearChange}
+			/>
+			<HelperOverview
+				year={year}
+				helpers={data?.helpers ?? []}
+				totalMinutes={data?.summary.minutes ?? 0}
+				isLoading={isLoading}
+			/>
 			<HelperHoursBudgets
 				budgets={data?.budgets ?? []}
 				contribution={
@@ -199,7 +236,7 @@ export function HelperHoursPage({ isAdmin }: { isAdmin: boolean }) {
 				isAdmin={isAdmin}
 				onChanged={() =>
 					queryClient.invalidateQueries({
-						queryKey: orpc.helperHours.list.queryKey(),
+						queryKey: orpc.helperHours.list.key({ type: "query" }),
 					})
 				}
 			/>
@@ -333,7 +370,7 @@ export function HelperHoursPage({ isAdmin }: { isAdmin: boolean }) {
 				<HelperHoursImport
 					onImported={() =>
 						queryClient.invalidateQueries({
-							queryKey: orpc.helperHours.list.queryKey(),
+							queryKey: orpc.helperHours.list.key({ type: "query" }),
 						})
 					}
 				/>
@@ -342,7 +379,8 @@ export function HelperHoursPage({ isAdmin }: { isAdmin: boolean }) {
 				<CardHeader>
 					<CardTitle>Letzte Einträge</CardTitle>
 					<CardDescription>
-						Die neuesten Helferstunden aus Erfassung und Import.
+						Die neuesten Helferstunden{" "}
+						{year ? `aus ${year}` : "aus allen Jahren"}.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="overflow-x-auto">
@@ -387,6 +425,447 @@ export function HelperHoursPage({ isAdmin }: { isAdmin: boolean }) {
 				</CardContent>
 			</Card>
 		</div>
+	);
+}
+
+type PeriodSummary = {
+	entries: number;
+	helpers: number;
+	minutes: number;
+};
+
+type DistributionEntry = {
+	code: HelperHourCategory;
+	label: string;
+	minutes: number;
+};
+
+type HelperSummary = {
+	vorname: string;
+	nachname: string;
+	entries: number;
+	events: number;
+	minutes: number;
+	lastDate: string;
+	allocations: Record<HelperHourCategory, number>;
+};
+
+const helperTableFeatures = tableFeatures({
+	columnFilteringFeature,
+	globalFilteringFeature,
+	filteredRowModel: createFilteredRowModel(),
+	filterFns: { includesString: filterFn_includesString },
+	rowSortingFeature,
+	sortedRowModel: createSortedRowModel(),
+	sortFns: { text: sortFn_text },
+	rowPaginationFeature,
+	paginatedRowModel: createPaginatedRowModel(),
+});
+
+function HelperHoursPeriodOverview({
+	year,
+	years,
+	summary,
+	distribution,
+	isLoading,
+	onYearChange,
+}: {
+	year?: number;
+	years: number[];
+	summary: PeriodSummary;
+	distribution: DistributionEntry[];
+	isLoading: boolean;
+	onYearChange: (year?: number) => void;
+}) {
+	const averageMinutes = summary.helpers
+		? Math.round(summary.minutes / summary.helpers)
+		: 0;
+	const optionYears = Array.from(new Set(year ? [year, ...years] : years)).sort(
+		(left, right) => right - left,
+	);
+	const distributedMinutes = distribution.reduce(
+		(sum, entry) => sum + entry.minutes,
+		0,
+	);
+	return (
+		<Card>
+			<CardHeader className="gap-4 sm:flex-row sm:items-start sm:justify-between">
+				<div>
+					<CardTitle className="flex items-center gap-2">
+						<CalendarRange className="h-4 w-4 text-primary" />
+						Jahresübersicht
+					</CardTitle>
+					<CardDescription>
+						Kennzahlen und Zuordnungen für {year ?? "alle Jahre"}.
+					</CardDescription>
+				</div>
+				<Select
+					value={year ? String(year) : "alle"}
+					onValueChange={(value) =>
+						onYearChange(value === "alle" ? undefined : Number(value))
+					}
+				>
+					<SelectTrigger
+						className="w-full sm:w-44"
+						aria-label="Auswertungsjahr"
+					>
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						{optionYears.map((entry) => (
+							<SelectItem key={entry} value={String(entry)}>
+								{entry}
+							</SelectItem>
+						))}
+						<SelectItem value="alle">Alle Jahre</SelectItem>
+					</SelectContent>
+				</Select>
+			</CardHeader>
+			<CardContent className="space-y-5">
+				<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+					{[
+						["Stunden", formatMinutes(summary.minutes)],
+						["Helfer", String(summary.helpers)],
+						["Einsätze", String(summary.entries)],
+						["Ø je Helfer", `${formatMinutes(averageMinutes)} h`],
+					].map(([label, value]) => (
+						<div key={label} className="rounded-xl bg-muted/35 p-4">
+							<p className="text-xs text-muted-foreground">{label}</p>
+							<p className="mt-1 font-heading text-2xl tabular-nums">
+								{isLoading ? "…" : value}
+							</p>
+						</div>
+					))}
+				</div>
+				<div>
+					<p className="mb-2 text-xs font-medium text-muted-foreground">
+						Stunden nach Zuordnung
+					</p>
+					<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+						{distribution.map((entry) => {
+							const share = distributedMinutes
+								? Math.round((entry.minutes / distributedMinutes) * 100)
+								: 0;
+							return (
+								<div key={entry.code} className="rounded-lg border p-3">
+									<div className="flex items-center justify-between gap-3 text-sm">
+										<span>{entry.label}</span>
+										<span className="font-medium tabular-nums">
+											{formatMinutes(entry.minutes)} h
+										</span>
+									</div>
+									<div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+										<div
+											className="h-full rounded-full bg-primary"
+											style={{ width: `${Math.max(share, 1)}%` }}
+										/>
+									</div>
+									<p className="mt-1 text-xs text-muted-foreground">
+										{share} % der Stunden
+									</p>
+								</div>
+							);
+						})}
+					</div>
+					{!isLoading && distribution.length === 0 ? (
+						<p className="rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground">
+							Für diesen Zeitraum sind noch keine Stunden vorhanden.
+						</p>
+					) : null}
+				</div>
+			</CardContent>
+		</Card>
+	);
+}
+
+function helperFocus(allocations: Record<HelperHourCategory, number>): string {
+	const top = Object.entries(allocations)
+		.filter(([, minutes]) => minutes > 0)
+		.sort(([, left], [, right]) => right - left)
+		.slice(0, 2)
+		.map(([category]) =>
+			helperHourCategoryLabel(category as HelperHourCategory),
+		);
+	return top.join(" · ") || "Ohne Zuordnung";
+}
+
+function HelperOverview({
+	year,
+	helpers,
+	totalMinutes,
+	isLoading,
+}: {
+	year?: number;
+	helpers: HelperSummary[];
+	totalMinutes: number;
+	isLoading: boolean;
+}) {
+	const rankByHelper = useMemo(
+		() =>
+			new Map(
+				helpers.map((helper, index) => [
+					`${helper.vorname}:${helper.nachname}`.toLocaleLowerCase("de-DE"),
+					index + 1,
+				]),
+			),
+		[helpers],
+	);
+	const columns = useMemo<
+		ColumnDef<typeof helperTableFeatures, HelperSummary>[]
+	>(
+		() => [
+			{
+				id: "rank",
+				header: "Rang",
+				enableSorting: false,
+				enableGlobalFilter: false,
+				cell: ({ row }) =>
+					rankByHelper.get(
+						`${row.original.vorname}:${row.original.nachname}`.toLocaleLowerCase(
+							"de-DE",
+						),
+					) ?? "",
+			},
+			{
+				id: "helper",
+				accessorFn: (helper) => `${helper.vorname} ${helper.nachname}`,
+				header: "Helfer",
+				sortFn: "text",
+				cell: ({ row }) => (
+					<span className="font-medium">
+						{row.original.vorname} {row.original.nachname}
+					</span>
+				),
+			},
+			{
+				accessorKey: "entries",
+				header: "Einsätze",
+				sortDescFirst: true,
+				cell: ({ row }) => (
+					<span className="tabular-nums">{row.original.entries}</span>
+				),
+			},
+			{
+				accessorKey: "events",
+				header: "Veranstaltungen",
+				sortDescFirst: true,
+				cell: ({ row }) => (
+					<span className="tabular-nums">{row.original.events}</span>
+				),
+			},
+			{
+				id: "focus",
+				header: "Schwerpunkt",
+				enableSorting: false,
+				enableGlobalFilter: false,
+				cell: ({ row }) => (
+					<span className="text-xs text-muted-foreground">
+						{helperFocus(row.original.allocations)}
+					</span>
+				),
+			},
+			{
+				accessorKey: "lastDate",
+				header: "Letzter Einsatz",
+				sortDescFirst: true,
+				sortFn: "text",
+				cell: ({ row }) => (
+					<span className="tabular-nums">
+						{formatDateDe(row.original.lastDate)}
+					</span>
+				),
+			},
+			{
+				accessorKey: "minutes",
+				header: "Stunden",
+				sortDescFirst: true,
+				cell: ({ row }) => {
+					const share = totalMinutes
+						? Math.round((row.original.minutes / totalMinutes) * 100)
+						: 0;
+					return (
+						<div>
+							<p className="font-semibold tabular-nums">
+								{formatMinutes(row.original.minutes)} h
+							</p>
+							<p className="text-xs text-muted-foreground">{share} %</p>
+						</div>
+					);
+				},
+			},
+		],
+		[rankByHelper, totalMinutes],
+	);
+	const table = useTable({
+		features: helperTableFeatures,
+		data: helpers,
+		columns,
+		getRowId: (helper) =>
+			`${helper.vorname}:${helper.nachname}`.toLocaleLowerCase("de-DE"),
+		getColumnCanGlobalFilter: (column) => column.id === "helper",
+		globalFilterFn: "includesString",
+		enableMultiSort: false,
+		enableSortingRemoval: false,
+		initialState: {
+			globalFilter: "",
+			sorting: [{ id: "minutes", desc: true }],
+			pagination: { pageIndex: 0, pageSize: 20 },
+		},
+	});
+	const query = String(table.state.globalFilter ?? "");
+	const rows = table.getRowModel().rows;
+	const filteredCount = table.getPrePaginatedRowModel().rows.length;
+	const pageIndex = table.state.pagination.pageIndex;
+	const pageSize = table.state.pagination.pageSize;
+	const pageStart = filteredCount === 0 ? 0 : pageIndex * pageSize + 1;
+	const pageEnd = Math.min((pageIndex + 1) * pageSize, filteredCount);
+	return (
+		<Card>
+			<CardHeader className="gap-4 sm:flex-row sm:items-end sm:justify-between">
+				<div>
+					<CardTitle>Übersicht pro Helfer</CardTitle>
+					<CardDescription>
+						Rangfolge nach Stunden{" "}
+						{year ? `im Jahr ${year}` : "über alle Jahre"}.
+					</CardDescription>
+				</div>
+				<div className="relative w-full sm:max-w-xs">
+					<Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+					<Input
+						value={query}
+						onChange={(event) => {
+							table.setGlobalFilter(event.target.value);
+							table.firstPage();
+						}}
+						placeholder="Helfer suchen"
+						aria-label="Helfer suchen"
+						className="pl-9"
+					/>
+				</div>
+			</CardHeader>
+			<CardContent className="space-y-4">
+				<div className="overflow-hidden rounded-xl border">
+					<Table className="min-w-[760px]">
+						<TableHeader className="bg-muted/35">
+							{table.getHeaderGroups().map((group) => (
+								<TableRow key={group.id} className="hover:bg-transparent">
+									{group.headers.map((header) => {
+										const sorted = header.column.getIsSorted();
+										const numeric = ["entries", "events", "minutes"].includes(
+											header.column.id,
+										);
+										return (
+											<TableHead
+												key={header.id}
+												className={numeric ? "text-right" : undefined}
+											>
+												{header.column.getCanSort() ? (
+													<Button
+														type="button"
+														variant="ghost"
+														size="sm"
+														className={numeric ? "ml-auto -mr-2" : "-ml-2"}
+														onClick={() => header.column.toggleSorting()}
+														aria-label={`${String(header.column.columnDef.header)} sortieren`}
+													>
+														<table.FlexRender header={header} />
+														{sorted === "asc" ? (
+															<ArrowUp className="h-3.5 w-3.5" />
+														) : sorted === "desc" ? (
+															<ArrowDown className="h-3.5 w-3.5" />
+														) : (
+															<ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+														)}
+													</Button>
+												) : header.isPlaceholder ? null : (
+													<table.FlexRender header={header} />
+												)}
+											</TableHead>
+										);
+									})}
+								</TableRow>
+							))}
+						</TableHeader>
+						<TableBody>
+							{isLoading ? (
+								<TableRow>
+									<TableCell
+										colSpan={columns.length}
+										className="py-10 text-center text-muted-foreground"
+									>
+										Helferstunden werden geladen
+									</TableCell>
+								</TableRow>
+							) : rows.length === 0 ? (
+								<TableRow>
+									<TableCell
+										colSpan={columns.length}
+										className="py-10 text-center text-muted-foreground"
+									>
+										Keine passenden Helfer gefunden.
+									</TableCell>
+								</TableRow>
+							) : (
+								rows.map((row) => (
+									<TableRow key={row.id}>
+										{row.getAllCells().map((cell) => (
+											<TableCell
+												key={cell.id}
+												className={
+													["entries", "events", "minutes"].includes(
+														cell.column.id,
+													)
+														? "text-right"
+														: cell.column.id === "rank"
+															? "text-muted-foreground"
+															: undefined
+												}
+											>
+												<table.FlexRender cell={cell} />
+											</TableCell>
+										))}
+									</TableRow>
+								))
+							)}
+						</TableBody>
+					</Table>
+				</div>
+				{filteredCount > 0 ? (
+					<div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+						<p className="text-xs text-muted-foreground">
+							{pageStart} bis {pageEnd} von {filteredCount} Helfern
+						</p>
+						{table.getPageCount() > 1 ? (
+							<div className="flex items-center gap-2">
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									onClick={() => table.previousPage()}
+									disabled={!table.getCanPreviousPage()}
+								>
+									<ChevronLeft className="h-4 w-4" />
+									Zurück
+								</Button>
+								<span className="min-w-20 text-center text-xs text-muted-foreground">
+									Seite {pageIndex + 1} von {table.getPageCount()}
+								</span>
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									onClick={() => table.nextPage()}
+									disabled={!table.getCanNextPage()}
+								>
+									Weiter
+									<ChevronRight className="h-4 w-4" />
+								</Button>
+							</div>
+						) : null}
+					</div>
+				) : null}
+			</CardContent>
+		</Card>
 	);
 }
 
@@ -538,8 +1017,9 @@ function HelperHoursBudgets({
 					Vereinsbeitrag und Abteilungsbudgets
 				</CardTitle>
 				<CardDescription>
-					Helferstunden werden mit {formatCent(valueCent)} bewertet. Käufe
-					mindern nur das verfügbare Budget der gewählten Abteilung.
+					Kumuliert über alle Jahre. Helferstunden werden mit{" "}
+					{formatCent(valueCent)} bewertet. Käufe mindern nur das verfügbare
+					Budget der gewählten Abteilung.
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-5">
