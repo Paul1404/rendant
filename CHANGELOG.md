@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.38.1 - 2026-08-28
+
+- Kassenzählprotokolle lassen sich wieder als PDF erzeugen und herunterladen.
+- Ein automatischer Dokumenttest prüft die PDF-Erzeugung bei künftigen
+  Aktualisierungen vor der Freigabe.
+
 ## 1.38.0 - 2026-08-16
 
 - Die vollständige Liste der Helferstunden bietet jetzt Suche, Filter für Quelle
