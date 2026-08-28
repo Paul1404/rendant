@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.38.2 - 2026-08-28
+
+- Die PDF-Erzeugung lädt ihre Dokumentbibliotheken im Produktivbetrieb wieder
+  vollständig. Dadurch funktionieren neue und erneut erzeugte
+  Kassenzählprotokolle auch nach dem Serverstart zuverlässig.
+
 ## 1.38.1 - 2026-08-28
 
 - Kassenzählprotokolle lassen sich wieder als PDF erzeugen und herunterladen.

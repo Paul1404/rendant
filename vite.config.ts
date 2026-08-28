@@ -21,7 +21,13 @@ const config = defineConfig({
 	},
 	plugins: [
 		devtools(),
-		nitro({ rollupConfig: { external: [/^@sentry\//] } }),
+		nitro({
+			// React PDF and PDFKit use package-level runtime mappings for standard
+			// fonts. Bundling them rewrites those private imports and leaves the
+			// production server unable to resolve Helvetica. The Docker runtime
+			// already contains production node_modules, so keep this graph external.
+			rollupConfig: { external: [/^@sentry\//, /^@react-pdf\//, "pdfkit"] },
+		}),
 		tailwindcss(),
 		tanstackStart(),
 		viteReact(),
