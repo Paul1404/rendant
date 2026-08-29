@@ -21,6 +21,11 @@ updates:
       aws:
         patterns:
           - "@aws-sdk/*"
+      pdf-runtime:
+        patterns:
+          - "@react-pdf/*"
+          - "pdfkit"
+          - "fontkit"
       tailwind:
         patterns:
           - "tailwindcss"

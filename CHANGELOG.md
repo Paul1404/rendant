@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.38.3 - 2026-08-29
+
+- Neue Versionen werden erst freigeschaltet, wenn die PDF-Erzeugung im
+  produktiven Server erfolgreich geprüft wurde.
+- Die Überwachung erkennt ausgefallene Dokumenterzeugung und fehlende PDFs
+  frühzeitig, damit Probleme behoben werden können, bevor weitere Protokolle
+  betroffen sind.
+
 ## 1.38.2 - 2026-08-28
 
 - Die PDF-Erzeugung lädt ihre Dokumentbibliotheken im Produktivbetrieb wieder

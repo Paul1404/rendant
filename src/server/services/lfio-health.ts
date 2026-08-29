@@ -4,6 +4,7 @@ import { HeadBucketCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { sql } from "drizzle-orm";
 import { db, pool } from "@/server/db";
 import { logger } from "@/server/logger";
+import { collectPdfHealthSnapshot } from "@/server/services/pdf-health";
 import { getS3BucketName, getS3Client } from "@/server/services/s3";
 
 type LfioStatus = "up" | "down" | "degraded" | "unknown";
@@ -425,9 +426,11 @@ async function collectApiPayload(): Promise<LfioPayload> {
 	const started = performance.now();
 
 	try {
-		const [health, activeUsers] = await Promise.all([
+		const [health, activeUsers, pdf, missingPdfs] = await Promise.all([
 			collectHealthSnapshot(),
 			countActiveUsers(),
+			collectPdfHealthSnapshot(),
+			countMissingPdfDocuments(),
 		]);
 		const latencyMs = Math.round(performance.now() - started);
 		const waitingRequests = pool.waitingCount;
@@ -439,10 +442,18 @@ async function collectApiPayload(): Promise<LfioPayload> {
 		if (waitingRequests > threshold("LFIO_API_WAITING_REQUESTS_DEGRADED", 0)) {
 			breaches.push(`pg pool waiting requests ${waitingRequests}`);
 		}
+		if (!pdf.ok) breaches.push("PDF renderer unavailable");
+		if (missingPdfs && missingPdfs > 0) {
+			breaches.push(`${missingPdfs} PDF documents missing`);
+		}
 
-		const status = health.ok
-			? statusWithHysteresis("api", breaches, "API health check OK")
-			: { status: "down" as const, message: health.message };
+		const status =
+			health.ok && pdf.ok
+				? statusWithHysteresis("api", breaches, "API health check OK")
+				: {
+						status: "down" as const,
+						message: health.ok ? pdf.message : health.message,
+					};
 
 		return {
 			assetKey: "api",
@@ -480,17 +491,50 @@ async function collectApiPayload(): Promise<LfioPayload> {
 					"ms",
 					"LFIO",
 				),
+				metric(
+					"pdfRenderLatencyMs",
+					"PDF render latency",
+					pdf.latencyMs,
+					"ms",
+					"Documents",
+				),
+				metric(
+					"missingPdfDocuments",
+					"Missing PDF documents",
+					missingPdfs,
+					"count",
+					"Documents",
+				),
 			]),
 			metadata: {
 				checkedAt: health.checkedAt,
 				nodeEnv: process.env.NODE_ENV ?? "development",
 				version:
 					typeof __APP_VERSION__ === "string" ? __APP_VERSION__ : undefined,
+				pdfReady: pdf.ok,
 			},
 		};
 	} catch (err) {
 		log.warn("LFIO API metrics collection failed", { err });
 		return downPayload("api", "Rendant Application", err);
+	}
+}
+
+async function countMissingPdfDocuments(): Promise<number | undefined> {
+	try {
+		const result = await withTimeout(
+			"missing PDF count",
+			pool.query<{ missing_pdf_documents: string }>(`
+				select count(*)::text as missing_pdf_documents
+				from protokolle
+				where pdf_s3_key is null
+					or (storniert_am is not null and storno_pdf_s3_key is null)
+			`),
+		);
+		return toNumber(result.rows[0]?.missing_pdf_documents);
+	} catch (err) {
+		log.debug("Missing PDF metric unavailable", { err });
+		return undefined;
 	}
 }
 

@@ -70,6 +70,9 @@ update the appropriate canonical documentation in the same change.
 - Before calling a change complete, run `bun run check`, `bunx tsc --noEmit`,
   `bun run test`, and `bun run build`, then exercise the affected runtime flow
   where feasible.
+- `/api/health` includes a cached production PDF render. Preserve the
+  production-image readiness assertion when changing React PDF, PDFKit, fonts,
+  Nitro bundling, or the Docker runtime.
 - Keep `AGENTS.md`, `.env.example`, migrations, and operational documentation in
   sync with behavior changes.
 

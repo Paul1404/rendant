@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { emptyCounts } from "@/lib/denominations";
 import { renderProtokollPdf } from "@/server/services/pdf";
+import {
+	isValidPdfBuffer,
+	pdfSmokeData,
+} from "@/server/services/pdf-health";
+
+function expectPdf(buffer: Buffer, hash: string): void {
+	expect(isValidPdfBuffer(buffer)).toBe(true);
+	expect(hash).toMatch(/^[a-f0-9]{64}$/);
+}
 
 describe("renderProtokollPdf", () => {
 	it("renders a complete protocol document", async () => {
@@ -36,8 +45,17 @@ describe("renderProtokollPdf", () => {
 			umsatz_ust_basis: "pre_card",
 		});
 
-		expect(buffer.subarray(0, 5).toString()).toBe("%PDF-");
-		expect(buffer.length).toBeGreaterThan(1_000);
-		expect(hash).toMatch(/^[a-f0-9]{64}$/);
+		expectPdf(buffer, hash);
+	});
+
+	it("renders the production readiness fixture with and without cancellation", async () => {
+		const [active, cancelled] = await Promise.all([
+			renderProtokollPdf(pdfSmokeData(false)),
+			renderProtokollPdf(pdfSmokeData(true)),
+		]);
+
+		expectPdf(active.buffer, active.hash);
+		expectPdf(cancelled.buffer, cancelled.hash);
+		expect(cancelled.buffer.length).toBeGreaterThan(active.buffer.length);
 	});
 });

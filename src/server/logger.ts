@@ -36,18 +36,52 @@ const BASE_CONTEXT: LogContext = {
 
 export type LogContext = Record<string, unknown>;
 
-function redact(value: unknown, depth = 0): unknown {
-	if (value instanceof Error) {
-		return { name: value.name, message: value.message, stack: value.stack };
+function property(value: object, key: string): unknown {
+	try {
+		return Reflect.get(value, key);
+	} catch {
+		return undefined;
+	}
+}
+
+function errorDetails(value: object, depth: number): LogContext | undefined {
+	const tag = Object.prototype.toString.call(value);
+	const message = property(value, "message");
+	const stack = property(value, "stack");
+	const errorLike =
+		value instanceof Error ||
+		tag === "[object Error]" ||
+		tag === "[object DOMException]" ||
+		(typeof message === "string" && typeof stack === "string");
+	if (!errorLike) return undefined;
+
+	const details: LogContext = {};
+	for (const key of ["name", "message", "stack", "code"]) {
+		const item = property(value, key);
+		if (typeof item === "string" || typeof item === "number") {
+			details[key] = item;
+		}
+	}
+	const cause = property(value, "cause");
+	if (cause !== undefined) {
+		details.cause = serializeLogValue(cause, depth + 1);
+	}
+	return details;
+}
+
+export function serializeLogValue(value: unknown, depth = 0): unknown {
+	if (depth > 3) return "[…]";
+	if (value && typeof value === "object") {
+		const details = errorDetails(value, depth);
+		if (details) return details;
 	}
 	if (Array.isArray(value)) {
-		return depth > 3 ? "[…]" : value.map((v) => redact(v, depth + 1));
+		return value.map((v) => serializeLogValue(v, depth + 1));
 	}
 	if (value && typeof value === "object") {
-		if (depth > 3) return "[…]";
 		const out: Record<string, unknown> = {};
 		for (const [k, v] of Object.entries(value)) {
-			out[k] = REDACT.test(k) ? "[redacted]" : redact(v, depth + 1);
+			out[k] = REDACT.test(k) ? "[redacted]" : serializeLogValue(v, depth + 1);
 		}
 		return out;
 	}
@@ -64,7 +98,7 @@ const RESET = "\x1b[0m";
 
 function emit(level: Level, msg: string, context?: LogContext): void {
 	if (LEVEL_WEIGHT[level] < threshold()) return;
-	const ctx = context ? (redact(context) as LogContext) : undefined;
+	const ctx = context ? (serializeLogValue(context) as LogContext) : undefined;
 	const time = new Date().toISOString();
 
 	if (isProd) {
