@@ -104,8 +104,12 @@ jobs:
           -e BETTER_AUTH_URL=http://127.0.0.1:3000
           rendant-ci
 
-      - name: Check production health endpoint
-        run: curl --fail --retry 20 --retry-delay 1 --retry-all-errors http://127.0.0.1:3000/api/health
+      - name: Check production readiness including PDF rendering
+        run: >-
+          curl --silent --fail --retry 20 --retry-delay 1 --retry-all-errors
+          http://127.0.0.1:3000/api/health
+          | jq --exit-status
+          '.ok == true and .db == true and .pdf == true and .pdfLatencyMs >= 0'
 
       - name: Show production logs on failure
         if: failure()

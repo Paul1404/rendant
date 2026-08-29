@@ -3,6 +3,7 @@ import {
 	collectHealthSnapshot,
 	startLfioHealthReporter,
 } from "@/server/services/lfio-health";
+import { collectPdfHealthSnapshot } from "@/server/services/pdf-health";
 
 startLfioHealthReporter();
 
@@ -10,15 +11,21 @@ export const Route = createFileRoute("/api/health")({
 	server: {
 		handlers: {
 			GET: async () => {
-				const health = await collectHealthSnapshot();
+				const [health, pdf] = await Promise.all([
+					collectHealthSnapshot(),
+					collectPdfHealthSnapshot(),
+				]);
+				const ok = health.ok && pdf.ok;
 				return Response.json(
 					{
-						ok: health.ok,
+						ok,
 						db: health.db,
-						status: health.status,
+						pdf: pdf.ok,
+						status: ok ? health.status : "down",
 						latencyMs: health.latencyMs,
+						pdfLatencyMs: pdf.latencyMs,
 					},
-					{ status: health.ok ? 200 : 503 },
+					{ status: ok ? 200 : 503 },
 				);
 			},
 		},
