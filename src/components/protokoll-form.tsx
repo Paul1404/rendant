@@ -988,7 +988,7 @@ export function ProtokollForm({
 										}}
 										required
 										maxLength={120}
-										placeholder="z.B. Sportheim Theke"
+										placeholder="z. B. Sportheim Theke"
 									/>
 								</div>
 							</div>
@@ -1180,7 +1180,7 @@ export function ProtokollForm({
 															updateAusgabe(i, "bezeichnung", e.target.value)
 														}
 														required
-														placeholder="z.B. Pizzakauf"
+														placeholder="z. B. Pizzakauf"
 													/>
 												</div>
 												<div className="md:col-span-3 space-y-1">

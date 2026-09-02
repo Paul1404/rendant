@@ -21,6 +21,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Money } from "@/components/ui/money";
+import { StepList } from "@/components/ui/step-list";
 
 type ImportPreview = {
 	valid: boolean;
@@ -141,26 +142,25 @@ export function HistoricalRevenueImport() {
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-5">
-					<div className="grid gap-3 sm:grid-cols-3">
-						<div className="rounded-xl border border-border/60 bg-muted/20 p-3 text-sm">
-							<p className="font-semibold">1. Vorlage laden</p>
-							<p className="mt-1 text-xs text-muted-foreground">
-								Enthält die gültigen Umsatzgruppen als Auswahlliste.
-							</p>
-						</div>
-						<div className="rounded-xl border border-border/60 bg-muted/20 p-3 text-sm">
-							<p className="font-semibold">2. In Excel ausfüllen</p>
-							<p className="mt-1 text-xs text-muted-foreground">
-								Eine Veranstaltung pro Zeile. Überschriften nicht ändern.
-							</p>
-						</div>
-						<div className="rounded-xl border border-border/60 bg-muted/20 p-3 text-sm">
-							<p className="font-semibold">3. Prüfen und importieren</p>
-							<p className="mt-1 text-xs text-muted-foreground">
-								Fehler werden vor dem Speichern mit Zeilennummer angezeigt.
-							</p>
-						</div>
-					</div>
+					<StepList
+						steps={[
+							{
+								label: "Vorlage laden",
+								description:
+									"Enthält die gültigen Umsatzgruppen als Auswahlliste.",
+							},
+							{
+								label: "In Excel ausfüllen",
+								description:
+									"Eine Veranstaltung pro Zeile. Überschriften nicht ändern.",
+							},
+							{
+								label: "Prüfen und importieren",
+								description:
+									"Fehler werden vor dem Speichern mit Zeilennummer angezeigt.",
+							},
+						]}
+					/>
 
 					<Button variant="outline" className="w-full sm:w-auto" asChild>
 						<a href="/api/import/revenue/template">
@@ -222,7 +222,7 @@ export function HistoricalRevenueImport() {
 									) : null}
 								</div>
 								{preview.alreadyImported > 0 ? (
-									<span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-800 dark:text-amber-200">
+									<span className="rounded-full bg-warning/10 px-2.5 py-1 text-xs font-medium text-warning">
 										{preview.alreadyImported} bereits importiert
 									</span>
 								) : null}
@@ -240,7 +240,7 @@ export function HistoricalRevenueImport() {
 							) : null}
 
 							{preview.valid && preview.possibleDuplicates.length > 0 ? (
-								<p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
+								<p className="rounded-lg border border-warning/35 bg-warning/10 px-3 py-2 text-sm text-warning">
 									Mögliche Dubletten in den Excel-Zeilen{" "}
 									{preview.possibleDuplicates.join(", ")}. Bitte vor dem Import
 									prüfen.

@@ -52,6 +52,8 @@
   --color-nav-accent: var(--nav-accent);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -92,6 +94,10 @@
   --destructive: #8c2f24;
   --success: #2f6b4f;
   --success-foreground: #ffffff;
+  /* Warning sits between brass and destructive: a deeper ochre that stays in
+     the brass hue family and clears AA on the parchment ground. */
+  --warning: #8a4f14;
+  --warning-foreground: #ffffff;
   --border: rgb(15 42 34 / 12%);
   --input: rgb(15 42 34 / 56%);
   --ring: #8a6a28;
@@ -128,6 +134,8 @@
   --destructive: #d66a5c;
   --success: #72b18e;
   --success-foreground: #07160f;
+  --warning: #d9a441;
+  --warning-foreground: #07160f;
   --border: rgb(201 169 96 / 18%);
   --input: rgb(201 169 96 / 62%);
   --ring: #c9a960;

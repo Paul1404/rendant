@@ -31,7 +31,6 @@ import {
 	Plus,
 	ReceiptText,
 	RotateCcw,
-	Search,
 	Settings2,
 	Upload,
 } from "lucide-react";
@@ -53,7 +52,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { Input, SearchInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
 	Select,
@@ -558,19 +557,15 @@ function HelperHoursEntries({ year }: { year?: number }) {
 			</CardHeader>
 			<CardContent className="space-y-4">
 				<div className="grid gap-3 lg:grid-cols-[minmax(16rem,1fr)_13rem_13rem]">
-					<div className="relative">
-						<Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-						<Input
-							value={query}
-							onChange={(event) => {
-								setQuery(event.target.value);
-								firstPage();
-							}}
-							placeholder="Helfer oder Veranstaltung suchen"
-							aria-label="Helferstunden durchsuchen"
-							className="pl-9"
-						/>
-					</div>
+					<SearchInput
+						value={query}
+						onChange={(event) => {
+							setQuery(event.target.value);
+							firstPage();
+						}}
+						placeholder="Helfer oder Veranstaltung suchen"
+						aria-label="Helferstunden durchsuchen"
+					/>
 					<Select
 						value={source}
 						onValueChange={(value) => {
@@ -1039,19 +1034,16 @@ function HelperOverview({
 						{year ? `im Jahr ${year}` : "über alle Jahre"}.
 					</CardDescription>
 				</div>
-				<div className="relative w-full sm:max-w-xs">
-					<Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-					<Input
-						value={query}
-						onChange={(event) => {
-							table.setGlobalFilter(event.target.value);
-							table.firstPage();
-						}}
-						placeholder="Helfer suchen"
-						aria-label="Helfer suchen"
-						className="pl-9"
-					/>
-				</div>
+				<SearchInput
+					wrapperClassName="w-full sm:max-w-xs"
+					value={query}
+					onChange={(event) => {
+						table.setGlobalFilter(event.target.value);
+						table.firstPage();
+					}}
+					placeholder="Helfer suchen"
+					aria-label="Helfer suchen"
+				/>
 			</CardHeader>
 			<CardContent className="space-y-4">
 				<div className="overflow-hidden rounded-xl border">
@@ -1764,19 +1756,19 @@ function HelperHoursImport({
 							</ul>
 						) : null}
 						{preview.reviewRows.length ? (
-							<div className="mt-4 space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
+							<div className="mt-4 space-y-3 rounded-xl border border-warning/35 bg-warning/10 p-3">
 								<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 									<div>
-										<p className="flex items-center gap-2 text-sm font-semibold text-amber-950 dark:text-amber-50">
+										<p className="flex items-center gap-2 text-sm font-semibold text-warning">
 											<AlertTriangle className="h-4 w-4" />
 											{resolvedIssues} von {totalIssues} Hinweisen geklärt
 										</p>
-										<p className="mt-0.5 text-xs text-amber-900/80 dark:text-amber-100/80">
+										<p className="mt-0.5 text-xs text-foreground/80">
 											Originalwerte bleiben erhalten. Öffne eine Zeile zum
 											Korrigieren.
 										</p>
 									</div>
-									<div className="h-2 w-full overflow-hidden rounded-full bg-amber-950/10 sm:w-40">
+									<div className="h-2 w-full overflow-hidden rounded-full bg-foreground/10 sm:w-40">
 										<div
 											className="h-full rounded-full bg-primary transition-all"
 											style={{
@@ -1799,9 +1791,9 @@ function HelperHoursImport({
 												onClick={() => setEditing(row)}
 											>
 												{resolved ? (
-													<CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+													<CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
 												) : (
-													<Pencil className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" />
+													<Pencil className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
 												)}
 												<span className="min-w-0 flex-1">
 													<span className="block text-xs font-semibold">
@@ -2156,7 +2148,7 @@ function CorrectionSection({
 			<div className="flex items-center justify-between gap-3">
 				<p className="font-semibold">{title}</p>
 				{resolved ? (
-					<span className="flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+					<span className="flex items-center gap-1 text-xs font-medium text-success">
 						<CheckCircle2 className="h-4 w-4" /> Geklärt
 					</span>
 				) : null}
