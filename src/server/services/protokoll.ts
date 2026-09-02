@@ -414,6 +414,9 @@ export async function createProtokoll(
 			if (code === "23505") {
 				if (customBelegnummer) throw new Error("Belegnummer bereits vergeben");
 				if (attempt < maxRetries) continue;
+				// Out of retries: surface the mapped conflict instead of letting a raw
+				// Postgres error reach the client as an unexplained 500.
+				throw new Error("Belegnummer bereits vergeben");
 			}
 			throw e;
 		}

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { VereinStammdaten } from "@/lib/verein";
-import { db } from "@/server/db";
+import { type DbOrTx, db } from "@/server/db";
 import { appSettings } from "@/server/db/schema";
 import {
 	type RecordAuditInput,
@@ -48,8 +48,8 @@ function normalizeUmsatzUstBasis(value: unknown): UmsatzUstBasis {
 	return value === "pre_card" ? "pre_card" : "post_card";
 }
 
-async function loadRow(): Promise<SettingsRow | undefined> {
-	const rows = await db
+async function loadRow(client: DbOrTx = db): Promise<SettingsRow | undefined> {
+	const rows = await client
 		.select()
 		.from(appSettings)
 		.where(eq(appSettings.id, 1))
@@ -57,8 +57,13 @@ async function loadRow(): Promise<SettingsRow | undefined> {
 	return rows[0];
 }
 
-export async function getBelegnummerSettings(): Promise<BelegnummerSettings> {
-	const row = await loadRow();
+// Callers inside an open transaction must pass their `tx`. Reaching for the root
+// client here would take a second connection out of a pool of 10 while the first
+// is still held, so ten concurrent writers deadlock the pool against itself.
+export async function getBelegnummerSettings(
+	client: DbOrTx = db,
+): Promise<BelegnummerSettings> {
+	const row = await loadRow(client);
 	if (!row) return DEFAULT_BELEGNUMMER_SETTINGS;
 	return rowToSettings(row);
 }

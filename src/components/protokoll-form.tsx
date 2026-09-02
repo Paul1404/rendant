@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouter } from "@tanstack/react-router";
 import {
 	Banknote,
 	Calculator,
@@ -211,6 +211,7 @@ export function ProtokollForm({
 	const [newRegisterChange, setNewRegisterChange] = useState("160,00");
 	const [creatingPreset, setCreatingPreset] = useState(false);
 	const navigate = useNavigate();
+	const router = useRouter();
 	const queryClient = useQueryClient();
 	const [pending, startTransition] = useTransition();
 
@@ -353,7 +354,10 @@ export function ProtokollForm({
 			setNewRegisterName("");
 			setNewRegisterChange("160,00");
 			toast.success("Kasse angelegt und ausgewählt");
-			await queryClient.invalidateQueries();
+			// The register list comes from the route loader, not the query cache,
+			// so this has to invalidate the router. The blanket cache invalidation
+			// this replaces refreshed nothing it was aimed at.
+			await router.invalidate();
 		} catch (error) {
 			toast.error(orpcMessage(error, "Kasse konnte nicht angelegt werden"));
 		} finally {

@@ -69,3 +69,31 @@ describe("sequence initialization helpers", () => {
     expect(nextSequenceAfterExisting(["Rendant-2026-0001", "CUSTOM-0099"])).toBe(100);
   });
 });
+
+describe("year rollover with the default (year-less) format", () => {
+  // Regression: the sequence used to be seeded from the current year's history
+  // only. With the default format the number carries no year, so the first
+  // protokoll of a new year re-allocated "01" and collided with the global
+  // unique index, failing every retry identically.
+  const lastYear = ["01", "02", "42"];
+
+  it("continues past the previous year instead of restarting at one", () => {
+    expect(nextSequenceAfterExisting(lastYear)).toBe(43);
+    expect(formatBelegnummer(43, 2027, DEFAULT_BELEGNUMMER_SETTINGS)).toBe("43");
+  });
+
+  it("never re-issues a number that already exists", () => {
+    const next = formatBelegnummer(
+      nextSequenceAfterExisting(lastYear),
+      2027,
+      DEFAULT_BELEGNUMMER_SETTINGS,
+    );
+    expect(lastYear).not.toContain(next);
+  });
+
+  it("still restarts per year when the year is part of the number", () => {
+    const settings = { ...DEFAULT_BELEGNUMMER_SETTINGS, include_year: true };
+    expect(formatBelegnummer(1, 2027, settings)).toBe("2027-01");
+    expect(formatBelegnummer(1, 2026, settings)).toBe("2026-01");
+  });
+});

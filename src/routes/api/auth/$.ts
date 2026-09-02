@@ -17,6 +17,18 @@ function isSignOut(request: Request): boolean {
 	return request.method === "POST" && url.pathname.endsWith("/sign-out");
 }
 
+// The better-auth admin plugin supplies the `role` and `banned` columns and the
+// banned-session hook, but it also mounts a REST surface this app never calls:
+// impersonate-user, set-role, create-user, remove-user, ban-user and friends.
+// Those bypass every guard the app enforces itself, including the last-active-
+// admin lock and the audit trail every account change is supposed to leave, and
+// create-user would sidestep both `disableSignUp` and the invitation flow.
+// Account administration belongs to the oRPC procedures, so the surface stays
+// closed.
+export function isBlockedAdminApi(pathname: string): boolean {
+	return pathname.split("/").includes("admin");
+}
+
 async function signInEmail(request: Request): Promise<string | null> {
 	try {
 		const body = (await request.clone().json()) as { email?: unknown };
@@ -37,6 +49,10 @@ function requestContext(request: Request, clientIp: string) {
 }
 
 async function handle({ request }: { request: Request }) {
+	if (isBlockedAdminApi(new URL(request.url).pathname)) {
+		return Response.json({ error: "Not found" }, { status: 404 });
+	}
+
 	if (!isEmailSignIn(request)) {
 		if (!isSignOut(request)) return auth.handler(request);
 

@@ -219,10 +219,13 @@ export function HistoricalProtocolFolderImport() {
 		}
 	}, []);
 
+	// Keyed on the id, not the whole draft: every mutation returns a new draft
+	// object and already refreshes the phases itself, so depending on the object
+	// issued the same request twice per change.
 	useEffect(() => {
-		if (draft) void refreshReviewPhases(draft.id);
+		if (draft?.id) void refreshReviewPhases(draft.id);
 		else setReviewPhases([]);
-	}, [draft, refreshReviewPhases]);
+	}, [draft?.id, refreshReviewPhases]);
 
 	async function analyzeFolder() {
 		if (files.length === 0) return;
@@ -607,7 +610,12 @@ export function HistoricalProtocolFolderImport() {
 				),
 			},
 		],
-		[draft?.status, loading],
+		// `draft` in full, not just its status: the cells close over
+		// `draft.revision`, and saving from the edit dialog bumps the revision
+		// without changing status or loading. Omitting it left the decision
+		// dropdown sending a stale expected_revision, which the server rejected
+		// as a concurrent edit that had not happened.
+		[draft, loading],
 	);
 
 	const table = useTable({

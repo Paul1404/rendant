@@ -1,6 +1,11 @@
 import { ORPCError } from "@orpc/client";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import {
+	createFileRoute,
+	Link,
+	notFound,
+	useRouteContext,
+} from "@tanstack/react-router";
 import {
 	ArrowLeft,
 	Banknote,
@@ -96,6 +101,10 @@ function NotFound() {
 
 function ProtokollDetailPage() {
 	const { id } = Route.useParams();
+	// Storno and PDF-Neuerzeugung are admin-only on the server, so the controls
+	// only render for admins rather than failing on click.
+	const { user } = useRouteContext({ from: "/protokolle" });
+	const isAdmin = user.role === "admin";
 	const { data } = useSuspenseQuery(detailQueryOptions(id));
 	const { protokoll, ausgaben, umsatzUst } = data;
 	const sumScheine = DENOMINATIONS.filter((d) => d.kind === "schein").reduce(
@@ -155,7 +164,9 @@ function ProtokollDetailPage() {
 								aktiv
 							</span>
 						)}
-						<RegeneratePdfButton protokollId={protokoll.id} />
+						{isAdmin ? (
+							<RegeneratePdfButton protokollId={protokoll.id} />
+						) : null}
 						<Button asChild variant="outline" size="sm">
 							<Link to="/protokolle/neu" search={{ duplicate: protokoll.id }}>
 								<Copy className="mr-2 h-4 w-4" />
@@ -198,7 +209,9 @@ function ProtokollDetailPage() {
 								</Button>
 							</>
 						) : null}
-						{!isStorno ? <StornoDialog protokollId={protokoll.id} /> : null}
+						{!isStorno && isAdmin ? (
+							<StornoDialog protokollId={protokoll.id} />
+						) : null}
 					</div>
 				</div>
 			</div>

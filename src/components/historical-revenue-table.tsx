@@ -286,7 +286,7 @@ export function HistoricalRevenueTable({
 							type="file"
 							multiple
 							accept=".ods,.xlsx"
-							className="sr-only"
+							className="hidden"
 							{...DIRECTORY_INPUT_ATTRIBUTES}
 							onChange={(event) => void archiveFolder(event.target.files)}
 						/>
