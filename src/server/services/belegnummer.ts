@@ -28,14 +28,25 @@ export function nextSequenceAfterExisting(belegnummern: string[]): number {
 	return maxTrailingSequence(belegnummern) + 1;
 }
 
-async function nextSequenceFromHistoryForYear(
+// The sequence scope has to match the format scope. When the year is part of the
+// number, "01" in 2027 cannot collide with "01" in 2026, so seeding from that
+// year's history is right. When it is not, the number is globally unique and the
+// sequence has to continue across the year boundary — seeding from a fresh
+// year's (empty) history would allocate "01" again and hit the unique index on
+// the first protokoll of every January.
+async function nextSequenceFromHistory(
 	client: DbOrTx,
 	year: number,
+	includeYear: boolean,
 ): Promise<number> {
-	const rows = await client
+	const query = client
 		.select({ belegnummer: protokolle.belegnummer })
-		.from(protokolle)
-		.where(sql`EXTRACT(YEAR FROM ${protokolle.erstellt_am}) = ${year}`);
+		.from(protokolle);
+	const rows = includeYear
+		? await query.where(
+				sql`EXTRACT(YEAR FROM ${protokolle.erstellt_am}) = ${year}`,
+			)
+		: await query;
 	return nextSequenceAfterExisting(rows.map((row) => row.belegnummer));
 }
 
@@ -60,7 +71,7 @@ export async function previewNextBelegnummer(
 	]);
 	const nextSequence =
 		sequenceRows[0]?.next_sequence ??
-		(await nextSequenceFromHistoryForYear(db, year));
+		(await nextSequenceFromHistory(db, year, settings.include_year));
 	return formatBelegnummer(nextSequence, year, settings);
 }
 
@@ -68,7 +79,8 @@ export async function nextBelegnummerInTx(
 	tx: DbOrTx,
 	year: number,
 ): Promise<string> {
-	const settings = await getBelegnummerSettings();
+	// `tx`, not the root client: see getBelegnummerSettings on why.
+	const settings = await getBelegnummerSettings(tx);
 	const existingRows = await tx
 		.select({ next_sequence: belegnummerSequences.next_sequence })
 		.from(belegnummerSequences)
@@ -89,7 +101,11 @@ export async function nextBelegnummerInTx(
 		return formatBelegnummer(Number(rows[0].sequence), year, settings);
 	}
 
-	const reservedSequence = await nextSequenceFromHistoryForYear(tx, year);
+	const reservedSequence = await nextSequenceFromHistory(
+		tx,
+		year,
+		settings.include_year,
+	);
 	const rows = await tx
 		.insert(belegnummerSequences)
 		.values({

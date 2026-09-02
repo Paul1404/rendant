@@ -230,7 +230,9 @@ const protokolle = {
 			}
 		}),
 
-	storno: authed
+	// Admin-only, like every other destructive accounting operation and like the
+	// MCP layer already classified it.
+	storno: adminOnly
 		.input(
 			v.object({
 				id: v.pipe(v.string(), v.minLength(1)),
@@ -258,31 +260,35 @@ const protokolle = {
 			}
 		}),
 
-	regeneratePdf: authed.input(idInput).handler(async ({ input, context }) => {
-		try {
-			const detail = await getProtokoll(input.id);
-			await regenerateProtokollPdf(input.id);
-			await recordAuditEvent({
-				category: "protokolle",
-				action: "protokolle.pdf_regenerated",
-				actor: context.user,
-				subject: {
-					type: "protokoll",
-					id: input.id,
-					label: detail?.protokoll.belegnummer,
-				},
-				request: requestAuditContext(context),
-			});
-			return { ok: true };
-		} catch (e) {
-			if ((e as Error).message === "Protokoll nicht gefunden") {
-				throw new ORPCError("NOT_FOUND", {
-					message: "Protokoll nicht gefunden",
+	// Admin-only: regenerating deletes the previously archived PDF from S3, so it
+	// destroys the stored evidence for a protokoll.
+	regeneratePdf: adminOnly
+		.input(idInput)
+		.handler(async ({ input, context }) => {
+			try {
+				const detail = await getProtokoll(input.id);
+				await regenerateProtokollPdf(input.id);
+				await recordAuditEvent({
+					category: "protokolle",
+					action: "protokolle.pdf_regenerated",
+					actor: context.user,
+					subject: {
+						type: "protokoll",
+						id: input.id,
+						label: detail?.protokoll.belegnummer,
+					},
+					request: requestAuditContext(context),
 				});
+				return { ok: true };
+			} catch (e) {
+				if ((e as Error).message === "Protokoll nicht gefunden") {
+					throw new ORPCError("NOT_FOUND", {
+						message: "Protokoll nicht gefunden",
+					});
+				}
+				throw e;
 			}
-			throw e;
-		}
-	}),
+		}),
 };
 
 // ---- Settings ------------------------------------------------------------

@@ -20,9 +20,13 @@ export function CommandPalette() {
 		(item) => !item.adminOnly || user.role === "admin",
 	);
 
-	const { data: protokolle } = useQuery(
-		orpc.protokolle.list.queryOptions({ input: { includeStorniert: true } }),
-	);
+	// The palette is mounted on every /protokolle route, so this only loads once
+	// the dialog is actually opened. Landing on Helferstunden or Einstellungen no
+	// longer downloads the whole protocol list for a dialog nobody opened.
+	const { data: protokolle } = useQuery({
+		...orpc.protokolle.list.queryOptions({ input: { includeStorniert: true } }),
+		enabled: open,
+	});
 
 	useEffect(() => {
 		function onKeyDown(event: KeyboardEvent) {
