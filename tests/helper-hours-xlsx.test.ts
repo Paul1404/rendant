@@ -92,10 +92,7 @@ describe("helperHoursXlsxDocument", () => {
 
 		const hours = workbook.getWorksheet("Helferstunden");
 		expect(hours?.getCell("B2").value).toBe("Erika Beispiel");
-		expect(hours?.getCell("F2").value).toEqual({
-			formula: "ROUND(D2*E2,2)",
-			result: 33,
-		});
+		expect(hours?.getCell("F2").value).toBe(33);
 		expect(hours?.autoFilter).toBe("A1:H1");
 
 		const expenses = workbook.getWorksheet("Ausgaben");

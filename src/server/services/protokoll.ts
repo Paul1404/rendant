@@ -687,13 +687,33 @@ export async function regenerateProtokollPdf(id: string): Promise<void> {
 		await uploadPdf(stornoKey, storno.buffer);
 	}
 
-	await db
+	// Conditional on the key this regeneration started from, matching how the
+	// storno branch below already guards itself. Two concurrent regenerations
+	// otherwise both claim the row, and the loser's uploaded object is left in S3
+	// with nothing referencing it.
+	const mainRows = await db
 		.update(protokolle)
 		.set({
 			pdf_s3_key: mainKey,
 			pdf_sha256: main.hash,
 		})
-		.where(eq(protokolle.id, id));
+		.where(
+			and(
+				eq(protokolle.id, id),
+				protokoll.pdf_s3_key === null
+					? isNull(protokolle.pdf_s3_key)
+					: eq(protokolle.pdf_s3_key, protokoll.pdf_s3_key),
+			),
+		)
+		.returning({ id: protokolle.id });
+	if (mainRows.length === 0) {
+		// Someone else regenerated first; drop the object this call uploaded rather
+		// than orphaning it.
+		await deletePdfBestEffort(mainKey, id, "original");
+		throw new Error(
+			"Das PDF wurde zwischenzeitlich neu erzeugt. Bitte die Seite neu laden.",
+		);
+	}
 
 	let stornoUpdated = false;
 	if (stornoKey && stornoHash && protokoll.storniert_am) {
@@ -727,5 +747,8 @@ export async function regenerateProtokollPdf(id: string): Promise<void> {
 			protokoll.id,
 			"cancellation",
 		);
+	} else if (stornoKey && !stornoUpdated) {
+		// The storno row moved on under us; the object just uploaded is unreferenced.
+		await deletePdfBestEffort(stornoKey, protokoll.id, "cancellation");
 	}
 }

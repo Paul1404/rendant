@@ -2,6 +2,11 @@ import { auth } from "@/server/auth";
 import { requestIdFromHeaders } from "@/server/request-id";
 import type { ORPCContext } from "./base";
 
+// Assumes exactly one trusted proxy hop (Railway's edge). If another proxy is
+// ever put in front - Cloudflare, a custom domain proxy - the last entry becomes
+// that proxy's address and every caller collapses into one bucket, which would
+// silently turn the per-IP login limit into a global one. Revisit this together
+// with the login limiter if the topology changes.
 export function clientIpFromHeaders(headers: Headers): string {
 	const xff = headers.get("x-forwarded-for");
 	if (xff) {

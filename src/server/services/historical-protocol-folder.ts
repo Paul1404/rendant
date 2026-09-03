@@ -120,11 +120,21 @@ function odsRows(table: Record<string, unknown>): Grid {
 	return rows;
 }
 
+// A 5 MB ODS can hold a content.xml that expands to gigabytes. The upload is
+// admin-only so this is an admin exhausting their own container rather than an
+// attack, but an import should fail on one file instead of taking the process
+// down with it.
+const MAX_DECOMPRESSED_CONTENT_BYTES = 64 * 1024 * 1024;
+
 async function odsGrid(bytes: Uint8Array): Promise<Grid> {
 	const archive = await JSZip.loadAsync(bytes);
 	const content = archive.file("content.xml");
 	if (!content) throw new Error("content.xml fehlt");
-	const parsed = recordValue(XML.parse(await content.async("string")));
+	const raw = await content.async("uint8array");
+	if (raw.byteLength > MAX_DECOMPRESSED_CONTENT_BYTES) {
+		throw new Error("content.xml ist zu groß");
+	}
+	const parsed = recordValue(XML.parse(new TextDecoder().decode(raw)));
 	const document = recordValue(parsed?.["office:document-content"]);
 	const body = recordValue(document?.["office:body"]);
 	const spreadsheet = recordValue(body?.["office:spreadsheet"]);

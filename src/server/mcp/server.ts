@@ -7,6 +7,7 @@ import {
 import { ORPCError } from "@orpc/server";
 import * as v from "valibot";
 import { logger } from "@/server/logger";
+import { clientIpFromHeaders } from "@/server/orpc/context";
 import packageJson from "../../../package.json";
 import {
 	authenticateMcpRequest,
@@ -43,10 +44,9 @@ export async function handleMcpRequest(request: Request): Promise<Response> {
 				{ status: 503 },
 			);
 		}
-		const ip =
-			request.headers.get("x-forwarded-for")?.split(",").at(-1)?.trim() ??
-			request.headers.get("x-real-ip") ??
-			"unknown";
+		// Shared with the login limiter rather than reimplemented, so both agree on
+		// which hop is trusted.
+		const ip = clientIpFromHeaders(request.headers);
 		const ipRetry = enforceMcpIpRateLimit(ip);
 		if (ipRetry) return mcpRateLimitedResponse(ipRetry);
 		const auth = authenticateMcpRequest(request);

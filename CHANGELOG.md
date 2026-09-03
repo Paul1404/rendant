@@ -3,6 +3,21 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.41.0 - 2026-09-03
+
+- Eine Einladung meldet keinen Erfolg mehr, wenn für die E-Mail bereits ein
+  Konto besteht. Bisher hieß es "Konto angelegt", obwohl das eingegebene
+  Passwort nicht gespeichert wurde und die Anmeldung danach nicht funktionierte.
+- Die Excel-Ausgabe der Helferstunden enthält im Guthaben jetzt genau den Wert,
+  den die Anwendung führt. Bisher konnte die hinterlegte Formel beim Öffnen eine
+  um einen Cent abweichende Summe berechnen.
+- Wird ein PDF gleichzeitig zweimal neu erzeugt, bleibt keine verwaiste Datei
+  mehr im Archiv zurück.
+- Der Ordnerimport lehnt zu große Uploads jetzt ab, bevor er sie einliest, und
+  bricht bei einer außergewöhnlich großen Quelldatei kontrolliert ab.
+- Automatisierungszugänge können keine Einladungen mehr aussprechen oder Rollen
+  ändern. Diese Schritte erfordern jetzt ausdrücklich eine eigene Freigabe.
+
 ## 1.40.2 - 2026-09-03
 
 - Die Protokollliste lädt nur noch die Felder, die sie tatsächlich anzeigt. Das

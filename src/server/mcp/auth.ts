@@ -3,7 +3,10 @@ import type { ORPCContext } from "@/server/orpc/base";
 import { clientIpFromHeaders } from "@/server/orpc/context";
 import { requestIdFromHeaders } from "@/server/request-id";
 
-export type McpAccessMode = "readonly" | "admin";
+// "identity" additionally exposes invitation and user-role tools. It is opt-in
+// and off by default: those tools can mint an admin account, so they should
+// require a human session rather than a long-lived static token.
+export type McpAccessMode = "readonly" | "admin" | "identity";
 
 export type McpAuthContext = {
 	accessMode: McpAccessMode;
@@ -72,7 +75,9 @@ export function authenticateMcpRequest(
 }
 
 function configuredAccessMode(): McpAccessMode {
-	return process.env.MCP_ACCESS_MODE === "admin" ? "admin" : "readonly";
+	const mode = process.env.MCP_ACCESS_MODE;
+	if (mode === "identity") return "identity";
+	return mode === "admin" ? "admin" : "readonly";
 }
 
 function configuredActor(): McpStatus["actor"] {
