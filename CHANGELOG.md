@@ -3,6 +3,22 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.39.0 - 2026-09-03
+
+- Das erste Kassenzählprotokoll eines neuen Jahres lässt sich wieder anlegen.
+  Bisher hat die Belegnummer im Januar erneut bei 01 begonnen und ist mit der
+  Belegnummer des Vorjahres kollidiert. Die Nummerierung läuft jetzt über den
+  Jahreswechsel weiter, solange das Jahr nicht Teil der Belegnummer ist.
+- Stornierung und PDF-Neuerzeugung sind jetzt Admins vorbehalten. Beide
+  greifen dauerhaft in bereits abgelegte Belege ein.
+- Fehlgeschlagene Anmeldeversuche sperren nicht mehr den ganzen Verein aus.
+  Bisher konnten 30 falsche Kennwörter alle Mitglieder für 15 Minuten
+  aussperren, auch Admins.
+- Der Import-Entwurf meldet keine fremde Änderung mehr, wenn du eine Zeile im
+  Korrekturdialog gespeichert und danach eine Entscheidung geändert hast.
+- Die Anwendung startet spürbar schneller: Versionshinweise und die
+  Protokollsuche werden erst geladen, wenn sie geöffnet werden.
+
 ## 1.38.4 - 2026-09-02
 
 - Die Hauptnavigation zeigt auf normalen Bildschirmen wieder die Namen der

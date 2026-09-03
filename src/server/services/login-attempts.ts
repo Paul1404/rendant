@@ -33,11 +33,16 @@ export async function recordLoginAttempt(
 	}
 }
 
+// The global backstop exists to slow a brute force spread across many addresses.
+// It must never block an address that has not failed recently: otherwise anyone
+// who can reach the login page can spend 30 bad passwords and lock out every
+// member, admins included, with no way back in from inside the app.
 export function isLoginLimitedByCounts(
 	ipCount: number,
 	globalCount: number,
 ): boolean {
-	return ipCount >= LOGIN_RATE_MAX || globalCount >= LOGIN_RATE_GLOBAL_MAX;
+	if (ipCount >= LOGIN_RATE_MAX) return true;
+	return globalCount >= LOGIN_RATE_GLOBAL_MAX && ipCount > 0;
 }
 
 export async function isLoginRateLimited(ip: string): Promise<boolean> {

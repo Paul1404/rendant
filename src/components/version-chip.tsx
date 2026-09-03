@@ -1,7 +1,15 @@
-import { useState } from "react";
-import { ReleaseNotesDialog } from "@/components/release-notes-dialog";
+import { lazy, Suspense, useState } from "react";
 import { cn } from "@/lib/utils";
 import { APP_VERSION } from "@/lib/version";
+
+// The dialog parses the whole CHANGELOG.md at module scope, which is ~16 kB
+// gzipped and grows with every release. Loading it lazily keeps it off every
+// page load, including the login page for signed-out visitors.
+const ReleaseNotesDialog = lazy(() =>
+	import("@/components/release-notes-dialog").then((module) => ({
+		default: module.ReleaseNotesDialog,
+	})),
+);
 
 // Small build-version badge. The value comes from package.json; agents bump it
 // on release and this updates automatically. Clicking opens the internal
@@ -23,7 +31,11 @@ export function VersionChip({ className }: { className?: string }) {
 				<span className="h-1.5 w-1.5 rounded-full bg-success/80" />v
 				{APP_VERSION}
 			</button>
-			<ReleaseNotesDialog open={open} onOpenChange={setOpen} />
+			{open ? (
+				<Suspense fallback={null}>
+					<ReleaseNotesDialog open={open} onOpenChange={setOpen} />
+				</Suspense>
+			) : null}
 		</>
 	);
 }
