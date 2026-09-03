@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.42.0 - 2026-09-03
+
+- Die Anmeldeverwaltung wurde auf eine neue Version aktualisiert. Bestehende
+  Konten und Passwörter bleiben unverändert gültig. Eine Anmeldung nach dem
+  Update kann einmalig nötig sein.
+- Laufende Wartung: aktualisierte Komponenten für die PDF-Ausgabe, die Symbole
+  und die Bildverarbeitung.
+
 ## 1.41.2 - 2026-09-03
 
 - Das Überfahren der Navigation lädt Seiten nicht mehr jedes Mal neu vor.

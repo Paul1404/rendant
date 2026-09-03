@@ -6,6 +6,14 @@ import {
 	user as userTable,
 } from "@/server/db/auth-schema";
 
+// better-auth >= 1.7 namespaces accounts by issuer and sign-in only matches a
+// credential account whose issuer is the synthetic `local:credential` value
+// (`createLocalAccountIssuer("credential")`). Kept as a literal so production
+// code does not import from the transitive `@better-auth/core`; a unit test
+// asserts it still equals what better-auth derives, so an upstream change to
+// the scheme fails CI instead of silently locking everyone out.
+export const CREDENTIAL_ACCOUNT_ISSUER = "local:credential";
+
 export type CredentialUserRecoveryAction =
 	| "create-user-and-link"
 	| "link-existing-user"
@@ -40,12 +48,18 @@ export async function ensureCredentialUser(opts: {
 		credentialUserRecoveryAction(Boolean(userId), false) ===
 		"create-user-and-link"
 	) {
-		const user = await ctx.internalAdapter.createUser({
-			email,
-			name: opts.name.trim(),
-			emailVerified: true,
-			role: opts.role,
-		});
+		const user = await ctx.internalAdapter.createUser(
+			{
+				email,
+				name: opts.name.trim(),
+				emailVerified: true,
+				role: opts.role,
+			},
+			// better-auth >= 1.7 requires the provisioning source. It only gates the
+			// optional `user.validateUserInfo` hook, which this app does not set, but
+			// the method must still describe how the account is created.
+			{ method: "email-password" },
+		);
 		userId = user.id;
 		created = true;
 	}
@@ -72,6 +86,7 @@ export async function ensureCredentialUser(opts: {
 	await ctx.internalAdapter.linkAccount({
 		userId,
 		providerId: "credential",
+		issuer: CREDENTIAL_ACCOUNT_ISSUER,
 		accountId: userId,
 		password: hash,
 	});

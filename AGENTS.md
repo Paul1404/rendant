@@ -16,6 +16,10 @@ update the appropriate canonical documentation in the same change.
 - Database access goes through Drizzle in `src/server/db/`. Never import the DB
   client, server auth, or server services into a component.
 - Keep shared validation schemas in `src/lib/schemas.ts` using Valibot.
+- Do not commit `bun run auth:generate` output unreviewed. It rewrites
+  `auth-schema.ts` wholesale and has been observed dropping the `account`
+  unique indexes and relaxing `notNull`. Diff it and hand-apply only the
+  intended field change.
 - `src/routeTree.gen.ts` is generated. Never edit it by hand.
 - Build output is `.output/` (Nitro). Run it with
   `bun .output/server/index.mjs`.
@@ -62,6 +66,20 @@ update the appropriate canonical documentation in the same change.
 - Before choosing a version during concurrent work, refresh and inspect the
   latest `package.json` and top of `CHANGELOG.md` to avoid duplicate or
   out-of-order releases.
+
+## Deployment
+
+- Railway builds `rendant-app` from `main` with check suites disabled, so every
+  push to `main` deploys to production immediately without waiting for CI. Prove
+  a change on a PR before merging, and land related work as one commit rather
+  than several, since each merge is its own production deploy.
+- `preDeployCommand` applies Drizzle migrations against the production database
+  in a separate container before the new app starts. A non-zero exit aborts the
+  deployment and the previous release keeps serving, so a migration that must
+  not half-apply should end in a constraint that fails loudly.
+- Schema changes that add a required column to a populated table need add
+  nullable, backfill, then `SET NOT NULL`. A bare `ADD COLUMN ... NOT NULL`, as
+  drizzle-kit generates it, aborts on any non-empty table.
 
 ## Quality bar
 
