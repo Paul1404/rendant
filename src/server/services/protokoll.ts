@@ -87,21 +87,64 @@ function pdfKey(belegnummer: string, suffix: "" | "_STORNO"): string {
 	return `${S3_PREFIX}/${belegnummer}${suffix}_${formatFilenameStamp(new Date())}_${crypto.randomUUID()}.pdf`;
 }
 
+// Only the columns rowToProtokoll actually maps. `select()` pulled all 46,
+// including the stueckelung / umsatz_ust / import_warnungen jsonb blobs and both
+// actor emails, which this function then discarded - transfer that grew with the
+// row count on an endpoint the dashboard polls every 15 seconds.
+const PROTOKOLL_LIST_COLUMNS = {
+	id: protokolle.id,
+	belegnummer: protokolle.belegnummer,
+	erstellt_von_user_id: protokolle.erstellt_von_user_id,
+	erstellt_von_name: protokolle.erstellt_von_name,
+	erstellt_am: protokolle.erstellt_am,
+	anlass_datum: protokolle.anlass_datum,
+	kassennummer: protokolle.kassennummer,
+	kassenbezeichnung: protokolle.kassenbezeichnung,
+	anlass: protokolle.anlass,
+	umsatzbereich: protokolle.umsatzbereich,
+	anlass_katalog_id: protokolle.anlass_katalog_id,
+	gezaehlt_von: protokolle.gezaehlt_von,
+	geprueft_von: protokolle.geprueft_von,
+	bemerkung: protokolle.bemerkung,
+	wechselgeld_cent: protokolle.wechselgeld_cent,
+	kartenzahlung_cent: protokolle.kartenzahlung_cent,
+	gezaehlt_cent: protokolle.gezaehlt_cent,
+	ausgaben_cent: protokolle.ausgaben_cent,
+	bestand_cent: protokolle.bestand_cent,
+	tageseinnahmen_cent: protokolle.tageseinnahmen_cent,
+	umsatz_ust_basis: protokolle.umsatz_ust_basis,
+	pdf_s3_key: protokolle.pdf_s3_key,
+	pdf_sha256: protokolle.pdf_sha256,
+	storniert_am: protokolle.storniert_am,
+	storniert_von_user_id: protokolle.storniert_von_user_id,
+	storniert_von_name: protokolle.storniert_von_name,
+	storno_grund: protokolle.storno_grund,
+	storno_pdf_s3_key: protokolle.storno_pdf_s3_key,
+	storno_pdf_sha256: protokolle.storno_pdf_sha256,
+	// The denominations feed ProtokollRow.counts, which detail views read.
+	...Object.fromEntries(
+		DENOMINATIONS.map((d) => [
+			d.key,
+			(protokolle as unknown as Record<string, unknown>)[d.key],
+		]),
+	),
+} as const;
+
 export async function listProtokolle(opts: {
 	includeStorniert: boolean;
 }): Promise<ProtokollRow[]> {
 	const order = [desc(protokolle.anlass_datum), desc(protokolle.erstellt_am)];
 	const rows = opts.includeStorniert
 		? await db
-				.select()
+				.select(PROTOKOLL_LIST_COLUMNS)
 				.from(protokolle)
 				.orderBy(...order)
 		: await db
-				.select()
+				.select(PROTOKOLL_LIST_COLUMNS)
 				.from(protokolle)
 				.where(isNull(protokolle.storniert_am))
 				.orderBy(...order);
-	return rows.map(rowToProtokoll);
+	return rows.map((row) => rowToProtokoll(row as DbProtokoll));
 }
 
 export async function getProtokoll(

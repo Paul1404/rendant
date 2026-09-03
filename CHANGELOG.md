@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.40.2 - 2026-09-03
+
+- Die Protokollliste lädt nur noch die Felder, die sie tatsächlich anzeigt. Das
+  entlastet die Datenbank spürbar, je mehr Protokolle vorhanden sind.
+
 ## 1.40.1 - 2026-09-03
 
 - Die Umsatzsteuer-Auswertung wird jetzt direkt in der Datenbank berechnet. Die
