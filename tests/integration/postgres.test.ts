@@ -24,6 +24,13 @@ import {
 	HistoricalRevenueConflictError,
 } from "@/server/services/historical-revenue";
 import { createProtokoll } from "@/server/services/protokoll";
+import {
+	getHelperHourValueCent,
+	getSettingsStamp,
+	SettingsConcurrencyError,
+	updateBelegnummerSettings,
+	updateHelperHourValueCent,
+} from "@/server/services/settings";
 
 const actor = {
 	id: "integration-user",
@@ -32,6 +39,11 @@ const actor = {
 	role: "admin",
 };
 const audit = { request: { id: randomUUID(), ip: "127.0.0.1" } };
+const settingsAudit = {
+	category: "settings" as const,
+	action: "settings.test_changed",
+	actor,
+};
 
 beforeAll(async () => {
 	if (process.env.RENDANT_INTEGRATION_TEST !== "1") {
@@ -406,5 +418,50 @@ describe("PostgreSQL production paths", () => {
 		await expect(pool.query("select 1 as ok")).resolves.toMatchObject({
 			rows: [{ ok: 1 }],
 		});
+	});
+});
+
+describe("optimistic concurrency on shared settings", () => {
+	// Two admins with the same settings page open. The later save must be
+	// rejected rather than silently overwriting the earlier one: the hourly value
+	// retroactively revalues every department budget.
+	it("rejects a save based on a stale stamp", async () => {
+		const first = await getSettingsStamp("helferstunde_wert_updated_at");
+		expect(first).toBeDefined();
+
+		await updateHelperHourValueCent(700, { ...audit, ...settingsAudit }, first);
+
+		await expect(
+			updateHelperHourValueCent(650, { ...audit, ...settingsAudit }, first),
+		).rejects.toBeInstanceOf(SettingsConcurrencyError);
+
+		// The first write stands; the stale one changed nothing.
+		expect(await getHelperHourValueCent()).toBe(700);
+	});
+
+	it("accepts a save based on the current stamp", async () => {
+		const current = await getSettingsStamp("helferstunde_wert_updated_at");
+		await updateHelperHourValueCent(800, { ...audit, ...settingsAudit }, current);
+		expect(await getHelperHourValueCent()).toBe(800);
+	});
+
+	it("does not let one settings group invalidate another", async () => {
+		// The row is a singleton shared by five forms. Saving the hourly value must
+		// not make a pending Belegnummer save conflict.
+		const belegnummerStamp = await getSettingsStamp("belegnummer_updated_at");
+		await updateHelperHourValueCent(900, { ...audit, ...settingsAudit }, undefined);
+		await expect(
+			updateBelegnummerSettings(
+				{
+					min_digits: 3,
+					prefix: "",
+					include_year: false,
+					year_format: "long",
+					separator: "-",
+				},
+				{ ...audit, ...settingsAudit },
+				belegnummerStamp,
+			),
+		).resolves.toBeDefined();
 	});
 });

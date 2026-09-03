@@ -42,7 +42,11 @@ export const Route = createFileRoute("/protokolle/einstellungen")({
 			currentUserId: context.user.id,
 			settings: belegnummer.settings,
 			preview: belegnummer.preview,
+			// Each form carries the stamp it was rendered from and sends it back on
+			// save, so a concurrent edit is rejected instead of overwritten.
+			belegnummerUpdatedAt: belegnummer.updated_at,
 			umsatzUstBasis: basis.umsatz_ust_basis,
+			umsatzUstUpdatedAt: basis.updated_at,
 			verein,
 			registers,
 			admin: admin ? { users: admin[0], invites: admin[1] } : null,
@@ -61,7 +65,9 @@ function EinstellungenPage() {
 		currentUserId,
 		settings,
 		preview,
+		belegnummerUpdatedAt,
 		umsatzUstBasis,
+		umsatzUstUpdatedAt,
 		verein,
 		registers,
 		admin,
@@ -133,6 +139,7 @@ function EinstellungenPage() {
 						<BelegnummerSettingsForm
 							initial={settings}
 							serverPreview={preview}
+							initialUpdatedAt={belegnummerUpdatedAt}
 						/>
 					</section>
 
@@ -142,7 +149,10 @@ function EinstellungenPage() {
 							title="USt.-Aufteilung"
 							description="Standard, ob die Aufteilung des Umsatzes nach USt.-Sätzen auf die Tageseinnahmen vor oder nach Kartenzahlung bezogen wird. Nur für Admins."
 						/>
-						<UmsatzUstBasisForm initial={umsatzUstBasis} />
+						<UmsatzUstBasisForm
+							initial={umsatzUstBasis}
+							initialUpdatedAt={umsatzUstUpdatedAt}
+						/>
 					</section>
 				</>
 			) : null}

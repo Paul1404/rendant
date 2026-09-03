@@ -17,6 +17,8 @@ export type CashRegister = {
 	kassenbezeichnung: string;
 	wechselgeld_cent: number;
 	reihenfolge: number;
+	// Stamp of the row as loaded; sent back on save to detect a concurrent edit.
+	updated_at: string;
 };
 
 type Draft = {
@@ -135,9 +137,18 @@ export function CashRegistersForm({ initial }: { initial: CashRegister[] }) {
 		}
 		const payload = draftToPayload(editDraft);
 		const id = editingId;
+		// The stamp of the row this edit started from, so another admin's change in
+		// the meantime is reported instead of overwritten.
+		const expectedUpdatedAt = registers.find(
+			(register) => register.id === id,
+		)?.updated_at;
 		start(async () => {
 			try {
-				const data = await orpcClient.registers.update({ id, ...payload });
+				const data = await orpcClient.registers.update({
+					id,
+					...payload,
+					expected_updated_at: expectedUpdatedAt,
+				});
 				setRegisters((list) =>
 					list.map((r) => (r.id === id ? data.register : r)),
 				);

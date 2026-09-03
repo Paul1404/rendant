@@ -6,7 +6,17 @@ import {
 	recordAuditEventStrict,
 } from "@/server/services/audit";
 
+export class CashRegisterConcurrencyError extends Error {
+	constructor() {
+		super(
+			"Die Kasse wurde zwischenzeitlich geändert. Bitte neu laden und erneut speichern.",
+		);
+		this.name = "CashRegisterConcurrencyError";
+	}
+}
+
 export type CashRegister = {
+	updated_at: string;
 	id: string;
 	kassennummer: string;
 	kassenbezeichnung: string;
@@ -24,6 +34,7 @@ type Row = typeof cashRegisters.$inferSelect;
 
 function rowToRegister(row: Row): CashRegister {
 	return {
+		updated_at: row.updated_at.toISOString(),
 		id: row.id,
 		kassennummer: row.kassennummer,
 		kassenbezeichnung: row.kassenbezeichnung,
@@ -80,8 +91,25 @@ export async function updateCashRegister(
 	id: string,
 	input: CashRegisterInput,
 	audit: RecordAuditInput,
+	expectedUpdatedAt?: string,
 ): Promise<CashRegister | null> {
 	return db.transaction(async (tx) => {
+		// The Wechselgeld here is the opening balance every new protokoll starts
+		// from, so a silently clobbered edit changes what the next count is
+		// measured against.
+		const [current] = await tx
+			.select()
+			.from(cashRegisters)
+			.where(eq(cashRegisters.id, id))
+			.limit(1)
+			.for("update");
+		if (!current) return null;
+		if (
+			expectedUpdatedAt !== undefined &&
+			current.updated_at.toISOString() !== expectedUpdatedAt
+		) {
+			throw new CashRegisterConcurrencyError();
+		}
 		const rows = await tx
 			.update(cashRegisters)
 			.set({
