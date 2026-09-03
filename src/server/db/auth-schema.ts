@@ -54,6 +54,11 @@ export const account = pgTable(
 		id: text("id").primaryKey(),
 		accountId: text("account_id").notNull(),
 		providerId: text("provider_id").notNull(),
+		// better-auth >= 1.7 namespaces every account by issuer and matches on it
+		// at sign-in. Local (non-OAuth) providers use the synthetic
+		// `local:<providerId>` value, so credential accounts carry
+		// "local:credential". Existing rows are backfilled in 0027.
+		issuer: text("issuer").notNull(),
 		userId: text("user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),

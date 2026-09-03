@@ -2,7 +2,7 @@
 
 # 1. builder -- install all deps and build the Nitro server output (.output/)
 # The patch release is pinned for reproducibility and visible to Dependabot.
-FROM oven/bun:1.3.14-alpine AS builder
+FROM oven/bun:1.4.0-alpine AS builder
 WORKDIR /app
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
@@ -13,13 +13,13 @@ RUN bun run build
 # needed by the preDeploy migrator (drizzle-orm, pg, better-auth); Bun
 # auto-install in the container does not resolve peer deps reliably, so we copy
 # a real install.
-FROM oven/bun:1.3.14-alpine AS prod-deps
+FROM oven/bun:1.4.0-alpine AS prod-deps
 WORKDIR /app
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --production
 
 # 3. runner -- standalone Nitro output plus what the migrator needs.
-FROM oven/bun:1.3.14-alpine AS runner
+FROM oven/bun:1.4.0-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
 	PORT=3000

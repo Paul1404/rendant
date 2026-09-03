@@ -16,6 +16,10 @@ update the appropriate canonical documentation in the same change.
 - Database access goes through Drizzle in `src/server/db/`. Never import the DB
   client, server auth, or server services into a component.
 - Keep shared validation schemas in `src/lib/schemas.ts` using Valibot.
+- Do not commit `bun run auth:generate` output unreviewed. It rewrites
+  `auth-schema.ts` wholesale and has been observed dropping the `account`
+  unique indexes and relaxing `notNull`. Diff it and hand-apply only the
+  intended field change.
 - `src/routeTree.gen.ts` is generated. Never edit it by hand.
 - Build output is `.output/` (Nitro). Run it with
   `bun .output/server/index.mjs`.
