@@ -451,7 +451,7 @@ export function HistoricalRevenueOverview({
 									);
 									return duplicates.length > 0 ? (
 										<div
-											className="flex gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 sm:col-span-2 lg:col-span-12 dark:text-amber-200"
+											className="flex gap-2 rounded-lg border border-warning/35 bg-warning/10 px-3 py-2 text-xs text-warning sm:col-span-2 lg:col-span-12"
 											role="alert"
 										>
 											<TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
@@ -778,7 +778,7 @@ function ComparisonCard({
 						className={cn(
 							"mt-3 rounded-lg px-3 py-2 text-xs",
 							delta >= 0
-								? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+								? "bg-success/10 text-success"
 								: "bg-destructive/10 text-destructive",
 						)}
 					>

@@ -1,12 +1,12 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Search, ShieldCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
 import type { FormEvent } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
 	Table,
@@ -110,19 +110,18 @@ function AuditPage() {
 						onSubmit={submitFilters}
 						className="flex flex-col gap-3 sm:flex-row sm:items-center"
 					>
-						<div className="relative min-w-0 flex-1">
+						<div className="min-w-0 flex-1">
 							<Label htmlFor="audit-search" className="sr-only">
 								Audit-Log durchsuchen
 							</Label>
-							<Input
+							<SearchInput
 								id="audit-search"
 								name="q"
 								type="search"
 								defaultValue={search.q}
 								placeholder="Person, Ereignis oder Objekt suchen"
-								className="peer pl-10 sm:pl-10"
+								iconClassName="opacity-0 transition-opacity peer-placeholder-shown:opacity-100"
 							/>
-							<Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity peer-placeholder-shown:opacity-100" />
 						</div>
 						<div>
 							<Label htmlFor="audit-category" className="sr-only">

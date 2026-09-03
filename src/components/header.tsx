@@ -31,7 +31,9 @@ export function Header() {
 
 	return (
 		<header className="sticky top-0 z-30 border-b border-nav-accent/20 bg-nav text-nav-foreground shadow-sm">
-			<div className="mx-auto grid w-full max-w-[96rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-6 2xl:flex 2xl:justify-between 2xl:gap-4">
+			{/* Same max width and padding as the page container in route.tsx, so
+			    the wordmark and the page title share one left edge. */}
+			<div className="mx-auto grid w-full max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-6 2xl:flex 2xl:justify-between 2xl:gap-4">
 				<Link
 					to="/protokolle"
 					aria-label="Rendant Startseite"
@@ -109,9 +111,13 @@ export function Header() {
 											<Button
 												asChild
 												variant="ghost"
-												size="icon-sm"
+												size="sm"
 												className={cn(
-													"h-11 w-full min-w-0 border px-2 focus-visible:border-nav-accent focus-visible:ring-nav-accent/80 lg:px-3",
+													// Every override here needs its `sm:` twin. A responsive
+													// utility from `size` sits in a different merge group and
+													// would otherwise outrank the unprefixed value, which is
+													// what previously pinned this link to the icon's width.
+													"h-11 w-full min-w-0 border px-2 sm:h-11 sm:px-2 lg:px-3 focus-visible:border-nav-accent focus-visible:ring-nav-accent/80",
 													active
 														? "border-nav-accent/30 bg-nav-accent/15 text-nav-accent hover:bg-nav-accent/20 hover:text-nav-accent"
 														: "border-transparent text-nav-foreground/70 hover:bg-white/8 hover:text-nav-foreground",

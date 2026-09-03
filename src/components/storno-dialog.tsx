@@ -92,7 +92,7 @@ export function StornoDialog({ protokollId }: { protokollId: string }) {
 						rows={3}
 						minLength={STORNO_MIN}
 						maxLength={STORNO_MAX}
-						placeholder="z.B. Falsche Anzahl 50 EUR Scheine erfasst"
+						placeholder="z. B. Falsche Anzahl 50 EUR Scheine erfasst"
 					/>
 					<p className="text-xs text-muted-foreground">
 						Mindestens {STORNO_MIN} Zeichen, maximal {STORNO_MAX}.

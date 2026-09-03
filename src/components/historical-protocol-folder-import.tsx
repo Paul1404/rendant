@@ -49,6 +49,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { StepList } from "@/components/ui/step-list";
 import { Textarea } from "@/components/ui/textarea";
 import type {
 	HistoricalProtocolDraftDecision,
@@ -82,11 +83,11 @@ const DECISIONS: Record<
 > = {
 	include: {
 		label: "Übernehmen",
-		className: "bg-emerald-500/10 text-emerald-800 dark:text-emerald-200",
+		className: "bg-success/10 text-success",
 	},
 	review: {
 		label: "Prüfen",
-		className: "bg-amber-500/10 text-amber-800 dark:text-amber-200",
+		className: "bg-warning/10 text-warning",
 	},
 	exclude: { label: "Auslassen", className: "bg-muted text-muted-foreground" },
 };
@@ -988,7 +989,7 @@ export function HistoricalProtocolFolderImport() {
 						</div>
 
 						{validation && !validation.valid ? (
-							<div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+							<div className="rounded-lg border border-warning/35 bg-warning/10 p-3 text-sm">
 								<strong>Noch nicht importierbar:</strong> {validation.review}{" "}
 								offene Prüffälle, {validation.invalidIncluded.length}{" "}
 								unvollständige Übernahmen, {validation.reviewPhases.active}{" "}
@@ -1038,7 +1039,7 @@ export function HistoricalProtocolFolderImport() {
 							</div>
 						) : null}
 						{draft.status === "imported" ? (
-							<div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm">
+							<div className="rounded-lg border border-success/35 bg-success/10 p-3 text-sm">
 								<Check className="mr-2 inline h-4 w-4" />
 								Import abgeschlossen: {draft.resultCreated ?? 0} angelegt,{" "}
 								{draft.resultSkipped ?? 0} bereits vorhanden.
@@ -1283,34 +1284,15 @@ function Steps({
 					? 3
 					: 4;
 	return (
-		<ol className="grid gap-2 sm:grid-cols-4">
-			{[
-				"Ordner analysieren",
-				"Daten bearbeiten",
-				"Prüfen und sperren",
-				"Verbindlich importieren",
-			].map((label, index) => {
-				const step = index + 1;
-				return (
-					<li
-						key={label}
-						className={cn(
-							"flex items-center gap-2 rounded-lg border px-3 py-2 text-xs",
-							step === active
-								? "border-primary bg-primary/5 font-semibold text-foreground"
-								: step < active
-									? "border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
-									: "text-muted-foreground",
-						)}
-					>
-						<span className="flex h-5 w-5 items-center justify-center rounded-full border font-mono">
-							{step < active ? <Check className="h-3 w-3" /> : step}
-						</span>
-						{label}
-					</li>
-				);
-			})}
-		</ol>
+		<StepList
+			active={active}
+			steps={[
+				{ label: "Ordner analysieren" },
+				{ label: "Daten bearbeiten" },
+				{ label: "Prüfen und sperren" },
+				{ label: "Verbindlich importieren" },
+			]}
+		/>
 	);
 }
 
@@ -1329,8 +1311,8 @@ function Metric({
 			<p
 				className={cn(
 					"mt-1 font-mono text-xl font-semibold",
-					tone === "positive" && "text-emerald-700 dark:text-emerald-300",
-					tone === "warning" && "text-amber-700 dark:text-amber-300",
+					tone === "positive" && "text-success",
+					tone === "warning" && "text-warning",
 				)}
 			>
 				{value}

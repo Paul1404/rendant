@@ -203,7 +203,9 @@ export function FinanceOverview({
 				</Card>
 			) : null}
 
-			<div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+			{/* `items-start` keeps a near-empty card at its own height instead of
+			    stretching it to match a full one. */}
+			<div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
 				<VatCard vatRange={vatRange} />
 				<Card>
 					<CardHeader className="pb-2">
@@ -484,7 +486,9 @@ function KpiCard({
 		<Card variant={hero ? "hero" : "default"} className="lift gap-0 py-4">
 			<CardContent>
 				<div className="flex items-center justify-between gap-2">
-					<FieldLabel className={cn("truncate", hero && "text-primary/80")}>
+					{/* Wraps rather than truncates: at 375px the column is 96px and
+					    "Umsatz · Dieses Jahr" needs 142px, so clipping was certain. */}
+					<FieldLabel className={cn("leading-snug", hero && "text-primary/80")}>
 						{label}
 					</FieldLabel>
 					<span

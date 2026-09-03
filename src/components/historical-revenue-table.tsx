@@ -17,7 +17,6 @@ import {
 	FileArchive,
 	Loader2,
 	Pencil,
-	Search,
 } from "lucide-react";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -41,7 +40,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { Input, SearchInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Money } from "@/components/ui/money";
 import {
@@ -309,18 +308,14 @@ export function HistoricalRevenueTable({
 			</div>
 
 			<div className="grid gap-2 md:grid-cols-[minmax(14rem,1fr)_10rem_14rem_11rem_auto]">
-				<div className="relative">
-					<Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-					<Input
-						value={query}
-						onChange={(event) => {
-							setQuery(event.target.value);
-							resetPage();
-						}}
-						placeholder="Altunterlagen durchsuchen"
-						className="pl-9"
-					/>
-				</div>
+				<SearchInput
+					value={query}
+					onChange={(event) => {
+						setQuery(event.target.value);
+						resetPage();
+					}}
+					placeholder="Altunterlagen durchsuchen"
+				/>
 				<Select
 					value={year}
 					onValueChange={(value) => {
@@ -609,7 +604,7 @@ function HistoricalRevenueDetailDialog({
 								</p>
 								<SourceAccountingEvidence source={detail.source} />
 								{detail.source.warnings?.length ? (
-									<ul className="list-disc space-y-1 pl-5 text-xs text-amber-800 dark:text-amber-200">
+									<ul className="list-disc space-y-1 pl-5 text-xs text-warning">
 										{detail.source.warnings.map((warning) => (
 											<li key={warning}>{warning}</li>
 										))}

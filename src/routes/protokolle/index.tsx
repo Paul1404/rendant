@@ -257,11 +257,13 @@ function NoResults({ hasFilters }: { hasFilters: boolean }) {
 			<div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
 				<SearchX className="h-5 w-5" />
 			</div>
-			<h3 className="text-sm font-semibold text-foreground">Keine Treffer</h3>
+			<h3 className="text-sm font-semibold text-foreground">
+				Keine Kassenzählprotokolle
+			</h3>
 			<p className="max-w-sm text-xs text-muted-foreground">
 				{hasFilters
-					? "Mit den aktuellen Filtern wurden keine Belege gefunden."
-					: "Es sind keine Belege vorhanden."}
+					? "Mit den aktuellen Filtern wurden keine Kassenzählprotokolle gefunden."
+					: "Hier stehen nur Kassenzählprotokolle. Die Kennzahlen oben enthalten zusätzlich erfasste Altunterlagen."}
 			</p>
 			{hasFilters ? (
 				<Button asChild variant="outline" size="sm" className="mt-1">

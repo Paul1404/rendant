@@ -3,6 +3,25 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.38.4 - 2026-09-02
+
+- Die Hauptnavigation zeigt auf normalen Bildschirmen wieder die Namen der
+  Bereiche statt nur der Symbole. Bisher waren die Beschriftungen zwischen 640
+  und 1535 Pixel Breite ausgeblendet.
+- In den Suchfeldern liegt die Lupe nicht mehr über dem Text. Der Suchbegriff
+  beginnt wieder rechts neben dem Symbol, sowohl bei den Helferstunden als auch
+  bei den Altunterlagen und im Audit-Log.
+- Hinweisfelder sind im hellen Design deutlich besser lesbar und verwenden in
+  beiden Designs einheitliche Farben.
+- Kopfzeile und Seiteninhalt beginnen an derselben Kante, und die
+  Zwischenüberschriften sind in den Einstellungen genauso groß wie im Rest der
+  Anwendung.
+- Die beiden Import-Assistenten unter Import & Export sind gleich aufgebaut.
+- Auf dem Telefon werden die Beschriftungen der Kennzahlen nicht mehr
+  abgeschnitten.
+- Die Protokollliste erklärt jetzt, dass sie nur Kassenzählprotokolle enthält
+  und die Kennzahlen darüber zusätzlich Altunterlagen berücksichtigen.
+
 ## 1.38.3 - 2026-08-29
 
 - Neue Versionen werden erst freigeschaltet, wenn die PDF-Erzeugung im

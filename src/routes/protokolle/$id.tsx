@@ -12,13 +12,13 @@ import {
 	FileText,
 	Fingerprint,
 	ReceiptText,
-	TriangleAlert,
 } from "lucide-react";
 import { RegeneratePdfButton } from "@/components/regenerate-pdf-button";
 import { DetailSkeleton } from "@/components/skeletons";
 import { StornoDialog } from "@/components/storno-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataField, DataRow } from "@/components/ui/data-row";
 import { Money } from "@/components/ui/money";
@@ -204,10 +204,10 @@ function ProtokollDetailPage() {
 			</div>
 
 			{isStorno ? (
-				<div className="flex gap-3 rounded-xl border border-destructive/40 bg-destructive/5 p-4">
-					<TriangleAlert className="h-5 w-5 shrink-0 text-destructive" />
-					<div className="space-y-1">
-						<p className="text-sm font-medium text-destructive">
+				<Callout
+					tone="danger"
+					title={
+						<>
 							Storniert am{" "}
 							{protokoll.storniert_am
 								? formatDateTimeDe(protokoll.storniert_am)
@@ -215,43 +215,26 @@ function ProtokollDetailPage() {
 							{protokoll.storniert_von_name
 								? ` von ${protokoll.storniert_von_name}`
 								: ""}
-						</p>
-						<p className="text-sm text-destructive/90">
-							Grund: {protokoll.storno_grund}
-						</p>
-					</div>
-				</div>
+						</>
+					}
+				>
+					Grund: {protokoll.storno_grund}
+				</Callout>
 			) : null}
 
 			{isStorno && !protokoll.storno_pdf_s3_key ? (
-				<div className="flex gap-3 rounded-xl border border-amber-500/40 bg-amber-500/5 p-4">
-					<TriangleAlert className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
-					<div className="space-y-1">
-						<p className="text-sm font-medium text-amber-700 dark:text-amber-300">
-							Storno-PDF wurde noch nicht erzeugt
-						</p>
-						<p className="text-sm text-amber-700/90 dark:text-amber-300/90">
-							Die Stornierung ist gespeichert. Mit dem Aktualisieren-Symbol oben
-							kannst du das fehlende PDF nachholen.
-						</p>
-					</div>
-				</div>
+				<Callout tone="warning" title="Storno-PDF wurde noch nicht erzeugt">
+					Die Stornierung ist gespeichert. Mit dem Aktualisieren-Symbol oben
+					kannst du das fehlende PDF nachholen.
+				</Callout>
 			) : null}
 
 			{!protokoll.pdf_s3_key ? (
-				<div className="flex gap-3 rounded-xl border border-amber-500/40 bg-amber-500/5 p-4">
-					<TriangleAlert className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
-					<div className="space-y-1">
-						<p className="text-sm font-medium text-amber-700 dark:text-amber-300">
-							PDF wurde noch nicht erzeugt
-						</p>
-						<p className="text-sm text-amber-700/90 dark:text-amber-300/90">
-							Die Daten sind gespeichert, aber das PDF konnte beim Anlegen nicht
-							erzeugt werden. Mit dem Aktualisieren-Symbol oben kannst du es
-							jetzt nachholen.
-						</p>
-					</div>
-				</div>
+				<Callout tone="warning" title="PDF wurde noch nicht erzeugt">
+					Die Daten sind gespeichert, aber das PDF konnte beim Anlegen nicht
+					erzeugt werden. Mit dem Aktualisieren-Symbol oben kannst du es jetzt
+					nachholen.
+				</Callout>
 			) : null}
 
 			<Card>
