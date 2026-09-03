@@ -43,6 +43,7 @@ import {
 import { Input, SearchInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Money } from "@/components/ui/money";
+import { QueryError } from "@/components/ui/query-error";
 import {
 	Select,
 	SelectContent,
@@ -415,6 +416,15 @@ export function HistoricalRevenueTable({
 									Altunterlagen werden geladen
 								</TableCell>
 							</TableRow>
+						) : pageQuery.isError ? (
+							<TableRow>
+								<TableCell colSpan={8} className="py-6">
+									<QueryError
+										title="Altunterlagen konnten nicht geladen werden."
+										onRetry={() => void pageQuery.refetch()}
+									/>
+								</TableCell>
+							</TableRow>
 						) : table.getRowModel().rows.length === 0 ? (
 							<TableRow>
 								<TableCell
@@ -543,7 +553,12 @@ function HistoricalRevenueDetailDialog({
 						nachvollziehbar.
 					</DialogDescription>
 				</DialogHeader>
-				{!detail ? (
+				{detailQuery.isError ? (
+					<QueryError
+						title="Details konnten nicht geladen werden."
+						onRetry={() => void detailQuery.refetch()}
+					/>
+				) : !detail ? (
 					<div className="py-12 text-center text-muted-foreground">
 						<Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
 						Details werden geladen

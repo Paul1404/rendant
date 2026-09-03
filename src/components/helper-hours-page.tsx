@@ -37,6 +37,7 @@ import {
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { CancelReasonDialog } from "@/components/ui/cancel-reason-dialog";
 import {
 	Card,
 	CardContent,
@@ -54,6 +55,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input, SearchInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { QueryError } from "@/components/ui/query-error";
 import {
 	Select,
 	SelectContent,
@@ -148,7 +150,7 @@ export function HelperHoursPage({
 	onYearChange: (year?: number) => void;
 }) {
 	const queryClient = useQueryClient();
-	const { data, isLoading } = useQuery(
+	const { data, isLoading, isError, refetch } = useQuery(
 		orpc.helperHours.list.queryOptions({ input: { jahr: year } }),
 	);
 	const [selectedDepartment, setSelectedDepartment] =
@@ -212,6 +214,18 @@ export function HelperHoursPage({
 			setSaving(false);
 		}
 	}
+	// Without this the zeros below would be indistinguishable from a year that
+	// genuinely has no recorded hours.
+	if (isError) {
+		return (
+			<QueryError
+				title="Helferstunden konnten nicht geladen werden."
+				description="Die angezeigten Zahlen wären unvollständig. Die erfassten Stunden sind unverändert gespeichert."
+				onRetry={() => void refetch()}
+			/>
+		);
+	}
+
 	return (
 		<div className="space-y-6">
 			<HelperHoursPeriodOverview
@@ -649,6 +663,15 @@ function HelperHoursEntries({ year }: { year?: number }) {
 										className="py-10 text-center text-muted-foreground"
 									>
 										Helferstunden werden geladen
+									</TableCell>
+								</TableRow>
+							) : entriesQuery.isError ? (
+								<TableRow>
+									<TableCell colSpan={columns.length} className="py-6">
+										<QueryError
+											title="Helferstunden konnten nicht geladen werden."
+											onRetry={() => void entriesQuery.refetch()}
+										/>
 									</TableCell>
 								</TableRow>
 							) : rows.length === 0 ? (
@@ -1290,13 +1313,9 @@ function HelperHoursBudgets({
 		}
 	}
 
-	async function cancelExpense(id: string) {
-		const reason = window.prompt("Warum wird diese Ausgabe storniert?");
-		if (!reason) return;
-		if (reason.trim().length < 5) {
-			toast.error("Bitte einen kurzen Stornogrund angeben");
-			return;
-		}
+	// The reason arrives already trimmed and length-checked from the dialog, and
+	// is stored exactly as validated.
+	async function cancelExpense(id: string, reason: string) {
 		setSaving("cancel");
 		try {
 			await orpcClient.helperHours.cancelExpense({ id, grund: reason });
@@ -1550,16 +1569,26 @@ function HelperHoursBudgets({
 										{isAdmin ? (
 											<td className="py-2.5 pl-3 text-right">
 												{!entry.storniert_am ? (
-													<Button
-														type="button"
-														variant="ghost"
-														size="sm"
-														disabled={saving !== null}
-														onClick={() => void cancelExpense(entry.id)}
-													>
-														<RotateCcw className="mr-1 h-3.5 w-3.5" />
-														Stornieren
-													</Button>
+													<CancelReasonDialog
+														title="Ausgabe stornieren"
+														description="Die Buchung bleibt zur Nachvollziehbarkeit erhalten und wird als storniert gekennzeichnet. Das Abteilungsbudget wird wieder freigegeben."
+														confirmLabel="Stornieren"
+														pending={saving === "cancel"}
+														onConfirm={(reason) =>
+															cancelExpense(entry.id, reason)
+														}
+														trigger={
+															<Button
+																type="button"
+																variant="ghost"
+																size="sm"
+																disabled={saving !== null}
+															>
+																<RotateCcw className="mr-1 h-3.5 w-3.5" />
+																Stornieren
+															</Button>
+														}
+													/>
 												) : null}
 											</td>
 										) : null}

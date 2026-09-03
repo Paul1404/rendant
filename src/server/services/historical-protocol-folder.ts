@@ -652,6 +652,28 @@ export async function parseHistoricalProtocolFile(
 			date,
 		};
 	}
+	// The remaining amounts land in columns with `>= 0` CHECK constraints and an
+	// int4 range. An old sheet that books an outflow as a negative number would
+	// otherwise abort the whole folder analysis, or survive review and fail at
+	// the final import, in both cases without naming the offending file.
+	const outOfRange = (
+		[
+			["Kartenzahlung", cardCent],
+			["Betriebliche Ausgaben", expensesCent],
+			["Kassenendbestand", countedCent],
+			["Kassenendbestand am Vortag", openingCent],
+		] as const
+	).find(([, value]) => value != null && (value < 0 || value > 2_147_483_647));
+	if (outOfRange) {
+		return {
+			...skippedRow(
+				file,
+				`${outOfRange[0]} liegt außerhalb des zulässigen Bereichs`,
+			),
+			status: "error",
+			date,
+		};
+	}
 	if (denominations && countedCent != null) {
 		const calculated = sumGezaehltCent(denominations);
 		if (calculated !== countedCent) {

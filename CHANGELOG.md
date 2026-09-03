@@ -3,6 +3,21 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.39.1 - 2026-09-03
+
+- Wenn Daten nicht geladen werden können, steht das jetzt deutlich auf der
+  Seite. Bisher zeigten Helferstunden und Altunterlagen in diesem Fall Nullwerte
+  oder eine leere Liste, was wie ein echtes Ergebnis aussah.
+- Die Detailansicht einer Altunterlage dreht sich nicht mehr endlos, wenn die
+  Details nicht geladen werden können.
+- Das Stornieren einer Ausgabe fragt die Begründung jetzt in einem richtigen
+  Dialog ab. Eine zu kurze Begründung geht nicht mehr verloren, und der
+  gespeicherte Text entspricht genau dem geprüften Text.
+- Die Suche findet wieder genau das Eingetippte. Prozent- und Unterstrich-
+  Zeichen wurden bisher als Platzhalter behandelt.
+- Beim Ordnerimport bricht nicht mehr die gesamte Analyse ab, wenn eine alte
+  Datei einen negativen Betrag enthält. Die betroffene Datei wird benannt.
+
 ## 1.39.0 - 2026-09-03
 
 - Das erste Kassenzählprotokoll eines neuen Jahres lässt sich wieder anlegen.
