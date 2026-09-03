@@ -686,14 +686,16 @@ export function ProtokollForm({
 			betrag_cent: number;
 			ust_basis_punkte: number;
 		}> = [];
-		for (const a of ausgaben) {
+		// The row number is part of the message: with several rows the user
+		// otherwise has to find the offending one themselves.
+		for (const [index, a] of ausgaben.entries()) {
 			if (!a.bezeichnung.trim()) {
-				toast.error("Ausgabe ohne Bezeichnung");
+				toast.error(`Ausgabe ${index + 1}: Bezeichnung fehlt`);
 				return;
 			}
 			const cent = parseGermanAmount(a.betrag_input);
 			if (cent == null || cent < 0) {
-				toast.error("Ausgabe-Betrag ist ungültig");
+				toast.error(`Ausgabe ${index + 1}: Betrag ist ungültig`);
 				return;
 			}
 			const bp = ausgabeUstBp(a);
@@ -721,10 +723,10 @@ export function ProtokollForm({
 				);
 				return;
 			}
-			for (const s of umsatzSplits) {
+			for (const [index, s] of umsatzSplits.entries()) {
 				const cent = parseGermanAmount(s.betrag_input);
 				if (cent == null || cent < 0) {
-					toast.error("Umsatz-Betrag ist ungültig");
+					toast.error(`Umsatz-Aufteilung ${index + 1}: Betrag ist ungültig`);
 					return;
 				}
 				const bp = umsatzUstBp(s);
@@ -1350,10 +1352,18 @@ export function ProtokollForm({
 										aria-invalid={
 											wechselgeldInput.trim() !== "" && wechselgeldCent < 0
 										}
+										aria-describedby={
+											wechselgeldInput.trim() !== "" && wechselgeldCent < 0
+												? "wechselgeld-error"
+												: undefined
+										}
 										className="text-right tabular-nums"
 									/>
 									{wechselgeldInput.trim() !== "" && wechselgeldCent < 0 ? (
-										<p className="text-[11px] text-destructive">
+										<p
+											id="wechselgeld-error"
+											className="text-[11px] text-destructive"
+										>
 											Bitte einen gültigen EUR-Betrag eingeben.
 										</p>
 									) : null}
@@ -1370,10 +1380,18 @@ export function ProtokollForm({
 										aria-invalid={
 											kartenzahlungInput.trim() !== "" && kartenzahlungCent < 0
 										}
+										aria-describedby={
+											kartenzahlungInput.trim() !== "" && kartenzahlungCent < 0
+												? "kartenzahlung-error"
+												: undefined
+										}
 										className="text-right tabular-nums"
 									/>
 									{kartenzahlungInput.trim() !== "" && kartenzahlungCent < 0 ? (
-										<p className="text-[11px] text-destructive">
+										<p
+											id="kartenzahlung-error"
+											className="text-[11px] text-destructive"
+										>
 											Bitte einen gültigen EUR-Betrag eingeben.
 										</p>
 									) : null}

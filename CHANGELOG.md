@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.41.2 - 2026-09-03
+
+- Das Überfahren der Navigation lädt Seiten nicht mehr jedes Mal neu vor.
+  Besonders Einstellungen und Neues Protokoll öffnen dadurch schneller.
+- Fehlermeldungen beim Speichern eines Protokolls nennen jetzt die betroffene
+  Zeile, etwa "Ausgabe 2: Betrag ist ungültig".
+- Hinweise zu ungültigen Beträgen sind mit dem jeweiligen Feld verknüpft und
+  werden von Screenreadern vorgelesen.
+
 ## 1.41.1 - 2026-09-03
 
 - Sicherheitsabfragen erscheinen jetzt als Dialog in der Anwendung statt als
