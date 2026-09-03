@@ -8,6 +8,7 @@ import type { DbOrTx } from "@/server/db";
 import { db } from "@/server/db";
 import { auditEvents } from "@/server/db/schema";
 import { logger } from "@/server/logger";
+import { ilikeContains } from "@/server/services/search-pattern";
 
 type AuditActor = {
 	id: string;
@@ -139,7 +140,7 @@ export async function listAuditEvents(opts: {
 	if (opts.category) conditions.push(eq(auditEvents.category, opts.category));
 	const query = opts.query?.trim();
 	if (query) {
-		const pattern = `%${query.slice(0, 100)}%`;
+		const pattern = ilikeContains(query);
 		const search = or(
 			ilike(auditEvents.action, pattern),
 			ilike(auditEvents.actor_name, pattern),

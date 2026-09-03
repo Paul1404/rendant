@@ -48,6 +48,7 @@ import {
 	HistoricalProtocolDraftNotFoundError,
 	HistoricalProtocolDraftValidationError,
 } from "@/server/services/historical-protocol-import-draft";
+import { ilikeContains } from "@/server/services/search-pattern";
 
 type PhasePlanInput = v.InferOutput<
 	typeof HistoricalProtocolReviewPhasePlanSchema
@@ -120,7 +121,7 @@ function filtersFromInput(input: PhasePlanInput | PhaseCreateInput): SQL[] {
 		);
 	}
 	if (input.query) {
-		const pattern = `%${input.query}%`;
+		const pattern = ilikeContains(input.query);
 		const search = or(
 			ilike(historicalProtocolImportItems.path, pattern),
 			ilike(historicalProtocolImportItems.detail, pattern),

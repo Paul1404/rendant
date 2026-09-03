@@ -30,6 +30,7 @@ import {
 	type RecordAuditInput,
 	recordAuditEventStrict,
 } from "@/server/services/audit";
+import { ilikeContains } from "@/server/services/search-pattern";
 
 export type HistoricalRevenueRow = typeof historicalRevenues.$inferSelect;
 
@@ -149,7 +150,7 @@ export async function listHistoricalRevenuePage(
 		filters.push(eq(historicalRevenues.umsatzbereich, input.umsatzbereich));
 	}
 	if (input.query) {
-		const query = `%${input.query}%`;
+		const query = ilikeContains(input.query);
 		filters.push(
 			or(
 				ilike(historicalRevenues.anlass, query),

@@ -18,6 +18,7 @@ async function protocolFile(options: {
 	modifiedAt?: string;
 	vat11?: number;
 	withDenominations?: boolean;
+	expenses?: number;
 } = {}): Promise<HistoricalProtocolUploadFile> {
 	const workbook = new ExcelJS.Workbook();
 	const sheet = workbook.addWorksheet("Kasse");
@@ -56,7 +57,7 @@ async function protocolFile(options: {
 	sheet.addRow(["Kassenendbestand", 160 + (options.revenue ?? 123.45)]);
 	sheet.addRow(["Tageseinnahmen", options.revenue ?? 123.45]);
 	sheet.addRow(["Kartenzahlung", options.card ?? 0]);
-	sheet.addRow(["Betriebliche Ausgaben", 10]);
+	sheet.addRow(["Betriebliche Ausgaben", options.expenses ?? 10]);
 	sheet.addRow([
 		"Steuersatz",
 		0.19,
@@ -306,5 +307,22 @@ describe("historical protocol folder import", () => {
 
 		expect(row.status).toBe("review");
 		expect(row.statusReason).toContain("11 Prozent USt prüfen");
+	});
+});
+
+describe("amount bounds", () => {
+	// Regression: these values land in columns with `>= 0` CHECK constraints. An
+	// old sheet that books an outflow as a negative number used to abort the whole
+	// folder analysis, without naming the file that caused it.
+	it("marks a file with a negative outflow as an error instead of throwing", async () => {
+		const file = await protocolFile({ expenses: -10 });
+		const row = await parseHistoricalProtocolFile(file);
+		expect(row.status).toBe("error");
+		expect(row.statusReason ?? "").toMatch(/Betriebliche Ausgaben/i);
+	});
+
+	it("still accepts a normal sheet", async () => {
+		const row = await parseHistoricalProtocolFile(await protocolFile());
+		expect(row.status).not.toBe("error");
 	});
 });

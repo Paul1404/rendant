@@ -143,9 +143,10 @@ export const CreateProtokollSchema = v.object({
 	umsatzbereich: UmsatzbereichSchema,
 	// Optional link to the anlass catalog (plans/007). The `anlass` text above
 	// stays the human label; this is the stable grouping key.
-	anlass_katalog_id: v.optional(
-		v.nullable(v.pipe(v.string(), v.maxLength(40))),
-	),
+	// Compared against a uuid column, so validate it as one: a free-form string
+	// reaches Postgres as a 22P02 and surfaces to the user as an unexplained 500
+	// instead of a 400.
+	anlass_katalog_id: v.optional(v.nullable(v.pipe(v.string(), v.uuid()))),
 	gezaehlt_von: v.pipe(v.string(), v.minLength(1), v.maxLength(120)),
 	geprueft_von: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(120)), ""),
 	bemerkung: v.optional(v.pipe(v.string(), v.maxLength(2000)), ""),
