@@ -31,6 +31,20 @@ export const Route = createFileRoute("/api/import/historical-sources")({
 						{ status: 403 },
 					);
 				}
+				// Same reason as the folder import: check before the body is buffered.
+				const contentLength = Number(
+					request.headers.get("content-length") ?? 0,
+				);
+				if (
+					Number.isFinite(contentLength) &&
+					contentLength > MAX_TOTAL_BYTES + 1_000_000
+				) {
+					return Response.json(
+						{ error: "Die Auswahl darf höchstens 40 MB groß sein." },
+						{ status: 413 },
+					);
+				}
+
 				let formData: FormData;
 				try {
 					formData = await request.formData();

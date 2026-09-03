@@ -74,10 +74,14 @@ export async function helperHoursXlsxDocument(
 			row.quelle === "excel" ? row.quelle_blatt || "Excel" : "Manuell",
 			row.bemerkung,
 		]);
-		line.getCell(6).value = {
-			formula: `ROUND(D${line.number}*E${line.number},2)`,
-			result: Math.round((row.allocatedMinutes * data.valueCent) / 60) / 100,
-		};
+		// The stored value, not a formula. The app rounds once on exact integer
+		// cents (round(minutes * valueCent / 60)); any spreadsheet formula has to
+		// work from decimal euro values instead, and the two disagree by a cent
+		// whenever the result falls on an exact half cent. A cached formula result
+		// that changes on the reader's first recalculation is the wrong property
+		// for an accounting export, so this column is the figure the books hold.
+		line.getCell(6).value =
+			Math.round((row.allocatedMinutes * data.valueCent) / 60) / 100;
 	}
 	const hoursDataEnd = hours.rowCount;
 	const hoursTotalRow = hours.addRow([

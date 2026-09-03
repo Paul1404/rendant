@@ -145,6 +145,15 @@ export async function getValidInvite(token: string): Promise<Invite | null> {
 	return rows[0] ? rowToInvite(rows[0]) : null;
 }
 
+export class InviteAlreadyRegisteredError extends Error {
+	constructor() {
+		super(
+			"Für diese E-Mail besteht bereits ein Konto. Bitte melde dich mit deinem vorhandenen Passwort an.",
+		);
+		this.name = "InviteAlreadyRegisteredError";
+	}
+}
+
 export async function acceptInvite(opts: {
 	token: string;
 	name: string;
@@ -183,6 +192,13 @@ export async function acceptInvite(opts: {
 			role: inviteRow.role,
 			password: opts.password,
 		});
+		// An account that already has a credential login keeps its existing
+		// password: ensureCredentialUser deliberately does not overwrite one. Saying
+		// "Konto angelegt" here would leave the invitee locked out with a password
+		// that was never stored, so this fails loudly instead.
+		if (!credentialUser.linked) {
+			throw new InviteAlreadyRegisteredError();
+		}
 
 		const rows = await tx
 			.update(invitations)

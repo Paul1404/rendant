@@ -69,6 +69,21 @@ export const Route = createFileRoute("/api/import/historical-protocols")({
 					);
 				}
 
+				// Reject before buffering: formData() reads the whole body into memory,
+				// and every file is then held at once for hashing.
+				const contentLength = Number(
+					request.headers.get("content-length") ?? 0,
+				);
+				if (
+					Number.isFinite(contentLength) &&
+					contentLength > HISTORICAL_PROTOCOL_MAX_TOTAL_BYTES + 1_000_000
+				) {
+					return Response.json(
+						{ error: "Der Ordner darf höchstens 40 MB groß sein." },
+						{ status: 413 },
+					);
+				}
+
 				let formData: FormData;
 				try {
 					formData = await request.formData();

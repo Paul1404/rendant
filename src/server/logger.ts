@@ -58,7 +58,9 @@ function errorDetails(value: object, depth: number): LogContext | undefined {
 	const details: LogContext = {};
 	for (const key of ["name", "message", "stack", "code"]) {
 		const item = property(value, key);
-		if (typeof item === "string" || typeof item === "number") {
+		if (typeof item === "string") {
+			details[key] = redactText(item);
+		} else if (typeof item === "number") {
 			details[key] = item;
 		}
 	}
@@ -67,6 +69,29 @@ function errorDetails(value: object, depth: number): LogContext | undefined {
 		details.cause = serializeLogValue(cause, depth + 1);
 	}
 	return details;
+}
+
+// Key-name redaction cannot see a secret that arrives inside a string: a pg or
+// S3 error message carries the connection string or endpoint in `err.message`,
+// and those go out in the log line and to the external health ingest.
+const SECRET_IN_TEXT: Array<[RegExp, string]> = [
+	// postgres://user:password@host - keep the shape, drop the credentials
+	[/\b([a-z][a-z0-9+.-]*:\/\/)[^\s:@/]+:[^\s@/]+@/gi, "$1[redacted]@"],
+	// key=value and "key": "value" for the sensitive key names
+	[
+		/\b(pass\w*|secret\w*|token\w*|api[_-]?key|credential\w*)\b(\s*[:=]\s*)("[^"]*"|'[^']*'|[^\s,;)}]+)/gi,
+		"$1$2[redacted]",
+	],
+	// AWS access key ids
+	[/\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g, "[redacted]"],
+];
+
+export function redactText(value: string): string {
+	let out = value;
+	for (const [pattern, replacement] of SECRET_IN_TEXT) {
+		out = out.replace(pattern, replacement);
+	}
+	return out;
 }
 
 export function serializeLogValue(value: unknown, depth = 0): unknown {
@@ -85,6 +110,7 @@ export function serializeLogValue(value: unknown, depth = 0): unknown {
 		}
 		return out;
 	}
+	if (typeof value === "string") return redactText(value);
 	return value;
 }
 

@@ -43,6 +43,12 @@ export async function createKatalog(
 	audit: RecordAuditInput,
 ): Promise<AnlassKatalogEntry> {
 	return db.transaction(async (tx) => {
+		// max+1 read under a transaction-scoped advisory lock: an unserialized read
+		// lets two concurrent creates pick the same ordering value, and nothing in
+		// the schema forbids the duplicate.
+		await tx.execute(
+			sql`select pg_advisory_xact_lock(hashtextextended('anlass_katalog.reihenfolge', 0))`,
+		);
 		const maxRow = await tx
 			.select({ max: sql<number | null>`max(${anlassKatalog.reihenfolge})` })
 			.from(anlassKatalog);
@@ -170,11 +176,14 @@ export async function bulkAssignKatalog(
 	skipped: number;
 } | null> {
 	return db.transaction(async (tx) => {
+		// Locked like deleteKatalog: without it a concurrent delete of the target
+		// surfaces as a raw foreign-key violation instead of a German conflict.
 		const targetRows = await tx
 			.select()
 			.from(anlassKatalog)
 			.where(eq(anlassKatalog.id, input.targetId))
-			.limit(1);
+			.limit(1)
+			.for("update");
 		const target = targetRows[0];
 		if (!target) return null;
 

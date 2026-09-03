@@ -56,6 +56,12 @@ export async function createCashRegister(
 	audit: RecordAuditInput,
 ): Promise<CashRegister> {
 	return db.transaction(async (tx) => {
+		// max+1 read under a transaction-scoped advisory lock: an unserialized read
+		// lets two concurrent creates pick the same ordering value, and nothing in
+		// the schema forbids the duplicate.
+		await tx.execute(
+			sql`select pg_advisory_xact_lock(hashtextextended('cash_registers.reihenfolge', 0))`,
+		);
 		const maxRow = await tx
 			.select({ max: sql<number | null>`max(${cashRegisters.reihenfolge})` })
 			.from(cashRegisters);

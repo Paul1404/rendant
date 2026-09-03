@@ -808,7 +808,7 @@ const TOOLS: McpTool[] = [
 		name: "create_invite",
 		description:
 			"Create an audited user invitation and send it when email is configured. This is an external side effect and requires explicit user authorization.",
-		minMode: "admin",
+		minMode: "identity",
 		input: InviteCreateSchema,
 		annotations: WRITE,
 		execute: (context, input) =>
@@ -818,7 +818,7 @@ const TOOLS: McpTool[] = [
 		name: "revoke_invite",
 		description:
 			"Revoke a pending user invitation after explicit authorization.",
-		minMode: "admin",
+		minMode: "identity",
 		input: IdInput,
 		annotations: DESTRUCTIVE,
 		execute: (context, input) =>
@@ -828,7 +828,7 @@ const TOOLS: McpTool[] = [
 		name: "set_user_role",
 		description:
 			"Change a user's role and revoke their sessions. Last-admin protections remain enforced. Requires explicit authorization.",
-		minMode: "admin",
+		minMode: "identity",
 		input: v.object({
 			id: v.pipe(v.string(), v.minLength(1)),
 			role: v.picklist(["user", "admin"]),
@@ -840,7 +840,7 @@ const TOOLS: McpTool[] = [
 		name: "set_user_blocked",
 		description:
 			"Block or unblock a user. Blocking revokes sessions; self and last-admin protections remain enforced. Requires explicit authorization.",
-		minMode: "admin",
+		minMode: "identity",
 		input: v.object({
 			id: v.pipe(v.string(), v.minLength(1)),
 			banned: v.boolean(),
@@ -863,10 +863,17 @@ const TOOLS: McpTool[] = [
 	}),
 ];
 
+// Account administration is deliberately not reachable with a static bearer
+// token. MCP_ACCESS_MODE=admin still cannot invite an admin, change a role or
+// block a user: a leaked token, or text injected through an imported spreadsheet
+// that steers the model, would otherwise be enough to escalate, and the audit
+// trail would record only "mcp:...", never the human.
 export function toolsForMode(mode: McpAccessMode): McpTool[] {
-	return mode === "admin"
-		? TOOLS
-		: TOOLS.filter((tool) => tool.minMode === "readonly");
+	if (mode === "identity") return TOOLS;
+	if (mode === "admin") {
+		return TOOLS.filter((tool) => tool.minMode !== "identity");
+	}
+	return TOOLS.filter((tool) => tool.minMode === "readonly");
 }
 
 export function toolJsonSchema(tool: McpTool): Record<string, unknown> {
