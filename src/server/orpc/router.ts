@@ -145,6 +145,7 @@ import { vatSummary } from "@/server/services/reports";
 import {
 	getBelegnummerSettings,
 	getHelperHourValueCent,
+	getSettingsStamp,
 	getUmsatzUstBasisDefault,
 	getVereinStammdaten,
 	updateBelegnummerSettings,
@@ -299,6 +300,7 @@ const settings = {
 	getBelegnummer: authed.handler(async () => ({
 		settings: await getBelegnummerSettings(),
 		preview: await previewNextBelegnummer(),
+		updated_at: await getSettingsStamp("belegnummer_updated_at"),
 	})),
 
 	updateBelegnummer: adminOnly
@@ -330,12 +332,18 @@ const settings = {
 						separator: input.separator,
 					},
 				},
+				input.expected_updated_at,
 			);
-			return { settings: updated, preview: await previewNextBelegnummer() };
+			return {
+				settings: updated,
+				preview: await previewNextBelegnummer(),
+				updated_at: await getSettingsStamp("belegnummer_updated_at"),
+			};
 		}),
 
 	getUmsatzUstBasis: authed.handler(async () => ({
 		umsatz_ust_basis: await getUmsatzUstBasisDefault(),
+		updated_at: await getSettingsStamp("umsatz_ust_updated_at"),
 	})),
 
 	updateUmsatzUstBasis: adminOnly
@@ -355,32 +363,45 @@ const settings = {
 					request: requestAuditContext(context),
 					metadata: { umsatz_ust_basis: input.umsatz_ust_basis },
 				},
+				input.expected_updated_at,
 			);
-			return { umsatz_ust_basis };
+			return {
+				umsatz_ust_basis,
+				updated_at: await getSettingsStamp("umsatz_ust_updated_at"),
+			};
 		}),
 
 	getHelperHourValue: authed.handler(async () => ({
 		wert_cent: await getHelperHourValueCent(),
+		updated_at: await getSettingsStamp("helferstunde_wert_updated_at"),
 	})),
 
 	updateHelperHourValue: adminOnly
 		.input(HelperHourValueSchema)
 		.handler(async ({ input, context }) => ({
-			wert_cent: await updateHelperHourValueCent(input.wert_cent, {
-				category: "settings",
-				action: "settings.helferstunde_wert_changed",
-				actor: context.user,
-				subject: {
-					type: "settings",
-					id: "helferstunde_wert",
-					label: "Helferstundenwert",
+			wert_cent: await updateHelperHourValueCent(
+				input.wert_cent,
+				{
+					category: "settings",
+					action: "settings.helferstunde_wert_changed",
+					actor: context.user,
+					subject: {
+						type: "settings",
+						id: "helferstunde_wert",
+						label: "Helferstundenwert",
+					},
+					request: requestAuditContext(context),
+					metadata: { wert_cent: input.wert_cent },
 				},
-				request: requestAuditContext(context),
-				metadata: { wert_cent: input.wert_cent },
-			}),
+				input.expected_updated_at,
+			),
+			updated_at: await getSettingsStamp("helferstunde_wert_updated_at"),
 		})),
 
-	getVerein: authed.handler(() => getVereinStammdaten()),
+	getVerein: authed.handler(async () => ({
+		...(await getVereinStammdaten()),
+		updated_at: await getSettingsStamp("verein_updated_at"),
+	})),
 
 	updateVerein: adminOnly
 		.input(VereinSettingsSchema)
@@ -403,8 +424,12 @@ const settings = {
 					request: requestAuditContext(context),
 					metadata: { vereinsname: input.vereinsname },
 				},
+				input.expected_updated_at,
 			);
-			return result;
+			return {
+				...result,
+				updated_at: await getSettingsStamp("verein_updated_at"),
+			};
 		}),
 
 	getEmail: adminOnly.handler(() => getEmailSettings()),
@@ -518,6 +543,7 @@ const registers = {
 						actor: context.user,
 						request: requestAuditContext(context),
 					},
+					input.expected_updated_at,
 				);
 				if (!register) {
 					throw new ORPCError("NOT_FOUND", { message: "Kasse nicht gefunden" });

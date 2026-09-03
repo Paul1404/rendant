@@ -318,6 +318,31 @@ export const appSettings = pgTable(
 		updated_at: timestamp("updated_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),
+		// One timestamp per settings group. The row is a singleton shared by five
+		// separate forms, so a single shared value would make saving one form
+		// conflict with the next form on the same page - including for a single
+		// admin working alone. Each group's optimistic check uses its own stamp.
+		belegnummer_updated_at: timestamp("belegnummer_updated_at", {
+			withTimezone: true,
+		})
+			.notNull()
+			.defaultNow(),
+		umsatz_ust_updated_at: timestamp("umsatz_ust_updated_at", {
+			withTimezone: true,
+		})
+			.notNull()
+			.defaultNow(),
+		helferstunde_wert_updated_at: timestamp("helferstunde_wert_updated_at", {
+			withTimezone: true,
+		})
+			.notNull()
+			.defaultNow(),
+		verein_updated_at: timestamp("verein_updated_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		email_updated_at: timestamp("email_updated_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
 	},
 	(t) => [
 		check("app_settings_singleton_check", sql`${t.id} = 1`),

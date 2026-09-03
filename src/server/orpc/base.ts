@@ -1,5 +1,7 @@
 import { ORPCError, os } from "@orpc/server";
 import { logger } from "@/server/logger";
+import { CashRegisterConcurrencyError } from "@/server/services/cash-registers";
+import { SettingsConcurrencyError } from "@/server/services/settings";
 
 export type AuthUser = {
 	id: string;
@@ -23,7 +25,15 @@ const base = os.$context<ORPCContext>();
 const logging = base.middleware(async ({ context, next, path }) => {
 	try {
 		return await next();
-	} catch (err) {
+	} catch (raw) {
+		// A lost-update rejection is an expected outcome with a German message the
+		// user can act on, not a server fault. Mapping it here keeps every settings
+		// procedure from repeating the same try/catch.
+		const err =
+			raw instanceof SettingsConcurrencyError ||
+			raw instanceof CashRegisterConcurrencyError
+				? new ORPCError("CONFLICT", { message: raw.message })
+				: raw;
 		const procedure = Array.isArray(path) ? path.join(".") : undefined;
 		if (err instanceof ORPCError) {
 			logger.debug("orpc procedure rejected", {

@@ -58,8 +58,14 @@ export const UmsatzbereichSchema = v.picklist(
 	UMSATZBEREICHE.map((entry) => entry.code),
 );
 
+// The stamp the form was rendered from. Sent back on save so a concurrent edit
+// by another admin is rejected rather than silently overwritten. Optional so a
+// client that has not been reloaded yet still works.
+const expectedUpdatedAt = v.optional(v.pipe(v.string(), v.isoTimestamp()));
+
 export const UmsatzUstBasisSettingsSchema = v.object({
 	umsatz_ust_basis: UmsatzUstBasisSchema,
+	expected_updated_at: expectedUpdatedAt,
 });
 export type UmsatzUstBasisSettingsInput = v.InferOutput<
 	typeof UmsatzUstBasisSettingsSchema
@@ -118,6 +124,7 @@ export const VereinSettingsSchema = v.object({
 	vorstand: optionalText(400, "400 Zeichen"),
 	registergericht: optionalText(120, "120 Zeichen"),
 	registernummer: optionalText(40, "40 Zeichen"),
+	expected_updated_at: expectedUpdatedAt,
 });
 export type VereinSettingsInput = v.InferOutput<typeof VereinSettingsSchema>;
 
@@ -230,6 +237,7 @@ export type HelperHourEntriesInput = v.InferOutput<
 
 export const HelperHourValueSchema = v.object({
 	wert_cent: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(100000)),
+	expected_updated_at: expectedUpdatedAt,
 });
 
 export const HelperHourExpenseCreateSchema = v.object({
@@ -299,6 +307,7 @@ export const CashRegisterSchema = v.object({
 		v.minValue(0),
 		v.maxValue(1_000_000_00),
 	),
+	expected_updated_at: expectedUpdatedAt,
 });
 export type CashRegisterInput = v.InferOutput<typeof CashRegisterSchema>;
 
@@ -319,6 +328,7 @@ export const BelegnummerSettingsSchema = v.object({
 	include_year: v.boolean(),
 	year_format: v.picklist(["long", "short"]),
 	separator: v.picklist(["-", "/", ".", "_"]),
+	expected_updated_at: expectedUpdatedAt,
 });
 export type BelegnummerSettingsInput = v.InferOutput<
 	typeof BelegnummerSettingsSchema

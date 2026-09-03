@@ -53,9 +53,14 @@ function equal(a: VereinStammdaten, b: VereinStammdaten): boolean {
 	);
 }
 
-export function VereinSettingsForm({ initial }: { initial: VereinStammdaten }) {
+export function VereinSettingsForm({
+	initial,
+}: {
+	initial: VereinStammdaten & { updated_at?: string };
+}) {
 	const router = useRouter();
 	const [pending, start] = useTransition();
+	const [updatedAt, setUpdatedAt] = useState(initial.updated_at);
 	const [value, setValue] = useState<VereinStammdaten>({
 		...EMPTY,
 		...initial,
@@ -87,9 +92,11 @@ export function VereinSettingsForm({ initial }: { initial: VereinStammdaten }) {
 					vorstand: payload.vorstand,
 					registergericht: payload.registergericht,
 					registernummer: payload.registernummer,
+					expected_updated_at: updatedAt,
 				});
 				setSaved(data);
 				setValue(data);
+				setUpdatedAt(data.updated_at);
 				toast.success("Verein gespeichert");
 				await router.invalidate();
 			} catch (e) {

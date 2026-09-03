@@ -3,6 +3,18 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.40.0 - 2026-09-03
+
+- Änderungen an den Einstellungen und an Kassen gehen nicht mehr verloren, wenn
+  zwei Personen gleichzeitig arbeiten. Wer auf einem veralteten Stand speichert,
+  bekommt jetzt einen Hinweis zum Neuladen, statt die Änderung der anderen
+  Person unbemerkt zu überschreiben.
+- Das betrifft besonders den Stundenwert: er bewertet alle Helferstunden
+  rückwirkend, sodass ein überschriebener Wert bisher stillschweigend die
+  Abteilungsbudgets verändert hätte.
+- Die einzelnen Bereiche der Einstellungen sind dabei unabhängig. Das Speichern
+  der Vereinsdaten blockiert kein Speichern des Belegnummer-Formats.
+
 ## 1.39.1 - 2026-09-03
 
 - Wenn Daten nicht geladen werden können, steht das jetzt deutlich auf der

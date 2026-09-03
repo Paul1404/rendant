@@ -114,9 +114,11 @@ function settingsEqual(a: BelegnummerSettings, b: BelegnummerSettings) {
 export function BelegnummerSettingsForm({
 	initial,
 	serverPreview,
+	initialUpdatedAt,
 }: {
 	initial: BelegnummerSettings;
 	serverPreview: string;
+	initialUpdatedAt?: string;
 }) {
 	const router = useRouter();
 	const [pending, start] = useTransition();
@@ -124,6 +126,9 @@ export function BelegnummerSettingsForm({
 	const [savedPreview, setSavedPreview] = useState(serverPreview);
 	const [savedSettings, setSavedSettings] =
 		useState<BelegnummerSettings>(initial);
+	// The stamp this form was rendered from. Sent on save and replaced by the one
+	// the server returns, so consecutive saves without a reload keep working.
+	const [updatedAt, setUpdatedAt] = useState(initialUpdatedAt);
 
 	const year = new Date().getFullYear();
 	const dirty = !settingsEqual(s, savedSettings);
@@ -161,10 +166,14 @@ export function BelegnummerSettingsForm({
 		}
 		start(async () => {
 			try {
-				const data = await orpcClient.settings.updateBelegnummer(s);
+				const data = await orpcClient.settings.updateBelegnummer({
+					...s,
+					expected_updated_at: updatedAt,
+				});
 				setSavedSettings(data.settings);
 				setSavedPreview(data.preview);
 				setS(data.settings);
+				setUpdatedAt(data.updated_at);
 				toast.success("Einstellungen gespeichert");
 				await router.invalidate();
 			} catch (e) {

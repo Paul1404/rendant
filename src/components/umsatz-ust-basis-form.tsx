@@ -33,11 +33,18 @@ const OPTIONS: ReadonlyArray<{
 	},
 ];
 
-export function UmsatzUstBasisForm({ initial }: { initial: UmsatzUstBasis }) {
+export function UmsatzUstBasisForm({
+	initial,
+	initialUpdatedAt,
+}: {
+	initial: UmsatzUstBasis;
+	initialUpdatedAt?: string;
+}) {
 	const router = useRouter();
 	const [pending, start] = useTransition();
 	const [value, setValue] = useState<UmsatzUstBasis>(initial);
 	const [saved, setSaved] = useState<UmsatzUstBasis>(initial);
+	const [updatedAt, setUpdatedAt] = useState(initialUpdatedAt);
 	const dirty = value !== saved;
 
 	function save() {
@@ -45,9 +52,11 @@ export function UmsatzUstBasisForm({ initial }: { initial: UmsatzUstBasis }) {
 			try {
 				const data = await orpcClient.settings.updateUmsatzUstBasis({
 					umsatz_ust_basis: value,
+					expected_updated_at: updatedAt,
 				});
 				setSaved(data.umsatz_ust_basis);
 				setValue(data.umsatz_ust_basis);
+				setUpdatedAt(data.updated_at);
 				toast.success("Einstellungen gespeichert");
 				await router.invalidate();
 			} catch (e) {

@@ -254,6 +254,7 @@ export function HelperHoursPage({
 				}
 				expenses={data?.expenses ?? []}
 				valueCent={data?.valueCent ?? 600}
+				valueUpdatedAt={data?.valueUpdatedAt}
 				selected={selectedDepartment}
 				onSelected={setSelectedDepartment}
 				isAdmin={isAdmin}
@@ -1226,6 +1227,7 @@ function HelperHoursBudgets({
 	contribution,
 	expenses,
 	valueCent,
+	valueUpdatedAt,
 	selected,
 	onSelected,
 	isAdmin,
@@ -1235,6 +1237,7 @@ function HelperHoursBudgets({
 	contribution: ClubContribution;
 	expenses: DepartmentExpense[];
 	valueCent: number;
+	valueUpdatedAt?: string;
 	selected: HelperHourBudgetCategory;
 	onSelected: (value: HelperHourBudgetCategory) => void;
 	isAdmin: boolean;
@@ -1251,6 +1254,10 @@ function HelperHoursBudgets({
 		bemerkung: "",
 	});
 	const [rateInput, setRateInput] = useState(formatCentPlain(valueCent));
+	// The rate retroactively revalues every department budget, so a save that
+	// would silently overwrite another admin's change is rejected.
+	const [rateUpdatedAt, setRateUpdatedAt] = useState(valueUpdatedAt);
+	useEffect(() => setRateUpdatedAt(valueUpdatedAt), [valueUpdatedAt]);
 	const [saving, setSaving] = useState<"expense" | "rate" | "cancel" | null>(
 		null,
 	);
@@ -1301,7 +1308,11 @@ function HelperHoursBudgets({
 		}
 		setSaving("rate");
 		try {
-			await orpcClient.settings.updateHelperHourValue({ wert_cent: amount });
+			const saved = await orpcClient.settings.updateHelperHourValue({
+				wert_cent: amount,
+				expected_updated_at: rateUpdatedAt,
+			});
+			setRateUpdatedAt(saved.updated_at);
 			await onChanged();
 			toast.success("Stundenwert gespeichert");
 		} catch (error) {

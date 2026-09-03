@@ -28,7 +28,10 @@ import {
 	recordAuditEventStrict,
 } from "@/server/services/audit";
 import type { HelperHoursImportRow } from "@/server/services/helper-hours-import";
-import { getHelperHourValueCent } from "@/server/services/settings";
+import {
+	getHelperHourValueCent,
+	getSettingsStamp,
+} from "@/server/services/settings";
 
 const CATEGORY_COLUMNS = {
 	gesamtverein: "gesamtverein_minuten",
@@ -43,6 +46,9 @@ const CATEGORY_COLUMNS = {
 
 export async function listHelperHours(year?: number) {
 	const valueCent = await getHelperHourValueCent();
+	// Sent to the client so the rate form can detect a concurrent change: the rate
+	// retroactively revalues every department budget.
+	const valueUpdatedAt = await getSettingsStamp("helferstunde_wert_updated_at");
 	const period = year
 		? and(
 				gte(helperHours.datum, `${year}-01-01`),
@@ -207,6 +213,7 @@ export async function listHelperHours(year?: number) {
 		years: years.map((entry) => Number(entry.year)),
 		selectedYear: year ?? null,
 		valueCent,
+		valueUpdatedAt,
 		summary: {
 			entries: Number(summary[0]?.entries ?? 0),
 			helpers: Number(summary[0]?.helpers ?? 0),

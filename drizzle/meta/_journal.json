@@ -183,6 +183,13 @@
       "when": 1786900529662,
       "tag": "0025_wooden_loa",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1788419554268,
+      "tag": "0026_quiet_fantastic_four",
+      "breakpoints": true
     }
   ]
 }

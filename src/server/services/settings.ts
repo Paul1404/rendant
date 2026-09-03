@@ -30,7 +30,56 @@ export const DEFAULT_BELEGNUMMER_SETTINGS: BelegnummerSettings = {
 export const DEFAULT_UMSATZ_UST_BASIS: UmsatzUstBasis = "post_card";
 export const DEFAULT_HELPER_HOUR_VALUE_CENT = 600;
 
+// Two admins can have the same settings page open. Without an optimistic check
+// the later save silently overwrites the earlier one, and for the hourly value
+// that retroactively revalues every department budget - a money figure changing
+// with nothing to show it happened.
+export class SettingsConcurrencyError extends Error {
+	constructor() {
+		super(
+			"Die Einstellungen wurden zwischenzeitlich geändert. Bitte neu laden und erneut speichern.",
+		);
+		this.name = "SettingsConcurrencyError";
+	}
+}
+
+// Each group carries its own stamp so saving one form on the settings page does
+// not invalidate the others.
+export type SettingsGroup =
+	| "belegnummer_updated_at"
+	| "umsatz_ust_updated_at"
+	| "helferstunde_wert_updated_at"
+	| "verein_updated_at"
+	| "email_updated_at";
+
 type SettingsRow = typeof appSettings.$inferSelect;
+
+// Reads the current stamp under a row lock and rejects a stale write. Returns
+// the new stamp to store, so every updater writes it the same way.
+export async function claimSettingsGroup(
+	tx: DbOrTx,
+	group: SettingsGroup,
+	expectedUpdatedAt: string | undefined,
+): Promise<Date> {
+	const [current] = await tx
+		.select()
+		.from(appSettings)
+		.where(eq(appSettings.id, 1))
+		.limit(1)
+		.for("update");
+	if (!current) {
+		throw new Error("Einstellungen konnten nicht aktualisiert werden");
+	}
+	// Undefined means a caller that predates the check (or a first write against a
+	// row that has no stamp yet); only a mismatch is a conflict.
+	if (
+		expectedUpdatedAt !== undefined &&
+		current[group].toISOString() !== expectedUpdatedAt
+	) {
+		throw new SettingsConcurrencyError();
+	}
+	return new Date();
+}
 
 function rowToSettings(row: SettingsRow): BelegnummerSettings {
 	return {
@@ -57,6 +106,15 @@ async function loadRow(client: DbOrTx = db): Promise<SettingsRow | undefined> {
 	return rows[0];
 }
 
+// The stamp a form sends back on save. Returned with every settings read so the
+// client always holds the value its form was rendered from.
+export async function getSettingsStamp(
+	group: SettingsGroup,
+): Promise<string | undefined> {
+	const row = await loadRow();
+	return row?.[group]?.toISOString();
+}
+
 // Callers inside an open transaction must pass their `tx`. Reaching for the root
 // client here would take a second connection out of a pool of 10 while the first
 // is still held, so ten concurrent writers deadlock the pool against itself.
@@ -71,8 +129,14 @@ export async function getBelegnummerSettings(
 export async function updateBelegnummerSettings(
 	patch: BelegnummerSettings,
 	audit: RecordAuditInput,
+	expectedUpdatedAt?: string,
 ): Promise<BelegnummerSettings> {
 	return db.transaction(async (tx) => {
+		const stamp = await claimSettingsGroup(
+			tx,
+			"belegnummer_updated_at",
+			expectedUpdatedAt,
+		);
 		const rows = await tx
 			.update(appSettings)
 			.set({
@@ -81,7 +145,8 @@ export async function updateBelegnummerSettings(
 				belegnummer_include_year: patch.include_year,
 				belegnummer_year_format: patch.year_format,
 				belegnummer_separator: patch.separator,
-				updated_at: new Date(),
+				belegnummer_updated_at: stamp,
+				updated_at: stamp,
 			})
 			.where(eq(appSettings.id, 1))
 			.returning();
@@ -102,11 +167,21 @@ export async function getUmsatzUstBasisDefault(): Promise<UmsatzUstBasis> {
 export async function updateUmsatzUstBasisDefault(
 	basis: UmsatzUstBasis,
 	audit: RecordAuditInput,
+	expectedUpdatedAt?: string,
 ): Promise<UmsatzUstBasis> {
 	return db.transaction(async (tx) => {
+		const stamp = await claimSettingsGroup(
+			tx,
+			"umsatz_ust_updated_at",
+			expectedUpdatedAt,
+		);
 		const rows = await tx
 			.update(appSettings)
-			.set({ umsatz_ust_basis: basis, updated_at: new Date() })
+			.set({
+				umsatz_ust_basis: basis,
+				umsatz_ust_updated_at: stamp,
+				updated_at: stamp,
+			})
 			.where(eq(appSettings.id, 1))
 			.returning();
 		if (rows.length === 0) {
@@ -125,11 +200,21 @@ export async function getHelperHourValueCent(): Promise<number> {
 export async function updateHelperHourValueCent(
 	valueCent: number,
 	audit: RecordAuditInput,
+	expectedUpdatedAt?: string,
 ): Promise<number> {
 	return db.transaction(async (tx) => {
+		const stamp = await claimSettingsGroup(
+			tx,
+			"helferstunde_wert_updated_at",
+			expectedUpdatedAt,
+		);
 		const rows = await tx
 			.update(appSettings)
-			.set({ helferstunde_wert_cent: valueCent, updated_at: new Date() })
+			.set({
+				helferstunde_wert_cent: valueCent,
+				helferstunde_wert_updated_at: stamp,
+				updated_at: stamp,
+			})
 			.where(eq(appSettings.id, 1))
 			.returning({ valueCent: appSettings.helferstunde_wert_cent });
 		if (rows.length === 0) {
@@ -184,11 +269,18 @@ export async function getVereinStammdaten(): Promise<VereinStammdaten> {
 export async function updateVereinStammdaten(
 	patch: VereinStammdaten,
 	audit: RecordAuditInput,
+	expectedUpdatedAt?: string,
 ): Promise<VereinStammdaten> {
 	return db.transaction(async (tx) => {
+		const stamp = await claimSettingsGroup(
+			tx,
+			"verein_updated_at",
+			expectedUpdatedAt,
+		);
 		const rows = await tx
 			.update(appSettings)
 			.set({
+				verein_updated_at: stamp,
 				vereinsname: patch.name.trim(),
 				verein_strasse: patch.strasse.trim(),
 				verein_plz: patch.plz.trim(),
@@ -196,7 +288,7 @@ export async function updateVereinStammdaten(
 				verein_vorstand: patch.vorstand.trim(),
 				verein_registergericht: patch.registergericht.trim(),
 				verein_registernummer: patch.registernummer.trim(),
-				updated_at: new Date(),
+				updated_at: stamp,
 			})
 			.where(eq(appSettings.id, 1))
 			.returning();
