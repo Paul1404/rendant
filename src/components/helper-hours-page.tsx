@@ -1884,6 +1884,10 @@ function HelperHoursImport({
 				) : null}
 			</CardContent>
 			<HelperHoursCorrectionDialog
+				// Keyed per row: without a remount the dialog rendered the previous
+				// helper's name and allocations until the sync effect committed, a
+				// visible flash of the wrong person's data in an audited correction.
+				key={editing ? reviewKey(editing) : "none"}
 				row={editing}
 				value={editing ? corrections[reviewKey(editing)] : undefined}
 				onOpenChange={(open) => {
@@ -1934,15 +1938,17 @@ function HelperHoursCorrectionDialog({
 	onOpenChange: (open: boolean) => void;
 	onSave: (value: HelperHoursCorrection) => void;
 }) {
-	const [working, setWorking] = useState<HelperHoursCorrection | null>(null);
-	useEffect(() => {
-		if (row && value)
-			setWorking({
-				...value,
-				allocations: { ...value.allocations },
-				acceptedIssues: [...value.acceptedIssues],
-			});
-	}, [row, value]);
+	// Initialised from props rather than synced by an effect, so the first paint
+	// already shows this row's values.
+	const [working, setWorking] = useState<HelperHoursCorrection | null>(() =>
+		row && value
+			? {
+					...value,
+					allocations: { ...value.allocations },
+					acceptedIssues: [...value.acceptedIssues],
+				}
+			: null,
+	);
 	if (!row || !working) return null;
 	const allocated = Object.values(working.allocations).reduce(
 		(sum, minutes) => sum + minutes,
