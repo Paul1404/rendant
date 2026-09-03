@@ -38,6 +38,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
 	Dialog,
 	DialogContent,
@@ -279,12 +280,6 @@ export function HistoricalProtocolFolderImport() {
 	}
 
 	async function archiveDraft(item: HistoricalProtocolDraftSummary) {
-		if (
-			!window.confirm(
-				`Arbeitsstand ${draftIdentity(item)} archivieren? Er bleibt im Auditlog erhalten und kann wiederhergestellt werden.`,
-			)
-		)
-			return;
 		setLoading(`archive-${item.id}`);
 		try {
 			await orpcClient.historicalProtocolImport.archive({
@@ -480,12 +475,6 @@ export function HistoricalProtocolFolderImport() {
 
 	async function applyDraft() {
 		if (draft?.status !== "ready") return;
-		if (
-			!window.confirm(
-				`${draft.counts.include} geprüfte Altumsätze verbindlich importieren? Die Arbeitswerte werden danach unveränderlich übernommen.`,
-			)
-		)
-			return;
 		setLoading("apply");
 		try {
 			const result = await orpcClient.historicalProtocolImport.apply({
@@ -690,22 +679,32 @@ export function HistoricalProtocolFolderImport() {
 												</span>
 											</span>
 										</Button>
-										<Button
-											type="button"
-											variant="ghost"
-											size="icon-sm"
-											className="h-auto rounded-none border-l"
-											onClick={() => void archiveDraft(item)}
-											disabled={loading != null}
+										<ConfirmDialog
 											title="Arbeitsstand archivieren"
-										>
-											{loading === `archive-${item.id}` ? (
-												<Loader2 className="animate-spin" />
-											) : (
-												<Archive />
-											)}
-											<span className="sr-only">Arbeitsstand archivieren</span>
-										</Button>
+											description={`Arbeitsstand ${draftIdentity(item)} archivieren? Er bleibt im Auditlog erhalten und kann wiederhergestellt werden.`}
+											confirmLabel="Archivieren"
+											pending={loading === `archive-${item.id}`}
+											onConfirm={() => archiveDraft(item)}
+											trigger={
+												<Button
+													type="button"
+													variant="ghost"
+													size="icon-sm"
+													className="h-auto rounded-none border-l"
+													disabled={loading != null}
+													title="Arbeitsstand archivieren"
+												>
+													{loading === `archive-${item.id}` ? (
+														<Loader2 className="animate-spin" />
+													) : (
+														<Archive />
+													)}
+													<span className="sr-only">
+														Arbeitsstand archivieren
+													</span>
+												</Button>
+											}
+										/>
 									</div>
 								))}
 						</div>
@@ -1044,19 +1043,27 @@ export function HistoricalProtocolFolderImport() {
 									<RotateCcw className="mr-2 h-4 w-4" />
 									Weiter bearbeiten
 								</Button>
-								<Button
-									type="button"
-									className="flex-1"
-									onClick={() => void applyDraft()}
-									disabled={loading != null}
-								>
-									{loading === "apply" ? (
-										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									) : (
-										<Archive className="mr-2 h-4 w-4" />
-									)}
-									{draft.counts.include} Altumsätze verbindlich importieren
-								</Button>
+								<ConfirmDialog
+									title="Altumsätze verbindlich importieren"
+									description={`${draft.counts.include} geprüfte Altumsätze verbindlich importieren? Die Arbeitswerte werden danach unveränderlich übernommen.`}
+									confirmLabel="Importieren"
+									pending={loading === "apply"}
+									onConfirm={() => applyDraft()}
+									trigger={
+										<Button
+											type="button"
+											className="flex-1"
+											disabled={loading != null}
+										>
+											{loading === "apply" ? (
+												<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+											) : (
+												<Archive className="mr-2 h-4 w-4" />
+											)}
+											{draft.counts.include} Altumsätze verbindlich importieren
+										</Button>
+									}
+								/>
 							</div>
 						) : null}
 						{draft.status === "imported" ? (

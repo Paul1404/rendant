@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.41.1 - 2026-09-03
+
+- Sicherheitsabfragen erscheinen jetzt als Dialog in der Anwendung statt als
+  Browser-Hinweis. Sie zeigen die Folgen vollständig an und lassen sich mit der
+  Tastatur bedienen. Browser, die wiederholte Hinweise unterdrücken, blockieren
+  damit nicht mehr das Löschen oder Importieren.
+- Schlägt die automatische Anmeldung nach dem Annehmen einer Einladung fehl,
+  erscheint kein Erfolgshinweis mehr, sondern der Grund.
+
 ## 1.41.0 - 2026-09-03
 
 - Eine Einladung meldet keinen Erfolg mehr, wenn für die E-Mail bereits ein

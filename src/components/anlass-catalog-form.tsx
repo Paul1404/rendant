@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { AnlassKatalogEntry, AnlassTyp } from "@/lib/anlass";
@@ -118,13 +119,6 @@ export function AnlassCatalogForm({
 	}
 
 	function remove(entry: AnlassKatalogEntry) {
-		if (
-			!window.confirm(
-				`Umsatzgruppe "${entry.name}" wirklich löschen?\n\nGeht nur, wenn ihr keine Belege zugeordnet sind. Sonst besser deaktivieren.`,
-			)
-		) {
-			return;
-		}
 		start(async () => {
 			try {
 				await orpcClient.anlassKatalog.remove({ id: entry.id });
@@ -219,16 +213,25 @@ export function AnlassCatalogForm({
 									>
 										<Pencil className="h-4 w-4" />
 									</Button>
-									<Button
-										type="button"
-										variant="ghost"
-										size="icon-sm"
-										aria-label="Umsatzgruppe löschen"
-										onClick={() => remove(entry)}
-										disabled={pending}
-									>
-										<Trash2 className="h-4 w-4" />
-									</Button>
+									<ConfirmDialog
+										title="Umsatzgruppe löschen"
+										description={`Umsatzgruppe "${entry.name}" wirklich löschen? Das geht nur, wenn ihr keine Belege zugeordnet sind. Sonst besser deaktivieren.`}
+										confirmLabel="Löschen"
+										destructive
+										pending={pending}
+										onConfirm={() => remove(entry)}
+										trigger={
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon-sm"
+												aria-label="Umsatzgruppe löschen"
+												disabled={pending}
+											>
+												<Trash2 className="h-4 w-4" />
+											</Button>
+										}
+									/>
 								</div>
 							</div>
 						);
