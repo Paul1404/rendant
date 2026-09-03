@@ -3,6 +3,16 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.40.1 - 2026-09-03
+
+- Die Umsatzsteuer-Auswertung wird jetzt direkt in der Datenbank berechnet. Die
+  Kennzahlen bleiben unverändert, die Auswertung bleibt aber auch bei vielen
+  Protokollen schnell.
+- Im Korrekturdialog der Helferstunden erscheinen beim Öffnen keine Werte der
+  zuvor geöffneten Zeile mehr.
+- Die Felder im Korrekturdialog des Ordnerimports sind jetzt richtig
+  beschriftet, und die Entscheidungsauswahl nennt die Datei, zu der sie gehört.
+
 ## 1.40.0 - 2026-09-03
 
 - Änderungen an den Einstellungen und an Kassen gehen nicht mehr verloren, wenn

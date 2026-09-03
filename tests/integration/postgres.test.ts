@@ -1,14 +1,16 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, gte, lte, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { emptyCounts } from "@/lib/denominations";
 import { db, pool } from "@/server/db";
 import {
 	anlassKatalog,
 	auditEvents,
+	ausgaben,
 	historicalProtocolImportDrafts,
 	historicalRevenues,
 	protokolle,
+	protokollUmsatzUst,
 } from "@/server/db/schema";
 import {
 	analyzeHistoricalProtocolImportDraft,
@@ -23,7 +25,11 @@ import {
 	createHistoricalRevenue,
 	HistoricalRevenueConflictError,
 } from "@/server/services/historical-revenue";
-import { createProtokoll } from "@/server/services/protokoll";
+import {
+	createProtokoll,
+	stornoProtokoll,
+} from "@/server/services/protokoll";
+import { vatSummary } from "@/server/services/reports";
 import {
 	getHelperHourValueCent,
 	getSettingsStamp,
@@ -463,5 +469,122 @@ describe("optimistic concurrency on shared settings", () => {
 				belegnummerStamp,
 			),
 		).resolves.toBeDefined();
+	});
+});
+
+describe("VAT summary aggregation", () => {
+	// This moved from "select every matching id, pass them back as IN (...), group
+	// in Node" to a grouped SUM in PostgreSQL. VAT figures are legally relevant,
+	// so the numbers are pinned rather than assumed to have survived the rewrite.
+	const von = "2029-01-01";
+	const bis = "2029-12-31";
+
+	// The suite runs against a database that persists between runs, so this
+	// window is cleared before and after rather than assumed empty.
+	async function clearWindow() {
+		const rows = await db
+			.select({ id: protokolle.id })
+			.from(protokolle)
+			.where(
+				and(
+					gte(protokolle.anlass_datum, von),
+					lte(protokolle.anlass_datum, bis),
+				),
+			);
+		for (const row of rows) {
+			await db.delete(ausgaben).where(eq(ausgaben.protokoll_id, row.id));
+			await db
+				.delete(protokollUmsatzUst)
+				.where(eq(protokollUmsatzUst.protokoll_id, row.id));
+			await db.delete(protokolle).where(eq(protokolle.id, row.id));
+		}
+	}
+
+	beforeAll(clearWindow);
+	afterAll(clearWindow);
+
+	function protokollInput(overrides: Record<string, unknown>) {
+		return {
+			...emptyCounts(),
+			idempotency_key: randomUUID(),
+			anlass_datum: "2029-06-01",
+			veranstaltungsbezeichnung: "USt-Test",
+			umsatzbereich: "sonstiges" as const,
+			kassennummer: "VAT",
+			kassenbezeichnung: "VAT Test",
+			gezaehlt_von: "Integration Test",
+			geprueft_von: "",
+			bemerkung: "",
+			wechselgeld_cent: 0,
+			kartenzahlung_cent: 0,
+			ausgaben: [],
+			umsatz_ust: [],
+			umsatz_ust_basis: "post_card" as const,
+			...overrides,
+		};
+	}
+
+	it("sums per rate, across protocols, excluding cancelled ones", async () => {
+		const before = await vatSummary(von, bis);
+		expect(before.revenue).toEqual([]);
+		expect(before.expenses).toEqual([]);
+
+		await createProtokoll(
+			protokollInput({
+				anzahl_100_eur: 1,
+				anzahl_20_eur: 1,
+				anzahl_10_eur: 1,
+				umsatz_ust: [
+					{ betrag_cent: 10_000, ust_basis_punkte: 1900 },
+					{ betrag_cent: 5_000, ust_basis_punkte: 700 },
+				],
+				ausgaben: [
+					{ bezeichnung: "Einkauf", betrag_cent: 2_000, ust_basis_punkte: 1900 },
+				],
+			}),
+			actor,
+			audit,
+		);
+		// A second protocol at the same rate must fold into the same group.
+		await createProtokoll(
+			protokollInput({
+				anzahl_20_eur: 1,
+				anzahl_5_eur: 1,
+				umsatz_ust: [{ betrag_cent: 2_500, ust_basis_punkte: 1900 }],
+			}),
+			actor,
+			audit,
+		);
+		// A cancelled protocol must not count at all.
+		const cancelled = await createProtokoll(
+			protokollInput({
+				anzahl_500_eur: 1,
+				umsatz_ust: [{ betrag_cent: 50_000, ust_basis_punkte: 1900 }],
+			}),
+			actor,
+			audit,
+		);
+		await stornoProtokoll(
+			cancelled.id,
+			{ storno_grund: "Teststornierung für USt-Aggregat" },
+			actor,
+			audit,
+		);
+
+		const summary = await vatSummary(von, bis);
+		const revenue = Object.fromEntries(
+			summary.revenue.map((group) => [group.bp, group.brutto_cent]),
+		);
+		expect(revenue[1900]).toBe(12_500);
+		expect(revenue[700]).toBe(5_000);
+		const expenses = Object.fromEntries(
+			summary.expenses.map((group) => [group.bp, group.brutto_cent]),
+		);
+		expect(expenses[1900]).toBe(2_000);
+	});
+
+	it("returns nothing for a window with no protocols", async () => {
+		const empty = await vatSummary("2031-01-01", "2031-12-31");
+		expect(empty).toEqual({ revenue: [], expenses: [] });
 	});
 });

@@ -20,7 +20,14 @@ import {
 	RotateCcw,
 	ShieldCheck,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useId,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -535,7 +542,13 @@ export function HistoricalProtocolFolderImport() {
 							}
 							disabled={draft?.status !== "editing" || loading === item.id}
 						>
-							<SelectTrigger size="sm" className="w-32">
+							{/* Names the row it belongs to: without this the accessible
+							    name is just the current value, repeated on every row. */}
+							<SelectTrigger
+								size="sm"
+								className="w-32"
+								aria-label={`Entscheidung für ${item.path}`}
+							>
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
@@ -1161,79 +1174,98 @@ function EditItemDialog({
 							</p>
 						</div>
 						<Field label="Entscheidung">
-							<Select
-								value={decision}
-								onValueChange={(value) =>
-									setDecision(value as HistoricalProtocolDraftDecision)
-								}
-							>
-								<SelectTrigger>
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									{Object.entries(DECISIONS).map(([value, entry]) => (
-										<SelectItem key={value} value={value}>
-											{entry.label}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
+							{(id) => (
+								<Select
+									value={decision}
+									onValueChange={(value) =>
+										setDecision(value as HistoricalProtocolDraftDecision)
+									}
+								>
+									<SelectTrigger id={id}>
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										{Object.entries(DECISIONS).map(([value, entry]) => (
+											<SelectItem key={value} value={value}>
+												{entry.label}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							)}
 						</Field>
 						<Field label="Datum">
-							<Input
-								type="date"
-								value={date}
-								onChange={(event) => setDate(event.target.value)}
-							/>
+							{(id) => (
+								<Input
+									id={id}
+									type="date"
+									value={date}
+									onChange={(event) => setDate(event.target.value)}
+								/>
+							)}
 						</Field>
 						<Field label="Umsatzbereich">
-							<Select
-								value={area}
-								onValueChange={(value) => setArea(value as Umsatzbereich)}
-							>
-								<SelectTrigger>
-									<SelectValue placeholder="Bereich wählen" />
-								</SelectTrigger>
-								<SelectContent>
-									{UMSATZBEREICHE.map((entry) => (
-										<SelectItem key={entry.code} value={entry.code}>
-											{entry.label}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
+							{(id) => (
+								<Select
+									value={area}
+									onValueChange={(value) => setArea(value as Umsatzbereich)}
+								>
+									<SelectTrigger id={id}>
+										<SelectValue placeholder="Bereich wählen" />
+									</SelectTrigger>
+									<SelectContent>
+										{UMSATZBEREICHE.map((entry) => (
+											<SelectItem key={entry.code} value={entry.code}>
+												{entry.label}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							)}
 						</Field>
 						<div className="sm:col-span-2">
 							<Field label="Details">
-								<Input
-									value={detail}
-									onChange={(event) => setDetail(event.target.value)}
-									maxLength={120}
-								/>
+								{(id) => (
+									<Input
+										id={id}
+										value={detail}
+										onChange={(event) => setDetail(event.target.value)}
+										maxLength={120}
+									/>
+								)}
 							</Field>
 						</div>
 						<Field label="Umsatz in Euro">
-							<Input
-								inputMode="decimal"
-								value={revenue}
-								onChange={(event) => setRevenue(event.target.value)}
-							/>
+							{(id) => (
+								<Input
+									id={id}
+									inputMode="decimal"
+									value={revenue}
+									onChange={(event) => setRevenue(event.target.value)}
+								/>
+							)}
 						</Field>
 						<Field label="Ausgaben in Euro">
-							<Input
-								inputMode="decimal"
-								value={expenses}
-								onChange={(event) => setExpenses(event.target.value)}
-							/>
+							{(id) => (
+								<Input
+									id={id}
+									inputMode="decimal"
+									value={expenses}
+									onChange={(event) => setExpenses(event.target.value)}
+								/>
+							)}
 						</Field>
 						<div className="sm:col-span-2">
 							<Field label="Korrekturhinweis">
-								<Textarea
-									value={note}
-									onChange={(event) => setNote(event.target.value)}
-									placeholder="Warum weicht der Arbeitswert von der Erkennung ab?"
-									maxLength={1000}
-								/>
+								{(id) => (
+									<Textarea
+										id={id}
+										value={note}
+										onChange={(event) => setNote(event.target.value)}
+										placeholder="Warum weicht der Arbeitswert von der Erkennung ab?"
+										maxLength={1000}
+									/>
+								)}
 							</Field>
 						</div>
 					</div>
@@ -1260,17 +1292,21 @@ function EditItemDialog({
 	);
 }
 
+// Renders the id rather than just wrapping: a Label with no htmlFor names
+// nothing, and the control that needs the id differs (an Input takes it
+// directly, a Radix Select needs it on the trigger).
 function Field({
 	label,
 	children,
 }: {
 	label: string;
-	children: React.ReactNode;
+	children: (id: string) => React.ReactNode;
 }) {
+	const id = useId();
 	return (
 		<div className="space-y-1.5">
-			<Label>{label}</Label>
-			{children}
+			<Label htmlFor={id}>{label}</Label>
+			{children(id)}
 		</div>
 	);
 }
