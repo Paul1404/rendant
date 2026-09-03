@@ -59,7 +59,15 @@ function InvitePage() {
 				password,
 			});
 			if (error) {
-				toast.success("Konto angelegt. Bitte anmelden.");
+				// The account exists, so this is not a failure - but it is not the
+				// success the user asked for either, and dropping them on a login form
+				// with a success toast leaves them guessing why.
+				toast.info(
+					orpcMessage(
+						error,
+						"Konto angelegt. Die automatische Anmeldung hat nicht geklappt, bitte melde dich an.",
+					),
+				);
 				window.location.assign("/login");
 				return;
 			}

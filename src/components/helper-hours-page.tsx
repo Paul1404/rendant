@@ -45,6 +45,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
 	Dialog,
 	DialogContent,
@@ -1726,18 +1727,16 @@ function HelperHoursImport({
 			setLoading(null);
 		}
 	}
+	// Controlled rather than trigger-based: the button either jumps to the next
+	// open issue or starts the import, and only the second case is confirmed.
+	const [importOpen, setImportOpen] = useState(false);
+	const importHint =
+		preview && preview.warnings > 0
+			? ` ${preview.warnings} Hinweise bleiben zur Herkunft gespeichert.`
+			: "";
 	function confirmImport() {
 		if (!preview?.valid || preview.toImport <= 0 || openIssues > 0) return;
-		const hint =
-			preview.warnings > 0
-				? ` ${preview.warnings} Hinweise bleiben zur Herkunft gespeichert.`
-				: "";
-		if (
-			window.confirm(
-				`${preview.toImport} Helferstunden verbindlich importieren?${hint}`,
-			)
-		)
-			void send("apply");
+		setImportOpen(true);
 	}
 	return (
 		<Card>
@@ -1880,6 +1879,15 @@ function HelperHoursImport({
 									: `${preview.toImport} geprüfte Einträge importieren`}
 							</Button>
 						) : null}
+						<ConfirmDialog
+							open={importOpen}
+							onOpenChange={setImportOpen}
+							title="Helferstunden verbindlich importieren"
+							description={`${preview?.toImport ?? 0} Helferstunden verbindlich importieren?${importHint}`}
+							confirmLabel="Importieren"
+							pending={loading === "apply"}
+							onConfirm={() => send("apply")}
+						/>
 					</div>
 				) : null}
 			</CardContent>

@@ -18,6 +18,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Money } from "@/components/ui/money";
@@ -111,19 +112,13 @@ export function HistoricalRevenueImport() {
 
 	function confirmImport() {
 		if (!preview?.valid || preview.toImport <= 0) return;
-		const duplicateWarning =
-			preview.possibleDuplicates.length > 0
-				? ` ${preview.possibleDuplicates.length} Zeilen ähneln bestehenden Einträgen.`
-				: "";
-		if (
-			!window.confirm(
-				`${preview.toImport} historische Umsätze verbindlich importieren?${duplicateWarning} Die Einträge können später nur storniert, nicht bearbeitet werden.`,
-			)
-		) {
-			return;
-		}
 		void send("apply");
 	}
+
+	const duplicateHint =
+		preview && preview.possibleDuplicates.length > 0
+			? ` ${preview.possibleDuplicates.length} Zeilen ähneln bestehenden Einträgen.`
+			: "";
 
 	return (
 		<>
@@ -281,21 +276,29 @@ export function HistoricalRevenueImport() {
 							) : null}
 
 							{preview.valid ? (
-								<Button
-									type="button"
-									className="w-full"
-									onClick={confirmImport}
-									disabled={preview.toImport <= 0 || loading != null}
-								>
-									{loading === "apply" ? (
-										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									) : (
-										<Upload className="mr-2 h-4 w-4" />
-									)}
-									{preview.toImport > 0
-										? `${preview.toImport} Umsätze importieren`
-										: "Keine neuen Zeilen"}
-								</Button>
+								<ConfirmDialog
+									title="Altumsätze verbindlich importieren"
+									description={`${preview.toImport} historische Umsätze verbindlich importieren?${duplicateHint} Die Einträge können später nur storniert, nicht bearbeitet werden.`}
+									confirmLabel="Importieren"
+									pending={loading === "apply"}
+									onConfirm={confirmImport}
+									trigger={
+										<Button
+											type="button"
+											className="w-full"
+											disabled={preview.toImport <= 0 || loading != null}
+										>
+											{loading === "apply" ? (
+												<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+											) : (
+												<Upload className="mr-2 h-4 w-4" />
+											)}
+											{preview.toImport > 0
+												? `${preview.toImport} Umsätze importieren`
+												: "Keine neuen Zeilen"}
+										</Button>
+									}
+								/>
 							) : null}
 						</div>
 					) : null}

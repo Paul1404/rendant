@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Money } from "@/components/ui/money";
@@ -163,13 +164,6 @@ export function CashRegistersForm({ initial }: { initial: CashRegister[] }) {
 	}
 
 	function remove(r: CashRegister) {
-		if (
-			!window.confirm(
-				`Kasse ${r.kassennummer} (${r.kassenbezeichnung}) wirklich löschen?\n\nBereits erstellte Protokolle bleiben unverändert.`,
-			)
-		) {
-			return;
-		}
 		start(async () => {
 			try {
 				await orpcClient.registers.remove({ id: r.id });
@@ -254,16 +248,25 @@ export function CashRegistersForm({ initial }: { initial: CashRegister[] }) {
 									>
 										<Pencil className="h-4 w-4" />
 									</Button>
-									<Button
-										type="button"
-										variant="ghost"
-										size="icon-sm"
-										aria-label="Kasse löschen"
-										onClick={() => remove(r)}
-										disabled={pending}
-									>
-										<Trash2 className="h-4 w-4" />
-									</Button>
+									<ConfirmDialog
+										title="Kasse löschen"
+										description={`Kasse ${r.kassennummer} (${r.kassenbezeichnung}) wirklich löschen? Bereits erstellte Protokolle bleiben unverändert.`}
+										confirmLabel="Löschen"
+										destructive
+										pending={pending}
+										onConfirm={() => remove(r)}
+										trigger={
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon-sm"
+												aria-label="Kasse löschen"
+												disabled={pending}
+											>
+												<Trash2 className="h-4 w-4" />
+											</Button>
+										}
+									/>
 								</div>
 							</div>
 						);

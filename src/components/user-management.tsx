@@ -13,6 +13,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -56,6 +57,11 @@ export function UserManagement({
 }) {
 	const router = useRouter();
 	const [pending, start] = useTransition();
+	const [pendingRole, setPendingRole] = useState<{
+		user: UserRow;
+		nextRole: "user" | "admin";
+	} | null>(null);
+	const [pendingBlock, setPendingBlock] = useState<UserRow | null>(null);
 	const [email, setEmail] = useState("");
 	const [role, setRole] = useState<"user" | "admin">("user");
 	const [lastLink, setLastLink] = useState<string | null>(null);
@@ -141,16 +147,17 @@ export function UserManagement({
 		});
 	}
 
+	// Both of these start from a select or a toggle rather than a button, so the
+	// dialog is controlled and the pending action is held until it is confirmed.
 	function changeRole(user: UserRow, nextRole: "user" | "admin") {
-		if (
-			user.role === "admin" &&
-			nextRole === "user" &&
-			!window.confirm(
-				`Admin-Rolle von ${user.name} wirklich entfernen? Die Person wird sofort abgemeldet.`,
-			)
-		) {
+		if (user.role === "admin" && nextRole === "user") {
+			setPendingRole({ user, nextRole });
 			return;
 		}
+		applyRole(user, nextRole);
+	}
+
+	function applyRole(user: UserRow, nextRole: "user" | "admin") {
 		start(async () => {
 			try {
 				await orpcClient.users.setRole({ id: user.id, role: nextRole });
@@ -167,15 +174,15 @@ export function UserManagement({
 	}
 
 	function changeBlocked(user: UserRow) {
-		const nextBlocked = !user.banned;
-		if (
-			nextBlocked &&
-			!window.confirm(
-				`${user.name} wirklich sperren? Die Person wird sofort abgemeldet und kann sich nicht mehr anmelden.`,
-			)
-		) {
+		if (!user.banned) {
+			setPendingBlock(user);
 			return;
 		}
+		applyBlocked(user);
+	}
+
+	function applyBlocked(user: UserRow) {
+		const nextBlocked = !user.banned;
 		start(async () => {
 			try {
 				await orpcClient.users.setBanned({ id: user.id, banned: nextBlocked });
@@ -205,8 +212,44 @@ export function UserManagement({
 		}
 	}
 
+	const roleDialog = (
+		<>
+			<ConfirmDialog
+				open={pendingRole !== null}
+				onOpenChange={(open) => {
+					if (!open) setPendingRole(null);
+				}}
+				title="Admin-Rolle entfernen"
+				description={`Admin-Rolle von ${pendingRole?.user.name ?? ""} wirklich entfernen? Die Person wird sofort abgemeldet.`}
+				confirmLabel="Entfernen"
+				destructive
+				pending={pending}
+				onConfirm={() => {
+					if (pendingRole) applyRole(pendingRole.user, pendingRole.nextRole);
+					setPendingRole(null);
+				}}
+			/>
+			<ConfirmDialog
+				open={pendingBlock !== null}
+				onOpenChange={(open) => {
+					if (!open) setPendingBlock(null);
+				}}
+				title="Konto sperren"
+				description={`${pendingBlock?.name ?? ""} wirklich sperren? Die Person wird sofort abgemeldet und kann sich nicht mehr anmelden.`}
+				confirmLabel="Sperren"
+				destructive
+				pending={pending}
+				onConfirm={() => {
+					if (pendingBlock) applyBlocked(pendingBlock);
+					setPendingBlock(null);
+				}}
+			/>
+		</>
+	);
+
 	return (
 		<div className="space-y-6">
+			{roleDialog}
 			<Card>
 				<CardHeader className="pb-3">
 					<CardTitle className="flex items-center gap-2 text-base">
