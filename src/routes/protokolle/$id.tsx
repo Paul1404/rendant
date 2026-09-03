@@ -252,7 +252,7 @@ function ProtokollDetailPage() {
 
 			<Card>
 				<CardHeader>
-					<CardTitle className="flex items-center gap-2">
+					<CardTitle as="h2" className="flex items-center gap-2">
 						<FileText className="h-4 w-4 text-primary" />
 						Kopfdaten
 					</CardTitle>
@@ -292,7 +292,7 @@ function ProtokollDetailPage() {
 
 			<Card>
 				<CardHeader>
-					<CardTitle className="flex items-center gap-2">
+					<CardTitle as="h2" className="flex items-center gap-2">
 						<Coins className="h-4 w-4 text-primary" />
 						Stückelung
 					</CardTitle>
@@ -365,7 +365,7 @@ function ProtokollDetailPage() {
 			{ausgaben.length > 0 ? (
 				<Card>
 					<CardHeader>
-						<CardTitle className="flex items-center gap-2">
+						<CardTitle as="h2" className="flex items-center gap-2">
 							<ReceiptText className="h-4 w-4 text-primary" />
 							Betriebliche Ausgaben
 						</CardTitle>
@@ -436,7 +436,7 @@ function ProtokollDetailPage() {
 
 			<Card>
 				<CardHeader>
-					<CardTitle className="flex items-center gap-2">
+					<CardTitle as="h2" className="flex items-center gap-2">
 						<Calculator className="h-4 w-4 text-primary" />
 						Zusammenfassung
 					</CardTitle>
@@ -506,7 +506,7 @@ function ProtokollDetailPage() {
 			{umsatzUst.length > 0 ? (
 				<Card>
 					<CardHeader>
-						<CardTitle className="flex items-center gap-2">
+						<CardTitle as="h2" className="flex items-center gap-2">
 							<Calculator className="h-4 w-4 text-primary" />
 							Umsatz nach USt.
 							{protokoll.kartenzahlung_cent > 0 ? (
@@ -527,7 +527,7 @@ function ProtokollDetailPage() {
 			{protokoll.pdf_sha256 ? (
 				<Card>
 					<CardHeader>
-						<CardTitle className="flex items-center gap-2">
+						<CardTitle as="h2" className="flex items-center gap-2">
 							<Fingerprint className="h-4 w-4 text-primary" />
 							Prüfsumme
 						</CardTitle>

@@ -44,9 +44,16 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
 	);
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"h3">) {
+// Defaults to h3 because most cards sit under a SectionHeading's h2. On routes
+// that go straight from the page h1 to cards, pass `as="h2"` so the outline has
+// no gap - the visual size is set by the class either way.
+function CardTitle({
+	className,
+	as: Heading = "h3",
+	...props
+}: React.ComponentProps<"h3"> & { as?: "h2" | "h3" }) {
 	return (
-		<h3
+		<Heading
 			data-slot="card-title"
 			className={cn(
 				"font-heading text-base leading-snug font-medium group-data-[size=sm]/card:text-sm",
