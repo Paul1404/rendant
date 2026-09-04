@@ -96,6 +96,14 @@ type Preview = {
 	replaces: number;
 	sheets: string[];
 	unknownColumns: string[];
+	similarNames: Array<{
+		left: string;
+		right: string;
+		leftEntries: number;
+		rightEntries: number;
+		leftMinutes: number;
+		rightMinutes: number;
+	}>;
 	repairs: number;
 	repairSample: Array<{
 		sheet: string;
@@ -2020,6 +2028,31 @@ function HelperHoursImport({
 								</ul>
 							</details>
 						) : null}
+						{preview.similarNames.length ? (
+							<details className="mt-3 rounded-lg border border-warning/35 bg-warning/10 p-3">
+								<summary className="cursor-pointer text-sm font-medium">
+									{preview.similarNames.length} mögliche Doppelschreibungen von
+									Namen
+								</summary>
+								<p className="mt-2 text-xs text-foreground/80">
+									Diese Schreibweisen könnten dieselbe Person sein und teilen
+									deren Stunden sonst auf zwei Helfer auf. Rendant führt nichts
+									automatisch zusammen. Korrigiere die Schreibweise in der Liste
+									und importiere erneut, oder lass es so, wenn es wirklich zwei
+									Personen sind.
+								</p>
+								<ul className="mt-2 space-y-1 text-xs">
+									{preview.similarNames.map((entry) => (
+										<li key={`${entry.left}-${entry.right}`}>
+											{entry.left} ({entry.leftEntries}x,{" "}
+											{formatMinutes(entry.leftMinutes)} h) und {entry.right} (
+											{entry.rightEntries}x, {formatMinutes(entry.rightMinutes)}{" "}
+											h)
+										</li>
+									))}
+								</ul>
+							</details>
+						) : null}
 						{preview.unknownColumns.length ? (
 							<p className="mt-3 text-sm text-warning">
 								Diese Spalten enthalten Stunden, passen aber zu keinem Punkt:{" "}
@@ -2218,6 +2251,30 @@ function HelperHoursCorrectionDialog({
 				: current,
 		);
 	}
+	const contributionCode =
+		dialogCategories.find((entry) => entry.art === "verein")?.code ?? null;
+	function assignRemainder() {
+		setWorking((current) => {
+			if (!current || !contributionCode) return current;
+			const assigned = Object.values(current.allocations).reduce(
+				(sum, minutes) => sum + minutes,
+				0,
+			);
+			const remainder = current.gemeldete_summe_minuten - assigned;
+			if (remainder <= 0) return current;
+			return {
+				...current,
+				acceptedIssues: current.acceptedIssues.filter(
+					(issue) => issue !== "total_mismatch",
+				),
+				allocations: {
+					...current.allocations,
+					[contributionCode]:
+						(current.allocations[contributionCode] ?? 0) + remainder,
+				},
+			};
+		});
+	}
 	function assignTotal(code: string) {
 		setWorking((current) => {
 			if (!current) return current;
@@ -2328,7 +2385,17 @@ function HelperHoursCorrectionDialog({
 							</div>
 							{row.issues.includes("total_mismatch") ? (
 								<div className="space-y-2">
-									<div className="flex flex-col gap-2 sm:flex-row">
+									<div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+										{contributionCode &&
+										working.gemeldete_summe_minuten > allocated ? (
+											<Button type="button" onClick={assignRemainder}>
+												Rest von{" "}
+												{formatMinutes(
+													working.gemeldete_summe_minuten - allocated,
+												)}{" "}
+												h dem Vereinsbeitrag zuordnen
+											</Button>
+										) : null}
 										<Button
 											type="button"
 											variant="secondary"

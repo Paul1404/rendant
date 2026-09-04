@@ -24,6 +24,14 @@ hier entspricht `package.json` und der Versionsmarke in der App.
   erfasste Stunden bleiben dabei unangetastet.
 - Der Import meldet jetzt Spalten, die Stunden enthalten, aber zu keinem Punkt
   passen. Bisher gingen diese Stunden unbemerkt verloren.
+- Die Importprüfung nennt Namen, die dieselbe Person in zwei Schreibweisen sein
+  könnten, etwa "Schad, Mathias" und "Schad, Matthias". Solche Paare teilen die
+  Stunden einer Person still auf zwei Helfer auf. Rendant führt nichts
+  automatisch zusammen, sondern zeigt die Paare zur Prüfung an.
+- Weicht die gemeldete Summe nach oben von der Zuordnung ab, lässt sich die
+  Restdifferenz jetzt mit einem Klick dem Vereinsbeitrag zuordnen. Die
+  bestehende Zuordnung bleibt dabei erhalten. Das entspricht der Regel, die in
+  der Liste selbst steht.
 - Die Liste "Verrechnung Stunden Abteilungen" lässt sich als Datei einlesen und
   wird zu Stundenabzügen. Bereits gebuchte Abzüge bleiben unverändert. Abzüge,
   die nicht mehr in der Liste stehen, werden gemeldet und können wie bisher nur

@@ -8,6 +8,7 @@ import {
 	applyHelperHoursImportCorrections,
 	parseHelperHoursImportCorrections,
 	parseHelperHoursWorkbook,
+	similarHelperNames,
 } from "@/server/services/helper-hours-import";
 
 const CATEGORIES: HelperHourCategory[] = HELPER_HOUR_SEED_CATEGORIES.map(
@@ -448,5 +449,69 @@ describe("Korrekturen aus dem Formular", () => {
 		);
 		expect(parsed).toHaveLength(1);
 		expect(parsed?.[0].allocations).toEqual({ schuetzen: 240 });
+	});
+});
+
+describe("Mögliche Doppelschreibungen", () => {
+	const person = (nachname: string, vorname: string, minutes = 180) => ({
+		nachname,
+		vorname,
+		minutes,
+	});
+
+	it("erkennt Tippfehler und Kurzformen", () => {
+		const found = similarHelperNames([
+			person("Schad", "Mathias"),
+			person("Schad", "Matthias"),
+			person("Haas", "Monika"),
+			person("Haas", "Moni"),
+			person("Schmitt", "Wolfgang"),
+			person("Schmidt", "Wolfgang"),
+			person("Ort", "Daniel"),
+			person("Ort", "Daiel"),
+		]);
+		const paare = found.map((entry) => `${entry.left} / ${entry.right}`);
+		expect(paare).toEqual(
+			expect.arrayContaining([
+				"Schad, Mathias / Schad, Matthias",
+				"Haas, Monika / Haas, Moni",
+				"Schmitt, Wolfgang / Schmidt, Wolfgang",
+				"Ort, Daniel / Ort, Daiel",
+			]),
+		);
+	});
+
+	it("meldet klar verschiedene Personen nicht", () => {
+		const found = similarHelperNames([
+			person("Wagner", "Peter"),
+			person("Wagner", "Martina"),
+			person("Schad", "Elke"),
+			person("Schad", "Tabea"),
+			person("Müller", "Petra"),
+			person("Baumann", "Petra"),
+		]);
+		expect(found).toEqual([]);
+	});
+
+	it("zählt Einsätze und Stunden je Schreibweise zusammen", () => {
+		const [found] = similarHelperNames([
+			person("Kuhn", "Manuel", 120),
+			person("Kuhn", "Manuel", 180),
+			person("Kuhn", "Manu", 60),
+		]);
+		expect(found).toMatchObject({
+			left: "Kuhn, Manuel",
+			leftEntries: 2,
+			leftMinutes: 300,
+			right: "Kuhn, Manu",
+			rightEntries: 1,
+			rightMinutes: 60,
+		});
+	});
+
+	it("ignoriert Zeilen ohne vollständigen Namen", () => {
+		expect(similarHelperNames([person("", "Roman"), person("Wolf", "")])).toEqual(
+			[],
+		);
 	});
 });

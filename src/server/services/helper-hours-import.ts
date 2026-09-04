@@ -65,11 +65,21 @@ export type HelperHoursImportRow = {
 	sourceFile: string;
 	sourceDigest: string;
 };
+/** Two spellings the list uses that look like the same person. */
+export type HelperHoursSimilarName = {
+	left: string;
+	right: string;
+	leftEntries: number;
+	rightEntries: number;
+	leftMinutes: number;
+	rightMinutes: number;
+};
 export type HelperHoursImportResult = {
 	rows: HelperHoursImportRow[];
 	errors: Array<{ sheet: string; row: number; message: string }>;
 	sheets: string[];
 	unknownColumns: string[];
+	similarNames: HelperHoursSimilarName[];
 	repairs: number;
 	warnings: number;
 };
@@ -506,6 +516,89 @@ function canonicalNames(rows: RawRow[]) {
 	};
 }
 
+function editDistance(a: string, b: string): number {
+	const rows = a.length;
+	const cols = b.length;
+	let previous = Array.from({ length: cols + 1 }, (_, i) => i);
+	for (let i = 1; i <= rows; i++) {
+		const current = [i, ...Array<number>(cols).fill(0)];
+		for (let j = 1; j <= cols; j++)
+			current[j] = Math.min(
+				previous[j] + 1,
+				current[j - 1] + 1,
+				previous[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+			);
+		previous = current;
+	}
+	return previous[cols];
+}
+
+/**
+ * Names that differ by a typo or a short form, e.g. "Schad, Mathias" against
+ * "Schad, Matthias" or "Haas, Monika" against "Haas, Moni". These split one
+ * helper's hours across two people without anyone noticing, and no rule can
+ * safely merge them, so they are reported for a person to judge rather than
+ * repaired. Deliberately conservative: one name part must match exactly.
+ */
+export function similarHelperNames(
+	rows: Array<{ nachname: string; vorname: string; minutes: number }>,
+): HelperHoursSimilarName[] {
+	const people = new Map<
+		string,
+		{ label: string; entries: number; minutes: number }
+	>();
+	for (const row of rows) {
+		const last = nameKey(row.nachname);
+		const first = nameKey(row.vorname);
+		if (!last || !first) continue;
+		const key = `${last}|${first}`;
+		const current = people.get(key) ?? {
+			label: `${row.nachname}, ${row.vorname}`,
+			entries: 0,
+			minutes: 0,
+		};
+		current.entries++;
+		current.minutes += row.minutes;
+		people.set(key, current);
+	}
+	const keys = [...people.keys()];
+	const found: HelperHoursSimilarName[] = [];
+	for (let i = 0; i < keys.length; i++) {
+		for (let j = i + 1; j < keys.length; j++) {
+			const [leftLast, leftFirst] = keys[i].split("|");
+			const [rightLast, rightFirst] = keys[j].split("|");
+			const sameLast = leftLast === rightLast;
+			const sameFirst = leftFirst === rightFirst;
+			if (sameLast === sameFirst) continue;
+			const suspect = sameLast
+				? // A one or two letter difference is a typo; a clean prefix is a
+					// short form like "Manu" for "Manuel".
+					editDistance(leftFirst, rightFirst) <= 2 ||
+					((leftFirst.startsWith(rightFirst) ||
+						rightFirst.startsWith(leftFirst)) &&
+						Math.min(leftFirst.length, rightFirst.length) >= 3)
+				: editDistance(leftLast, rightLast) <= 1;
+			if (!suspect) continue;
+			const left = people.get(keys[i]);
+			const right = people.get(keys[j]);
+			if (!left || !right) continue;
+			found.push({
+				left: left.label,
+				right: right.label,
+				leftEntries: left.entries,
+				rightEntries: right.entries,
+				leftMinutes: left.minutes,
+				rightMinutes: right.minutes,
+			});
+		}
+	}
+	return found.sort(
+		(a, b) =>
+			Math.min(b.leftEntries, b.rightEntries) -
+			Math.min(a.leftEntries, a.rightEntries),
+	);
+}
+
 export async function parseHelperHoursWorkbook(
 	bytes: Uint8Array,
 	sourceFile: string,
@@ -527,6 +620,7 @@ export async function parseHelperHoursWorkbook(
 			],
 			sheets: [],
 			unknownColumns: [],
+			similarNames: [],
 			repairs: 0,
 			warnings: 0,
 		};
@@ -673,6 +767,7 @@ export async function parseHelperHoursWorkbook(
 					],
 					sheets,
 					unknownColumns: [...unknownColumns],
+					similarNames: [],
 					repairs: 0,
 					warnings: 0,
 				};
@@ -808,6 +903,15 @@ export async function parseHelperHoursWorkbook(
 		errors,
 		sheets,
 		unknownColumns: [...unknownColumns].filter(Boolean).slice(0, 20),
+		// Judged on the repaired rows, so a swapped or completed name does not
+		// show up as a second person.
+		similarNames: similarHelperNames(
+			rows.map((row) => ({
+				nachname: row.nachname,
+				vorname: row.vorname,
+				minutes: row.gemeldete_summe_minuten,
+			})),
+		).slice(0, 40),
 		repairs: rows.reduce((sum, row) => sum + row.repairs.length, 0),
 		warnings: rows.reduce((sum, row) => sum + row.warnings.length, 0),
 	};

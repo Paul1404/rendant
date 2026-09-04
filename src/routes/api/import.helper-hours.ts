@@ -97,6 +97,7 @@ export const Route = createFileRoute("/api/import/helper-hours")({
 							fehler: parsed.errors.length,
 							warnungen: parsed.warnings,
 							automatisch_korrigiert: parsed.repairs,
+							moegliche_doppelschreibungen: parsed.similarNames.length,
 						},
 					});
 					return Response.json({
@@ -107,6 +108,7 @@ export const Route = createFileRoute("/api/import/helper-hours")({
 						replaces: replaced.existing,
 						sheets: parsed.sheets,
 						unknownColumns: parsed.unknownColumns,
+						similarNames: parsed.similarNames,
 						repairs: parsed.repairs,
 						repairSample: pending
 							.filter((row) => row.repairs.length > 0)
