@@ -110,6 +110,11 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
 	"helferstunden.imported": "Helferstunden importiert",
 	"helferstunden.expense_created": "Abteilungsausgabe erfasst",
 	"helferstunden.expense_cancelled": "Abteilungsausgabe storniert",
+	"helferstunden.expenses_import_previewed": "Stundenabzüge geprüft",
+	"helferstunden.expenses_imported": "Stundenabzüge importiert",
+	"helferstunden.category_created": "Helferstunden-Punkt angelegt",
+	"helferstunden.category_updated": "Helferstunden-Punkt geändert",
+	"helferstunden.category_deleted": "Helferstunden-Punkt gelöscht",
 };
 
 export function auditActionLabel(action: string): string {

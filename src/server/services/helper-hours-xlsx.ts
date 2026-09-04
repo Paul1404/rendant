@@ -1,5 +1,4 @@
 import ExcelJS from "exceljs";
-import { helperHourCategoryLabel } from "@/lib/helper-hours";
 import type { loadHelperHourExport } from "@/server/services/helper-hours";
 
 type ExportData = Awaited<ReturnType<typeof loadHelperHourExport>>;
@@ -43,7 +42,7 @@ export async function helperHoursXlsxDocument(
 	workbook.created = new Date();
 	workbook.modified = new Date();
 	workbook.calcProperties.fullCalcOnLoad = true;
-	const department = helperHourCategoryLabel(data.category);
+	const department = data.categoryLabel;
 	const summary = workbook.addWorksheet("Übersicht", {
 		views: [{ showGridLines: false }],
 		properties: { defaultRowHeight: 22 },
@@ -58,30 +57,18 @@ export async function helperHoursXlsxDocument(
 		"Helfer",
 		"Veranstaltung",
 		"Stunden",
-		"Wert je Stunde",
-		"Guthaben",
 		"Quelle",
 		"Bemerkung",
 	]);
 	for (const row of data.hours) {
-		const line = hours.addRow([
+		hours.addRow([
 			excelDate(row.datum),
 			`${row.vorname} ${row.nachname}`.trim() || "Ohne Namen",
 			row.veranstaltung,
 			row.allocatedMinutes / 60,
-			data.valueCent / 100,
-			null,
 			row.quelle === "excel" ? row.quelle_blatt || "Excel" : "Manuell",
 			row.bemerkung,
 		]);
-		// The stored value, not a formula. The app rounds once on exact integer
-		// cents (round(minutes * valueCent / 60)); any spreadsheet formula has to
-		// work from decimal euro values instead, and the two disagree by a cent
-		// whenever the result falls on an exact half cent. A cached formula result
-		// that changes on the reader's first recalculation is the wrong property
-		// for an accounting export, so this column is the figure the books hold.
-		line.getCell(6).value =
-			Math.round((row.allocatedMinutes * data.valueCent) / 60) / 100;
 	}
 	const hoursDataEnd = hours.rowCount;
 	const hoursTotalRow = hours.addRow([
@@ -90,12 +77,7 @@ export async function helperHoursXlsxDocument(
 		"",
 		{
 			formula: hoursDataEnd >= 2 ? `SUM(D2:D${hoursDataEnd})` : "0",
-			result: data.budget.minutes / 60,
-		},
-		"",
-		{
-			formula: hoursDataEnd >= 2 ? `SUM(F2:F${hoursDataEnd})` : "0",
-			result: data.budget.earnedCent / 100,
+			result: data.budget.earnedMinutes / 60,
 		},
 		"",
 		"",
@@ -107,22 +89,17 @@ export async function helperHoursXlsxDocument(
 		pattern: "solid",
 		fgColor: { argb: LIGHT_GREEN },
 	};
-	hours.autoFilter = { from: "A1", to: "H1" };
+	hours.autoFilter = { from: "A1", to: "F1" };
 	hours.columns = [
 		{ width: 13 },
 		{ width: 26 },
 		{ width: 32 },
 		{ width: 12 },
-		{ width: 17 },
-		{ width: 16 },
 		{ width: 15 },
 		{ width: 38 },
 	];
 	hours.getColumn(1).numFmt = "dd.mm.yyyy";
 	hours.getColumn(4).numFmt = "#,##0.00";
-	for (const column of [5, 6]) {
-		hours.getColumn(column).numFmt = "#,##0.00 [$€-407]";
-	}
 	styleHeader(hours.getRow(1));
 	styleRows(hours, 2, hoursTotalRow.number - 1);
 
@@ -134,7 +111,8 @@ export async function helperHoursXlsxDocument(
 		"Datum",
 		"Bezeichnung",
 		"Bemerkung",
-		"Betrag",
+		"Abgezogene Stunden",
+		"Belegbetrag",
 		"Erfasst von",
 		"Status",
 		"Stornogrund",
@@ -144,6 +122,7 @@ export async function helperHoursXlsxDocument(
 			excelDate(row.datum),
 			row.bezeichnung,
 			row.bemerkung,
+			row.minuten / 60,
 			row.betrag_cent / 100,
 			row.erstellt_von_name,
 			row.storniert_am ? "Storniert" : "Aktiv",
@@ -153,12 +132,19 @@ export async function helperHoursXlsxDocument(
 	const expensesDataEnd = expenses.rowCount;
 	const expensesTotalRow = expenses.addRow([
 		"",
-		"Aktive Ausgaben",
+		"Aktive Abzüge",
 		"",
 		{
 			formula:
 				expensesDataEnd >= 2
-					? `SUMIF(F2:F${expensesDataEnd},"Aktiv",D2:D${expensesDataEnd})`
+					? `SUMIF(G2:G${expensesDataEnd},"Aktiv",D2:D${expensesDataEnd})`
+					: "0",
+			result: data.budget.spentMinutes / 60,
+		},
+		{
+			formula:
+				expensesDataEnd >= 2
+					? `SUMIF(G2:G${expensesDataEnd},"Aktiv",E2:E${expensesDataEnd})`
 					: "0",
 			result: data.budget.spentCent / 100,
 		},
@@ -172,22 +158,24 @@ export async function helperHoursXlsxDocument(
 		pattern: "solid",
 		fgColor: { argb: AMBER },
 	};
-	expenses.autoFilter = { from: "A1", to: "G1" };
+	expenses.autoFilter = { from: "A1", to: "H1" };
 	expenses.columns = [
 		{ width: 13 },
 		{ width: 34 },
 		{ width: 38 },
+		{ width: 20 },
 		{ width: 16 },
 		{ width: 24 },
 		{ width: 13 },
 		{ width: 38 },
 	];
 	expenses.getColumn(1).numFmt = "dd.mm.yyyy";
-	expenses.getColumn(4).numFmt = "#,##0.00 [$€-407]";
+	expenses.getColumn(4).numFmt = "#,##0.00";
+	expenses.getColumn(5).numFmt = "#,##0.00 [$€-407]";
 	styleHeader(expenses.getRow(1));
 	styleRows(expenses, 2, expensesTotalRow.number - 1);
 	for (let rowNumber = 2; rowNumber < expensesTotalRow.number; rowNumber += 1) {
-		if (expenses.getRow(rowNumber).getCell(6).value === "Storniert") {
+		if (expenses.getRow(rowNumber).getCell(7).value === "Storniert") {
 			expenses.getRow(rowNumber).fill = {
 				type: "pattern",
 				pattern: "solid",
@@ -197,7 +185,7 @@ export async function helperHoursXlsxDocument(
 	}
 
 	summary.mergeCells("A1:C1");
-	summary.getCell("A1").value = `Helferstunden-Budget · ${department}`;
+	summary.getCell("A1").value = `Helferstunden · ${department}`;
 	summary.getCell("A1").font = { bold: true, size: 20, color: { argb: WHITE } };
 	summary.getCell("A1").fill = {
 		type: "pattern",
@@ -214,41 +202,38 @@ export async function helperHoursXlsxDocument(
 	summary.addRow(["Kennzahl", "Wert", "Erläuterung"]);
 	styleHeader(summary.getRow(4));
 	summary.addRow([
-		"Helferstunden",
+		"Erarbeitete Stunden",
 		{
 			formula: `'Helferstunden'!D${hoursTotalRow.number}`,
-			result: data.budget.minutes / 60,
+			result: data.budget.earnedMinutes / 60,
 		},
-		"Der Abteilung zugeordnete Stunden",
+		"Der Abteilung zugeordnete Helferstunden",
+	]);
+	summary.addRow([
+		"Abgezogene Stunden",
+		{
+			formula: `'Ausgaben'!D${expensesTotalRow.number}`,
+			result: data.budget.spentMinutes / 60,
+		},
+		"Nur aktive, nicht stornierte Abzüge",
+	]);
+	summary.addRow([
+		"Verfügbare Stunden",
+		{ formula: "B5-B6", result: data.budget.balanceMinutes / 60 },
+		"Erarbeitete Stunden abzüglich Abzügen",
 	]);
 	summary.addRow([
 		"Wert je Stunde",
 		data.valueCent / 100,
-		"Zum Zeitpunkt des Exports gültiger Vereinswert",
+		"Rechnet Belegbeträge in Stunden um",
 	]);
 	summary.addRow([
-		"Erarbeitetes Guthaben",
+		"Belegbeträge der Abzüge",
 		{
-			formula: `'Helferstunden'!F${hoursTotalRow.number}`,
-			result: data.budget.earnedCent / 100,
-		},
-		"Helferstunden × Stundenwert",
-	]);
-	summary.addRow([
-		"Gebuchte Ausgaben",
-		{
-			formula: `'Ausgaben'!D${expensesTotalRow.number}`,
+			formula: `'Ausgaben'!E${expensesTotalRow.number}`,
 			result: data.budget.spentCent / 100,
 		},
-		"Nur aktive, nicht stornierte Ausgaben",
-	]);
-	summary.addRow([
-		"Verfügbares Budget",
-		{
-			formula: "B7-B8",
-			result: data.budget.balanceCent / 100,
-		},
-		"Erarbeitetes Guthaben abzüglich Ausgaben",
+		"Summe der aktiven Belege zum Abgleich mit der Buchhaltung",
 	]);
 	for (let row = 5; row <= 9; row += 1) {
 		for (let column = 1; column <= 3; column += 1) {
@@ -266,28 +251,30 @@ export async function helperHoursXlsxDocument(
 			};
 		}
 	}
-	summary.getCell("A9").font = { bold: true };
-	summary.getCell("B9").font = {
+	summary.getCell("A7").font = { bold: true };
+	summary.getCell("B7").font = {
 		bold: true,
-		color: { argb: data.budget.balanceCent < 0 ? "FFB42318" : GREEN },
+		color: { argb: data.budget.balanceMinutes < 0 ? "FFB42318" : GREEN },
 	};
 	for (let column = 1; column <= 3; column += 1) {
-		summary.getRow(9).getCell(column).fill = {
+		summary.getRow(7).getCell(column).fill = {
 			type: "pattern",
 			pattern: "solid",
-			fgColor: { argb: data.budget.balanceCent < 0 ? RED : LIGHT_GREEN },
+			fgColor: { argb: data.budget.balanceMinutes < 0 ? RED : LIGHT_GREEN },
 		};
 	}
 	summary.getColumn(1).width = 29;
 	summary.getColumn(2).width = 18;
 	summary.getColumn(3).width = 50;
-	summary.getCell("B5").numFmt = "#,##0.00";
-	for (const cell of ["B6", "B7", "B8", "B9"]) {
+	for (const cell of ["B5", "B6", "B7"]) {
+		summary.getCell(cell).numFmt = "#,##0.00";
+	}
+	for (const cell of ["B8", "B9"]) {
 		summary.getCell(cell).numFmt = "#,##0.00 [$€-407]";
 	}
 	summary.mergeCells("A11:C12");
 	summary.getCell("A11").value =
-		"Die Detailblätter enthalten alle zugrunde liegenden Helferstunden und Ausgaben. Stornierte Ausgaben bleiben zur Nachvollziehbarkeit sichtbar, mindern das Budget aber nicht.";
+		"Die Detailblätter enthalten alle zugrunde liegenden Helferstunden und Abzüge. Ein Kauf wird mit dem oben genannten Stundenwert in Stunden umgerechnet. Stornierte Abzüge bleiben zur Nachvollziehbarkeit sichtbar, mindern das Guthaben aber nicht.";
 	summary.getCell("A11").alignment = { wrapText: true, vertical: "top" };
 	summary.getCell("A11").font = { color: { argb: "FF56635E" } };
 	summary.pageSetup = {
@@ -310,7 +297,7 @@ export async function helperHoursXlsxDocument(
 		fitToPage: true,
 		fitToWidth: 1,
 		fitToHeight: 0,
-		printArea: `A1:H${hoursTotalRow.number}`,
+		printArea: `A1:F${hoursTotalRow.number}`,
 		margins: {
 			left: 0.25,
 			right: 0.25,
@@ -325,7 +312,7 @@ export async function helperHoursXlsxDocument(
 		fitToPage: true,
 		fitToWidth: 1,
 		fitToHeight: 0,
-		printArea: `A1:G${expensesTotalRow.number}`,
+		printArea: `A1:H${expensesTotalRow.number}`,
 		margins: {
 			left: 0.25,
 			right: 0.25,

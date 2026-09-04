@@ -31,7 +31,6 @@ import {
 	Plus,
 	ReceiptText,
 	RotateCcw,
-	Settings2,
 	Upload,
 } from "lucide-react";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
@@ -76,25 +75,43 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatDateDe, todayIsoDate } from "@/lib/date";
 import {
 	formatMinutes,
-	HELPER_HOUR_CATEGORIES,
-	type HelperHourBudgetCategory,
 	type HelperHourCategory,
-	helperHourCategoryLabel,
+	minutesFromCent,
 } from "@/lib/helper-hours";
-import { formatCent, formatCentPlain, parseGermanAmount } from "@/lib/money";
+import { parseGermanAmount } from "@/lib/money";
 import { orpc, orpcClient } from "@/lib/orpc";
+
+type ImportCategory = {
+	code: string;
+	label: string;
+	art: "verein" | "abteilung";
+	aktiv: boolean;
+};
 
 type Preview = {
 	valid: boolean;
 	digest: string;
 	rows: number;
 	toImport: number;
-	alreadyImported: number;
+	replaces: number;
+	sheets: string[];
+	unknownColumns: string[];
+	repairs: number;
+	repairSample: Array<{
+		sheet: string;
+		row: number;
+		before: string;
+		after: string;
+		beforeDate: string;
+		afterDate: string;
+		repairs: string[];
+	}>;
 	hours: number;
 	warnings: number;
 	errors: Array<{ sheet: string; row: number; message: string }>;
 	warningSample: Array<{ sheet: string; row: number; warnings: string[] }>;
 	reviewRows: HelperHoursReviewRow[];
+	categories: ImportCategory[];
 	sample: Array<{
 		sheet: string;
 		row: number;
@@ -106,12 +123,32 @@ type Preview = {
 	}>;
 };
 
+type ExpensePreview = {
+	valid: boolean;
+	digest: string;
+	rows: number;
+	toImport: number;
+	alreadyImported: number;
+	missing: number;
+	minutes: number;
+	cent: number;
+	errors: Array<{ sheet: string; row: number; message: string }>;
+	sample: Array<{
+		sheet: string;
+		row: number;
+		date: string;
+		category: string;
+		description: string;
+		minutes: number;
+	}>;
+};
+
 type HelperHoursImportIssue =
 	| "missing_name"
-	| "derived_total"
-	| "unassigned"
-	| "total_mismatch";
-type HelperHoursAllocations = Record<`${HelperHourCategory}_minuten`, number>;
+	| "total_mismatch"
+	| "unknown_date";
+/** Minutes per category code; categories without minutes are absent. */
+type HelperHoursAllocations = Record<string, number>;
 type HelperHoursReviewRow = {
 	sheet: string;
 	rowNumber: number;
@@ -134,6 +171,29 @@ type HelperHoursCorrection = Pick<
 	| "gemeldete_summe_minuten"
 > & { acceptedIssues: HelperHoursImportIssue[] };
 
+type CategoryOption = HelperHourCategory & {
+	entries: number;
+	minutes: number;
+	expenses: number;
+};
+
+function useHelperHourCategories() {
+	const { data } = useQuery(orpc.helperHours.categories.queryOptions({}));
+	return (data ?? []) as CategoryOption[];
+}
+
+/** Active categories, plus any inactive one that still holds hours. */
+function selectableCategories(categories: CategoryOption[]) {
+	return categories.filter((entry) => entry.aktiv);
+}
+
+function categoryLabel(
+	categories: Array<{ code: string; label: string }>,
+	code: string,
+) {
+	return categories.find((entry) => entry.code === code)?.label ?? code;
+}
+
 function parseHours(value: string): number | null {
 	const hours = Number(value.trim().replace(",", "."));
 	if (!Number.isFinite(hours) || hours <= 0 || hours > 24) return null;
@@ -154,8 +214,9 @@ export function HelperHoursPage({
 	const { data, isLoading, isError, refetch } = useQuery(
 		orpc.helperHours.list.queryOptions({ input: { jahr: year } }),
 	);
-	const [selectedDepartment, setSelectedDepartment] =
-		useState<HelperHourBudgetCategory>("fussball");
+	const [selectedDepartment, setSelectedDepartment] = useState<string | null>(
+		null,
+	);
 	const [saving, setSaving] = useState(false);
 	const key = useRef<string | null>(null);
 	const [form, setForm] = useState({
@@ -164,9 +225,25 @@ export function HelperHoursPage({
 		vorname: "",
 		nachname: "",
 		stunden: "",
-		kategorie: "gesamtverein" as HelperHourCategory,
+		kategorie: "gesamtverein",
 		bemerkung: "",
 	});
+	const categories = useHelperHourCategories();
+	const options = selectableCategories(categories);
+	// The list is configurable, so the form falls back to whatever exists rather
+	// than to a hard-coded department.
+	const selectedCategory = options.some(
+		(entry) => entry.code === form.kategorie,
+	)
+		? form.kategorie
+		: (options.find((entry) => entry.art === "verein")?.code ??
+			options[0]?.code ??
+			"");
+	const departments = data?.budgets ?? [];
+	const activeDepartment =
+		departments.find((entry) => entry.code === selectedDepartment)?.code ??
+		departments[0]?.code ??
+		null;
 	async function refreshHours() {
 		await Promise.all([
 			queryClient.invalidateQueries({
@@ -193,7 +270,7 @@ export function HelperHoursPage({
 				veranstaltung: form.veranstaltung,
 				nachname: form.nachname,
 				vorname: form.vorname,
-				kategorie: form.kategorie,
+				kategorie: selectedCategory,
 				minuten,
 				bemerkung: form.bemerkung,
 			});
@@ -245,18 +322,10 @@ export function HelperHoursPage({
 			/>
 			<HelperHoursBudgets
 				budgets={data?.budgets ?? []}
-				contribution={
-					data?.contribution ?? {
-						code: "gesamtverein",
-						label: "Vereinsbeitrag",
-						minutes: 0,
-						earnedCent: 0,
-					}
-				}
+				contributions={data?.contributions ?? []}
 				expenses={data?.expenses ?? []}
 				valueCent={data?.valueCent ?? 600}
-				valueUpdatedAt={data?.valueUpdatedAt}
-				selected={selectedDepartment}
+				selected={activeDepartment}
 				onSelected={setSelectedDepartment}
 				isAdmin={isAdmin}
 				onChanged={() =>
@@ -349,16 +418,16 @@ export function HelperHoursPage({
 						<div className="space-y-1.5 lg:col-span-4">
 							<Label>Zuordnung</Label>
 							<Select
-								value={form.kategorie}
+								value={selectedCategory}
 								onValueChange={(value) =>
-									setForm({ ...form, kategorie: value as HelperHourCategory })
+									setForm({ ...form, kategorie: value })
 								}
 							>
 								<SelectTrigger className="w-full">
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
-									{HELPER_HOUR_CATEGORIES.map((c) => (
+									{options.map((c) => (
 										<SelectItem key={c.code} value={c.code}>
 											{c.label}
 										</SelectItem>
@@ -392,6 +461,15 @@ export function HelperHoursPage({
 				</CardContent>
 			</Card>
 			{isAdmin ? <HelperHoursImport onImported={refreshHours} /> : null}
+			{isAdmin ? (
+				<HelperHourExpenseImport
+					onImported={() =>
+						queryClient.invalidateQueries({
+							queryKey: orpc.helperHours.list.key({ type: "query" }),
+						})
+					}
+				/>
+			) : null}
 			<HelperHoursEntries year={year} />
 		</div>
 	);
@@ -403,7 +481,7 @@ type HelperHourEntriesPage = Awaited<
 type HelperHourEntry = HelperHourEntriesPage["items"][number];
 type HelperHourEntrySort = "date" | "helper" | "event" | "source" | "hours";
 type HelperHourEntrySource = "alle" | "manuell" | "excel";
-type HelperHourEntryCategory = "alle" | HelperHourCategory;
+type HelperHourEntryCategory = "alle" | (string & {});
 
 const helperHourEntryTableFeatures = tableFeatures({
 	rowSortingFeature,
@@ -413,22 +491,20 @@ const EMPTY_HELPER_HOUR_ENTRIES: HelperHourEntry[] = [];
 
 function entryAllocations(entry: HelperHourEntry): string {
 	return (
-		HELPER_HOUR_CATEGORIES.map((category) => ({
-			label: category.label,
-			minutes: Number(
-				entry[`${category.code}_minuten` as keyof HelperHourEntry],
-			),
-		}))
-			.filter((allocation) => allocation.minutes > 0)
+		entry.allocations
 			.map(
 				(allocation) =>
-					`${allocation.label}: ${formatMinutes(allocation.minutes)} h`,
+					`${allocation.label}: ${formatMinutes(allocation.minuten)} h`,
 			)
 			.join(" · ") || "Ohne Zuordnung"
 	);
 }
 
 function HelperHoursEntries({ year }: { year?: number }) {
+	// Retired categories stay filterable as long as hours are booked on them.
+	const entryCategories = useHelperHourCategories().filter(
+		(entry) => entry.aktiv || entry.entries > 0,
+	);
 	const [query, setQuery] = useState("");
 	const deferredQuery = useDeferredValue(query.trim());
 	const [source, setSource] = useState<HelperHourEntrySource>("alle");
@@ -610,7 +686,7 @@ function HelperHoursEntries({ year }: { year?: number }) {
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem value="alle">Alle Zuordnungen</SelectItem>
-							{HELPER_HOUR_CATEGORIES.map((entry) => (
+							{entryCategories.map((entry) => (
 								<SelectItem key={entry.code} value={entry.code}>
 									{entry.label}
 								</SelectItem>
@@ -765,7 +841,7 @@ type PeriodSummary = {
 };
 
 type DistributionEntry = {
-	code: HelperHourCategory;
+	code: string;
 	label: string;
 	minutes: number;
 };
@@ -777,7 +853,7 @@ type HelperSummary = {
 	events: number;
 	minutes: number;
 	lastDate: string;
-	allocations: Record<HelperHourCategory, number>;
+	allocations: Record<string, number>;
 };
 
 const helperTableFeatures = tableFeatures({
@@ -908,14 +984,15 @@ function HelperHoursPeriodOverview({
 	);
 }
 
-function helperFocus(allocations: Record<HelperHourCategory, number>): string {
+function helperFocus(
+	allocations: Record<string, number>,
+	categories: Array<{ code: string; label: string }>,
+): string {
 	const top = Object.entries(allocations)
 		.filter(([, minutes]) => minutes > 0)
 		.sort(([, left], [, right]) => right - left)
 		.slice(0, 2)
-		.map(([category]) =>
-			helperHourCategoryLabel(category as HelperHourCategory),
-		);
+		.map(([code]) => categoryLabel(categories, code));
 	return top.join(" · ") || "Ohne Zuordnung";
 }
 
@@ -930,6 +1007,7 @@ function HelperOverview({
 	totalMinutes: number;
 	isLoading: boolean;
 }) {
+	const helperCategories = useHelperHourCategories();
 	const rankByHelper = useMemo(
 		() =>
 			new Map(
@@ -990,7 +1068,7 @@ function HelperOverview({
 				enableGlobalFilter: false,
 				cell: ({ row }) => (
 					<span className="text-xs text-muted-foreground">
-						{helperFocus(row.original.allocations)}
+						{helperFocus(row.original.allocations, helperCategories)}
 					</span>
 				),
 			},
@@ -1024,7 +1102,7 @@ function HelperOverview({
 				},
 			},
 		],
-		[rankByHelper, totalMinutes],
+		[rankByHelper, totalMinutes, helperCategories],
 	);
 	const table = useTable({
 		features: helperTableFeatures,
@@ -1197,27 +1275,27 @@ function HelperOverview({
 }
 
 type Budget = {
-	code: HelperHourBudgetCategory;
+	code: string;
 	label: string;
 	minutes: number;
-	earnedCent: number;
-	spentCent: number;
-	balanceCent: number;
+	earnedMinutes: number;
+	spentMinutes: number;
+	balanceMinutes: number;
 };
 
 type ClubContribution = {
-	code: "gesamtverein";
+	code: string;
 	label: string;
 	minutes: number;
-	earnedCent: number;
 };
 
 type DepartmentExpense = {
 	id: string;
-	abteilung: string;
+	kategorie_code: string;
 	datum: string;
 	bezeichnung: string;
 	betrag_cent: number;
+	minuten: number;
 	bemerkung: string;
 	storniert_am: Date | string | null;
 	storno_grund: string | null;
@@ -1225,28 +1303,26 @@ type DepartmentExpense = {
 
 function HelperHoursBudgets({
 	budgets,
-	contribution,
+	contributions,
 	expenses,
 	valueCent,
-	valueUpdatedAt,
 	selected,
 	onSelected,
 	isAdmin,
 	onChanged,
 }: {
 	budgets: Budget[];
-	contribution: ClubContribution;
+	contributions: ClubContribution[];
 	expenses: DepartmentExpense[];
 	valueCent: number;
-	valueUpdatedAt?: string;
-	selected: HelperHourBudgetCategory;
-	onSelected: (value: HelperHourBudgetCategory) => void;
+	selected: string | null;
+	onSelected: (value: string) => void;
 	isAdmin: boolean;
 	onChanged: () => Promise<unknown>;
 }) {
 	const budget = budgets.find((entry) => entry.code === selected);
 	const visibleExpenses = expenses.filter(
-		(entry) => entry.abteilung === selected,
+		(entry) => entry.kategorie_code === selected,
 	);
 	const [expenseForm, setExpenseForm] = useState({
 		datum: todayIsoDate(),
@@ -1254,22 +1330,20 @@ function HelperHoursBudgets({
 		betrag: "",
 		bemerkung: "",
 	});
-	const [rateInput, setRateInput] = useState(formatCentPlain(valueCent));
-	// The rate retroactively revalues every department budget, so a save that
-	// would silently overwrite another admin's change is rejected.
-	const [rateUpdatedAt, setRateUpdatedAt] = useState(valueUpdatedAt);
-	useEffect(() => setRateUpdatedAt(valueUpdatedAt), [valueUpdatedAt]);
-	const [saving, setSaving] = useState<"expense" | "rate" | "cancel" | null>(
-		null,
-	);
+	const [saving, setSaving] = useState<"expense" | "cancel" | null>(null);
 	const expenseKey = useRef<string | null>(null);
-	useEffect(() => setRateInput(formatCentPlain(valueCent)), [valueCent]);
+	// The purchase is booked in euro and immediately shown as the hours it
+	// costs the department, so the amount is the only currency on this page.
+	const previewMinutes = (() => {
+		const amount = parseGermanAmount(expenseForm.betrag);
+		return amount && amount > 0 ? minutesFromCent(amount, valueCent) : 0;
+	})();
 
 	async function saveExpense(event: React.FormEvent) {
 		event.preventDefault();
 		const amount = parseGermanAmount(expenseForm.betrag);
 		if (!amount || amount <= 0) {
-			toast.error("Bitte einen positiven Betrag angeben");
+			toast.error("Bitte einen positiven Kaufbetrag angeben");
 			return;
 		}
 		setSaving("expense");
@@ -1277,7 +1351,7 @@ function HelperHoursBudgets({
 			expenseKey.current ??= crypto.randomUUID();
 			await orpcClient.helperHours.createExpense({
 				idempotency_key: expenseKey.current,
-				abteilung: selected,
+				abteilung: selected ?? "",
 				datum: expenseForm.datum,
 				bezeichnung: expenseForm.bezeichnung,
 				betrag_cent: amount,
@@ -1291,31 +1365,7 @@ function HelperHoursBudgets({
 				bemerkung: "",
 			});
 			await onChanged();
-			toast.success("Ausgabe vom Abteilungsbudget abgezogen");
-		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Speichern fehlgeschlagen",
-			);
-		} finally {
-			setSaving(null);
-		}
-	}
-
-	async function saveRate() {
-		const amount = parseGermanAmount(rateInput);
-		if (!amount || amount <= 0) {
-			toast.error("Bitte einen positiven Stundenwert angeben");
-			return;
-		}
-		setSaving("rate");
-		try {
-			const saved = await orpcClient.settings.updateHelperHourValue({
-				wert_cent: amount,
-				expected_updated_at: rateUpdatedAt,
-			});
-			setRateUpdatedAt(saved.updated_at);
-			await onChanged();
-			toast.success("Stundenwert gespeichert");
+			toast.success("Stundenabzug gebucht");
 		} catch (error) {
 			toast.error(
 				error instanceof Error ? error.message : "Speichern fehlgeschlagen",
@@ -1332,7 +1382,7 @@ function HelperHoursBudgets({
 		try {
 			await orpcClient.helperHours.cancelExpense({ id, grund: reason });
 			await onChanged();
-			toast.success("Ausgabe storniert");
+			toast.success("Stundenabzug storniert");
 		} catch (error) {
 			toast.error(
 				error instanceof Error ? error.message : "Stornierung fehlgeschlagen",
@@ -1347,34 +1397,36 @@ function HelperHoursBudgets({
 			<CardHeader>
 				<CardTitle className="flex items-center gap-2">
 					<ReceiptText className="h-4 w-4 text-primary" />
-					Vereinsbeitrag und Abteilungsbudgets
+					Vereinsbeitrag und Abteilungsguthaben
 				</CardTitle>
 				<CardDescription>
-					Kumuliert über alle Jahre. Helferstunden werden mit{" "}
-					{formatCent(valueCent)} bewertet. Käufe mindern nur das verfügbare
-					Budget der gewählten Abteilung.
+					Kumuliert über alle Jahre. Ein Kauf der Abteilung wird in Stunden
+					umgerechnet und nur vom Guthaben dieser Abteilung abgezogen.
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-5">
-				<div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-					<div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-						<div>
-							<p className="font-medium">Interner Vereinsbeitrag</p>
-							<p className="mt-1 text-xs text-muted-foreground">
-								Dem Gesamtverein zugeordnete Stunden gelten als Beitrag an den
-								Verein und stehen nicht für Abteilungskäufe zur Verfügung.
-							</p>
-						</div>
-						<div className="sm:text-right">
-							<p className="font-heading text-xl tabular-nums">
-								{formatCent(contribution.earnedCent)}
-							</p>
-							<p className="text-xs text-muted-foreground">
-								{formatMinutes(contribution.minutes)} h
-							</p>
+				{contributions.map((entry) => (
+					<div
+						key={entry.code}
+						className="rounded-xl border border-primary/20 bg-primary/5 p-4"
+					>
+						<div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+							<div>
+								<p className="font-medium">{entry.label}</p>
+								<p className="mt-1 text-xs text-muted-foreground">
+									Diese Stunden gelten als Beitrag an den Verein und stehen
+									nicht für Abteilungskäufe zur Verfügung.
+								</p>
+							</div>
+							<div className="sm:text-right">
+								<p className="font-heading text-xl tabular-nums">
+									{formatMinutes(entry.minutes)} h
+								</p>
+								<p className="text-xs text-muted-foreground">geleistet</p>
+							</div>
 						</div>
 					</div>
-				</div>
+				))}
 				<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
 					{budgets.map((entry) => (
 						<button
@@ -1390,37 +1442,43 @@ function HelperHoursBudgets({
 							<p className="text-xs text-muted-foreground">{entry.label}</p>
 							<p
 								className={`mt-1 font-heading text-lg tabular-nums ${
-									entry.balanceCent < 0 ? "text-destructive" : ""
+									entry.balanceMinutes < 0 ? "text-destructive" : ""
 								}`}
 							>
-								{formatCent(entry.balanceCent)}
+								{formatMinutes(entry.balanceMinutes)} h
 							</p>
 							<p className="mt-1 text-xs text-muted-foreground">
-								{formatMinutes(entry.minutes)} h · {formatCent(entry.spentCent)}{" "}
-								ausgegeben
+								{formatMinutes(entry.earnedMinutes)} h erarbeitet ·{" "}
+								{formatMinutes(entry.spentMinutes)} h abgezogen
 							</p>
 						</button>
 					))}
 				</div>
 				<div className="grid gap-3 rounded-xl bg-muted/30 p-4 sm:grid-cols-3">
-					<BudgetNumber label="Erarbeitet" value={budget?.earnedCent ?? 0} />
-					<BudgetNumber label="Ausgegeben" value={budget?.spentCent ?? 0} />
 					<BudgetNumber
-						label="Verfügbar"
-						value={budget?.balanceCent ?? 0}
+						label="Erarbeitete Stunden"
+						value={budget?.earnedMinutes ?? 0}
+					/>
+					<BudgetNumber
+						label="Abgezogene Stunden"
+						value={budget?.spentMinutes ?? 0}
+					/>
+					<BudgetNumber
+						label="Verfügbare Stunden"
+						value={budget?.balanceMinutes ?? 0}
 						emphasized
 					/>
 				</div>
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
 					<div>
-						<p className="font-medium">{helperHourCategoryLabel(selected)}</p>
+						<p className="font-medium">{budget?.label ?? "Abteilung"}</p>
 						<p className="text-xs text-muted-foreground">
-							Export mit Übersicht, Helferstunden und Ausgaben.
+							Export mit Übersicht, Helferstunden und Abzügen.
 						</p>
 					</div>
 					<Button asChild variant="outline">
 						<a
-							href={`/api/export/helper-hours/xlsx?abteilung=${selected}`}
+							href={`/api/export/helper-hours/xlsx?abteilung=${selected ?? ""}`}
 							download
 						>
 							<Download className="mr-1 h-4 w-4" />
@@ -1429,37 +1487,13 @@ function HelperHoursBudgets({
 					</Button>
 				</div>
 				{isAdmin ? (
-					<div className="grid gap-4 border-t pt-5 lg:grid-cols-[1fr_2fr]">
-						<div className="space-y-3">
-							<div className="flex items-center gap-2 font-medium">
-								<Settings2 className="h-4 w-4 text-primary" />
-								Stundenwert
-							</div>
-							<p className="text-xs text-muted-foreground">
-								Der Wert gilt für alle vorhandenen und neuen Helferstunden.
-							</p>
-							<div className="flex gap-2">
-								<Input
-									aria-label="Wert einer Helferstunde"
-									inputMode="decimal"
-									value={rateInput}
-									onChange={(event) => setRateInput(event.target.value)}
-								/>
-								<Button
-									type="button"
-									variant="secondary"
-									disabled={saving !== null}
-									onClick={() => void saveRate()}
-								>
-									Speichern
-								</Button>
-							</div>
-						</div>
+					<div className="border-t pt-5">
 						<form className="grid gap-3 sm:grid-cols-2" onSubmit={saveExpense}>
 							<div className="sm:col-span-2">
-								<p className="font-medium">Ausgabe für {budget?.label}</p>
+								<p className="font-medium">Stundenabzug für {budget?.label}</p>
 								<p className="text-xs text-muted-foreground">
-									Der Betrag wird direkt vom Abteilungsbudget abgezogen.
+									Der Kaufbetrag wird mit dem in den Einstellungen hinterlegten
+									Stundenwert in Stunden umgerechnet und abgezogen.
 								</p>
 							</div>
 							<div className="space-y-1.5">
@@ -1478,7 +1512,7 @@ function HelperHoursBudgets({
 								/>
 							</div>
 							<div className="space-y-1.5">
-								<Label htmlFor="hh-expense-amount">Betrag</Label>
+								<Label htmlFor="hh-expense-amount">Kaufbetrag in Euro</Label>
 								<Input
 									id="hh-expense-amount"
 									inputMode="decimal"
@@ -1490,8 +1524,17 @@ function HelperHoursBudgets({
 											betrag: event.target.value,
 										})
 									}
+									aria-describedby="hh-expense-amount-hint"
 									required
 								/>
+								<p
+									id="hh-expense-amount-hint"
+									className="text-xs text-muted-foreground"
+								>
+									{previewMinutes > 0
+										? `Entspricht ${formatMinutes(previewMinutes)} h Abzug`
+										: "Wird in Stunden umgerechnet"}
+								</p>
 							</div>
 							<div className="space-y-1.5 sm:col-span-2">
 								<Label htmlFor="hh-expense-description">Gekauft</Label>
@@ -1529,7 +1572,7 @@ function HelperHoursBudgets({
 								) : (
 									<Plus className="mr-2 h-4 w-4" />
 								)}
-								Ausgabe abziehen
+								Stunden abziehen
 							</Button>
 						</form>
 					</div>
@@ -1540,9 +1583,9 @@ function HelperHoursBudgets({
 							<thead>
 								<tr className="border-b text-left text-xs text-muted-foreground">
 									<th className="py-2 pr-3">Datum</th>
-									<th className="px-3 py-2">Ausgabe</th>
+									<th className="px-3 py-2">Kauf</th>
 									<th className="px-3 py-2">Status</th>
-									<th className="px-3 py-2 text-right">Betrag</th>
+									<th className="px-3 py-2 text-right">Abzug</th>
 									{isAdmin ? <th className="py-2 pl-3" /> : null}
 								</tr>
 							</thead>
@@ -1576,14 +1619,14 @@ function HelperHoursBudgets({
 											{entry.storniert_am ? "Storniert" : "Aktiv"}
 										</td>
 										<td className="px-3 py-2.5 text-right font-semibold tabular-nums">
-											{formatCent(entry.betrag_cent)}
+											{formatMinutes(entry.minuten)} h
 										</td>
 										{isAdmin ? (
 											<td className="py-2.5 pl-3 text-right">
 												{!entry.storniert_am ? (
 													<CancelReasonDialog
-														title="Ausgabe stornieren"
-														description="Die Buchung bleibt zur Nachvollziehbarkeit erhalten und wird als storniert gekennzeichnet. Das Abteilungsbudget wird wieder freigegeben."
+														title="Stundenabzug stornieren"
+														description="Die Buchung bleibt zur Nachvollziehbarkeit erhalten und wird als storniert gekennzeichnet. Die Stunden stehen der Abteilung wieder zur Verfügung."
 														confirmLabel="Stornieren"
 														pending={saving === "cancel"}
 														onConfirm={(reason) =>
@@ -1632,9 +1675,165 @@ function BudgetNumber({
 					emphasized && value < 0 ? "text-destructive" : ""
 				}`}
 			>
-				{formatCent(value)}
+				{formatMinutes(value)} h
 			</p>
 		</div>
+	);
+}
+
+function HelperHourExpenseImport({
+	onImported,
+}: {
+	onImported: () => Promise<unknown>;
+}) {
+	const input = useRef<HTMLInputElement | null>(null);
+	const [file, setFile] = useState<File | null>(null);
+	const [preview, setPreview] = useState<ExpensePreview | null>(null);
+	const [loading, setLoading] = useState<"preview" | "apply" | null>(null);
+	const [confirmOpen, setConfirmOpen] = useState(false);
+
+	async function send(mode: "preview" | "apply") {
+		if (!file) return;
+		setLoading(mode);
+		try {
+			const body = new FormData();
+			body.set("file", file);
+			body.set("mode", mode);
+			if (mode === "apply" && preview)
+				body.set("confirm_digest", preview.digest);
+			const response = await fetch("/api/import/helper-hour-expenses", {
+				method: "POST",
+				body,
+			});
+			const result = (await response.json()) as ExpensePreview & {
+				error?: string;
+				created?: number;
+			};
+			if (!response.ok)
+				throw new Error(result.error ?? "Import fehlgeschlagen");
+			if (mode === "preview") {
+				setPreview(result);
+				toast[result.valid ? "success" : "error"](
+					result.valid
+						? "Datei erfolgreich geprüft"
+						: "Die Datei enthält Fehler",
+				);
+			} else {
+				toast.success(`${result.created ?? 0} Stundenabzüge importiert`);
+				setFile(null);
+				setPreview(null);
+				if (input.current) input.current.value = "";
+				await onImported();
+			}
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Import fehlgeschlagen",
+			);
+		} finally {
+			setLoading(null);
+		}
+	}
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle className="flex items-center gap-2">
+					<Upload className="h-4 w-4 text-primary" />
+					Verrechnungsliste importieren
+				</CardTitle>
+				<CardDescription>
+					Übernimmt die Liste "Verrechnung Stunden Abteilungen" als
+					Stundenabzüge. Ein Kaufbetrag wird mit dem hinterlegten Stundenwert in
+					Stunden umgerechnet. Bereits gebuchte Abzüge bleiben unverändert.
+				</CardDescription>
+			</CardHeader>
+			<CardContent className="space-y-4">
+				<div className="flex flex-col gap-2 sm:flex-row">
+					<Input
+						ref={input}
+						type="file"
+						accept=".xlsx"
+						onChange={(event) => {
+							setFile(event.target.files?.[0] ?? null);
+							setPreview(null);
+						}}
+					/>
+					<Button
+						type="button"
+						variant="secondary"
+						disabled={!file || loading !== null}
+						onClick={() => void send("preview")}
+					>
+						{loading === "preview" ? (
+							<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+						) : (
+							<FileCheck2 className="mr-2 h-4 w-4" />
+						)}
+						Datei prüfen
+					</Button>
+				</div>
+				{preview ? (
+					<div className="rounded-xl border bg-muted/20 p-4">
+						<p className="font-semibold">
+							{preview.rows} Käufe, {formatMinutes(preview.minutes)} Stunden
+							Abzug
+						</p>
+						<p className="mt-1 text-xs text-muted-foreground">
+							{preview.toImport} neu, {preview.alreadyImported} bereits gebucht
+						</p>
+						{preview.missing > 0 ? (
+							<p className="mt-2 text-sm text-warning">
+								{preview.missing} in Rendant gebuchte Abzüge stehen nicht mehr
+								in der Liste. Gebuchte Abzüge werden nie gelöscht. Storniere sie
+								bei Bedarf einzeln mit Begründung.
+							</p>
+						) : null}
+						{preview.errors.length ? (
+							<ul className="mt-3 text-sm text-destructive">
+								{preview.errors.slice(0, 8).map((entry, index) => (
+									<li key={`${entry.sheet}-${entry.row}-${index}`}>
+										{entry.sheet} Zeile {entry.row}: {entry.message}
+									</li>
+								))}
+							</ul>
+						) : null}
+						{preview.sample.length ? (
+							<ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+								{preview.sample.map((entry) => (
+									<li key={`${entry.sheet}-${entry.row}`}>
+										{formatDateDe(entry.date)} · {entry.category} ·{" "}
+										{entry.description} · {formatMinutes(entry.minutes)} h
+									</li>
+								))}
+							</ul>
+						) : null}
+						{preview.valid && preview.toImport > 0 ? (
+							<Button
+								className="mt-4 w-full"
+								disabled={loading !== null}
+								onClick={() => setConfirmOpen(true)}
+							>
+								{loading === "apply" ? (
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								) : (
+									<Upload className="mr-2 h-4 w-4" />
+								)}
+								{preview.toImport} Stundenabzüge importieren
+							</Button>
+						) : null}
+						<ConfirmDialog
+							open={confirmOpen}
+							onOpenChange={setConfirmOpen}
+							title="Stundenabzüge verbindlich importieren"
+							description={`${preview.toImport} Käufe als Stundenabzüge buchen? Ein Abzug kann danach nur noch mit Begründung storniert werden.`}
+							confirmLabel="Importieren"
+							pending={loading === "apply"}
+							onConfirm={() => send("apply")}
+						/>
+					</div>
+				) : null}
+			</CardContent>
+		</Card>
 	);
 }
 
@@ -1746,8 +1945,10 @@ function HelperHoursImport({
 					Excel-Datei importieren
 				</CardTitle>
 				<CardDescription>
-					Rendant erkennt die Monatsblätter der bisherigen SVU-Liste, zeigt
-					Unstimmigkeiten an und importiert erst nach deiner Bestätigung.
+					Rendant erkennt die Monatsblätter der bisherigen SVU-Liste, korrigiert
+					eindeutige Fehler selbst, zeigt den Rest an und importiert erst nach
+					deiner Bestätigung. Bereits importierte Zeilen der enthaltenen
+					Monatsblätter werden dabei durch den aktuellen Stand ersetzt.
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-4">
@@ -1782,9 +1983,50 @@ function HelperHoursImport({
 							{preview.rows} Einträge, {formatMinutes(preview.hours)} Stunden
 						</p>
 						<p className="mt-1 text-xs text-muted-foreground">
-							{preview.toImport} neu, {preview.alreadyImported} bereits
-							importiert, {preview.warnings} Hinweise
+							{preview.replaces > 0
+								? `${preview.replaces} bereits importierte Zeilen dieser Monatsblätter werden ersetzt`
+								: "Noch nichts aus diesen Monatsblättern importiert"}
 						</p>
+						{preview.repairs > 0 ? (
+							<details className="mt-3 rounded-lg border bg-background/60 p-3">
+								<summary className="cursor-pointer text-sm font-medium">
+									{preview.repairs} Angaben automatisch korrigiert
+								</summary>
+								<p className="mt-2 text-xs text-muted-foreground">
+									Eindeutige Fälle wie vertauschte Namen, eine falsche
+									Jahreszahl im Monatsblatt oder eine fehlende Summe. Die
+									Originalwerte aus der Datei bleiben gespeichert.
+								</p>
+								<ul className="mt-2 space-y-1 text-xs">
+									{preview.repairSample.map((entry) => (
+										<li key={`${entry.sheet}-${entry.row}`}>
+											{entry.sheet} Zeile {entry.row}:{" "}
+											{entry.beforeDate !== entry.afterDate
+												? `${formatDateDe(entry.beforeDate)} zu ${formatDateDe(entry.afterDate)}`
+												: null}
+											{entry.beforeDate !== entry.afterDate &&
+											entry.before !== entry.after
+												? ", "
+												: null}
+											{entry.before !== entry.after
+												? `${entry.before} zu ${entry.after}`
+												: null}
+											{entry.beforeDate === entry.afterDate &&
+											entry.before === entry.after
+												? entry.repairs.join(", ")
+												: null}
+										</li>
+									))}
+								</ul>
+							</details>
+						) : null}
+						{preview.unknownColumns.length ? (
+							<p className="mt-3 text-sm text-warning">
+								Diese Spalten enthalten Stunden, passen aber zu keinem Punkt:{" "}
+								{preview.unknownColumns.join(", ")}. Lege sie in den
+								Einstellungen an, sonst gehen diese Stunden verloren.
+							</p>
+						) : null}
 						{preview.errors.length ? (
 							<ul className="mt-3 text-sm text-destructive">
 								{preview.errors.slice(0, 8).map((e, i) => (
@@ -1883,7 +2125,11 @@ function HelperHoursImport({
 							open={importOpen}
 							onOpenChange={setImportOpen}
 							title="Helferstunden verbindlich importieren"
-							description={`${preview?.toImport ?? 0} Helferstunden verbindlich importieren?${importHint}`}
+							description={`${preview?.toImport ?? 0} Helferstunden verbindlich importieren?${
+								preview?.replaces
+									? ` ${preview.replaces} zuvor importierte Zeilen dieser Monatsblätter werden ersetzt.`
+									: ""
+							}${importHint}`}
 							confirmLabel="Importieren"
 							pending={loading === "apply"}
 							onConfirm={() => send("apply")}
@@ -1927,11 +2173,8 @@ function isHelperHoursIssueResolved(
 	);
 	if (issue === "total_mismatch")
 		return correction.gemeldete_summe_minuten === allocated;
-	if (issue === "unassigned")
-		return (
-			correction.allocations.gesamtverein_minuten !==
-			correction.gemeldete_summe_minuten
-		);
+	// The date cannot be edited here, so it is only ever resolved by accepting
+	// it knowingly, which the check above already covers.
 	return false;
 }
 
@@ -1948,6 +2191,7 @@ function HelperHoursCorrectionDialog({
 }) {
 	// Initialised from props rather than synced by an effect, so the first paint
 	// already shows this row's values.
+	const dialogCategories = selectableCategories(useHelperHourCategories());
 	const [working, setWorking] = useState<HelperHoursCorrection | null>(() =>
 		row && value
 			? {
@@ -1974,20 +2218,15 @@ function HelperHoursCorrectionDialog({
 				: current,
 		);
 	}
-	function assignTotal(category: HelperHourCategory) {
+	function assignTotal(code: string) {
 		setWorking((current) => {
 			if (!current) return current;
 			return {
 				...current,
 				acceptedIssues: current.acceptedIssues.filter(
-					(issue) => issue !== "unassigned" && issue !== "total_mismatch",
+					(issue) => issue !== "total_mismatch",
 				),
-				allocations: Object.fromEntries(
-					HELPER_HOUR_CATEGORIES.map((entry) => [
-						`${entry.code}_minuten`,
-						entry.code === category ? current.gemeldete_summe_minuten : 0,
-					]),
-				) as HelperHoursAllocations,
+				allocations: { [code]: current.gemeldete_summe_minuten },
 			};
 		});
 	}
@@ -2045,11 +2284,30 @@ function HelperHoursCorrectionDialog({
 							</div>
 						</CorrectionSection>
 					) : null}
-					{row.issues.some((issue) => issue !== "missing_name") ? (
+					{row.issues.includes("unknown_date") ? (
+						<CorrectionSection
+							title="Datum prüfen"
+							resolved={isHelperHoursIssueResolved("unknown_date", working)}
+							onAccept={() => toggleAccepted("unknown_date")}
+							accepted={working.acceptedIssues.includes("unknown_date")}
+						>
+							<p className="text-sm text-muted-foreground">
+								Der {formatDateDe(row.date)} liegt nicht im Monat des Blatts{" "}
+								{row.sheet}. Bitte in der Liste korrigieren oder das Datum
+								bewusst übernehmen.
+							</p>
+						</CorrectionSection>
+					) : null}
+					{row.issues.some(
+						(issue) => issue !== "missing_name" && issue !== "unknown_date",
+					) ? (
 						<CorrectionSection
 							title="Stunden und Zuordnung prüfen"
 							resolved={row.issues
-								.filter((issue) => issue !== "missing_name")
+								.filter(
+									(issue) =>
+										issue !== "missing_name" && issue !== "unknown_date",
+								)
 								.every((issue) => isHelperHoursIssueResolved(issue, working))}
 						>
 							<div className="grid gap-3 sm:grid-cols-2">
@@ -2100,16 +2358,12 @@ function HelperHoursCorrectionDialog({
 									</div>
 									<div className="space-y-1.5">
 										<Label>Oder gemeldete Summe vollständig zuordnen</Label>
-										<Select
-											onValueChange={(value) =>
-												assignTotal(value as HelperHourCategory)
-											}
-										>
+										<Select onValueChange={assignTotal}>
 											<SelectTrigger className="w-full">
-												<SelectValue placeholder="Abteilung wählen" />
+												<SelectValue placeholder="Punkt wählen" />
 											</SelectTrigger>
 											<SelectContent>
-												{HELPER_HOUR_CATEGORIES.map((entry) => (
+												{dialogCategories.map((entry) => (
 													<SelectItem key={entry.code} value={entry.code}>
 														{entry.label}
 													</SelectItem>
@@ -2118,51 +2372,6 @@ function HelperHoursCorrectionDialog({
 										</Select>
 									</div>
 								</div>
-							) : null}
-							{row.issues.includes("unassigned") ? (
-								<div className="space-y-1.5">
-									<Label>Gemeldete Summe zuordnen</Label>
-									<Select
-										onValueChange={(value) =>
-											assignTotal(value as HelperHourCategory)
-										}
-									>
-										<SelectTrigger className="w-full">
-											<SelectValue placeholder="Abteilung wählen" />
-										</SelectTrigger>
-										<SelectContent>
-											{HELPER_HOUR_CATEGORIES.map((entry) => (
-												<SelectItem key={entry.code} value={entry.code}>
-													{entry.label}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-									<Button
-										type="button"
-										variant={
-											working.acceptedIssues.includes("unassigned")
-												? "default"
-												: "outline"
-										}
-										onClick={() => toggleAccepted("unassigned")}
-									>
-										Als Vereinsbeitrag übernehmen
-									</Button>
-								</div>
-							) : null}
-							{row.issues.includes("derived_total") ? (
-								<Button
-									type="button"
-									variant={
-										working.acceptedIssues.includes("derived_total")
-											? "default"
-											: "outline"
-									}
-									onClick={() => toggleAccepted("derived_total")}
-								>
-									Berechnete Summe übernehmen
-								</Button>
 							) : null}
 						</CorrectionSection>
 					) : null}

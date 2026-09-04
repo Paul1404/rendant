@@ -10,6 +10,9 @@ import {
 	CreateProtokollSchema,
 	EmailSettingsSchema,
 	ExportQuerySchema,
+	HelperHourCategoryCreateSchema,
+	HelperHourCategoryDeleteSchema,
+	HelperHourCategoryUpdateSchema,
 	HelperHourCreateSchema,
 	HelperHourEntriesSchema,
 	HelperHourExpenseCancelSchema,
@@ -75,6 +78,12 @@ import {
 	sendTestEmail,
 	updateEmailSettings,
 } from "@/server/services/email";
+import {
+	createHelperHourCategory,
+	deleteHelperHourCategory,
+	listHelperHourCategoriesWithUsage,
+	updateHelperHourCategory,
+} from "@/server/services/helper-hour-categories";
 import {
 	cancelHelperHourExpense,
 	createHelperHour,
@@ -1335,6 +1344,28 @@ const helperHours = {
 		.input(HelperHourExpenseCancelSchema)
 		.handler(({ input, context }) =>
 			cancelHelperHourExpense(input.id, input.grund, context.user, {
+				request: requestAuditContext(context),
+			}),
+		),
+	categories: authed.handler(() => listHelperHourCategoriesWithUsage()),
+	createCategory: adminOnly
+		.input(HelperHourCategoryCreateSchema)
+		.handler(({ input, context }) =>
+			createHelperHourCategory(input, context.user, {
+				request: requestAuditContext(context),
+			}),
+		),
+	updateCategory: adminOnly
+		.input(HelperHourCategoryUpdateSchema)
+		.handler(({ input, context }) =>
+			updateHelperHourCategory(input, context.user, {
+				request: requestAuditContext(context),
+			}),
+		),
+	deleteCategory: adminOnly
+		.input(HelperHourCategoryDeleteSchema)
+		.handler(({ input, context }) =>
+			deleteHelperHourCategory(input.id, context.user, {
 				request: requestAuditContext(context),
 			}),
 		),

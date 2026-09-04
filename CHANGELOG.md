@@ -3,6 +3,34 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.43.0 - 2026-09-04
+
+- Die Helferstunden-Ansicht rechnet jetzt durchgehend in Stunden. Käufe einer
+  Abteilung erscheinen als Stundenabzug statt als Betrag, und die Übersicht
+  zeigt erarbeitete, abgezogene und verfügbare Stunden.
+- Ein Kauf wird weiterhin in Euro erfasst und mit dem hinterlegten Stundenwert
+  umgerechnet. Das Feld zeigt den Abzug sofort an. Der Stundenwert steht jetzt
+  in den Einstellungen unter Helferstunden.
+- Abteilungen und Vereinsbeiträge lassen sich in den Einstellungen selbst
+  anlegen, umbenennen und deaktivieren. Ein neuer Punkt steht sofort im
+  Erfassungsformular zur Verfügung und wird beim Import über eine gleichnamige
+  Spalte erkannt.
+- Der Excel-Import korrigiert eindeutige Fehler jetzt selbst: vertauschte Vor-
+  und Nachnamen, eine Jahreszahl, die nicht zum Monatsblatt passt, uneinheitlich
+  geschriebene Namen, eine fehlende Summe und Stunden ohne Zuordnung. Jede
+  Korrektur wird benannt, die Originalwerte aus der Datei bleiben gespeichert.
+- Ein erneuter Import derselben Liste legt keine Dubletten mehr an. Die
+  enthaltenen Monatsblätter werden durch den aktuellen Stand ersetzt. Von Hand
+  erfasste Stunden bleiben dabei unangetastet.
+- Der Import meldet jetzt Spalten, die Stunden enthalten, aber zu keinem Punkt
+  passen. Bisher gingen diese Stunden unbemerkt verloren.
+- Die Liste "Verrechnung Stunden Abteilungen" lässt sich als Datei einlesen und
+  wird zu Stundenabzügen. Bereits gebuchte Abzüge bleiben unverändert. Abzüge,
+  die nicht mehr in der Liste stehen, werden gemeldet und können wie bisher nur
+  mit Begründung storniert werden.
+- Die Excel-Übersicht einer Abteilung führt ebenfalls Stunden. Der Belegbetrag
+  bleibt zum Abgleich mit der Buchhaltung erhalten.
+
 ## 1.42.0 - 2026-09-03
 
 - Die Anmeldeverwaltung wurde auf eine neue Version aktualisiert. Bestehende

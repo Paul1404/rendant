@@ -4,45 +4,31 @@ import { helperHoursXlsxDocument } from "@/server/services/helper-hours-xlsx";
 
 function exportData() {
 	return {
-		category: "fussball" as const,
+		category: "fussball",
+		categoryLabel: "Fußball",
 		budget: {
-			code: "fussball" as const,
-			label: "Fußball" as const,
+			id: "00000000-0000-4000-8000-000000000009",
+			code: "fussball",
+			label: "Fußball",
+			aktiv: true,
 			minutes: 330,
-			earnedCent: 3300,
+			earnedMinutes: 330,
+			// 12,50 EUR at 6,00 EUR per hour deducts 125 minutes.
+			spentMinutes: 125,
 			spentCent: 1250,
-			balanceCent: 2050,
+			balanceMinutes: 205,
 		},
 		valueCent: 600,
 		hours: [
 			{
 				id: "00000000-0000-4000-8000-000000000001",
-				idempotency_key: "00000000-0000-4000-8000-000000000002",
 				datum: "2026-07-12",
 				veranstaltung: "Sportfest",
 				nachname: "Beispiel",
 				vorname: "Erika",
-				gesamtverein_minuten: 0,
-				fussball_minuten: 330,
-				korbball_minuten: 0,
-				tischtennis_minuten: 0,
-				darts_minuten: 0,
-				gymnastik_minuten: 0,
-				senioren_minuten: 0,
-				combo_minuten: 0,
-				gemeldete_summe_minuten: 330,
 				bemerkung: "Aufbau",
 				quelle: "manuell",
-				quelle_datei: null,
-				quelle_sha256: null,
 				quelle_blatt: null,
-				quelle_zeile: null,
-				import_warnungen: [],
-				import_originalwerte: null,
-				import_korrektur: null,
-				erstellt_von_user_id: "user-1",
-				erstellt_von_name: "Admin",
-				erstellt_am: new Date("2026-07-12T12:00:00Z"),
 				allocatedMinutes: 330,
 			},
 		],
@@ -50,11 +36,17 @@ function exportData() {
 			{
 				id: "00000000-0000-4000-8000-000000000003",
 				idempotency_key: "00000000-0000-4000-8000-000000000004",
-				abteilung: "fussball",
+				kategorie_id: "00000000-0000-4000-8000-000000000009",
 				datum: "2026-07-15",
 				bezeichnung: "Trainingsbälle",
 				betrag_cent: 1250,
+				minuten: 125,
 				bemerkung: "Beleg 17",
+				quelle: "manuell",
+				quelle_datei: null,
+				quelle_sha256: null,
+				quelle_blatt: null,
+				quelle_zeile: null,
 				storniert_am: null,
 				storno_grund: null,
 				storniert_von_user_id: null,
@@ -67,49 +59,52 @@ function exportData() {
 	};
 }
 
-describe("helperHoursXlsxDocument", () => {
-	it("creates a readable, formula-backed department budget workbook", async () => {
-		const bytes = await helperHoursXlsxDocument(exportData());
-		const workbook = new ExcelJS.Workbook();
-		const data = new ArrayBuffer(bytes.byteLength);
-		new Uint8Array(data).set(bytes);
-		await workbook.xlsx.load(data);
+async function readWorkbook(bytes: Uint8Array) {
+	const workbook = new ExcelJS.Workbook();
+	const data = new ArrayBuffer(bytes.byteLength);
+	new Uint8Array(data).set(bytes);
+	await workbook.xlsx.load(data);
+	return workbook;
+}
 
+describe("helperHoursXlsxDocument", () => {
+	it("leads with hours and keeps the receipt amount for reconciliation", async () => {
+		const workbook = await readWorkbook(
+			await helperHoursXlsxDocument(exportData()),
+		);
 		expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual([
 			"Übersicht",
 			"Helferstunden",
 			"Ausgaben",
 		]);
 		const summary = workbook.getWorksheet("Übersicht");
-		expect(summary?.getCell("A1").value).toBe(
-			"Helferstunden-Budget · Fußball",
-		);
-		expect(summary?.getCell("B6").value).toBe(6);
-		expect(summary?.getCell("B9").value).toEqual({
-			formula: "B7-B8",
-			result: 20.5,
+		expect(summary?.getCell("A1").value).toBe("Helferstunden · Fußball");
+		expect(summary?.getCell("A5").value).toBe("Erarbeitete Stunden");
+		expect(summary?.getCell("A6").value).toBe("Abgezogene Stunden");
+		// Available hours are earned minus deducted, computed in the sheet.
+		expect(summary?.getCell("B7").value).toEqual({
+			formula: "B5-B6",
+			result: 205 / 60,
 		});
+		expect(summary?.getCell("B8").value).toBe(6);
 
 		const hours = workbook.getWorksheet("Helferstunden");
 		expect(hours?.getCell("B2").value).toBe("Erika Beispiel");
-		expect(hours?.getCell("F2").value).toBe(33);
-		expect(hours?.autoFilter).toBe("A1:H1");
+		expect(hours?.getCell("D2").value).toBe(5.5);
+		expect(hours?.autoFilter).toBe("A1:F1");
 
 		const expenses = workbook.getWorksheet("Ausgaben");
 		expect(expenses?.getCell("B2").value).toBe("Trainingsbälle");
-		expect(expenses?.getCell("D2").value).toBe(12.5);
-		expect(expenses?.autoFilter).toBe("A1:G1");
+		expect(expenses?.getCell("D2").value).toBeCloseTo(125 / 60, 10);
+		expect(expenses?.getCell("E2").value).toBe(12.5);
+		expect(expenses?.autoFilter).toBe("A1:H1");
 	});
 
 	it("does not create circular totals for empty departments", async () => {
 		const input = exportData();
-		input.budget = { ...input.budget, minutes: 0, earnedCent: 0 };
+		input.budget = { ...input.budget, minutes: 0, earnedMinutes: 0 };
 		input.hours = [];
-		const bytes = await helperHoursXlsxDocument(input);
-		const workbook = new ExcelJS.Workbook();
-		const data = new ArrayBuffer(bytes.byteLength);
-		new Uint8Array(data).set(bytes);
-		await workbook.xlsx.load(data);
+		const workbook = await readWorkbook(await helperHoursXlsxDocument(input));
 		expect(workbook.getWorksheet("Helferstunden")?.getCell("D2").value).toEqual({
 			formula: "0",
 		});

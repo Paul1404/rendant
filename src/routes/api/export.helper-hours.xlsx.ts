@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import * as v from "valibot";
 import { secureDownloadHeaders } from "@/lib/download-headers";
-import { HELPER_HOUR_BUDGET_CATEGORY_CODES } from "@/lib/helper-hours";
 import { auth } from "@/server/auth";
 import {
 	auditActor,
@@ -19,8 +18,10 @@ export const Route = createFileRoute("/api/export/helper-hours/xlsx")({
 				if (!session) {
 					return Response.json({ error: "Nicht angemeldet" }, { status: 401 });
 				}
+				// Categories are configurable, so the code is validated by shape
+				// here and resolved against the database by the loader.
 				const parsed = v.safeParse(
-					v.picklist(HELPER_HOUR_BUDGET_CATEGORY_CODES),
+					v.pipe(v.string(), v.regex(/^[a-z0-9][a-z0-9_]{0,39}$/)),
 					new URL(request.url).searchParams.get("abteilung"),
 				);
 				if (!parsed.success) {
@@ -29,7 +30,15 @@ export const Route = createFileRoute("/api/export/helper-hours/xlsx")({
 						{ status: 400 },
 					);
 				}
-				const data = await loadHelperHourExport(parsed.output);
+				let data: Awaited<ReturnType<typeof loadHelperHourExport>>;
+				try {
+					data = await loadHelperHourExport(parsed.output);
+				} catch {
+					return Response.json(
+						{ error: "Abteilung nicht gefunden" },
+						{ status: 404 },
+					);
+				}
 				const xlsx = await helperHoursXlsxDocument(data);
 				const body = new ArrayBuffer(xlsx.byteLength);
 				new Uint8Array(body).set(xlsx);

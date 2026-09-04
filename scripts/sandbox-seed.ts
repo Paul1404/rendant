@@ -2,10 +2,10 @@
 import { createHash, randomUUID } from "node:crypto";
 import ExcelJS from "exceljs";
 import { emptyCounts } from "@/lib/denominations";
-import { HELPER_HOUR_CATEGORIES } from "@/lib/helper-hours";
 import type { HistoricalProtocolSource } from "@/lib/historical-protocol-import";
 import { db, pool } from "@/server/db";
-import { helperHours } from "@/server/db/schema";
+import { helperHourAllocations, helperHours } from "@/server/db/schema";
+import { listHelperHourCategories } from "@/server/services/helper-hour-categories";
 import { createHistoricalRevenueWithDb } from "@/server/services/historical-revenue";
 import {
 	archiveHistoricalSource,
@@ -120,41 +120,48 @@ async function main() {
 		{ source },
 	);
 
+	// Categories are seeded by migration; the sandbox spreads hours over
+	// whatever the database actually holds.
+	const categories = await listHelperHourCategories();
 	const helperRows = Array.from({ length: 60 }, (_, index) => {
-		const category = HELPER_HOUR_CATEGORIES[index % HELPER_HOUR_CATEGORIES.length];
+		const category = categories[index % categories.length];
 		const [vorname, nachname] = helperNames[index % helperNames.length];
 		const minutes = 60 + (index % 8) * 15;
 		const imported = index % 4 === 0;
-		const allocations = {
-			gesamtverein_minuten: 0,
-			fussball_minuten: 0,
-			korbball_minuten: 0,
-			tischtennis_minuten: 0,
-			darts_minuten: 0,
-			gymnastik_minuten: 0,
-			senioren_minuten: 0,
-			combo_minuten: 0,
-		};
-		allocations[`${category.code}_minuten`] = minutes;
 		return {
-			idempotency_key: randomUUID(),
-			datum: `${2025 + (index % 2)}-${String((index % 12) + 1).padStart(2, "0")}-${String((index % 24) + 1).padStart(2, "0")}`,
-			veranstaltung: helperEvents[index % helperEvents.length],
-			vorname,
-			nachname,
-			...allocations,
-			gemeldete_summe_minuten: minutes,
-			bemerkung: "Ausschließlich lokale, synthetische Beispieldaten",
-			quelle: imported ? "excel" : "manuell",
-			quelle_datei: imported ? "Sandbox-Helferstunden.xlsx" : null,
-			quelle_sha256: imported ? "a".repeat(64) : null,
-			quelle_blatt: imported ? `Monat ${String((index % 12) + 1).padStart(2, "0")}` : null,
-			quelle_zeile: imported ? index + 2 : null,
-			erstellt_von_user_id: actor.id,
-			erstellt_von_name: actor.name,
+			kategorie_id: category.id,
+			row: {
+				idempotency_key: randomUUID(),
+				datum: `${2025 + (index % 2)}-${String((index % 12) + 1).padStart(2, "0")}-${String((index % 24) + 1).padStart(2, "0")}`,
+				veranstaltung: helperEvents[index % helperEvents.length],
+				vorname,
+				nachname,
+				gemeldete_summe_minuten: minutes,
+				bemerkung: "Ausschließlich lokale, synthetische Beispieldaten",
+				quelle: imported ? "excel" : "manuell",
+				quelle_datei: imported ? "Sandbox-Helferstunden.xlsx" : null,
+				quelle_sha256: imported ? "a".repeat(64) : null,
+				quelle_blatt: imported
+					? `Monat ${String((index % 12) + 1).padStart(2, "0")}`
+					: null,
+				quelle_zeile: imported ? index + 2 : null,
+				erstellt_von_user_id: actor.id,
+				erstellt_von_name: actor.name,
+			},
+			minutes,
 		};
 	});
-	await db.insert(helperHours).values(helperRows);
+	const insertedHelperHours = await db
+		.insert(helperHours)
+		.values(helperRows.map((entry) => entry.row))
+		.returning({ id: helperHours.id });
+	await db.insert(helperHourAllocations).values(
+		insertedHelperHours.map((row, index) => ({
+			helper_hour_id: row.id,
+			kategorie_id: helperRows[index].kategorie_id,
+			minuten: helperRows[index].minutes,
+		})),
+	);
 	console.log(
 		"[sandbox] 66 synthetische historische Umsätze und 60 Helferstunden angelegt",
 	);
