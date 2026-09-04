@@ -5,66 +5,77 @@ import {
 	eq,
 	gte,
 	ilike,
+	inArray,
 	isNull,
 	lt,
 	or,
 	sql,
 } from "drizzle-orm";
-import {
-	HELPER_HOUR_BUDGET_CATEGORIES,
-	HELPER_HOUR_CATEGORIES,
-	type HelperHourBudgetCategory,
-} from "@/lib/helper-hours";
+import { minutesFromCent } from "@/lib/helper-hours";
 import type {
 	HelperHourCreateInput,
 	HelperHourEntriesInput,
 	HelperHourExpenseCreateInput,
 } from "@/lib/schemas";
 import { db } from "@/server/db";
-import { helperHourExpenses, helperHours } from "@/server/db/schema";
+import {
+	helperHourAllocations,
+	helperHourCategories,
+	helperHourExpenses,
+	helperHours,
+} from "@/server/db/schema";
 import type { AuthUser } from "@/server/orpc/base";
 import {
 	type RecordAuditInput,
 	recordAuditEventStrict,
 } from "@/server/services/audit";
+import { listHelperHourCategories } from "@/server/services/helper-hour-categories";
+import type { HelperHourExpenseImportRow } from "@/server/services/helper-hour-expense-import";
+import { helperHourExpenseSignature } from "@/server/services/helper-hour-expense-import";
 import type { HelperHoursImportRow } from "@/server/services/helper-hours-import";
 import {
 	getHelperHourValueCent,
 	getSettingsStamp,
 } from "@/server/services/settings";
 
-const CATEGORY_COLUMNS = {
-	gesamtverein: "gesamtverein_minuten",
-	fussball: "fussball_minuten",
-	korbball: "korbball_minuten",
-	tischtennis: "tischtennis_minuten",
-	darts: "darts_minuten",
-	gymnastik: "gymnastik_minuten",
-	senioren: "senioren_minuten",
-	combo: "combo_minuten",
-} as const;
+const HELPER_KEY = sql<string>`lower(trim(${helperHours.vorname})) || '|' || lower(trim(${helperHours.nachname}))`;
 
-export async function listHelperHours(year?: number) {
-	const valueCent = await getHelperHourValueCent();
-	// Sent to the client so the rate form can detect a concurrent change: the rate
-	// retroactively revalues every department budget.
-	const valueUpdatedAt = await getSettingsStamp("helferstunde_wert_updated_at");
-	const period = year
+function periodFilter(year?: number) {
+	return year
 		? and(
 				gte(helperHours.datum, `${year}-01-01`),
 				lt(helperHours.datum, `${year + 1}-01-01`),
 			)
 		: undefined;
+}
+
+/**
+ * Rounds each purchase on its own before summing, so the department total is
+ * exactly the sum of the hour figures shown next to the individual purchases.
+ */
+function spentMinutesExpression(valueCent: number) {
+	return sql<number>`coalesce(sum(round(${helperHourExpenses.betrag_cent} * 60.0 / ${valueCent})), 0)`;
+}
+
+export async function listHelperHours(year?: number) {
+	const valueCent = await getHelperHourValueCent();
+	// Sent to the client so the rate form can detect a concurrent change: the
+	// rate retroactively revalues every department deduction.
+	const valueUpdatedAt = await getSettingsStamp("helferstunde_wert_updated_at");
+	const period = periodFilter(year);
 	const yearExpression = sql<number>`extract(year from ${helperHours.datum})::int`;
 	const [
+		categories,
 		summary,
-		allocation,
-		periodAllocation,
+		allocationTotals,
+		periodTotals,
 		spent,
-		expenses,
+		expenseRows,
 		years,
-		helperRows,
+		helperTotals,
+		helperAllocations,
 	] = await Promise.all([
+		listHelperHourCategories(),
 		db
 			.select({
 				entries: sql<number>`count(*)`,
@@ -75,45 +86,32 @@ export async function listHelperHours(year?: number) {
 			.where(period),
 		db
 			.select({
-				gesamtverein: sql<number>`coalesce(sum(${helperHours.gesamtverein_minuten}), 0)`,
-				fussball: sql<number>`coalesce(sum(${helperHours.fussball_minuten}), 0)`,
-				korbball: sql<number>`coalesce(sum(${helperHours.korbball_minuten}), 0)`,
-				tischtennis: sql<number>`coalesce(sum(${helperHours.tischtennis_minuten}), 0)`,
-				darts: sql<number>`coalesce(sum(${helperHours.darts_minuten}), 0)`,
-				gymnastik: sql<number>`coalesce(sum(${helperHours.gymnastik_minuten}), 0)`,
-				senioren: sql<number>`coalesce(sum(${helperHours.senioren_minuten}), 0)`,
-				combo: sql<number>`coalesce(sum(${helperHours.combo_minuten}), 0)`,
-				gesamtvereinCent: sql<number>`coalesce(sum(round(${helperHours.gesamtverein_minuten} * ${valueCent} / 60.0)), 0)`,
-				fussballCent: sql<number>`coalesce(sum(round(${helperHours.fussball_minuten} * ${valueCent} / 60.0)), 0)`,
-				korbballCent: sql<number>`coalesce(sum(round(${helperHours.korbball_minuten} * ${valueCent} / 60.0)), 0)`,
-				tischtennisCent: sql<number>`coalesce(sum(round(${helperHours.tischtennis_minuten} * ${valueCent} / 60.0)), 0)`,
-				dartsCent: sql<number>`coalesce(sum(round(${helperHours.darts_minuten} * ${valueCent} / 60.0)), 0)`,
-				gymnastikCent: sql<number>`coalesce(sum(round(${helperHours.gymnastik_minuten} * ${valueCent} / 60.0)), 0)`,
-				seniorenCent: sql<number>`coalesce(sum(round(${helperHours.senioren_minuten} * ${valueCent} / 60.0)), 0)`,
-				comboCent: sql<number>`coalesce(sum(round(${helperHours.combo_minuten} * ${valueCent} / 60.0)), 0)`,
+				kategorie_id: helperHourAllocations.kategorie_id,
+				minutes: sql<number>`coalesce(sum(${helperHourAllocations.minuten}), 0)`,
 			})
-			.from(helperHours),
+			.from(helperHourAllocations)
+			.groupBy(helperHourAllocations.kategorie_id),
 		db
 			.select({
-				gesamtverein: sql<number>`coalesce(sum(${helperHours.gesamtverein_minuten}), 0)`,
-				fussball: sql<number>`coalesce(sum(${helperHours.fussball_minuten}), 0)`,
-				korbball: sql<number>`coalesce(sum(${helperHours.korbball_minuten}), 0)`,
-				tischtennis: sql<number>`coalesce(sum(${helperHours.tischtennis_minuten}), 0)`,
-				darts: sql<number>`coalesce(sum(${helperHours.darts_minuten}), 0)`,
-				gymnastik: sql<number>`coalesce(sum(${helperHours.gymnastik_minuten}), 0)`,
-				senioren: sql<number>`coalesce(sum(${helperHours.senioren_minuten}), 0)`,
-				combo: sql<number>`coalesce(sum(${helperHours.combo_minuten}), 0)`,
+				kategorie_id: helperHourAllocations.kategorie_id,
+				minutes: sql<number>`coalesce(sum(${helperHourAllocations.minuten}), 0)`,
 			})
-			.from(helperHours)
-			.where(period),
+			.from(helperHourAllocations)
+			.innerJoin(
+				helperHours,
+				eq(helperHours.id, helperHourAllocations.helper_hour_id),
+			)
+			.where(period)
+			.groupBy(helperHourAllocations.kategorie_id),
 		db
 			.select({
-				abteilung: helperHourExpenses.abteilung,
+				kategorie_id: helperHourExpenses.kategorie_id,
 				cent: sql<number>`coalesce(sum(${helperHourExpenses.betrag_cent}), 0)`,
+				minutes: spentMinutesExpression(valueCent),
 			})
 			.from(helperHourExpenses)
 			.where(isNull(helperHourExpenses.storniert_am))
-			.groupBy(helperHourExpenses.abteilung),
+			.groupBy(helperHourExpenses.kategorie_id),
 		db
 			.select()
 			.from(helperHourExpenses)
@@ -129,20 +127,13 @@ export async function listHelperHours(year?: number) {
 			.orderBy(desc(yearExpression)),
 		db
 			.select({
+				key: HELPER_KEY,
 				vorname: sql<string>`min(trim(${helperHours.vorname}))`,
 				nachname: sql<string>`min(trim(${helperHours.nachname}))`,
 				entries: sql<number>`count(*)`,
 				events: sql<number>`count(distinct lower(trim(${helperHours.veranstaltung})))`,
 				minutes: sql<number>`coalesce(sum(${helperHours.gemeldete_summe_minuten}), 0)`,
 				lastDate: sql<string>`max(${helperHours.datum})`,
-				gesamtverein: sql<number>`coalesce(sum(${helperHours.gesamtverein_minuten}), 0)`,
-				fussball: sql<number>`coalesce(sum(${helperHours.fussball_minuten}), 0)`,
-				korbball: sql<number>`coalesce(sum(${helperHours.korbball_minuten}), 0)`,
-				tischtennis: sql<number>`coalesce(sum(${helperHours.tischtennis_minuten}), 0)`,
-				darts: sql<number>`coalesce(sum(${helperHours.darts_minuten}), 0)`,
-				gymnastik: sql<number>`coalesce(sum(${helperHours.gymnastik_minuten}), 0)`,
-				senioren: sql<number>`coalesce(sum(${helperHours.senioren_minuten}), 0)`,
-				combo: sql<number>`coalesce(sum(${helperHours.combo_minuten}), 0)`,
 			})
 			.from(helperHours)
 			.where(
@@ -151,63 +142,123 @@ export async function listHelperHours(year?: number) {
 					sql`length(trim(${helperHours.vorname} || ${helperHours.nachname})) > 0`,
 				),
 			)
-			.groupBy(
-				sql`lower(trim(${helperHours.vorname}))`,
-				sql`lower(trim(${helperHours.nachname}))`,
-			)
+			.groupBy(HELPER_KEY)
 			.orderBy(
 				desc(sql`sum(${helperHours.gemeldete_summe_minuten})`),
 				sql`min(trim(${helperHours.nachname}))`,
 			),
+		db
+			.select({
+				key: HELPER_KEY,
+				kategorie_id: helperHourAllocations.kategorie_id,
+				minutes: sql<number>`coalesce(sum(${helperHourAllocations.minuten}), 0)`,
+			})
+			.from(helperHourAllocations)
+			.innerJoin(
+				helperHours,
+				eq(helperHours.id, helperHourAllocations.helper_hour_id),
+			)
+			.where(
+				and(
+					period,
+					sql`length(trim(${helperHours.vorname} || ${helperHours.nachname})) > 0`,
+				),
+			)
+			.groupBy(HELPER_KEY, helperHourAllocations.kategorie_id),
 	]);
-	const allocationRow = allocation[0];
-	const spentByDepartment = new Map(
-		spent.map((entry) => [entry.abteilung, Number(entry.cent)]),
+
+	const categoryById = new Map(categories.map((entry) => [entry.id, entry]));
+	const earnedById = new Map(
+		allocationTotals.map((row) => [row.kategorie_id, Number(row.minutes)]),
 	);
-	const budgets = HELPER_HOUR_BUDGET_CATEGORIES.map((category) => {
-		const minutes = Number(allocationRow?.[category.code] ?? 0);
-		const earnedCent = Number(
-			allocationRow?.[`${category.code}Cent` as keyof typeof allocationRow] ??
-				0,
+	const periodById = new Map(
+		periodTotals.map((row) => [row.kategorie_id, Number(row.minutes)]),
+	);
+	const spentById = new Map(
+		spent.map((row) => [
+			row.kategorie_id,
+			{ cent: Number(row.cent), minutes: Number(row.minutes) },
+		]),
+	);
+
+	const budgets = categories
+		.filter((category) => category.art === "abteilung")
+		.map((category) => {
+			const earnedMinutes = earnedById.get(category.id) ?? 0;
+			const charged = spentById.get(category.id) ?? { cent: 0, minutes: 0 };
+			return {
+				id: category.id,
+				code: category.code,
+				label: category.label,
+				aktiv: category.aktiv,
+				minutes: earnedMinutes,
+				earnedMinutes,
+				spentMinutes: charged.minutes,
+				spentCent: charged.cent,
+				balanceMinutes: earnedMinutes - charged.minutes,
+			};
+		})
+		// A retired department keeps its card as long as it still holds hours.
+		.filter(
+			(entry) => entry.aktiv || entry.minutes > 0 || entry.spentMinutes > 0,
 		);
-		const spentCent = spentByDepartment.get(category.code) ?? 0;
-		return {
-			...category,
-			minutes,
-			earnedCent,
-			spentCent,
-			balanceCent: earnedCent - spentCent,
-		};
-	});
-	const contribution = {
-		code: "gesamtverein" as const,
+
+	const contributions = categories
+		.filter((category) => category.art === "verein")
+		.map((category) => ({
+			id: category.id,
+			code: category.code,
+			label: category.label,
+			minutes: earnedById.get(category.id) ?? 0,
+		}));
+	const contribution = contributions[0] ?? {
+		id: "",
+		code: "gesamtverein",
 		label: "Vereinsbeitrag",
-		minutes: Number(allocationRow?.gesamtverein ?? 0),
-		earnedCent: Number(allocationRow?.gesamtvereinCent ?? 0),
+		minutes: 0,
 	};
-	const periodAllocationRow = periodAllocation[0];
-	const distribution = HELPER_HOUR_CATEGORIES.map((category) => ({
-		...category,
-		minutes: Number(periodAllocationRow?.[category.code] ?? 0),
-	})).filter((category) => category.minutes > 0);
-	const helpers = helperRows.map((helper) => ({
+
+	const distribution = categories
+		.map((category) => ({
+			id: category.id,
+			code: category.code,
+			label: category.label,
+			art: category.art,
+			minutes: periodById.get(category.id) ?? 0,
+		}))
+		.filter((category) => category.minutes > 0);
+
+	const allocationsByHelper = new Map<string, Record<string, number>>();
+	for (const row of helperAllocations) {
+		const category = categoryById.get(row.kategorie_id);
+		if (!category) continue;
+		const current = allocationsByHelper.get(row.key) ?? {};
+		current[category.code] = Number(row.minutes);
+		allocationsByHelper.set(row.key, current);
+	}
+	const helpers = helperTotals.map((helper) => ({
 		vorname: helper.vorname,
 		nachname: helper.nachname,
 		entries: Number(helper.entries),
 		events: Number(helper.events),
 		minutes: Number(helper.minutes),
 		lastDate: helper.lastDate,
-		allocations: Object.fromEntries(
-			HELPER_HOUR_CATEGORIES.map((category) => [
-				category.code,
-				Number(helper[category.code]),
-			]),
-		) as Record<(typeof HELPER_HOUR_CATEGORIES)[number]["code"], number>,
+		allocations: allocationsByHelper.get(helper.key) ?? {},
 	}));
+
+	const expenses = expenseRows.map((row) => ({
+		...row,
+		kategorie_code: categoryById.get(row.kategorie_id)?.code ?? "",
+		kategorie_label: categoryById.get(row.kategorie_id)?.label ?? "",
+		minuten: minutesFromCent(row.betrag_cent, valueCent),
+	}));
+
 	return {
+		categories,
 		expenses,
 		budgets,
 		contribution,
+		contributions,
 		distribution,
 		helpers,
 		years: years.map((entry) => Number(entry.year)),
@@ -232,7 +283,14 @@ export async function listHelperHourEntries(input: HelperHourEntriesInput) {
 	}
 	if (input.quelle) conditions.push(eq(helperHours.quelle, input.quelle));
 	if (input.kategorie) {
-		conditions.push(sql`${helperHours[CATEGORY_COLUMNS[input.kategorie]]} > 0`);
+		conditions.push(
+			sql`exists (
+				select 1 from ${helperHourAllocations}
+				join ${helperHourCategories} on ${helperHourCategories.id} = ${helperHourAllocations.kategorie_id}
+				where ${helperHourAllocations.helper_hour_id} = ${helperHours.id}
+					and ${helperHourCategories.code} = ${input.kategorie}
+			)`,
+		);
 	}
 	if (input.query) {
 		const escaped = input.query.replace(/[\\%_]/g, "\\$&");
@@ -275,13 +333,63 @@ export async function listHelperHourEntries(input: HelperHourEntriesInput) {
 		)
 		.limit(input.page_size)
 		.offset((page - 1) * input.page_size);
+	const allocations = items.length
+		? await db
+				.select({
+					helper_hour_id: helperHourAllocations.helper_hour_id,
+					code: helperHourCategories.code,
+					label: helperHourCategories.label,
+					minuten: helperHourAllocations.minuten,
+				})
+				.from(helperHourAllocations)
+				.innerJoin(
+					helperHourCategories,
+					eq(helperHourCategories.id, helperHourAllocations.kategorie_id),
+				)
+				.where(
+					inArray(
+						helperHourAllocations.helper_hour_id,
+						items.map((item) => item.id),
+					),
+				)
+				.orderBy(asc(helperHourCategories.sortierung))
+		: [];
+	const byEntry = new Map<
+		string,
+		Array<{ code: string; label: string; minuten: number }>
+	>();
+	for (const row of allocations) {
+		const list = byEntry.get(row.helper_hour_id) ?? [];
+		list.push({ code: row.code, label: row.label, minuten: row.minuten });
+		byEntry.set(row.helper_hour_id, list);
+	}
 	return {
-		items,
+		items: items.map((item) => ({
+			...item,
+			allocations: byEntry.get(item.id) ?? [],
+		})),
 		total: Number(total),
 		page,
 		pageSize: input.page_size,
 		pageCount,
 	};
+}
+
+async function requireCategory(
+	tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+	code: string,
+	options: { requireBudget?: boolean } = {},
+) {
+	const [category] = await tx
+		.select()
+		.from(helperHourCategories)
+		.where(eq(helperHourCategories.code, code))
+		.limit(1);
+	if (!category) throw new Error("Der gewählte Punkt existiert nicht");
+	if (!category.aktiv) throw new Error(`"${category.label}" ist deaktiviert`);
+	if (options.requireBudget && category.art !== "abteilung")
+		throw new Error(`"${category.label}" bildet kein Abteilungsguthaben`);
+	return category;
 }
 
 export async function createHelperHourExpense(
@@ -290,11 +398,14 @@ export async function createHelperHourExpense(
 	audit: Pick<RecordAuditInput, "request">,
 ) {
 	return db.transaction(async (tx) => {
+		const category = await requireCategory(tx, input.abteilung, {
+			requireBudget: true,
+		});
 		const [row] = await tx
 			.insert(helperHourExpenses)
 			.values({
 				idempotency_key: input.idempotency_key,
-				abteilung: input.abteilung,
+				kategorie_id: category.id,
 				datum: input.datum,
 				bezeichnung: input.bezeichnung,
 				betrag_cent: input.betrag_cent,
@@ -312,16 +423,15 @@ export async function createHelperHourExpense(
 				.limit(1);
 			if (!existing) throw new Error("Ausgabe konnte nicht gespeichert werden");
 			if (
-				existing.abteilung !== input.abteilung ||
+				existing.kategorie_id !== category.id ||
 				existing.datum !== input.datum ||
 				existing.bezeichnung !== input.bezeichnung ||
 				existing.betrag_cent !== input.betrag_cent ||
 				existing.bemerkung !== input.bemerkung
-			) {
+			)
 				throw new Error(
 					"Diese Ausgabe wurde bereits mit anderen Angaben gespeichert",
 				);
-			}
 			return existing;
 		}
 		await recordAuditEventStrict(tx, {
@@ -335,7 +445,7 @@ export async function createHelperHourExpense(
 				label: row.bezeichnung,
 			},
 			metadata: {
-				abteilung: row.abteilung,
+				abteilung: category.code,
 				datum: row.datum,
 				betrag_cent: row.betrag_cent,
 			},
@@ -386,41 +496,76 @@ export async function cancelHelperHourExpense(
 				id: row.id,
 				label: row.bezeichnung,
 			},
-			metadata: {
-				abteilung: row.abteilung,
-				betrag_cent: row.betrag_cent,
-				grund: reason,
-			},
+			metadata: { betrag_cent: row.betrag_cent, grund: reason },
 		});
 		return row;
 	});
 }
 
-export async function loadHelperHourExport(category: HelperHourBudgetCategory) {
-	const [dashboard, hours, expenses] = await Promise.all([
-		listHelperHours(),
+export async function loadHelperHourExport(categoryCode: string) {
+	const dashboard = await listHelperHours();
+	const category = dashboard.categories.find(
+		(entry) => entry.code === categoryCode,
+	);
+	if (!category) throw new Error("Abteilung nicht gefunden");
+	const [hours, expenses] = await Promise.all([
 		db
-			.select()
+			.select({
+				id: helperHours.id,
+				datum: helperHours.datum,
+				veranstaltung: helperHours.veranstaltung,
+				nachname: helperHours.nachname,
+				vorname: helperHours.vorname,
+				bemerkung: helperHours.bemerkung,
+				quelle: helperHours.quelle,
+				quelle_blatt: helperHours.quelle_blatt,
+				allocatedMinutes: helperHourAllocations.minuten,
+			})
 			.from(helperHours)
-			.where(sql`${helperHours[CATEGORY_COLUMNS[category]]} > 0`)
+			.innerJoin(
+				helperHourAllocations,
+				eq(helperHourAllocations.helper_hour_id, helperHours.id),
+			)
+			.where(eq(helperHourAllocations.kategorie_id, category.id))
 			.orderBy(helperHours.datum, helperHours.nachname, helperHours.vorname),
 		db
 			.select()
 			.from(helperHourExpenses)
-			.where(eq(helperHourExpenses.abteilung, category))
+			.where(eq(helperHourExpenses.kategorie_id, category.id))
 			.orderBy(helperHourExpenses.datum, helperHourExpenses.erstellt_am),
 	]);
-	const budget = dashboard.budgets.find((entry) => entry.code === category);
+	const budget =
+		dashboard.budgets.find((entry) => entry.code === categoryCode) ??
+		(category.art === "verein"
+			? {
+					id: category.id,
+					code: category.code,
+					label: category.label,
+					aktiv: category.aktiv,
+					minutes:
+						dashboard.contributions.find((entry) => entry.code === categoryCode)
+							?.minutes ?? 0,
+					earnedMinutes:
+						dashboard.contributions.find((entry) => entry.code === categoryCode)
+							?.minutes ?? 0,
+					spentMinutes: 0,
+					spentCent: 0,
+					balanceMinutes:
+						dashboard.contributions.find((entry) => entry.code === categoryCode)
+							?.minutes ?? 0,
+				}
+			: null);
 	if (!budget) throw new Error("Abteilung nicht gefunden");
 	return {
-		category,
+		category: category.code,
+		categoryLabel: category.label,
 		budget,
 		valueCent: dashboard.valueCent,
-		hours: hours.map((row) => ({
+		hours,
+		expenses: expenses.map((row) => ({
 			...row,
-			allocatedMinutes: row[CATEGORY_COLUMNS[category]],
+			minuten: minutesFromCent(row.betrag_cent, dashboard.valueCent),
 		})),
-		expenses,
 	};
 }
 
@@ -430,7 +575,7 @@ export async function createHelperHour(
 	audit: Pick<RecordAuditInput, "request">,
 ) {
 	return db.transaction(async (tx) => {
-		const categoryColumn = CATEGORY_COLUMNS[input.kategorie];
+		const category = await requireCategory(tx, input.kategorie);
 		const [row] = await tx
 			.insert(helperHours)
 			.values({
@@ -439,7 +584,6 @@ export async function createHelperHour(
 				veranstaltung: input.veranstaltung,
 				nachname: input.nachname,
 				vorname: input.vorname,
-				[categoryColumn]: input.minuten,
 				gemeldete_summe_minuten: input.minuten,
 				bemerkung: input.bemerkung,
 				erstellt_von_user_id: actor.id,
@@ -455,20 +599,30 @@ export async function createHelperHour(
 				.limit(1);
 			if (!existing)
 				throw new Error("Helferstunde konnte nicht gespeichert werden");
+			const [allocation] = await tx
+				.select()
+				.from(helperHourAllocations)
+				.where(eq(helperHourAllocations.helper_hour_id, existing.id));
 			if (
 				existing.datum !== input.datum ||
 				existing.veranstaltung !== input.veranstaltung ||
 				existing.nachname !== input.nachname ||
 				existing.vorname !== input.vorname ||
-				existing[categoryColumn] !== input.minuten ||
 				existing.gemeldete_summe_minuten !== input.minuten ||
-				existing.bemerkung !== input.bemerkung
+				existing.bemerkung !== input.bemerkung ||
+				allocation?.kategorie_id !== category.id ||
+				allocation?.minuten !== input.minuten
 			)
 				throw new Error(
 					"Diese Helferstunde wurde bereits mit anderen Angaben gespeichert",
 				);
 			return existing;
 		}
+		await tx.insert(helperHourAllocations).values({
+			helper_hour_id: row.id,
+			kategorie_id: category.id,
+			minuten: input.minuten,
+		});
 		await recordAuditEventStrict(tx, {
 			category: "helferstunden",
 			action: "helferstunden.created",
@@ -483,34 +637,71 @@ export async function createHelperHour(
 				datum: row.datum,
 				veranstaltung: row.veranstaltung,
 				minuten: row.gemeldete_summe_minuten,
-				kategorie: input.kategorie,
+				kategorie: category.code,
 			},
 		});
 		return row;
 	});
 }
 
-export async function importedHelperHourRows(digest: string) {
+/**
+ * How many Excel rows Rendant already holds for the sheets a file covers. The
+ * monthly sheet is the register of record, so re-importing it replaces what
+ * came from an earlier version of the same list instead of duplicating it.
+ */
+export async function helperHourSheetStatus(sheets: string[]) {
+	if (sheets.length === 0) return { existing: 0, digests: [] as string[] };
 	const rows = await db
-		.select({ sheet: helperHours.quelle_blatt, row: helperHours.quelle_zeile })
+		.select({
+			digest: helperHours.quelle_sha256,
+			count: sql<number>`count(*)`,
+		})
 		.from(helperHours)
-		.where(eq(helperHours.quelle_sha256, digest));
-	return new Set(rows.map((entry) => `${entry.sheet}:${entry.row}`));
+		.where(
+			and(
+				eq(helperHours.quelle, "excel"),
+				inArray(helperHours.quelle_blatt, sheets),
+			),
+		)
+		.groupBy(helperHours.quelle_sha256);
+	return {
+		existing: rows.reduce((sum, row) => sum + Number(row.count), 0),
+		digests: rows.map((row) => row.digest).filter((v): v is string => !!v),
+	};
 }
 
 export async function importHelperHours(
 	rows: HelperHoursImportRow[],
+	sheets: string[],
 	actor: AuthUser,
 	audit: Pick<RecordAuditInput, "request" | "subject">,
-	review: { corrected: number; accepted: number } = {
+	review: { corrected: number; accepted: number; repaired: number } = {
 		corrected: 0,
 		accepted: 0,
+		repaired: 0,
 	},
 ) {
+	const categories = await listHelperHourCategories();
+	const categoryByCode = new Map(
+		categories.map((category) => [category.code, category]),
+	);
 	return db.transaction(async (tx) => {
+		// Everything previously imported for these sheets goes, so the result is
+		// exactly the current list. Manually entered hours are never touched.
+		const removed = sheets.length
+			? await tx
+					.delete(helperHours)
+					.where(
+						and(
+							eq(helperHours.quelle, "excel"),
+							inArray(helperHours.quelle_blatt, sheets),
+						),
+					)
+					.returning({ id: helperHours.id })
+			: [];
 		let created = 0;
 		for (const row of rows) {
-			const inserted = await tx
+			const [inserted] = await tx
 				.insert(helperHours)
 				.values({
 					idempotency_key: row.idempotency_key,
@@ -518,7 +709,6 @@ export async function importHelperHours(
 					veranstaltung: row.veranstaltung,
 					nachname: row.nachname,
 					vorname: row.vorname,
-					...row.allocations,
 					gemeldete_summe_minuten: row.gemeldete_summe_minuten,
 					bemerkung: row.bemerkung,
 					quelle: "excel",
@@ -540,7 +730,24 @@ export async function importHelperHours(
 					],
 				})
 				.returning({ id: helperHours.id });
-			created += inserted.length;
+			if (!inserted) continue;
+			created++;
+			const allocations = Object.entries(row.allocations)
+				.filter(([, minutes]) => minutes > 0)
+				.map(([code, minutes]) => {
+					const category = categoryByCode.get(code);
+					if (!category)
+						throw new Error(
+							`${row.sheet} Zeile ${row.rowNumber}: Der Punkt "${code}" existiert nicht mehr.`,
+						);
+					return {
+						helper_hour_id: inserted.id,
+						kategorie_id: category.id,
+						minuten: minutes,
+					};
+				});
+			if (allocations.length)
+				await tx.insert(helperHourAllocations).values(allocations);
 		}
 		await recordAuditEventStrict(tx, {
 			category: "helferstunden",
@@ -550,10 +757,99 @@ export async function importHelperHours(
 			subject: audit.subject,
 			metadata: {
 				erstellt: created,
+				ersetzt: removed.length,
 				zeilen: rows.length,
+				blaetter: sheets,
+				automatisch_korrigiert: review.repaired,
 				korrigierte_zeilen: review.corrected,
 				bewusst_uebernommene_hinweise: review.accepted,
 			},
+		});
+		return {
+			created,
+			replaced: removed.length,
+			skipped: rows.length - created,
+		};
+	});
+}
+
+/**
+ * Deductions already booked in Rendant, keyed by content. Used to recognise
+ * rows of the settlement list that were imported before.
+ */
+export async function existingHelperHourExpenseSignatures() {
+	const rows = await db
+		.select({
+			code: helperHourCategories.code,
+			datum: helperHourExpenses.datum,
+			bezeichnung: helperHourExpenses.bezeichnung,
+			betrag_cent: helperHourExpenses.betrag_cent,
+			storniert_am: helperHourExpenses.storniert_am,
+		})
+		.from(helperHourExpenses)
+		.innerJoin(
+			helperHourCategories,
+			eq(helperHourCategories.id, helperHourExpenses.kategorie_id),
+		);
+	const active = new Set<string>();
+	const all = new Set<string>();
+	for (const row of rows) {
+		const signature = helperHourExpenseSignature({
+			kategorie_code: row.code,
+			datum: row.datum,
+			bezeichnung: row.bezeichnung,
+			betrag_cent: row.betrag_cent,
+		});
+		all.add(signature);
+		if (!row.storniert_am) active.add(signature);
+	}
+	return { active, all };
+}
+
+export async function importHelperHourExpenses(
+	rows: HelperHourExpenseImportRow[],
+	actor: AuthUser,
+	audit: Pick<RecordAuditInput, "request" | "subject">,
+) {
+	const categories = await listHelperHourCategories();
+	const categoryByCode = new Map(
+		categories.map((category) => [category.code, category]),
+	);
+	return db.transaction(async (tx) => {
+		let created = 0;
+		for (const row of rows) {
+			const category = categoryByCode.get(row.kategorie_code);
+			if (!category)
+				throw new Error(
+					`${row.sheet} Zeile ${row.rowNumber}: Der Punkt "${row.kategorie_code}" existiert nicht mehr.`,
+				);
+			const inserted = await tx
+				.insert(helperHourExpenses)
+				.values({
+					idempotency_key: row.idempotency_key,
+					kategorie_id: category.id,
+					datum: row.datum,
+					bezeichnung: row.bezeichnung,
+					betrag_cent: row.betrag_cent,
+					quelle: "excel",
+					quelle_datei: row.sourceFile,
+					quelle_sha256: row.sourceDigest,
+					quelle_blatt: row.sheet,
+					quelle_zeile: row.rowNumber,
+					erstellt_von_user_id: actor.id,
+					erstellt_von_name: actor.name,
+				})
+				.onConflictDoNothing({ target: helperHourExpenses.idempotency_key })
+				.returning({ id: helperHourExpenses.id });
+			created += inserted.length;
+		}
+		await recordAuditEventStrict(tx, {
+			category: "helferstunden",
+			action: "helferstunden.expenses_imported",
+			actor,
+			request: audit.request,
+			subject: audit.subject,
+			metadata: { erstellt: created, zeilen: rows.length },
 		});
 		return { created, skipped: rows.length - created };
 	});

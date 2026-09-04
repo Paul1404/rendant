@@ -1,10 +1,6 @@
 import * as v from "valibot";
 import { isIsoCalendarDate, todayIsoDate } from "@/lib/date";
 import { DENOMINATION_KEYS } from "@/lib/denominations";
-import {
-	HELPER_HOUR_BUDGET_CATEGORY_CODES,
-	HELPER_HOUR_CATEGORIES,
-} from "@/lib/helper-hours";
 import { UMSATZBEREICHE } from "@/lib/umsatzbereich";
 
 // Validation schemas in Valibot, shared between the oRPC procedures (server)
@@ -170,6 +166,49 @@ export const CreateProtokollSchema = v.object({
 });
 export type CreateProtokollInput = v.InferOutput<typeof CreateProtokollSchema>;
 
+/**
+ * Category codes are generated from the name when a category is created, so a
+ * shape check here plus the lookup in the service is the whole contract.
+ */
+const helperHourCategoryCode = v.pipe(
+	v.string(),
+	v.trim(),
+	v.regex(/^[a-z0-9][a-z0-9_]{0,39}$/, "Ungültiger Punkt"),
+);
+
+export const HelperHourCategoryCreateSchema = v.object({
+	label: v.pipe(
+		v.string(),
+		v.trim(),
+		v.minLength(1, "Bitte einen Namen angeben"),
+		v.maxLength(60),
+	),
+	art: v.picklist(["abteilung", "verein"]),
+});
+export type HelperHourCategoryCreateInput = v.InferOutput<
+	typeof HelperHourCategoryCreateSchema
+>;
+
+export const HelperHourCategoryUpdateSchema = v.object({
+	id: v.pipe(v.string(), v.uuid()),
+	label: v.pipe(
+		v.string(),
+		v.trim(),
+		v.minLength(1, "Bitte einen Namen angeben"),
+		v.maxLength(60),
+	),
+	art: v.picklist(["abteilung", "verein"]),
+	aktiv: v.boolean(),
+	sortierung: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(999)),
+});
+export type HelperHourCategoryUpdateInput = v.InferOutput<
+	typeof HelperHourCategoryUpdateSchema
+>;
+
+export const HelperHourCategoryDeleteSchema = v.object({
+	id: v.pipe(v.string(), v.uuid()),
+});
+
 export const HelperHourCreateSchema = v.object({
 	idempotency_key: v.pipe(v.string(), v.uuid()),
 	datum: isoCalendarDate,
@@ -191,7 +230,7 @@ export const HelperHourCreateSchema = v.object({
 		v.minLength(1, "Bitte den Vornamen angeben"),
 		v.maxLength(120),
 	),
-	kategorie: v.picklist(HELPER_HOUR_CATEGORIES.map((entry) => entry.code)),
+	kategorie: helperHourCategoryCode,
 	minuten: v.pipe(
 		v.number(),
 		v.integer(),
@@ -222,9 +261,7 @@ export const HelperHourEntriesSchema = v.object({
 	),
 	query: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(120))),
 	quelle: v.optional(v.picklist(["manuell", "excel"])),
-	kategorie: v.optional(
-		v.picklist(HELPER_HOUR_CATEGORIES.map((entry) => entry.code)),
-	),
+	kategorie: v.optional(helperHourCategoryCode),
 	sort: v.optional(
 		v.picklist(["date", "helper", "event", "source", "hours"]),
 		"date",
@@ -242,7 +279,7 @@ export const HelperHourValueSchema = v.object({
 
 export const HelperHourExpenseCreateSchema = v.object({
 	idempotency_key: v.pipe(v.string(), v.uuid()),
-	abteilung: v.picklist(HELPER_HOUR_BUDGET_CATEGORY_CODES),
+	abteilung: helperHourCategoryCode,
 	datum: isoCalendarDate,
 	bezeichnung: v.pipe(
 		v.string(),

@@ -28,6 +28,7 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiExportJsonRouteImport } from './routes/api/export.json'
 import { Route as ApiExportRevenueRouteImport } from './routes/api/export.revenue'
 import { Route as ApiExportUstRouteImport } from './routes/api/export.ust'
+import { Route as ApiImportHelperHourExpensesRouteImport } from './routes/api/import.helper-hour-expenses'
 import { Route as ApiImportHelperHoursRouteImport } from './routes/api/import.helper-hours'
 import { Route as ApiImportHistoricalProtocolsRouteImport } from './routes/api/import.historical-protocols'
 import { Route as ApiImportHistoricalSourcesRouteImport } from './routes/api/import.historical-sources'
@@ -135,6 +136,12 @@ const ApiExportUstRoute = ApiExportUstRouteImport.update({
   path: '/ust',
   getParentRoute: () => ApiExportRoute,
 } as any)
+const ApiImportHelperHourExpensesRoute =
+  ApiImportHelperHourExpensesRouteImport.update({
+    id: '/api/import/helper-hour-expenses',
+    path: '/api/import/helper-hour-expenses',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiImportHelperHoursRoute = ApiImportHelperHoursRouteImport.update({
   id: '/api/import/helper-hours',
   path: '/api/import/helper-hours',
@@ -217,6 +224,7 @@ export interface FileRoutesByFullPath {
   '/api/export/json': typeof ApiExportJsonRoute
   '/api/export/revenue': typeof ApiExportRevenueRouteWithChildren
   '/api/export/ust': typeof ApiExportUstRoute
+  '/api/import/helper-hour-expenses': typeof ApiImportHelperHourExpensesRoute
   '/api/import/helper-hours': typeof ApiImportHelperHoursRoute
   '/api/import/historical-protocols': typeof ApiImportHistoricalProtocolsRoute
   '/api/import/historical-sources': typeof ApiImportHistoricalSourcesRoute
@@ -248,6 +256,7 @@ export interface FileRoutesByTo {
   '/api/export/json': typeof ApiExportJsonRoute
   '/api/export/revenue': typeof ApiExportRevenueRouteWithChildren
   '/api/export/ust': typeof ApiExportUstRoute
+  '/api/import/helper-hour-expenses': typeof ApiImportHelperHourExpensesRoute
   '/api/import/helper-hours': typeof ApiImportHelperHoursRoute
   '/api/import/historical-protocols': typeof ApiImportHistoricalProtocolsRoute
   '/api/import/historical-sources': typeof ApiImportHistoricalSourcesRoute
@@ -281,6 +290,7 @@ export interface FileRoutesById {
   '/api/export/json': typeof ApiExportJsonRoute
   '/api/export/revenue': typeof ApiExportRevenueRouteWithChildren
   '/api/export/ust': typeof ApiExportUstRoute
+  '/api/import/helper-hour-expenses': typeof ApiImportHelperHourExpensesRoute
   '/api/import/helper-hours': typeof ApiImportHelperHoursRoute
   '/api/import/historical-protocols': typeof ApiImportHistoricalProtocolsRoute
   '/api/import/historical-sources': typeof ApiImportHistoricalSourcesRoute
@@ -315,6 +325,7 @@ export interface FileRouteTypes {
     | '/api/export/json'
     | '/api/export/revenue'
     | '/api/export/ust'
+    | '/api/import/helper-hour-expenses'
     | '/api/import/helper-hours'
     | '/api/import/historical-protocols'
     | '/api/import/historical-sources'
@@ -346,6 +357,7 @@ export interface FileRouteTypes {
     | '/api/export/json'
     | '/api/export/revenue'
     | '/api/export/ust'
+    | '/api/import/helper-hour-expenses'
     | '/api/import/helper-hours'
     | '/api/import/historical-protocols'
     | '/api/import/historical-sources'
@@ -378,6 +390,7 @@ export interface FileRouteTypes {
     | '/api/export/json'
     | '/api/export/revenue'
     | '/api/export/ust'
+    | '/api/import/helper-hour-expenses'
     | '/api/import/helper-hours'
     | '/api/import/historical-protocols'
     | '/api/import/historical-sources'
@@ -400,6 +413,7 @@ export interface RootRouteChildren {
   ApiMcpRoute: typeof ApiMcpRoute
   InviteTokenRoute: typeof InviteTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiImportHelperHourExpensesRoute: typeof ApiImportHelperHourExpensesRoute
   ApiImportHelperHoursRoute: typeof ApiImportHelperHoursRoute
   ApiImportHistoricalProtocolsRoute: typeof ApiImportHistoricalProtocolsRoute
   ApiImportHistoricalSourcesRoute: typeof ApiImportHistoricalSourcesRoute
@@ -544,6 +558,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/export/ust'
       preLoaderRoute: typeof ApiExportUstRouteImport
       parentRoute: typeof ApiExportRoute
+    }
+    '/api/import/helper-hour-expenses': {
+      id: '/api/import/helper-hour-expenses'
+      path: '/api/import/helper-hour-expenses'
+      fullPath: '/api/import/helper-hour-expenses'
+      preLoaderRoute: typeof ApiImportHelperHourExpensesRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/import/helper-hours': {
       id: '/api/import/helper-hours'
@@ -700,6 +721,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMcpRoute: ApiMcpRoute,
   InviteTokenRoute: InviteTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiImportHelperHourExpensesRoute: ApiImportHelperHourExpensesRoute,
   ApiImportHelperHoursRoute: ApiImportHelperHoursRoute,
   ApiImportHistoricalProtocolsRoute: ApiImportHistoricalProtocolsRoute,
   ApiImportHistoricalSourcesRoute: ApiImportHistoricalSourcesRoute,

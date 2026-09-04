@@ -9,6 +9,7 @@ import {
 	integer,
 	jsonb,
 	pgTable,
+	primaryKey,
 	text,
 	timestamp,
 	uniqueIndex,
@@ -377,6 +378,51 @@ export const appSettings = pgTable(
 	],
 );
 
+/**
+ * Helper-hour categories are data, not code: the club can add, rename and
+ * retire departments without a deployment. The eight original categories are
+ * seeded by migration and flagged `system`, so they stay referenceable by
+ * historical allocations and exports even after being deactivated.
+ */
+export const helperHourCategories = pgTable(
+	"helper_hour_categories",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		code: text("code").notNull().unique(),
+		label: text("label").notNull(),
+		art: text("art").notNull().default("abteilung"),
+		sortierung: integer("sortierung").notNull().default(0),
+		aktiv: boolean("aktiv").notNull().default(true),
+		system: boolean("system").notNull().default(false),
+		erstellt_von_user_id: text("erstellt_von_user_id"),
+		erstellt_von_name: text("erstellt_von_name"),
+		erstellt_am: timestamp("erstellt_am", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		aktualisiert_am: timestamp("aktualisiert_am", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		uniqueIndex("helper_hour_categories_label_unique").on(
+			sql`lower(trim(${t.label}))`,
+		),
+		index("idx_helper_hour_categories_sort").on(t.sortierung, t.label),
+		check(
+			"helper_hour_categories_code_check",
+			sql`${t.code} ~ '^[a-z0-9][a-z0-9_]{0,39}$'`,
+		),
+		check(
+			"helper_hour_categories_label_check",
+			sql`length(trim(${t.label})) BETWEEN 1 AND 60`,
+		),
+		check(
+			"helper_hour_categories_art_check",
+			sql`${t.art} IN ('verein', 'abteilung')`,
+		),
+	],
+);
+
 export const helperHours = pgTable(
 	"helper_hours",
 	{
@@ -386,14 +432,6 @@ export const helperHours = pgTable(
 		veranstaltung: text("veranstaltung").notNull(),
 		nachname: text("nachname").notNull().default(""),
 		vorname: text("vorname").notNull().default(""),
-		gesamtverein_minuten: integer("gesamtverein_minuten").notNull().default(0),
-		fussball_minuten: integer("fussball_minuten").notNull().default(0),
-		korbball_minuten: integer("korbball_minuten").notNull().default(0),
-		tischtennis_minuten: integer("tischtennis_minuten").notNull().default(0),
-		darts_minuten: integer("darts_minuten").notNull().default(0),
-		gymnastik_minuten: integer("gymnastik_minuten").notNull().default(0),
-		senioren_minuten: integer("senioren_minuten").notNull().default(0),
-		combo_minuten: integer("combo_minuten").notNull().default(0),
 		gemeldete_summe_minuten: integer("gemeldete_summe_minuten").notNull(),
 		bemerkung: text("bemerkung").notNull().default(""),
 		quelle: text("quelle").notNull().default("manuell"),
@@ -408,6 +446,7 @@ export const helperHours = pgTable(
 		import_originalwerte: jsonb("import_originalwerte").$type<{
 			vorname: string;
 			nachname: string;
+			datum: string;
 			allocations: Record<string, number>;
 			gemeldete_summe_minuten: number;
 		}>(),
@@ -432,6 +471,7 @@ export const helperHours = pgTable(
 		),
 		index("idx_helper_hours_datum").on(t.datum),
 		index("idx_helper_hours_name").on(t.nachname, t.vorname),
+		index("idx_helper_hours_sheet").on(t.quelle, t.quelle_blatt),
 		check(
 			"helper_hours_event_check",
 			sql`length(trim(${t.veranstaltung})) BETWEEN 1 AND 160`,
@@ -444,27 +484,55 @@ export const helperHours = pgTable(
 			"helper_hours_source_check",
 			sql`${t.quelle} IN ('manuell', 'excel')`,
 		),
-		check(
-			"helper_hours_minutes_check",
-			sql`${t.gesamtverein_minuten} >= 0 AND ${t.fussball_minuten} >= 0 AND ${t.korbball_minuten} >= 0 AND ${t.tischtennis_minuten} >= 0 AND ${t.darts_minuten} >= 0 AND ${t.gymnastik_minuten} >= 0 AND ${t.senioren_minuten} >= 0 AND ${t.combo_minuten} >= 0 AND ${t.gemeldete_summe_minuten} > 0`,
-		),
-		check(
-			"helper_hours_manual_total_check",
-			sql`${t.quelle} = 'excel' OR ${t.gemeldete_summe_minuten} = ${t.gesamtverein_minuten} + ${t.fussball_minuten} + ${t.korbball_minuten} + ${t.tischtennis_minuten} + ${t.darts_minuten} + ${t.gymnastik_minuten} + ${t.senioren_minuten} + ${t.combo_minuten}`,
-		),
+		check("helper_hours_minutes_check", sql`${t.gemeldete_summe_minuten} > 0`),
 	],
 );
 
+/**
+ * One row per category an entry contributes minutes to. Replaces the former
+ * fixed minute columns so new categories need no schema change. Only positive
+ * allocations are stored; the absence of a row means zero.
+ */
+export const helperHourAllocations = pgTable(
+	"helper_hour_allocations",
+	{
+		helper_hour_id: uuid("helper_hour_id")
+			.notNull()
+			.references(() => helperHours.id, { onDelete: "cascade" }),
+		kategorie_id: uuid("kategorie_id")
+			.notNull()
+			.references(() => helperHourCategories.id, { onDelete: "restrict" }),
+		minuten: integer("minuten").notNull(),
+	},
+	(t) => [
+		primaryKey({ columns: [t.helper_hour_id, t.kategorie_id] }),
+		index("idx_helper_hour_allocations_category").on(t.kategorie_id),
+		check("helper_hour_allocations_minutes_check", sql`${t.minuten} > 0`),
+	],
+);
+
+/**
+ * Department purchases. Booked in euro, but presented as the hours they
+ * consume: the helper-hour view is currency free, so a purchase is shown as
+ * `betrag_cent` converted at the current hourly value.
+ */
 export const helperHourExpenses = pgTable(
 	"helper_hour_expenses",
 	{
 		id: uuid("id").primaryKey().defaultRandom(),
 		idempotency_key: uuid("idempotency_key").notNull().unique(),
-		abteilung: text("abteilung").notNull(),
+		kategorie_id: uuid("kategorie_id")
+			.notNull()
+			.references(() => helperHourCategories.id, { onDelete: "restrict" }),
 		datum: date("datum", { mode: "string" }).notNull(),
 		bezeichnung: text("bezeichnung").notNull(),
 		betrag_cent: integer("betrag_cent").notNull(),
 		bemerkung: text("bemerkung").notNull().default(""),
+		quelle: text("quelle").notNull().default("manuell"),
+		quelle_datei: text("quelle_datei"),
+		quelle_sha256: text("quelle_sha256"),
+		quelle_blatt: text("quelle_blatt"),
+		quelle_zeile: integer("quelle_zeile"),
 		storniert_am: timestamp("storniert_am", { withTimezone: true }),
 		storno_grund: text("storno_grund"),
 		storniert_von_user_id: text("storniert_von_user_id"),
@@ -476,16 +544,21 @@ export const helperHourExpenses = pgTable(
 			.defaultNow(),
 	},
 	(t) => [
-		index("idx_helper_hour_expenses_department_date").on(t.abteilung, t.datum),
-		check(
-			"helper_hour_expenses_department_check",
-			sql`${t.abteilung} IN ('fussball', 'korbball', 'tischtennis', 'darts', 'gymnastik', 'senioren', 'combo')`,
+		uniqueIndex("helper_hour_expenses_source_row_unique").on(
+			t.quelle_sha256,
+			t.quelle_blatt,
+			t.quelle_zeile,
 		),
+		index("idx_helper_hour_expenses_category_date").on(t.kategorie_id, t.datum),
 		check(
 			"helper_hour_expenses_description_check",
 			sql`length(trim(${t.bezeichnung})) BETWEEN 1 AND 200`,
 		),
 		check("helper_hour_expenses_amount_check", sql`${t.betrag_cent} > 0`),
+		check(
+			"helper_hour_expenses_source_check",
+			sql`${t.quelle} IN ('manuell', 'excel')`,
+		),
 		check(
 			"helper_hour_expenses_cancellation_check",
 			sql`(${t.storniert_am} IS NULL AND ${t.storno_grund} IS NULL AND ${t.storniert_von_user_id} IS NULL AND ${t.storniert_von_name} IS NULL) OR (${t.storniert_am} IS NOT NULL AND length(trim(${t.storno_grund})) >= 5 AND ${t.storniert_von_user_id} IS NOT NULL AND ${t.storniert_von_name} IS NOT NULL)`,

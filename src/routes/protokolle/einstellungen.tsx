@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
 	Bell,
 	Building2,
+	HandHeart,
 	Hash,
 	Mail,
 	Network,
@@ -12,6 +13,7 @@ import {
 import { BelegnummerSettingsForm } from "@/components/belegnummer-settings-form";
 import { CashRegistersForm } from "@/components/cash-registers-form";
 import { EmailSettingsForm } from "@/components/email-settings-form";
+import { HelperHourCategoriesForm } from "@/components/helper-hour-categories-form";
 import { McpSettingsPanel } from "@/components/mcp-settings-panel";
 import { NotificationPrefForm } from "@/components/notification-pref-form";
 import { PageHeader } from "@/components/page-header";
@@ -38,6 +40,9 @@ export const Route = createFileRoute("/protokolle/einstellungen")({
 				isAdmin ? orpcClient.settings.getMcp() : Promise.resolve(null),
 				orpcClient.profile.getNotify(),
 			]);
+		const helperHourValue = isAdmin
+			? await orpcClient.settings.getHelperHourValue()
+			: null;
 		return {
 			currentUserId: context.user.id,
 			settings: belegnummer.settings,
@@ -52,6 +57,7 @@ export const Route = createFileRoute("/protokolle/einstellungen")({
 			admin: admin ? { users: admin[0], invites: admin[1] } : null,
 			email,
 			mcp,
+			helperHourValue,
 			notifyProtokoll: notify.notify,
 		};
 	},
@@ -73,6 +79,7 @@ function EinstellungenPage() {
 		admin,
 		email,
 		mcp,
+		helperHourValue,
 		notifyProtokoll,
 	} = Route.useLoaderData();
 
@@ -92,6 +99,7 @@ function EinstellungenPage() {
 					<SettingsLink href="#verein">Verein</SettingsLink>
 					<SettingsLink href="#kassen">Kassen</SettingsLink>
 					<SettingsLink href="#buchhaltung">Buchhaltung</SettingsLink>
+					<SettingsLink href="#helferstunden">Helferstunden</SettingsLink>
 					<SettingsLink href="#mcp">MCP &amp; Automatisierung</SettingsLink>
 					<SettingsLink href="#benutzer">Benutzer</SettingsLink>
 				</nav>
@@ -154,6 +162,23 @@ function EinstellungenPage() {
 							initialUpdatedAt={umsatzUstUpdatedAt}
 						/>
 					</section>
+
+					{helperHourValue ? (
+						<section
+							id="helferstunden"
+							className="mx-auto max-w-3xl scroll-mt-28 space-y-4"
+						>
+							<SectionHeading
+								icon={HandHeart}
+								title="Helferstunden"
+								description="Abteilungen und Vereinsbeiträge, denen Helferstunden zugeordnet werden, sowie der Stundenwert, mit dem Käufe in abgezogene Stunden umgerechnet werden. Nur für Admins."
+							/>
+							<HelperHourCategoriesForm
+								valueCent={helperHourValue.wert_cent}
+								valueUpdatedAt={helperHourValue.updated_at}
+							/>
+						</section>
+					) : null}
 				</>
 			) : null}
 

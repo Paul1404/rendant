@@ -42,14 +42,32 @@ update the appropriate canonical documentation in the same change.
 - Historical protocol review phases store exact row memberships and progress.
   Changing a working value reopens affected checks, and only the explicit final
   import may create historical revenue records.
-- Helper-hours department budgets are derived from each category's allocated
-  minutes at the current global hourly value. Department purchases are separate
-  audited records and must be cancelled with a reason, never deleted or hidden.
-- Helferstunden imports use preview, file digest and source sheet/row
-  idempotency. Preserve reported totals and category allocations separately so
-  legacy discrepancies stay visible instead of being silently rewritten. In-app
-  corrections must retain the original parsed values and require every warning
-  to be corrected or explicitly accepted before the final import.
+- Helper-hour categories are rows in `helper_hour_categories`, not code. The
+  eight seeded ones are flagged `system` and may be renamed or deactivated but
+  never deleted. Minutes live in `helper_hour_allocations`, one row per category
+  an entry contributes to. Never reintroduce fixed per-category columns.
+- The Helferstunden view is currency free. A department's balance is earned
+  minutes minus the minutes its purchases consume at the current hourly value.
+  A purchase is still booked in euro; only the hourly value setting and the
+  purchase amount field may name a currency, and both live outside that view.
+- Department purchases are separate audited records and must be cancelled with
+  a reason, never deleted or hidden. The settlement-list import therefore only
+  adds rows it does not already hold and reports rows that vanished from the
+  list instead of removing them.
+- Helferstunden imports preview first. The monthly sheets are the register of
+  record, so applying an import replaces everything previously imported for the
+  sheets the file contains and leaves manually entered hours untouched.
+- The importer repairs only what the file itself makes unambiguous: a swapped
+  name pair the list writes the other way round elsewhere, a year that
+  contradicts the monthly sheet, casing, a missing sum, and unassigned hours.
+  Roughly half of a club's surnames occur exactly once, so absence of a token
+  elsewhere is never evidence; a name orientation is decided once per person and
+  applied to all their rows, never row by row.
+- Preserve reported totals and category allocations separately so legacy
+  discrepancies stay visible instead of being silently rewritten. Repairs and
+  in-app corrections must retain the original parsed values, and every remaining
+  issue has to be corrected or explicitly accepted before the final import.
+- A column carrying hours that matches no category is reported, never ignored.
 
 ## Versions and release notes
 

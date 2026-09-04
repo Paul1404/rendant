@@ -6,8 +6,9 @@ import {
 	auditRequest,
 	recordAuditEvent,
 } from "@/server/services/audit";
+import { listHelperHourCategories } from "@/server/services/helper-hour-categories";
 import {
-	importedHelperHourRows,
+	helperHourSheetStatus,
 	importHelperHours,
 } from "@/server/services/helper-hours";
 import {
@@ -68,11 +69,18 @@ export const Route = createFileRoute("/api/import/helper-hours")({
 					return Response.json({ error: "Ungültiger Modus." }, { status: 400 });
 				const bytes = new Uint8Array(await file.arrayBuffer());
 				const digest = createHash("sha256").update(bytes).digest("hex");
-				const parsed = await parseHelperHoursWorkbook(bytes, file.name, digest);
-				const existing = await importedHelperHourRows(digest);
-				const pending = parsed.rows.filter(
-					(row) => !existing.has(`${row.sheet}:${row.rowNumber}`),
+				const categories = await listHelperHourCategories();
+				const parsed = await parseHelperHoursWorkbook(
+					bytes,
+					file.name,
+					categories,
+					digest,
 				);
+				// Every row of the file is imported: the monthly sheets are the
+				// register of record, so what Rendant already holds for those sheets
+				// is replaced rather than added to.
+				const pending = parsed.rows;
+				const replaced = await helperHourSheetStatus(parsed.sheets);
 				const hours = pending.reduce(
 					(sum, row) => sum + row.gemeldete_summe_minuten,
 					0,
@@ -88,6 +96,8 @@ export const Route = createFileRoute("/api/import/helper-hours")({
 							zeilen: parsed.rows.length,
 							fehler: parsed.errors.length,
 							warnungen: parsed.warnings,
+							automatisch_korrigiert: parsed.repairs,
+							moegliche_doppelschreibungen: parsed.similarNames.length,
 						},
 					});
 					return Response.json({
@@ -95,7 +105,24 @@ export const Route = createFileRoute("/api/import/helper-hours")({
 						digest,
 						rows: parsed.rows.length,
 						toImport: pending.length,
-						alreadyImported: parsed.rows.length - pending.length,
+						replaces: replaced.existing,
+						sheets: parsed.sheets,
+						unknownColumns: parsed.unknownColumns,
+						similarNames: parsed.similarNames,
+						repairs: parsed.repairs,
+						repairSample: pending
+							.filter((row) => row.repairs.length > 0)
+							.slice(0, 40)
+							.map((row) => ({
+								sheet: row.sheet,
+								row: row.rowNumber,
+								before:
+									`${row.originalValues.nachname}, ${row.originalValues.vorname}`.trim(),
+								after: `${row.nachname}, ${row.vorname}`.trim(),
+								beforeDate: row.originalValues.datum,
+								afterDate: row.datum,
+								repairs: row.repairs,
+							})),
 						hours,
 						warnings: pending.reduce(
 							(sum, row) => sum + row.warnings.length,
@@ -124,6 +151,12 @@ export const Route = createFileRoute("/api/import/helper-hours")({
 								issues: row.issues,
 								warnings: row.warnings,
 							})),
+						categories: categories.map((category) => ({
+							code: category.code,
+							label: category.label,
+							art: category.art,
+							aktiv: category.aktiv,
+						})),
 						sample: parsed.rows.slice(0, 8).map((row) => ({
 							sheet: row.sheet,
 							row: row.rowNumber,
@@ -159,6 +192,7 @@ export const Route = createFileRoute("/api/import/helper-hours")({
 				const reviewed = applyHelperHoursImportCorrections(
 					pending,
 					corrections,
+					new Set(categories.map((category) => category.code)),
 				);
 				if (reviewed.errors.length > 0)
 					return Response.json({ error: reviewed.errors[0] }, { status: 400 });
@@ -172,6 +206,7 @@ export const Route = createFileRoute("/api/import/helper-hours")({
 				const actor = auditActor(session.user);
 				const result = await importHelperHours(
 					reviewed.rows,
+					parsed.sheets,
 					actor,
 					{
 						request: auditRequest(request),
@@ -184,6 +219,7 @@ export const Route = createFileRoute("/api/import/helper-hours")({
 					{
 						corrected: reviewed.corrected,
 						accepted: reviewed.accepted,
+						repaired: parsed.repairs,
 					},
 				);
 				return Response.json({ ok: true, ...result });
