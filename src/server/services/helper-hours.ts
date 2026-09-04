@@ -15,13 +15,16 @@ import { minutesFromCent } from "@/lib/helper-hours";
 import type {
 	HelperHourCreateInput,
 	HelperHourEntriesInput,
+	HelperHourEntryCorrectInput,
 	HelperHourExpenseCreateInput,
+	HelperHourNameAliasCreateInput,
 } from "@/lib/schemas";
 import { db } from "@/server/db";
 import {
 	helperHourAllocations,
 	helperHourCategories,
 	helperHourExpenses,
+	helperHourNameAliases,
 	helperHours,
 } from "@/server/db/schema";
 import type { AuthUser } from "@/server/orpc/base";
@@ -33,6 +36,7 @@ import { listHelperHourCategories } from "@/server/services/helper-hour-categori
 import type { HelperHourExpenseImportRow } from "@/server/services/helper-hour-expense-import";
 import { helperHourExpenseSignature } from "@/server/services/helper-hour-expense-import";
 import type { HelperHoursImportRow } from "@/server/services/helper-hours-import";
+import { similarHelperNames } from "@/server/services/helper-hours-import";
 import {
 	getHelperHourValueCent,
 	getSettingsStamp,
@@ -852,5 +856,270 @@ export async function importHelperHourExpenses(
 			metadata: { erstellt: created, zeilen: rows.length },
 		});
 		return { created, skipped: rows.length - created };
+	});
+}
+
+export async function listHelperHourNameAliases() {
+	return db
+		.select()
+		.from(helperHourNameAliases)
+		.orderBy(
+			asc(helperHourNameAliases.nach_nachname),
+			asc(helperHourNameAliases.nach_vorname),
+		);
+}
+
+/**
+ * Spellings in the stored hours that look like the same person. The import
+ * reports the same thing for a file; this one answers it for what Rendant
+ * already holds, so a correction can be decided without a fresh import.
+ */
+export async function listHelperHourNameVariants() {
+	const [rows, aliases] = await Promise.all([
+		db
+			.select({
+				nachname: sql<string>`min(trim(${helperHours.nachname}))`,
+				vorname: sql<string>`min(trim(${helperHours.vorname}))`,
+				entries: sql<number>`count(*)`,
+				minutes: sql<number>`coalesce(sum(${helperHours.gemeldete_summe_minuten}), 0)`,
+			})
+			.from(helperHours)
+			.where(
+				sql`length(trim(${helperHours.nachname})) > 0 AND length(trim(${helperHours.vorname})) > 0`,
+			)
+			.groupBy(
+				sql`lower(trim(${helperHours.nachname}))`,
+				sql`lower(trim(${helperHours.vorname}))`,
+			),
+		listHelperHourNameAliases(),
+	]);
+	// A pair already decided is not a question any more.
+	const settled = new Set(
+		aliases.map(
+			(entry) =>
+				`${entry.von_nachname.trim().toLocaleLowerCase("de-DE")}|${entry.von_vorname.trim().toLocaleLowerCase("de-DE")}`,
+		),
+	);
+	return similarHelperNames(
+		rows.map((row) => ({
+			nachname: row.nachname,
+			vorname: row.vorname,
+			minutes: Number(row.minutes),
+			// Already grouped per spelling, so the real count has to be carried
+			// through: the merge direction is chosen from it.
+			entries: Number(row.entries),
+		})),
+	).filter((pair) => {
+		const key = (label: string) =>
+			label
+				.split(", ")
+				.map((part) => part.trim().toLocaleLowerCase("de-DE"))
+				.join("|");
+		return !settled.has(key(pair.left)) && !settled.has(key(pair.right));
+	});
+}
+
+/**
+ * Records that one spelling means another and applies it to the hours already
+ * stored. Both halves matter: without the rewrite the existing rows keep the
+ * old spelling, and without the stored alias the next import would undo it,
+ * because importing replaces the monthly sheets it covers.
+ */
+export async function createHelperHourNameAlias(
+	input: HelperHourNameAliasCreateInput,
+	actor: AuthUser,
+	audit: Pick<RecordAuditInput, "request">,
+) {
+	const norm = (value: string) => value.trim().toLocaleLowerCase("de-DE");
+	return db.transaction(async (tx) => {
+		// Chained aliases would make the order they are applied in matter.
+		const existing = await tx.select().from(helperHourNameAliases);
+		if (
+			existing.some(
+				(entry) =>
+					norm(entry.von_nachname) === norm(input.nach_nachname) &&
+					norm(entry.von_vorname) === norm(input.nach_vorname),
+			)
+		)
+			throw new Error(
+				"Die Zielschreibweise wird selbst schon auf eine andere umgeleitet",
+			);
+		const [row] = await tx
+			.insert(helperHourNameAliases)
+			.values({
+				von_nachname: input.von_nachname,
+				von_vorname: input.von_vorname,
+				nach_nachname: input.nach_nachname,
+				nach_vorname: input.nach_vorname,
+				bemerkung: input.bemerkung,
+				erstellt_von_user_id: actor.id,
+				erstellt_von_name: actor.name,
+			})
+			.onConflictDoNothing()
+			.returning();
+		if (!row)
+			throw new Error("Für diese Schreibweise gibt es bereits eine Variante");
+		const updated = await tx
+			.update(helperHours)
+			.set({ nachname: input.nach_nachname, vorname: input.nach_vorname })
+			.where(
+				and(
+					sql`lower(trim(${helperHours.nachname})) = ${norm(input.von_nachname)}`,
+					sql`lower(trim(${helperHours.vorname})) = ${norm(input.von_vorname)}`,
+				),
+			)
+			.returning({ id: helperHours.id });
+		await recordAuditEventStrict(tx, {
+			category: "helferstunden",
+			action: "helferstunden.name_alias_created",
+			actor,
+			request: audit.request,
+			subject: {
+				type: "helferstunden_namensvariante",
+				id: row.id,
+				label: `${input.von_nachname}, ${input.von_vorname}`,
+			},
+			metadata: {
+				von: `${input.von_nachname}, ${input.von_vorname}`,
+				nach: `${input.nach_nachname}, ${input.nach_vorname}`,
+				angepasste_eintraege: updated.length,
+			},
+		});
+		return { ...row, updated: updated.length };
+	});
+}
+
+export async function deleteHelperHourNameAlias(
+	id: string,
+	actor: AuthUser,
+	audit: Pick<RecordAuditInput, "request">,
+) {
+	return db.transaction(async (tx) => {
+		const [row] = await tx
+			.delete(helperHourNameAliases)
+			.where(eq(helperHourNameAliases.id, id))
+			.returning();
+		if (!row) throw new Error("Namensvariante nicht gefunden");
+		// The hours already rewritten keep the target spelling; only future
+		// imports stop applying it.
+		await recordAuditEventStrict(tx, {
+			category: "helferstunden",
+			action: "helferstunden.name_alias_deleted",
+			actor,
+			request: audit.request,
+			subject: {
+				type: "helferstunden_namensvariante",
+				id: row.id,
+				label: `${row.von_nachname}, ${row.von_vorname}`,
+			},
+			metadata: { nach: `${row.nach_nachname}, ${row.nach_vorname}` },
+		});
+		return { id: row.id };
+	});
+}
+
+/**
+ * Corrects one stored entry's name or category split. The reported total is
+ * recomputed from the new split, so an entry can never claim hours it does not
+ * account for. The values as first parsed stay in `import_originalwerte`, and
+ * the reason is required so the audit trail says why.
+ */
+export async function correctHelperHourEntry(
+	input: HelperHourEntryCorrectInput,
+	actor: AuthUser,
+	audit: Pick<RecordAuditInput, "request">,
+) {
+	return db.transaction(async (tx) => {
+		const [current] = await tx
+			.select()
+			.from(helperHours)
+			.where(eq(helperHours.id, input.id))
+			.limit(1);
+		if (!current) throw new Error("Helferstunde nicht gefunden");
+		const before = await tx
+			.select({
+				code: helperHourCategories.code,
+				minuten: helperHourAllocations.minuten,
+			})
+			.from(helperHourAllocations)
+			.innerJoin(
+				helperHourCategories,
+				eq(helperHourCategories.id, helperHourAllocations.kategorie_id),
+			)
+			.where(eq(helperHourAllocations.helper_hour_id, current.id));
+
+		let minutes = current.gemeldete_summe_minuten;
+		if (input.zuordnung) {
+			const seen = new Set<string>();
+			const rows = [];
+			for (const entry of input.zuordnung) {
+				if (seen.has(entry.kategorie))
+					throw new Error(`Der Punkt "${entry.kategorie}" kommt doppelt vor`);
+				seen.add(entry.kategorie);
+				const category = await requireCategory(tx, entry.kategorie);
+				rows.push({
+					helper_hour_id: current.id,
+					kategorie_id: category.id,
+					minuten: entry.minuten,
+				});
+			}
+			minutes = rows.reduce((sum, row) => sum + row.minuten, 0);
+			await tx
+				.delete(helperHourAllocations)
+				.where(eq(helperHourAllocations.helper_hour_id, current.id));
+			await tx.insert(helperHourAllocations).values(rows);
+		}
+		const [row] = await tx
+			.update(helperHours)
+			.set({
+				nachname: input.nachname ?? current.nachname,
+				vorname: input.vorname ?? current.vorname,
+				gemeldete_summe_minuten: minutes,
+				import_originalwerte: current.import_originalwerte ?? {
+					vorname: current.vorname,
+					nachname: current.nachname,
+					datum: current.datum,
+					allocations: Object.fromEntries(
+						before.map((entry) => [entry.code, entry.minuten]),
+					),
+					gemeldete_summe_minuten: current.gemeldete_summe_minuten,
+				},
+			})
+			.where(eq(helperHours.id, current.id))
+			.returning();
+		await recordAuditEventStrict(tx, {
+			category: "helferstunden",
+			action: "helferstunden.entry_corrected",
+			actor,
+			request: audit.request,
+			subject: {
+				type: "helferstunde",
+				id: current.id,
+				label: `${row.vorname} ${row.nachname}`.trim(),
+			},
+			metadata: {
+				grund: input.grund,
+				vorher: {
+					name: `${current.nachname}, ${current.vorname}`,
+					minuten: current.gemeldete_summe_minuten,
+					zuordnung: Object.fromEntries(
+						before.map((entry) => [entry.code, entry.minuten]),
+					),
+				},
+				nachher: {
+					name: `${row.nachname}, ${row.vorname}`,
+					minuten: row.gemeldete_summe_minuten,
+					zuordnung: input.zuordnung
+						? Object.fromEntries(
+								input.zuordnung.map((entry) => [
+									entry.kategorie,
+									entry.minuten,
+								]),
+							)
+						: undefined,
+				},
+			},
+		});
+		return row;
 	});
 }

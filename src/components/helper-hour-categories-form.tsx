@@ -36,6 +36,187 @@ type Category = {
 	expenses: number;
 };
 
+type NameVariant = {
+	left: string;
+	right: string;
+	leftEntries: number;
+	rightEntries: number;
+	leftMinutes: number;
+	rightMinutes: number;
+};
+type NameAlias = {
+	id: string;
+	von_nachname: string;
+	von_vorname: string;
+	nach_nachname: string;
+	nach_vorname: string;
+};
+
+/**
+ * Two spellings of one person split their hours across two helpers. Merging is
+ * never automatic: the same similarity finds real siblings too, so each pair is
+ * confirmed here and then remembered for every future import.
+ */
+export function HelperHourNameVariantsForm() {
+	const { data: variants, refetch: refetchVariants } = useQuery(
+		orpc.helperHours.nameVariants.queryOptions({}),
+	);
+	const { data: aliases, refetch: refetchAliases } = useQuery(
+		orpc.helperHours.nameAliases.queryOptions({}),
+	);
+	const queryClient = useQueryClient();
+	const [pending, setPending] = useState<string | null>(null);
+
+	async function refresh() {
+		await Promise.all([
+			refetchVariants(),
+			refetchAliases(),
+			queryClient.invalidateQueries({
+				queryKey: orpc.helperHours.list.key({ type: "query" }),
+			}),
+			queryClient.invalidateQueries({
+				queryKey: orpc.helperHours.entries.key({ type: "query" }),
+			}),
+		]);
+	}
+
+	async function merge(from: string, to: string) {
+		const [vonNachname, vonVorname] = from.split(", ");
+		const [nachNachname, nachVorname] = to.split(", ");
+		setPending(from);
+		try {
+			const saved = await orpcClient.helperHours.createNameAlias({
+				von_nachname: vonNachname ?? "",
+				von_vorname: vonVorname ?? "",
+				nach_nachname: nachNachname ?? "",
+				nach_vorname: nachVorname ?? "",
+				bemerkung: "",
+			});
+			await refresh();
+			toast.success(`${saved.updated} Einträge auf "${to}" vereinheitlicht`);
+		} catch (error) {
+			toast.error(orpcMessage(error, "Zusammenführen fehlgeschlagen"));
+		} finally {
+			setPending(null);
+		}
+	}
+
+	async function remove(id: string) {
+		setPending(id);
+		try {
+			await orpcClient.helperHours.deleteNameAlias({ id });
+			await refresh();
+			toast.success("Namensvariante entfernt");
+		} catch (error) {
+			toast.error(orpcMessage(error, "Entfernen fehlgeschlagen"));
+		} finally {
+			setPending(null);
+		}
+	}
+
+	const offen = (variants ?? []) as NameVariant[];
+	const bekannt = (aliases ?? []) as NameAlias[];
+
+	return (
+		<Card>
+			<CardHeader>
+				<p className="font-medium">Namensvarianten</p>
+				<p className="text-xs text-muted-foreground">
+					Schreibweisen, die dieselbe Person sein könnten. Führst du sie
+					zusammen, werden die vorhandenen Stunden umgeschrieben und jeder
+					künftige Import wendet die Entscheidung an. Zwei ähnliche Namen können
+					auch zwei echte Personen sein, deshalb passiert nichts von selbst.
+				</p>
+			</CardHeader>
+			<CardContent className="space-y-2">
+				{offen.length === 0 ? (
+					<p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+						Keine offenen Namensvarianten.
+					</p>
+				) : null}
+				{offen.map((variant) => {
+					// The spelling with more entries is offered as the target.
+					const [ziel, quelle] =
+						variant.leftEntries >= variant.rightEntries
+							? [variant.left, variant.right]
+							: [variant.right, variant.left];
+					const zielStunden =
+						variant.leftEntries >= variant.rightEntries
+							? variant.leftMinutes
+							: variant.rightMinutes;
+					const quelleStunden =
+						variant.leftEntries >= variant.rightEntries
+							? variant.rightMinutes
+							: variant.leftMinutes;
+					return (
+						<div
+							key={`${variant.left}|${variant.right}`}
+							className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3"
+						>
+							<div className="min-w-0 text-sm">
+								<p>
+									<span className="font-medium">{quelle}</span> (
+									{formatMinutes(quelleStunden)} h) zu{" "}
+									<span className="font-medium">{ziel}</span> (
+									{formatMinutes(zielStunden)} h)
+								</p>
+							</div>
+							<div className="flex gap-2">
+								<Button
+									type="button"
+									size="sm"
+									disabled={pending !== null}
+									onClick={() => void merge(quelle, ziel)}
+								>
+									Zusammenführen
+								</Button>
+								<Button
+									type="button"
+									size="sm"
+									variant="outline"
+									disabled={pending !== null}
+									onClick={() => void merge(ziel, quelle)}
+								>
+									Umgekehrt
+								</Button>
+							</div>
+						</div>
+					);
+				})}
+				{bekannt.length ? (
+					<div className="space-y-2 border-t pt-3">
+						<p className="text-xs font-medium text-muted-foreground">
+							Hinterlegte Varianten
+						</p>
+						{bekannt.map((alias) => (
+							<div
+								key={alias.id}
+								className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm"
+							>
+								<span>
+									{alias.von_nachname}, {alias.von_vorname} zu{" "}
+									<span className="font-medium">
+										{alias.nach_nachname}, {alias.nach_vorname}
+									</span>
+								</span>
+								<Button
+									type="button"
+									variant="ghost"
+									size="sm"
+									disabled={pending !== null}
+									onClick={() => void remove(alias.id)}
+								>
+									<Trash2 className="h-3.5 w-3.5" />
+								</Button>
+							</div>
+						))}
+					</div>
+				) : null}
+			</CardContent>
+		</Card>
+	);
+}
+
 export function HelperHourCategoriesForm({
 	valueCent,
 	valueUpdatedAt,

@@ -10,6 +10,7 @@ import { listHelperHourCategories } from "@/server/services/helper-hour-categori
 import {
 	helperHourSheetStatus,
 	importHelperHours,
+	listHelperHourNameAliases,
 } from "@/server/services/helper-hours";
 import {
 	applyHelperHoursImportCorrections,
@@ -69,12 +70,16 @@ export const Route = createFileRoute("/api/import/helper-hours")({
 					return Response.json({ error: "Ungültiger Modus." }, { status: 400 });
 				const bytes = new Uint8Array(await file.arrayBuffer());
 				const digest = createHash("sha256").update(bytes).digest("hex");
-				const categories = await listHelperHourCategories();
+				const [categories, aliases] = await Promise.all([
+					listHelperHourCategories(),
+					listHelperHourNameAliases(),
+				]);
 				const parsed = await parseHelperHoursWorkbook(
 					bytes,
 					file.name,
 					categories,
 					digest,
+					aliases,
 				);
 				// Every row of the file is imported: the monthly sheets are the
 				// register of record, so what Rendant already holds for those sheets

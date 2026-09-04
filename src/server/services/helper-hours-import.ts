@@ -28,6 +28,7 @@ export type HelperHoursImportRepairCode =
 	| "name_case"
 	| "name_swapped"
 	| "name_completed"
+	| "name_alias"
 	| "sheet_year";
 
 export type HelperHoursImportOriginalValues = {
@@ -108,6 +109,7 @@ const REPAIR_MESSAGES: Record<HelperHoursImportRepairCode, string> = {
 	name_case: "Schreibweise des Namens vereinheitlicht.",
 	name_swapped: "Vor- und Nachname waren vertauscht und wurden getauscht.",
 	name_completed: "Fehlender Namensteil aus der Liste ergänzt.",
+	name_alias: "Schreibweise laut hinterlegter Namensvariante vereinheitlicht.",
 	sheet_year: "Jahreszahl an das Monatsblatt angepasst.",
 };
 const ISSUE_CODES = new Set<HelperHoursImportIssueCode>(
@@ -590,7 +592,13 @@ function editDistance(a: string, b: string): number {
  * repaired. Deliberately conservative: one name part must match exactly.
  */
 export function similarHelperNames(
-	rows: Array<{ nachname: string; vorname: string; minutes: number }>,
+	rows: Array<{
+		nachname: string;
+		vorname: string;
+		minutes: number;
+		/** Rows already aggregated per spelling pass their count here. */
+		entries?: number;
+	}>,
 ): HelperHoursSimilarName[] {
 	const people = new Map<
 		string,
@@ -606,7 +614,7 @@ export function similarHelperNames(
 			entries: 0,
 			minutes: 0,
 		};
-		current.entries++;
+		current.entries += row.entries ?? 1;
 		current.minutes += row.minutes;
 		people.set(key, current);
 	}
@@ -704,11 +712,20 @@ export function helperHourNoteCandidates(
 	);
 }
 
+/** "When the list writes X, mean Y", as decided by the club. */
+export type HelperHourNameAlias = {
+	von_nachname: string;
+	von_vorname: string;
+	nach_nachname: string;
+	nach_vorname: string;
+};
+
 export async function parseHelperHoursWorkbook(
 	bytes: Uint8Array,
 	sourceFile: string,
 	categories: HelperHourCategory[],
 	sourceDigest = createHash("sha256").update(bytes).digest("hex"),
+	aliases: HelperHourNameAlias[] = [],
 ): Promise<HelperHoursImportResult> {
 	const workbook = new ExcelJS.Workbook();
 	try {
@@ -881,6 +898,17 @@ export async function parseHelperHoursWorkbook(
 		}
 	}
 
+	// Keyed on the unordered pair: the club decides about a person, not about a
+	// column order, so a variant still applies to a row that also happens to
+	// have the two name parts the wrong way round.
+	const aliasByName = new Map(
+		aliases.map((entry) => [
+			[nameKey(entry.von_nachname), nameKey(entry.von_vorname)]
+				.sort()
+				.join("|"),
+			entry,
+		]),
+	);
 	const names = canonicalNames(raw);
 	const rows: HelperHoursImportRow[] = [];
 	for (const entry of raw) {
@@ -951,6 +979,14 @@ export async function parseHelperHoursWorkbook(
 				);
 				repairs.push("name_completed");
 			}
+		}
+		const alias = aliasByName.get(
+			[nameKey(nachname), nameKey(vorname)].sort().join("|"),
+		);
+		if (alias) {
+			nachname = alias.nach_nachname;
+			vorname = alias.nach_vorname;
+			repairs.push("name_alias");
 		}
 		if (!nachname || !vorname) issues.push("missing_name");
 

@@ -62,8 +62,18 @@ async function workbookBytes(): Promise<Uint8Array> {
 	return new Uint8Array(await workbook.xlsx.writeBuffer());
 }
 
-async function parse(bytes: Uint8Array, digest: string) {
-	return parseHelperHoursWorkbook(bytes, "Liste.xlsx", CATEGORIES, digest);
+async function parse(
+	bytes: Uint8Array,
+	digest: string,
+	aliases: Parameters<typeof parseHelperHoursWorkbook>[4] = [],
+) {
+	return parseHelperHoursWorkbook(
+		bytes,
+		"Liste.xlsx",
+		CATEGORIES,
+		digest,
+		aliases,
+	);
 }
 
 async function rewrite(
@@ -535,6 +545,19 @@ describe("Mögliche Doppelschreibungen", () => {
 		expect(found).toEqual([]);
 	});
 
+	it("übernimmt eine bereits gezählte Anzahl je Schreibweise", () => {
+		const [found] = similarHelperNames([
+			{ nachname: "Haas", vorname: "Monika", minutes: 2670, entries: 6 },
+			{ nachname: "Haas", vorname: "Moni", minutes: 750, entries: 2 },
+		]);
+		expect(found).toMatchObject({
+			left: "Haas, Monika",
+			leftEntries: 6,
+			right: "Haas, Moni",
+			rightEntries: 2,
+		});
+	});
+
 	it("zählt Einsätze und Stunden je Schreibweise zusammen", () => {
 		const [found] = similarHelperNames([
 			person("Kuhn", "Manuel", 120),
@@ -617,5 +640,87 @@ describe("Vermerke ohne eigenen Punkt", () => {
 			"Lina-Garde",
 			"Laufgruppe",
 		]);
+	});
+});
+
+describe("Hinterlegte Namensvarianten", () => {
+	async function blatt(zeilen: Array<[string, string]>) {
+		const workbook = new ExcelJS.Workbook();
+		const sheet = workbook.addWorksheet("Juni_26");
+		sheet.addRow(HEADER);
+		zeilen.forEach(([nachname, vorname], index) => {
+			sheet.addRow([
+				`0${index + 1}.06.2026`, "Sonntag", nachname, vorname,
+				3, null, null, null, null, null, null, null, 3,
+			]);
+		});
+		return new Uint8Array(await workbook.xlsx.writeBuffer());
+	}
+
+	it("vereinheitlicht die Schreibweise und hält den Originalwert fest", async () => {
+		const bytes = await blatt([
+			["Schad", "Mathias"],
+			["Schad", "Matthias"],
+		]);
+		const result = await parse(bytes, "a".repeat(64), [
+			{
+				von_nachname: "Schad",
+				von_vorname: "Matthias",
+				nach_nachname: "Schad",
+				nach_vorname: "Mathias",
+			},
+		]);
+		expect(result.rows[1]).toMatchObject({
+			nachname: "Schad",
+			vorname: "Mathias",
+		});
+		expect(result.rows[1].repairs).toContain("name_alias");
+		expect(result.rows[1].originalValues.vorname).toBe("Matthias");
+		// Nach der Vereinheitlichung ist es kein offenes Namenspaar mehr.
+		expect(result.similarNames).toEqual([]);
+	});
+
+	it("greift unabhängig davon, wie herum die Zeile geschrieben ist", async () => {
+		const bytes = await blatt([
+			["Kuhn", "Manuel"],
+			["Kuhn", "Manuel"],
+			["Kuhn", "Manuel"],
+			["Manu", "Kuhn"],
+		]);
+		const result = await parse(bytes, "b".repeat(64), [
+			{
+				von_nachname: "Kuhn",
+				von_vorname: "Manu",
+				nach_nachname: "Kuhn",
+				nach_vorname: "Manuel",
+			},
+		]);
+		expect(result.rows[3]).toMatchObject({
+			nachname: "Kuhn",
+			vorname: "Manuel",
+		});
+		// Die Variante setzt beide Namensteile, also ist die Vereinheitlichung die
+		// einzige Korrektur; ein zusätzlicher Tausch fände nichts mehr vor.
+		expect(result.rows[3].repairs).toEqual(["name_alias"]);
+	});
+
+	it("lässt Namen ohne passende Variante unverändert", async () => {
+		const result = await parse(
+			await blatt([["Wagner", "Peter"]]),
+			"c".repeat(64),
+			[
+				{
+					von_nachname: "Schad",
+					von_vorname: "Matthias",
+					nach_nachname: "Schad",
+					nach_vorname: "Mathias",
+				},
+			],
+		);
+		expect(result.rows[0]).toMatchObject({
+			nachname: "Wagner",
+			vorname: "Peter",
+		});
+		expect(result.rows[0].repairs).toEqual([]);
 	});
 });

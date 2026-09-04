@@ -176,6 +176,55 @@ const helperHourCategoryCode = v.pipe(
 	v.regex(/^[a-z0-9][a-z0-9_]{0,39}$/, "Ungültiger Punkt"),
 );
 
+const helperHourPersonName = v.pipe(
+	v.string(),
+	v.trim(),
+	v.minLength(1, "Bitte den Namen angeben"),
+	v.maxLength(120),
+);
+
+export const HelperHourNameAliasCreateSchema = v.object({
+	von_nachname: helperHourPersonName,
+	von_vorname: helperHourPersonName,
+	nach_nachname: helperHourPersonName,
+	nach_vorname: helperHourPersonName,
+	bemerkung: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(500)), ""),
+});
+export type HelperHourNameAliasCreateInput = v.InferOutput<
+	typeof HelperHourNameAliasCreateSchema
+>;
+
+export const HelperHourNameAliasDeleteSchema = v.object({
+	id: v.pipe(v.string(), v.uuid()),
+});
+
+export const HelperHourEntryCorrectSchema = v.object({
+	id: v.pipe(v.string(), v.uuid()),
+	nachname: v.optional(helperHourPersonName),
+	vorname: v.optional(helperHourPersonName),
+	zuordnung: v.optional(
+		v.pipe(
+			v.array(
+				v.object({
+					kategorie: helperHourCategoryCode,
+					minuten: v.pipe(
+						v.number(),
+						v.integer(),
+						v.minValue(1),
+						v.maxValue(10080),
+					),
+				}),
+			),
+			v.minLength(1),
+			v.maxLength(60),
+		),
+	),
+	grund: v.pipe(v.string(), v.trim(), v.minLength(5), v.maxLength(500)),
+});
+export type HelperHourEntryCorrectInput = v.InferOutput<
+	typeof HelperHourEntryCorrectSchema
+>;
+
 export const HelperHourCategoryCreateSchema = v.object({
 	label: v.pipe(
 		v.string(),
