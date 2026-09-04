@@ -104,6 +104,12 @@ type Preview = {
 		leftMinutes: number;
 		rightMinutes: number;
 	}>;
+	noteCandidates: Array<{
+		vermerk: string;
+		rows: number;
+		minutes: number;
+		categories: Array<{ label: string; minutes: number }>;
+	}>;
 	repairs: number;
 	repairSample: Array<{
 		sheet: string;
@@ -2023,6 +2029,37 @@ function HelperHoursImport({
 											entry.before === entry.after
 												? entry.repairs.join(", ")
 												: null}
+										</li>
+									))}
+								</ul>
+							</details>
+						) : null}
+						{preview.noteCandidates.length ? (
+							<details className="mt-3 rounded-lg border border-warning/35 bg-warning/10 p-3">
+								<summary className="cursor-pointer text-sm font-medium">
+									{preview.noteCandidates.length} Vermerke, für die es keinen
+									Punkt gibt
+								</summary>
+								<p className="mt-2 text-xs text-foreground/80">
+									Diese Bezeichnungen stehen in der Spalte "Sonstiges", haben
+									aber keine eigene Spalte. Die Stunden zählen deshalb für den
+									angekreuzten Punkt und tauchen unter diesem Namen nirgends
+									auf. Wenn daraus ein eigener Punkt werden soll: in den
+									Einstellungen anlegen, in der Liste eine Spalte mit genau
+									diesem Namen ergänzen und erneut importieren.
+								</p>
+								<ul className="mt-2 space-y-1 text-xs">
+									{preview.noteCandidates.map((entry) => (
+										<li key={entry.vermerk}>
+											<span className="font-medium">{entry.vermerk}</span>:{" "}
+											{entry.rows} Zeilen, {formatMinutes(entry.minutes)} h,
+											gebucht auf{" "}
+											{entry.categories
+												.map(
+													(category) =>
+														`${category.label} ${formatMinutes(category.minutes)} h`,
+												)
+												.join(", ")}
 										</li>
 									))}
 								</ul>

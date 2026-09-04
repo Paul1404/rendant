@@ -98,6 +98,7 @@ export const Route = createFileRoute("/api/import/helper-hours")({
 							warnungen: parsed.warnings,
 							automatisch_korrigiert: parsed.repairs,
 							moegliche_doppelschreibungen: parsed.similarNames.length,
+							vermerke_ohne_punkt: parsed.noteCandidates.length,
 						},
 					});
 					return Response.json({
@@ -109,6 +110,15 @@ export const Route = createFileRoute("/api/import/helper-hours")({
 						sheets: parsed.sheets,
 						unknownColumns: parsed.unknownColumns,
 						similarNames: parsed.similarNames,
+						noteCandidates: parsed.noteCandidates.map((entry) => ({
+							...entry,
+							categories: entry.categories.map((category) => ({
+								label:
+									categories.find((item) => item.code === category.code)
+										?.label ?? category.code,
+								minutes: category.minutes,
+							})),
+						})),
 						repairs: parsed.repairs,
 						repairSample: pending
 							.filter((row) => row.repairs.length > 0)

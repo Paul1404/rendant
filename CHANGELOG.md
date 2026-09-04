@@ -3,6 +3,16 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.44.0 - 2026-09-04
+
+- Die Importprüfung meldet Bezeichnungen, die in der Spalte "Sonstiges" stehen,
+  aber keinen eigenen Punkt haben, etwa "Kinderturnen" oder "Laufgruppe". Diese
+  Stunden zählen bisher für den angekreuzten Punkt und tauchen unter ihrem
+  eigenen Namen in keiner Auswertung auf. Die Meldung nennt Zeilen, Stunden und
+  die Punkte, auf die gebucht wurde.
+- Soll daraus ein eigener Punkt werden: in den Einstellungen anlegen, in der
+  Liste eine Spalte mit genau diesem Namen ergänzen und erneut importieren.
+
 ## 1.43.1 - 2026-09-04
 
 - Der Import dreht vertauschte Namen jetzt auch dann richtig herum, wenn eine
