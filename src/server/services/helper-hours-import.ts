@@ -74,12 +74,25 @@ export type HelperHoursSimilarName = {
 	leftMinutes: number;
 	rightMinutes: number;
 };
+/**
+ * A recurring value in the "Sonstiges" column that names something the list has
+ * no column for, e.g. "Kinderturnen" or "Laufgruppe". Those hours are booked to
+ * whatever column was ticked and the name survives only as free text, so they
+ * never show up in any evaluation under their own name.
+ */
+export type HelperHoursNoteCandidate = {
+	vermerk: string;
+	rows: number;
+	minutes: number;
+	categories: Array<{ code: string; minutes: number }>;
+};
 export type HelperHoursImportResult = {
 	rows: HelperHoursImportRow[];
 	errors: Array<{ sheet: string; row: number; message: string }>;
 	sheets: string[];
 	unknownColumns: string[];
 	similarNames: HelperHoursSimilarName[];
+	noteCandidates: HelperHoursNoteCandidate[];
 	repairs: number;
 	warnings: number;
 };
@@ -635,6 +648,62 @@ export function similarHelperNames(
 	);
 }
 
+/**
+ * Reported rather than acted on: whether "Kinderturnen" deserves its own point,
+ * or stays a note under Gymnastik, changes which department the hours build a
+ * budget for. Only the club can decide that.
+ */
+export function helperHourNoteCandidates(
+	rows: Array<{
+		bemerkung: string;
+		allocations: HelperHoursAllocations;
+		minutes: number;
+	}>,
+	categories: HelperHourCategory[],
+): HelperHoursNoteCandidate[] {
+	const known = new Set<string>();
+	for (const category of categories) {
+		known.add(normalizeHelperHourLabel(category.code));
+		known.add(normalizeHelperHourLabel(category.label));
+	}
+	const found = new Map<
+		string,
+		{ label: string; rows: number; minutes: number; kat: Map<string, number> }
+	>();
+	for (const row of rows) {
+		const note = row.bemerkung.trim();
+		// A sentence is a remark; a short recurring label is a missing point.
+		if (!note || note.length > 40) continue;
+		const key = normalizeHelperHourLabel(note);
+		if (!key || known.has(key)) continue;
+		const entry = found.get(key) ?? {
+			label: note,
+			rows: 0,
+			minutes: 0,
+			kat: new Map<string, number>(),
+		};
+		entry.rows++;
+		entry.minutes += row.minutes;
+		for (const [code, minutes] of Object.entries(row.allocations))
+			entry.kat.set(code, (entry.kat.get(code) ?? 0) + minutes);
+		found.set(key, entry);
+	}
+	return (
+		[...found.values()]
+			// One-off remarks are noise; a value that recurs is a category in hiding.
+			.filter((entry) => entry.rows >= 2)
+			.sort((a, b) => b.minutes - a.minutes)
+			.map((entry) => ({
+				vermerk: entry.label,
+				rows: entry.rows,
+				minutes: entry.minutes,
+				categories: [...entry.kat.entries()]
+					.sort((a, b) => b[1] - a[1])
+					.map(([code, minutes]) => ({ code, minutes })),
+			}))
+	);
+}
+
 export async function parseHelperHoursWorkbook(
 	bytes: Uint8Array,
 	sourceFile: string,
@@ -657,6 +726,7 @@ export async function parseHelperHoursWorkbook(
 			sheets: [],
 			unknownColumns: [],
 			similarNames: [],
+			noteCandidates: [],
 			repairs: 0,
 			warnings: 0,
 		};
@@ -804,6 +874,7 @@ export async function parseHelperHoursWorkbook(
 					sheets,
 					unknownColumns: [...unknownColumns],
 					similarNames: [],
+					noteCandidates: [],
 					repairs: 0,
 					warnings: 0,
 				};
@@ -948,6 +1019,14 @@ export async function parseHelperHoursWorkbook(
 				minutes: row.gemeldete_summe_minuten,
 			})),
 		).slice(0, 40),
+		noteCandidates: helperHourNoteCandidates(
+			rows.map((row) => ({
+				bemerkung: row.bemerkung,
+				allocations: row.allocations,
+				minutes: row.gemeldete_summe_minuten,
+			})),
+			categories,
+		).slice(0, 20),
 		repairs: rows.reduce((sum, row) => sum + row.repairs.length, 0),
 		warnings: rows.reduce((sum, row) => sum + row.warnings.length, 0),
 	};

@@ -7,6 +7,7 @@ import {
 import {
 	applyHelperHoursImportCorrections,
 	parseHelperHoursImportCorrections,
+	helperHourNoteCandidates,
 	parseHelperHoursWorkbook,
 	similarHelperNames,
 } from "@/server/services/helper-hours-import";
@@ -554,5 +555,67 @@ describe("Mögliche Doppelschreibungen", () => {
 		expect(similarHelperNames([person("", "Roman"), person("Wolf", "")])).toEqual(
 			[],
 		);
+	});
+});
+
+describe("Vermerke ohne eigenen Punkt", () => {
+	const zeile = (bemerkung: string, code: string, minutes = 180) => ({
+		bemerkung,
+		allocations: { [code]: minutes },
+		minutes,
+	});
+
+	it("meldet einen wiederkehrenden Vermerk mit seinen gebuchten Punkten", () => {
+		const [found] = helperHourNoteCandidates(
+			[
+				zeile("Kinderturnen", "gymnastik", 300),
+				zeile("Kinderturnen", "gymnastik", 360),
+				zeile("Kinderturnen", "fussball", 300),
+			],
+			CATEGORIES,
+		);
+		expect(found).toMatchObject({ vermerk: "Kinderturnen", rows: 3, minutes: 960 });
+		expect(found.categories).toEqual([
+			{ code: "gymnastik", minutes: 660 },
+			{ code: "fussball", minutes: 300 },
+		]);
+	});
+
+	it("meldet einmalige Vermerke und echte Bemerkungen nicht", () => {
+		expect(
+			helperHourNoteCandidates(
+				[
+					zeile("Altpapiersammlung", "fussball"),
+					zeile("Aufbau ab 7 Uhr, Abbau übernimmt die Jugend", "fussball"),
+					zeile("Aufbau ab 7 Uhr, Abbau übernimmt die Jugend", "fussball"),
+				],
+				CATEGORIES,
+			),
+		).toEqual([]);
+	});
+
+	it("meldet keinen Vermerk, der einen vorhandenen Punkt nennt", () => {
+		expect(
+			helperHourNoteCandidates(
+				[zeile("Gymnastik", "gymnastik"), zeile("gymnastik", "gymnastik")],
+				CATEGORIES,
+			),
+		).toEqual([]);
+	});
+
+	it("sortiert nach Stunden", () => {
+		const found = helperHourNoteCandidates(
+			[
+				zeile("Laufgruppe", "gesamtverein", 300),
+				zeile("Laufgruppe", "gesamtverein", 240),
+				zeile("Lina-Garde", "combo", 600),
+				zeile("Lina-Garde", "combo", 900),
+			],
+			CATEGORIES,
+		);
+		expect(found.map((entry) => entry.vermerk)).toEqual([
+			"Lina-Garde",
+			"Laufgruppe",
+		]);
 	});
 });
