@@ -423,6 +423,48 @@ export const helperHourCategories = pgTable(
 	],
 );
 
+/**
+ * "When the list writes X, mean Y." Applied on every import, so a spelling the
+ * club has already judged never has to be corrected again: a rename would
+ * otherwise be undone by the next import, which replaces the monthly sheets.
+ */
+export const helperHourNameAliases = pgTable(
+	"helper_hour_name_aliases",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		von_nachname: text("von_nachname").notNull(),
+		von_vorname: text("von_vorname").notNull(),
+		nach_nachname: text("nach_nachname").notNull(),
+		nach_vorname: text("nach_vorname").notNull(),
+		bemerkung: text("bemerkung").notNull().default(""),
+		erstellt_von_user_id: text("erstellt_von_user_id").notNull(),
+		erstellt_von_name: text("erstellt_von_name").notNull(),
+		erstellt_am: timestamp("erstellt_am", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		uniqueIndex("helper_hour_name_aliases_source_unique").on(
+			sql`lower(trim(${t.von_nachname}))`,
+			sql`lower(trim(${t.von_vorname}))`,
+		),
+		check(
+			"helper_hour_name_aliases_source_check",
+			sql`length(trim(${t.von_nachname} || ${t.von_vorname})) > 0`,
+		),
+		check(
+			"helper_hour_name_aliases_target_check",
+			sql`length(trim(${t.nach_nachname})) > 0 AND length(trim(${t.nach_vorname})) > 0`,
+		),
+		// A target that is itself a source would chain, and the order in which
+		// aliases apply would start to matter.
+		check(
+			"helper_hour_name_aliases_distinct_check",
+			sql`lower(trim(${t.von_nachname})) <> lower(trim(${t.nach_nachname})) OR lower(trim(${t.von_vorname})) <> lower(trim(${t.nach_vorname}))`,
+		),
+	],
+);
+
 export const helperHours = pgTable(
 	"helper_hours",
 	{

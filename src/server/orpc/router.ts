@@ -15,9 +15,12 @@ import {
 	HelperHourCategoryUpdateSchema,
 	HelperHourCreateSchema,
 	HelperHourEntriesSchema,
+	HelperHourEntryCorrectSchema,
 	HelperHourExpenseCancelSchema,
 	HelperHourExpenseCreateSchema,
 	HelperHourListSchema,
+	HelperHourNameAliasCreateSchema,
+	HelperHourNameAliasDeleteSchema,
 	HelperHourValueSchema,
 	HistoricalProtocolDraftAnalyzeSchema,
 	HistoricalProtocolDraftBulkUpdateSchema,
@@ -86,9 +89,14 @@ import {
 } from "@/server/services/helper-hour-categories";
 import {
 	cancelHelperHourExpense,
+	correctHelperHourEntry,
 	createHelperHour,
 	createHelperHourExpense,
+	createHelperHourNameAlias,
+	deleteHelperHourNameAlias,
 	listHelperHourEntries,
+	listHelperHourNameAliases,
+	listHelperHourNameVariants,
 	listHelperHours,
 } from "@/server/services/helper-hours";
 import {
@@ -1366,6 +1374,29 @@ const helperHours = {
 		.input(HelperHourCategoryDeleteSchema)
 		.handler(({ input, context }) =>
 			deleteHelperHourCategory(input.id, context.user, {
+				request: requestAuditContext(context),
+			}),
+		),
+	nameAliases: authed.handler(() => listHelperHourNameAliases()),
+	nameVariants: authed.handler(() => listHelperHourNameVariants()),
+	createNameAlias: adminOnly
+		.input(HelperHourNameAliasCreateSchema)
+		.handler(({ input, context }) =>
+			createHelperHourNameAlias(input, context.user, {
+				request: requestAuditContext(context),
+			}),
+		),
+	deleteNameAlias: adminOnly
+		.input(HelperHourNameAliasDeleteSchema)
+		.handler(({ input, context }) =>
+			deleteHelperHourNameAlias(input.id, context.user, {
+				request: requestAuditContext(context),
+			}),
+		),
+	correctEntry: adminOnly
+		.input(HelperHourEntryCorrectSchema)
+		.handler(({ input, context }) =>
+			correctHelperHourEntry(input, context.user, {
 				request: requestAuditContext(context),
 			}),
 		),

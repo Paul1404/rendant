@@ -211,6 +211,13 @@
       "when": 1788534394811,
       "tag": "0029_helper_hour_expense_category",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1788538184714,
+      "tag": "0030_helper_hour_name_aliases",
+      "breakpoints": true
     }
   ]
 }

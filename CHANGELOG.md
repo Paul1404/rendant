@@ -3,6 +3,24 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.45.0 - 2026-09-04
+
+- Namensvarianten lassen sich jetzt dauerhaft zusammenführen. Unter
+  Einstellungen, Helferstunden stehen die Schreibweisen, die dieselbe Person
+  sein könnten, mit Einsätzen und Stunden je Schreibweise. Ein Klick schreibt
+  die vorhandenen Stunden um und merkt sich die Entscheidung.
+- Die Entscheidung überlebt jeden weiteren Import. Bisher hätte ein erneuter
+  Import derselben Liste die Korrektur wieder überschrieben, weil der Import die
+  Monatsblätter ersetzt.
+- Zusammengeführt wird nie von selbst. Zwei ähnliche Namen können auch zwei
+  echte Personen sein, etwa Geschwister.
+- Neu über die MCP-Schnittstelle: Helferstunden auswerten, Einträge auflisten,
+  Punkte und Namensvarianten verwalten sowie einzelne Einträge mit Begründung
+  korrigieren. Lesende Werkzeuge stehen jedem Zugang offen, alle Änderungen
+  ausschließlich dem Adminzugang.
+- Eine Einzelkorrektur rechnet die gemeldete Summe aus der neuen Zuordnung neu,
+  bewahrt die ursprünglich importierten Werte und verlangt eine Begründung.
+
 ## 1.44.0 - 2026-09-04
 
 - Die Importprüfung meldet Bezeichnungen, die in der Spalte "Sonstiges" stehen,

@@ -35,6 +35,32 @@ describe("toolsForMode", () => {
 		}
 	});
 
+	// The helper-hour corrections rewrite stored hours and merge people, so they
+	// must never sit behind a plain readonly token.
+	it("keeps helper-hour corrections behind admin mode", () => {
+		const readonly = names("readonly");
+		const admin = names("admin");
+		for (const tool of [
+			"merge_helper_name",
+			"delete_helper_name_alias",
+			"correct_helper_hour_entry",
+			"create_helper_hour_category",
+			"update_helper_hour_category",
+		]) {
+			expect(readonly.has(tool)).toBe(false);
+			expect(admin.has(tool)).toBe(true);
+		}
+		for (const tool of [
+			"helper_hours_overview",
+			"list_helper_hours",
+			"list_helper_hour_categories",
+			"list_helper_name_variants",
+			"list_helper_name_aliases",
+		]) {
+			expect(readonly.has(tool)).toBe(true);
+		}
+	});
+
 	it("never exposes a mutating tool to readonly", () => {
 		for (const tool of toolsForMode("readonly")) {
 			expect(tool.annotations?.readOnlyHint).not.toBe(false);

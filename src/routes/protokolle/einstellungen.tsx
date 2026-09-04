@@ -13,7 +13,10 @@ import {
 import { BelegnummerSettingsForm } from "@/components/belegnummer-settings-form";
 import { CashRegistersForm } from "@/components/cash-registers-form";
 import { EmailSettingsForm } from "@/components/email-settings-form";
-import { HelperHourCategoriesForm } from "@/components/helper-hour-categories-form";
+import {
+	HelperHourCategoriesForm,
+	HelperHourNameVariantsForm,
+} from "@/components/helper-hour-categories-form";
 import { McpSettingsPanel } from "@/components/mcp-settings-panel";
 import { NotificationPrefForm } from "@/components/notification-pref-form";
 import { PageHeader } from "@/components/page-header";
@@ -177,6 +180,7 @@ function EinstellungenPage() {
 								valueCent={helperHourValue.wert_cent}
 								valueUpdatedAt={helperHourValue.updated_at}
 							/>
+							<HelperHourNameVariantsForm />
 						</section>
 					) : null}
 				</>

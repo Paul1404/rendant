@@ -115,6 +115,9 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
 	"helferstunden.category_created": "Helferstunden-Punkt angelegt",
 	"helferstunden.category_updated": "Helferstunden-Punkt geändert",
 	"helferstunden.category_deleted": "Helferstunden-Punkt gelöscht",
+	"helferstunden.name_alias_created": "Namensvariante zusammengeführt",
+	"helferstunden.name_alias_deleted": "Namensvariante entfernt",
+	"helferstunden.entry_corrected": "Helferstunde korrigiert",
 };
 
 export function auditActionLabel(action: string): string {

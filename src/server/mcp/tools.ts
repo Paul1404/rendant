@@ -9,6 +9,13 @@ import {
 	CashRegisterSchema,
 	CreateProtokollSchema,
 	ExportQuerySchema,
+	HelperHourCategoryCreateSchema,
+	HelperHourCategoryUpdateSchema,
+	HelperHourEntriesSchema,
+	HelperHourEntryCorrectSchema,
+	HelperHourListSchema,
+	HelperHourNameAliasCreateSchema,
+	HelperHourNameAliasDeleteSchema,
 	HistoricalProtocolDraftAnalyzeSchema,
 	HistoricalProtocolDraftBulkUpdateSchema,
 	HistoricalProtocolDraftGetSchema,
@@ -635,6 +642,106 @@ const TOOLS: McpTool[] = [
 		}),
 		annotations: READ_ONLY,
 		execute: (context, input) => call(router.audit.list, input, { context }),
+	}),
+	defineTool({
+		name: "helper_hours_overview",
+		description:
+			"Helper-hour standing per department in hours: earned, deducted and available, plus the club contribution, the category list and the most active helpers. Everything is expressed in hours; the hourly value is only what converts a purchase into deducted hours.",
+		minMode: "readonly",
+		input: HelperHourListSchema,
+		annotations: READ_ONLY,
+		execute: (context, input) =>
+			call(router.helperHours.list, input, { context }),
+	}),
+	defineTool({
+		name: "list_helper_hours",
+		description:
+			"List individual helper-hour entries with their category split, source sheet and import warnings. Filter by year, category, source and free text.",
+		minMode: "readonly",
+		input: HelperHourEntriesSchema,
+		annotations: READ_ONLY,
+		execute: (context, input) =>
+			call(router.helperHours.entries, input, { context }),
+	}),
+	defineTool({
+		name: "list_helper_hour_categories",
+		description:
+			"List the configurable helper-hour points (departments and club contributions) with how many entries, hours and deductions each carries.",
+		minMode: "readonly",
+		input: EmptyInput,
+		annotations: READ_ONLY,
+		execute: (context) =>
+			call(router.helperHours.categories, undefined, { context }),
+	}),
+	defineTool({
+		name: "list_helper_name_variants",
+		description:
+			"Spellings among the stored helper hours that may be the same person, e.g. 'Schad, Mathias' against 'Schad, Matthias'. Each side reports its entries and hours so a human can judge. Pairs already settled by a name variant are omitted. Reporting only: never merge without explicit user authorization, and note that two similar names can be two real people.",
+		minMode: "readonly",
+		input: EmptyInput,
+		annotations: READ_ONLY,
+		execute: (context) =>
+			call(router.helperHours.nameVariants, undefined, { context }),
+	}),
+	defineTool({
+		name: "list_helper_name_aliases",
+		description:
+			"List the stored name variants, each mapping a spelling the list uses to the spelling the club decided on.",
+		minMode: "readonly",
+		input: EmptyInput,
+		annotations: READ_ONLY,
+		execute: (context) =>
+			call(router.helperHours.nameAliases, undefined, { context }),
+	}),
+	defineTool({
+		name: "merge_helper_name",
+		description:
+			"Record that one spelling means another and rewrite the hours already stored under it. The mapping is kept and reapplied on every future import, so a re-import of the same list does not undo it. Two similar names can be two different people, so requires explicit user authorization for the specific pair.",
+		minMode: "admin",
+		input: HelperHourNameAliasCreateSchema,
+		annotations: WRITE,
+		execute: (context, input) =>
+			call(router.helperHours.createNameAlias, input, { context }),
+	}),
+	defineTool({
+		name: "delete_helper_name_alias",
+		description:
+			"Remove a stored name variant. Hours already rewritten keep the target spelling; only future imports stop applying it. Requires explicit user authorization.",
+		minMode: "admin",
+		input: HelperHourNameAliasDeleteSchema,
+		annotations: DESTRUCTIVE,
+		execute: (context, input) =>
+			call(router.helperHours.deleteNameAlias, input, { context }),
+	}),
+	defineTool({
+		name: "correct_helper_hour_entry",
+		description:
+			"Correct one stored helper-hour entry's name or category split. The total is recomputed from the split, the values as first imported are preserved, and a reason is required. Requires explicit user authorization.",
+		minMode: "admin",
+		input: HelperHourEntryCorrectSchema,
+		annotations: WRITE,
+		execute: (context, input) =>
+			call(router.helperHours.correctEntry, input, { context }),
+	}),
+	defineTool({
+		name: "create_helper_hour_category",
+		description:
+			"Create a helper-hour point, either a department that builds its own balance or a club contribution. A point with the same name as a column in the helper-hour spreadsheet is picked up by the next import automatically.",
+		minMode: "admin",
+		input: HelperHourCategoryCreateSchema,
+		annotations: WRITE,
+		execute: (context, input) =>
+			call(router.helperHours.createCategory, input, { context }),
+	}),
+	defineTool({
+		name: "update_helper_hour_category",
+		description:
+			"Rename a helper-hour point, change its kind or deactivate it. Renaming changes which spreadsheet column the import matches, so keep the list in step.",
+		minMode: "admin",
+		input: HelperHourCategoryUpdateSchema,
+		annotations: WRITE,
+		execute: (context, input) =>
+			call(router.helperHours.updateCategory, input, { context }),
 	}),
 	defineTool({
 		name: "create_protocol",

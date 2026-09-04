@@ -67,7 +67,18 @@ update the appropriate canonical documentation in the same change.
   discrepancies stay visible instead of being silently rewritten. Repairs and
   in-app corrections must retain the original parsed values, and every remaining
   issue has to be corrected or explicitly accepted before the final import.
-- A column carrying hours that matches no category is reported, never ignored.
+- A column carrying hours that matches no category is reported, never ignored,
+  and so is a recurring value in the "Sonstiges" column that names something no
+  category covers.
+- A merged spelling is stored in `helper_hour_name_aliases` and reapplied on
+  every import, because importing replaces the monthly sheets and would
+  otherwise undo the rename. Merging also rewrites the hours already stored, so
+  both halves have to stay together. Aliases never chain: a target may not
+  itself be a source.
+- Similar names are reported, never merged automatically. The same similarity
+  finds real siblings and married couples, so every merge needs a person. Where
+  a list is aggregated per spelling before the comparison, the entry count has
+  to be carried through: the merge direction is chosen from it.
 
 ## Versions and release notes
 
