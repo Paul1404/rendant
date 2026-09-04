@@ -314,6 +314,47 @@ describe("Automatische Importkorrekturen", () => {
 			expect(row.repairs).not.toContain("name_swapped");
 	});
 
+	it("dreht gegen einen belegten Nachnamen, auch ohne Gegenzeile", async () => {
+		const workbook = new ExcelJS.Workbook();
+		const sheet = workbook.addWorksheet("Juni_26");
+		sheet.addRow(HEADER);
+		// "Hutter" führt mehrere Zeilen für mehrere Vornamen.
+		for (const [tag, vorname] of [
+			["01", "Andreas"],
+			["02", "Andreas"],
+			["03", "Andreas"],
+			["04", "Manuela"],
+		])
+			sheet.addRow([
+				`${tag}.06.2026`, "Sonntag", "Hutter", vorname,
+				3, null, null, null, null, null, null, null, 3,
+			]);
+		// Diese Person steht nur einmal und nur verdreht in der Liste.
+		sheet.addRow([
+			"05.06.2026", "Sonntag", "Andrea", "Hutter",
+			3, null, null, null, null, null, null, null, 3,
+		]);
+		// Ein seltener Nachname mit gängigem Vornamen bleibt, wie er ist.
+		sheet.addRow([
+			"06.06.2026", "Sonntag", "Zieloszo", "Andreas",
+			3, null, null, null, null, null, null, null, 3,
+		]);
+		const result = await parse(
+			new Uint8Array(await workbook.xlsx.writeBuffer()),
+			"9".repeat(64),
+		);
+		expect(result.rows[4]).toMatchObject({
+			nachname: "Hutter",
+			vorname: "Andrea",
+		});
+		expect(result.rows[4].repairs).toContain("name_swapped");
+		expect(result.rows[5]).toMatchObject({
+			nachname: "Zieloszo",
+			vorname: "Andreas",
+		});
+		expect(result.rows[5].repairs).not.toContain("name_swapped");
+	});
+
 	it("dreht eine Person, die je einmal in beiden Schreibweisen steht, nicht doppelt", async () => {
 		const workbook = new ExcelJS.Workbook();
 		const sheet = workbook.addWorksheet("Juni_26");

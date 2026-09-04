@@ -466,6 +466,9 @@ function canonicalNames(rows: RawRow[]) {
 	// normally used, so an ambiguous pair cannot reinforce its own confusion.
 	const surnameScore = new Map<string, number>();
 	const givenScore = new Map<string, number>();
+	// Which given names a token is used as a surname for. Sets rather than
+	// counts, so one person entered many times is still a single witness.
+	const surnameOf = new Map<string, { names: Set<string>; rows: number }>();
 	for (const [unordered, { a, b }] of groups) {
 		const forward = ordered.get(`${a}|${b}`) ?? 0;
 		const backward = ordered.get(`${b}|${a}`) ?? 0;
@@ -474,15 +477,48 @@ function canonicalNames(rows: RawRow[]) {
 		const count = forward || backward;
 		surnameScore.set(last, (surnameScore.get(last) ?? 0) + count);
 		givenScore.set(first, (givenScore.get(first) ?? 0) + count);
-		void unordered;
+		const entry = surnameOf.get(last) ?? { names: new Set<string>(), rows: 0 };
+		entry.names.add(first);
+		entry.rows += count;
+		surnameOf.set(last, entry);
 	}
+	/**
+	 * A name pair the list only ever writes one way still gets swapped when that
+	 * one way contradicts an established surname: "Andrea, Hutter" against a
+	 * "Hutter" the list heads eight rows with, and an "Andrea" it heads two.
+	 *
+	 * Only positive evidence counts, and it is compared rather than required to
+	 * be absent: a row that is itself swapped ("Andrea, Kral") lends the wrong
+	 * token a little surname weight, so the rule asks for a clear margin over
+	 * that noise instead of demanding silence. Two distinct given names stop a
+	 * single mistyped row from establishing a surname on its own, and the pair
+	 * is excluded from its own evidence.
+	 */
+	function contradictsEstablishedSurname(last: string, first: string) {
+		const forFirst = surnameOf.get(first);
+		if (!forFirst) return false;
+		const names = new Set(forFirst.names);
+		names.delete(last);
+		const rows = forFirst.rows - (ordered.get(`${first}|${last}`) ?? 0);
+		if (names.size < 2 || rows < 3) return false;
+		const forLast = surnameOf.get(last);
+		const reverseRows =
+			(forLast?.rows ?? 0) - (ordered.get(`${last}|${first}`) ?? 0);
+		return rows >= 3 * Math.max(reverseRows, 1);
+	}
+
 	const canonical = new Map<string, { last: string; first: string }>();
 	for (const [unordered, { a, b }] of groups) {
 		const forward = ordered.get(`${a}|${b}`) ?? 0;
 		const backward = ordered.get(`${b}|${a}`) ?? 0;
 		if (forward === 0 || backward === 0) {
 			const [last, first] = forward > 0 ? [a, b] : [b, a];
-			canonical.set(unordered, { last, first });
+			canonical.set(
+				unordered,
+				contradictsEstablishedSurname(last, first)
+					? { last: first, first: last }
+					: { last, first },
+			);
 			continue;
 		}
 		if (forward !== backward) {

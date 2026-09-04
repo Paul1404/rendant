@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.43.1 - 2026-09-04
+
+- Der Import dreht vertauschte Namen jetzt auch dann richtig herum, wenn eine
+  Person nur ein einziges Mal und nur verdreht in der Liste steht, etwa
+  "Andrea, Hutter" neben mehreren Zeilen "Hutter, Andreas". Bisher blieben
+  solche Zeilen als eigene Person stehen und tauchten in keiner Auswertung
+  bei der richtigen Person auf. Seltene Nachnamen mit häufigem Vornamen bleiben
+  weiterhin unverändert.
+
 ## 1.43.0 - 2026-09-04
 
 - Die Helferstunden-Ansicht rechnet jetzt durchgehend in Stunden. Käufe einer
