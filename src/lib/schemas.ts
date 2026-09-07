@@ -285,6 +285,14 @@ export type HelperHourEntryCorrectInput = v.InferOutput<
 	typeof HelperHourEntryCorrectSchema
 >;
 
+export const HelperHourEntryDeleteSchema = v.object({
+	id: v.pipe(v.string(), v.uuid()),
+	grund: v.pipe(v.string(), v.trim(), v.minLength(5), v.maxLength(500)),
+});
+export type HelperHourEntryDeleteInput = v.InferOutput<
+	typeof HelperHourEntryDeleteSchema
+>;
+
 export const HelperHourCategoryCreateSchema = v.object({
 	label: v.pipe(
 		v.string(),

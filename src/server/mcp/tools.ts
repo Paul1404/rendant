@@ -15,6 +15,7 @@ import {
 	HelperHourCategoryUpdateSchema,
 	HelperHourEntriesSchema,
 	HelperHourEntryCorrectSchema,
+	HelperHourEntryDeleteSchema,
 	HelperHourEventMergeSchema,
 	HelperHourEventSchema,
 	HelperHourEventUpdateSchema,
@@ -789,6 +790,16 @@ const TOOLS: McpTool[] = [
 		annotations: WRITE,
 		execute: (context, input) =>
 			call(router.helperHours.correctEntry, input, { context }),
+	}),
+	defineTool({
+		name: "delete_helper_hour_entry",
+		description:
+			"Delete one stored helper-hour entry. The booking is removed with its category split and kept in the audit log with the given reason. An entry that came from the list returns with the next import of its sheet. Requires explicit user authorization.",
+		minMode: "admin",
+		input: HelperHourEntryDeleteSchema,
+		annotations: DESTRUCTIVE,
+		execute: (context, input) =>
+			call(router.helperHours.deleteEntry, input, { context }),
 	}),
 	defineTool({
 		name: "list_helper_hour_note_rules",

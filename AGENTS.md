@@ -54,6 +54,10 @@ update the appropriate canonical documentation in the same change.
   a reason, never deleted or hidden. The settlement-list import therefore only
   adds rows it does not already hold and reports rows that vanished from the
   list instead of removing them.
+- A helper-hour entry may be deleted, but only with a reason and only by an
+  admin. The row goes for good, the allocations go with it, and the audit event
+  keeps the complete booking. An entry from the list returns with the next
+  import of its sheet, so the list has to be corrected too.
 - Helferstunden imports preview first. The monthly sheets are the register of
   record, so applying an import replaces everything previously imported for the
   sheets the file contains and leaves manually entered hours untouched.

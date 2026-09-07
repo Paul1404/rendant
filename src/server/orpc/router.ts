@@ -18,6 +18,7 @@ import {
 	HelperHourCreateSchema,
 	HelperHourEntriesSchema,
 	HelperHourEntryCorrectSchema,
+	HelperHourEntryDeleteSchema,
 	HelperHourEventMergeSchema,
 	HelperHourEventSchema,
 	HelperHourEventUpdateSchema,
@@ -112,6 +113,7 @@ import {
 	createHelperHour,
 	createHelperHourExpense,
 	createHelperHourNoteRule,
+	deleteHelperHourEntry,
 	deleteHelperHourNoteRule,
 	listHelperHourEntries,
 	listHelperHourNameVariants,
@@ -1473,6 +1475,13 @@ const helperHours = {
 		.input(HelperHourEntryCorrectSchema)
 		.handler(({ input, context }) =>
 			correctHelperHourEntry(input, context.user, {
+				request: requestAuditContext(context),
+			}),
+		),
+	deleteEntry: adminOnly
+		.input(HelperHourEntryDeleteSchema)
+		.handler(({ input, context }) =>
+			deleteHelperHourEntry(input.id, input.grund, context.user, {
 				request: requestAuditContext(context),
 			}),
 		),

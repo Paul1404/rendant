@@ -13,6 +13,7 @@ import {
 	HelperHourCategoryUpdateSchema,
 	HelperHourCreateSchema,
 	HelperHourEntriesSchema,
+	HelperHourEntryDeleteSchema,
 	HelperHourExpenseCreateSchema,
 	HelperHourListSchema,
 } from "@/lib/schemas";
@@ -35,6 +36,25 @@ describe("helper-hour categories", () => {
 		expect(v.safeParse(HelperHourListSchema, { jahr: 2026.5 }).success).toBe(
 			false,
 		);
+	});
+
+	it("requires a reason before an entry may be deleted", () => {
+		const id = "00000000-0000-4000-8000-000000000002";
+		expect(
+			v.safeParse(HelperHourEntryDeleteSchema, {
+				id,
+				grund: "  Doppelt erfasst  ",
+			}),
+		).toMatchObject({ success: true, output: { grund: "Doppelt erfasst" } });
+		expect(
+			v.safeParse(HelperHourEntryDeleteSchema, { id, grund: "ups" }).success,
+		).toBe(false);
+		expect(
+			v.safeParse(HelperHourEntryDeleteSchema, {
+				id: "keine-uuid",
+				grund: "Doppelt erfasst",
+			}).success,
+		).toBe(false);
 	});
 
 	it("validates server-side entry table controls", () => {

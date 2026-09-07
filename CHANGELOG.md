@@ -3,6 +3,16 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.48.0 - 2026-09-07
+
+- Helferstunden lassen sich jetzt löschen. In "Alle Einträge" steht dafür ein
+  Papierkorb am Zeilenende, sichtbar für Administratoren. Es wird eine
+  Begründung verlangt, und die Löschung bleibt mit allen Angaben des Eintrags
+  im Protokoll nachvollziehbar.
+- Stammt ein Eintrag aus der Liste, weist der Hinweis vor dem Löschen darauf
+  hin, dass er beim nächsten Import des Monatsblatts zurückkommt, solange er
+  dort noch steht.
+
 ## 1.47.3 - 2026-09-06
 
 - Im Suchfeld für Helfer und Veranstaltung ist jetzt erkennbar, dass es beides

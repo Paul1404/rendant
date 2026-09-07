@@ -47,6 +47,7 @@ describe("toolsForMode", () => {
 			"create_helper_hour_alias",
 			"delete_helper_hour_alias",
 			"correct_helper_hour_entry",
+			"delete_helper_hour_entry",
 			"create_helper_hour_category",
 			"update_helper_hour_category",
 			"create_helper_hour_note_rule",
