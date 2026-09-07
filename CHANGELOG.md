@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.48.1 - 2026-09-07
+
+- Beim neuen Protokoll heisst das Datumsfeld jetzt "Datum der Veranstaltung"
+  und sagt darunter, dass dort der Tag der Veranstaltung steht und nicht der
+  Tag der Erfassung. Wann ein Protokoll angelegt wurde, hält Rendant ohnehin
+  selbst fest und zeigt es oben im Protokoll an.
+- In der Protokollansicht steht bei diesem Datum ebenfalls "Datum der
+  Veranstaltung".
+
 ## 1.48.0 - 2026-09-07
 
 - Helferstunden lassen sich jetzt löschen. In "Alle Einträge" steht dafür ein

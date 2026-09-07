@@ -844,15 +844,26 @@ export function ProtokollForm({
 										className="font-mono"
 									/>
 								</div>
+								{/* Das Feld ist `anlass_datum`: der Tag der Veranstaltung. Es
+								    steht auf heute, weil meist am selben Tag gezaehlt wird, und
+								    genau deshalb wurde es als Erfassungsdatum missverstanden. */}
 								<div className="space-y-2">
-									<Label htmlFor="datum">Datum</Label>
+									<Label htmlFor="datum">Datum der Veranstaltung</Label>
 									<Input
 										id="datum"
 										type="date"
 										value={datum}
 										onChange={(e) => setDatum(e.target.value)}
+										aria-describedby="datum-hinweis"
 										required
 									/>
+									<p
+										id="datum-hinweis"
+										className="text-xs text-muted-foreground"
+									>
+										Tag der Veranstaltung, nicht der Erfassung. Wann das
+										Protokoll angelegt wurde, hält Rendant selbst fest.
+									</p>
 								</div>
 							</div>
 							{availableRegisters.length > 0 || canManageRegisters ? (

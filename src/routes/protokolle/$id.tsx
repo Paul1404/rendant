@@ -273,7 +273,7 @@ function ProtokollDetailPage() {
 					) : null}
 					<DataField label="Veranstaltung" value={protokoll.anlass} />
 					<DataField
-						label="Datum"
+						label="Datum der Veranstaltung"
 						value={formatDateDe(protokoll.anlass_datum)}
 					/>
 					<DataField label="Gezählt von" value={protokoll.gezaehlt_von} />
