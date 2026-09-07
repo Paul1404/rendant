@@ -1175,3 +1175,63 @@ export async function correctHelperHourEntry(
 		return row;
 	});
 }
+
+/**
+ * Removes one stored entry. The row is deleted outright, its category split
+ * goes with it through the cascade, and the audit event keeps the full booking
+ * so the deletion stays reconstructable. An entry that came from the list is
+ * restored by the next import of its sheet, because the monthly sheet stays the
+ * register of record.
+ */
+export async function deleteHelperHourEntry(
+	id: string,
+	grund: string,
+	actor: AuthUser,
+	audit: Pick<RecordAuditInput, "request">,
+) {
+	return db.transaction(async (tx) => {
+		const [current] = await tx
+			.select()
+			.from(helperHours)
+			.where(eq(helperHours.id, id))
+			.limit(1);
+		if (!current) throw new Error("Helferstunde nicht gefunden");
+		const allocations = await tx
+			.select({
+				code: helperHourCategories.code,
+				minuten: helperHourAllocations.minuten,
+			})
+			.from(helperHourAllocations)
+			.innerJoin(
+				helperHourCategories,
+				eq(helperHourCategories.id, helperHourAllocations.kategorie_id),
+			)
+			.where(eq(helperHourAllocations.helper_hour_id, current.id));
+		await tx.delete(helperHours).where(eq(helperHours.id, current.id));
+		await recordAuditEventStrict(tx, {
+			category: "helferstunden",
+			action: "helferstunden.entry_deleted",
+			actor,
+			request: audit.request,
+			subject: {
+				type: "helferstunde",
+				id: current.id,
+				label: `${current.vorname} ${current.nachname}`.trim(),
+			},
+			metadata: {
+				grund,
+				datum: current.datum,
+				name: `${current.nachname}, ${current.vorname}`,
+				veranstaltung: current.veranstaltung,
+				minuten: current.gemeldete_summe_minuten,
+				zuordnung: Object.fromEntries(
+					allocations.map((entry) => [entry.code, entry.minuten]),
+				),
+				quelle: current.quelle,
+				quelle_blatt: current.quelle_blatt,
+				quelle_zeile: current.quelle_zeile,
+			},
+		});
+		return { id: current.id };
+	});
+}

@@ -31,9 +31,17 @@ import {
 	Plus,
 	ReceiptText,
 	RotateCcw,
+	Trash2,
 	Upload,
 } from "lucide-react";
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import {
+	useCallback,
+	useDeferredValue,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { toast } from "sonner";
 import { CatalogPicker } from "@/components/catalog-picker";
 import { Button } from "@/components/ui/button";
@@ -543,7 +551,7 @@ export function HelperHoursPage({
 							})
 						}
 					/>
-					<HelperHoursEntries year={year} />
+					<HelperHoursEntries year={year} isAdmin={isAdmin} />
 				</div>
 			</CollapsibleSection>
 			{isAdmin ? <HelperHoursImport onImported={refreshHours} /> : null}
@@ -585,11 +593,91 @@ function entryAllocations(entry: HelperHourEntry): string {
 	);
 }
 
-function HelperHoursEntries({ year }: { year?: number }) {
+/**
+ * Deleting is the only way out of a wrong entry that a correction cannot fix,
+ * for example a duplicate. The reason is required and lands in the audit log
+ * together with the full booking, so the removal stays reconstructable.
+ */
+function HelperHourEntryDelete({
+	entry,
+	onDeleted,
+}: {
+	entry: HelperHourEntry;
+	onDeleted: () => Promise<void> | void;
+}) {
+	const [pending, setPending] = useState(false);
+	const name = `${entry.vorname} ${entry.nachname}`.trim() || "Ohne Namen";
+
+	async function remove(reason: string) {
+		setPending(true);
+		try {
+			await orpcClient.helperHours.deleteEntry({ id: entry.id, grund: reason });
+			await onDeleted();
+			toast.success("Eintrag gelöscht");
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Löschen fehlgeschlagen",
+			);
+		} finally {
+			setPending(false);
+		}
+	}
+
+	return (
+		<CancelReasonDialog
+			title="Eintrag löschen"
+			description={
+				<>
+					{name}, {formatDateDe(entry.datum)}, {entry.veranstaltung}:{" "}
+					{formatMinutes(entry.gemeldete_summe_minuten)} h werden aus allen
+					Auswertungen entfernt. Die Löschung bleibt mit Begründung im
+					Protokoll.
+					{entry.quelle === "excel"
+						? " Der Eintrag stammt aus der Liste und kommt beim nächsten Import dieses Blattes zurück, solange er dort noch steht."
+						: ""}
+				</>
+			}
+			confirmLabel="Löschen"
+			pending={pending}
+			onConfirm={remove}
+			trigger={
+				<Button
+					type="button"
+					variant="ghost"
+					size="icon-sm"
+					className="text-muted-foreground hover:text-destructive"
+					disabled={pending}
+				>
+					<Trash2 className="h-3.5 w-3.5" />
+					<span className="sr-only">Eintrag löschen</span>
+				</Button>
+			}
+		/>
+	);
+}
+
+function HelperHoursEntries({
+	year,
+	isAdmin,
+}: {
+	year?: number;
+	isAdmin: boolean;
+}) {
 	// Retired categories stay filterable as long as hours are booked on them.
 	const entryCategories = useHelperHourCategories().filter(
 		(entry) => entry.aktiv || entry.entries > 0,
 	);
+	const queryClient = useQueryClient();
+	const refreshAfterDelete = useCallback(async () => {
+		await Promise.all([
+			queryClient.invalidateQueries({
+				queryKey: orpc.helperHours.list.key({ type: "query" }),
+			}),
+			queryClient.invalidateQueries({
+				queryKey: orpc.helperHours.entries.key({ type: "query" }),
+			}),
+		]);
+	}, [queryClient]);
 	const [query, setQuery] = useState("");
 	const deferredQuery = useDeferredValue(query.trim());
 	const [source, setSource] = useState<HelperHourEntrySource>("alle");
@@ -698,8 +786,26 @@ function HelperHoursEntries({ year }: { year?: number }) {
 					</span>
 				),
 			},
+			...(isAdmin
+				? [
+						{
+							id: "actions",
+							header: "",
+							enableSorting: false,
+							cell: ({ row }) => (
+								<HelperHourEntryDelete
+									entry={row.original}
+									onDeleted={refreshAfterDelete}
+								/>
+							),
+						} satisfies ColumnDef<
+							typeof helperHourEntryTableFeatures,
+							HelperHourEntry
+						>,
+					]
+				: []),
 		],
-		[],
+		[isAdmin, refreshAfterDelete],
 	);
 	const table = useTable({
 		features: helperHourEntryTableFeatures,
@@ -786,7 +892,9 @@ function HelperHoursEntries({ year }: { year?: number }) {
 								<TableRow key={group.id} className="hover:bg-transparent">
 									{group.headers.map((header) => {
 										const sorted = header.column.getIsSorted();
-										const right = header.column.id === "hours";
+										const right =
+											header.column.id === "hours" ||
+											header.column.id === "actions";
 										return (
 											<TableHead
 												key={header.id}
@@ -853,7 +961,10 @@ function HelperHoursEntries({ year }: { year?: number }) {
 											<TableCell
 												key={cell.id}
 												className={
-													cell.column.id === "hours" ? "text-right" : undefined
+													cell.column.id === "hours" ||
+													cell.column.id === "actions"
+														? "text-right"
+														: undefined
 												}
 											>
 												<table.FlexRender cell={cell} />

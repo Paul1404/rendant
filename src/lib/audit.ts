@@ -124,6 +124,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
 	"helferstunden.alias_created": "Schreibweise zugeordnet",
 	"helferstunden.alias_deleted": "Zuordnung entfernt",
 	"helferstunden.entry_corrected": "Helferstunde korrigiert",
+	"helferstunden.entry_deleted": "Helferstunde gelöscht",
 	"helferstunden.note_rule_created": "Vermerkregel angelegt",
 	"helferstunden.note_rule_deleted": "Vermerkregel entfernt",
 };
