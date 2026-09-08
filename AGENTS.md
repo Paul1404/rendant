@@ -39,6 +39,12 @@ update the appropriate canonical documentation in the same change.
 - External side effects such as S3 uploads and email must not allow a retry to
   create duplicate accounting records. Prefer recoverable partial states and
   explicit regeneration.
+- The Umsatzbereich is a reporting classification, not part of the signed
+  document. An admin may move a booked protocol into another one with a reason;
+  amounts, Belegnummer and Belegtext stay untouched so the stored PDF keeps
+  matching its record, and a cancelled protocol is never reclassified. A
+  historical entry moves only through the correction path, which cancels the row
+  and writes a replacement.
 - Historical protocol review phases store exact row memberships and progress.
   Changing a working value reopens affected checks, and only the explicit final
   import may create historical revenue records.

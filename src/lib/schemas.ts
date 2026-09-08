@@ -410,6 +410,26 @@ export const StornoSchema = v.object({
 });
 export type StornoInput = v.InferOutput<typeof StornoSchema>;
 
+// Moving booked protocols between Umsatzbereiche. Only the classification
+// travels, so no amount belongs in here.
+export const ProtokollReclassifySchema = v.object({
+	ids: v.pipe(
+		v.array(v.pipe(v.string(), v.minLength(1))),
+		v.minLength(1, "Bitte mindestens einen Eintrag wählen"),
+		v.maxLength(200),
+	),
+	umsatzbereich: UmsatzbereichSchema,
+	grund: v.pipe(
+		v.string(),
+		v.trim(),
+		v.minLength(5, "Bitte eine Begründung angeben"),
+		v.maxLength(500),
+	),
+});
+export type ProtokollReclassifyInput = v.InferOutput<
+	typeof ProtokollReclassifySchema
+>;
+
 export const ExportQuerySchema = v.pipe(
 	v.object({
 		von: isoCalendarDate,

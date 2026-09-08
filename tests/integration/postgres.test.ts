@@ -27,6 +27,7 @@ import {
 } from "@/server/services/historical-revenue";
 import {
 	createProtokoll,
+	reclassifyProtokolle,
 	stornoProtokoll,
 } from "@/server/services/protokoll";
 import { vatSummary } from "@/server/services/reports";
@@ -586,5 +587,122 @@ describe("VAT summary aggregation", () => {
 	it("returns nothing for a window with no protocols", async () => {
 		const empty = await vatSummary("2031-01-01", "2031-12-31");
 		expect(empty).toEqual({ revenue: [], expenses: [] });
+	});
+});
+
+describe("moving protocols between Umsatzbereiche", () => {
+	const von = "2032-01-01";
+	const bis = "2032-12-31";
+
+	async function clearWindow() {
+		const rows = await db
+			.select({ id: protokolle.id })
+			.from(protokolle)
+			.where(
+				and(
+					gte(protokolle.anlass_datum, von),
+					lte(protokolle.anlass_datum, bis),
+				),
+			);
+		for (const row of rows) {
+			await db.delete(ausgaben).where(eq(ausgaben.protokoll_id, row.id));
+			await db
+				.delete(protokollUmsatzUst)
+				.where(eq(protokollUmsatzUst.protokoll_id, row.id));
+			await db.delete(protokolle).where(eq(protokolle.id, row.id));
+		}
+	}
+
+	beforeAll(clearWindow);
+	afterAll(clearWindow);
+
+	function protokollInput(overrides: Record<string, unknown>) {
+		return {
+			...emptyCounts(),
+			idempotency_key: randomUUID(),
+			anlass_datum: "2032-06-01",
+			veranstaltungsbezeichnung: "Umgruppierung",
+			umsatzbereich: "sonstiges" as const,
+			kassennummer: "MOVE",
+			kassenbezeichnung: "Move Test",
+			gezaehlt_von: "Integration Test",
+			geprueft_von: "",
+			bemerkung: "",
+			wechselgeld_cent: 0,
+			kartenzahlung_cent: 0,
+			ausgaben: [],
+			umsatz_ust: [],
+			umsatz_ust_basis: "post_card" as const,
+			...overrides,
+		};
+	}
+
+	it("moves open protocols, leaves cancelled ones and repeats as a no-op", async () => {
+		const open = await createProtokoll(
+			protokollInput({ anzahl_20_eur: 1 }),
+			actor,
+			audit,
+		);
+		const cancelled = await createProtokoll(
+			protokollInput({ anzahl_10_eur: 1 }),
+			actor,
+			audit,
+		);
+		await stornoProtokoll(
+			cancelled.id,
+			{ storno_grund: "Teststornierung für Umgruppierung" },
+			actor,
+			audit,
+		);
+
+		const result = await reclassifyProtokolle(
+			{
+				ids: [open.id, cancelled.id],
+				umsatzbereich: "veranstaltungen",
+				grund: "Falsch einsortiert",
+			},
+			actor,
+			audit,
+		);
+		expect(result).toEqual({ moved: 1, skipped: 1 });
+
+		const rows = await db
+			.select({ id: protokolle.id, umsatzbereich: protokolle.umsatzbereich })
+			.from(protokolle)
+			.where(eq(protokolle.id, open.id));
+		expect(rows[0]?.umsatzbereich).toBe("veranstaltungen");
+		const cancelledRows = await db
+			.select({ umsatzbereich: protokolle.umsatzbereich })
+			.from(protokolle)
+			.where(eq(protokolle.id, cancelled.id));
+		expect(cancelledRows[0]?.umsatzbereich).toBe("sonstiges");
+
+		// A second run must not claim a move that did not happen.
+		const repeat = await reclassifyProtokolle(
+			{
+				ids: [open.id],
+				umsatzbereich: "veranstaltungen",
+				grund: "Nochmal derselbe Bereich",
+			},
+			actor,
+			audit,
+		);
+		expect(repeat).toEqual({ moved: 0, skipped: 1 });
+
+		const events = await db
+			.select({ metadata: auditEvents.metadata })
+			.from(auditEvents)
+			.where(
+				and(
+					eq(auditEvents.action, "protokolle.reclassified"),
+					eq(auditEvents.subject_id, open.id),
+				),
+			);
+		expect(events).toHaveLength(1);
+		expect(events[0].metadata).toMatchObject({
+			grund: "Falsch einsortiert",
+			vorher: "sonstiges",
+			nachher: "veranstaltungen",
+		});
 	});
 });

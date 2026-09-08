@@ -516,7 +516,11 @@ export function HistoricalRevenueTable({
 	);
 }
 
-function HistoricalRevenueDetailDialog({
+/**
+ * Also used from the comparison cards on the same page, so a wrong entry can be
+ * corrected where it is noticed instead of being looked up in the table again.
+ */
+export function HistoricalRevenueDetailDialog({
 	id,
 	open,
 	onOpenChange,
