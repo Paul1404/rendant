@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { S3_PREFIX } from "@/lib/constants";
 import { currentYearBerlin, formatFilenameStamp } from "@/lib/date";
 import { DENOMINATIONS, type DenominationCounts } from "@/lib/denominations";
@@ -9,7 +9,11 @@ import type {
 	ProtokollRow,
 	UmsatzUstRow,
 } from "@/lib/protokoll-types";
-import type { CreateProtokollInput, StornoInput } from "@/lib/schemas";
+import type {
+	CreateProtokollInput,
+	ProtokollReclassifyInput,
+	StornoInput,
+} from "@/lib/schemas";
 import { umsatzbereichLabel } from "@/lib/umsatzbereich";
 import { db } from "@/server/db";
 import {
@@ -751,4 +755,75 @@ export async function regenerateProtokollPdf(id: string): Promise<void> {
 		// The storno row moved on under us; the object just uploaded is unreferenced.
 		await deletePdfBestEffort(stornoKey, protokoll.id, "cancellation");
 	}
+}
+
+/**
+ * Moves booked protocols into another Umsatzbereich. Only the reporting
+ * classification changes: amounts, Belegnummer and the Belegtext stay exactly
+ * as they were signed off, so the stored PDF keeps matching its record. A
+ * cancelled protocol keeps the area it was cancelled with.
+ */
+export async function reclassifyProtokolle(
+	input: ProtokollReclassifyInput,
+	actor: AuditActor,
+	audit: Omit<RecordAuditInput, "category" | "action" | "actor" | "subject">,
+): Promise<{ moved: number; skipped: number }> {
+	const ids = Array.from(new Set(input.ids));
+	return db.transaction(async (tx) => {
+		// Read inside the transaction and lock: the audit entry has to name the
+		// area a row was moved out of, and the update below overwrites it.
+		const before = await tx
+			.select({
+				id: protokolle.id,
+				belegnummer: protokolle.belegnummer,
+				anlass: protokolle.anlass,
+				anlass_datum: protokolle.anlass_datum,
+				umsatzbereich: protokolle.umsatzbereich,
+				storniert_am: protokolle.storniert_am,
+			})
+			.from(protokolle)
+			.where(inArray(protokolle.id, ids))
+			.for("update");
+		// A cancelled protocol keeps its classification, and a row already in the
+		// target area would produce an audit entry claiming a move that never
+		// happened.
+		const movable = before.filter(
+			(row) => !row.storniert_am && row.umsatzbereich !== input.umsatzbereich,
+		);
+		if (movable.length === 0) return { moved: 0, skipped: ids.length };
+
+		const rows = await tx
+			.update(protokolle)
+			.set({ umsatzbereich: input.umsatzbereich })
+			.where(
+				and(
+					inArray(
+						protokolle.id,
+						movable.map((row) => row.id),
+					),
+					isNull(protokolle.storniert_am),
+				),
+			)
+			.returning({ id: protokolle.id });
+		const moved = new Set(rows.map((row) => row.id));
+		for (const row of movable) {
+			if (!moved.has(row.id)) continue;
+			await recordAuditEventStrict(tx, {
+				...audit,
+				category: "protokolle",
+				action: "protokolle.reclassified",
+				actor: { ...actor, role: actor.role ?? "user" },
+				subject: { type: "protokoll", id: row.id, label: row.belegnummer },
+				metadata: {
+					...audit.metadata,
+					grund: input.grund,
+					vorher: row.umsatzbereich,
+					nachher: input.umsatzbereich,
+					anlass: row.anlass,
+					datum: row.anlass_datum,
+				},
+			});
+		}
+		return { moved: moved.size, skipped: ids.length - moved.size };
+	});
 }

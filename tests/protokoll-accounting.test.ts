@@ -4,6 +4,7 @@ import { emptyCounts } from "@/lib/denominations";
 import {
 	CreateProtokollSchema,
 	type CreateProtokollInput,
+	ProtokollReclassifySchema,
 } from "@/lib/schemas";
 import {
 	deriveProtokollAccounting,
@@ -133,4 +134,42 @@ describe("deriveProtokollAccounting", () => {
       "überschreitet den zulässigen Bereich",
     );
   });
+});
+
+describe("ProtokollReclassifySchema", () => {
+	const ids = ["019f84bc-9383-7301-95e6-c23483cfb28b"];
+
+	it("requires a target area and a reason", () => {
+		expect(
+			v.safeParse(ProtokollReclassifySchema, {
+				ids,
+				umsatzbereich: "veranstaltungen",
+				grund: "  Falsch einsortiert  ",
+			}),
+		).toMatchObject({
+			success: true,
+			output: { grund: "Falsch einsortiert" },
+		});
+		expect(
+			v.safeParse(ProtokollReclassifySchema, {
+				ids,
+				umsatzbereich: "veranstaltungen",
+				grund: "kurz",
+			}).success,
+		).toBe(false);
+		expect(
+			v.safeParse(ProtokollReclassifySchema, {
+				ids,
+				umsatzbereich: "gibt_es_nicht",
+				grund: "Falsch einsortiert",
+			}).success,
+		).toBe(false);
+		expect(
+			v.safeParse(ProtokollReclassifySchema, {
+				ids: [],
+				umsatzbereich: "veranstaltungen",
+				grund: "Falsch einsortiert",
+			}).success,
+		).toBe(false);
+	});
 });

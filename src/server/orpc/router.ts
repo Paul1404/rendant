@@ -52,6 +52,7 @@ import {
 	HistoricalRevenuePageSchema,
 	InviteAcceptSchema,
 	InviteCreateSchema,
+	ProtokollReclassifySchema,
 	StornoSchema,
 	TestEmailSchema,
 	UmsatzUstBasisSettingsSchema,
@@ -176,6 +177,7 @@ import {
 	getProtokoll,
 	listProtokolle,
 	ProtokollIdempotencyConflictError,
+	reclassifyProtokolle,
 	regenerateProtokollPdf,
 	stornoProtokoll,
 } from "@/server/services/protokoll";
@@ -268,6 +270,17 @@ const protokolle = {
 				throw e;
 			}
 		}),
+
+	// The Umsatzbereich is a reporting classification, not part of the signed
+	// document, so it can be corrected without a storno. Admin-only and with a
+	// reason, like every other change to a booked record.
+	reclassify: adminOnly
+		.input(ProtokollReclassifySchema)
+		.handler(({ input, context }) =>
+			reclassifyProtokolle(input, context.user, {
+				request: requestAuditContext(context),
+			}),
+		),
 
 	// Admin-only, like every other destructive accounting operation and like the
 	// MCP layer already classified it.

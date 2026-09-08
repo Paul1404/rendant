@@ -57,6 +57,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
 	"users.unblocked": "Konto entsperrt",
 	"protokolle.created": "Protokoll erstellt",
 	"protokolle.cancelled": "Protokoll storniert",
+	"protokolle.reclassified": "Protokoll umgruppiert",
 	"protokolle.pdf_regenerated": "PDF neu erzeugt",
 	"protokolle.pdf_viewed": "PDF angesehen",
 	"protokolle.pdf_downloaded": "PDF heruntergeladen",

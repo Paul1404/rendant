@@ -3,6 +3,20 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.50.0 - 2026-09-08
+
+- Einträge lassen sich jetzt direkt im Vorjahresvergleich in einen anderen
+  Umsatzbereich verschieben. Jede Zeile hat dafür einen Knopf, mehrere Zeilen
+  gehen über die Auswahl gemeinsam. Eine Begründung ist Pflicht und steht im
+  Protokoll.
+- Kassenzählprotokolle behalten dabei Belegnummer, Beträge und Belegtext. Nur
+  die Zuordnung zur Auswertung ändert sich, das Beleg-PDF bleibt gültig.
+  Stornierte Protokolle bleiben unangetastet.
+- Altunterlagen werden beim Verschieben wie bisher korrigiert: der alte Eintrag
+  wird storniert und durch einen neuen ersetzt, die Kette bleibt nachvollziehbar.
+- Aus dem Vergleich führt jetzt ein Weg zum Eintrag selbst: Altunterlagen öffnen
+  die Prüfen- und Korrigieren-Ansicht, Protokolle ihr Beleg.
+
 ## 1.49.0 - 2026-09-08
 
 - Die Umsatzseite beginnt jetzt mit dem Gesamtbild: der Gesamtumsatz über alle
