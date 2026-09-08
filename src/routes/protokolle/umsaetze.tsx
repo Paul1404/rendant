@@ -2,6 +2,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { HistoricalRevenueOverview } from "@/components/historical-revenue-overview";
 import { PageHeader } from "@/components/page-header";
+import { RevenueHighlights } from "@/components/revenue-highlights";
 import { orpc } from "@/lib/orpc";
 
 const historicalQueryOptions = orpc.historicalRevenue.list.queryOptions({
@@ -45,6 +46,7 @@ function RevenueComparisonPage() {
 				title="Umsätze im Vergleich"
 				description="Umsätze nach Bereich und Zeitraum, einschließlich Altunterlagen."
 			/>
+			<RevenueHighlights historical={historical} protocols={protocols} />
 			<HistoricalRevenueOverview
 				initialHistorical={historical}
 				protocols={protocols}

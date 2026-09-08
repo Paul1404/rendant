@@ -3,6 +3,17 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.49.0 - 2026-09-08
+
+- Die Umsatzseite beginnt jetzt mit dem Gesamtbild: der Gesamtumsatz über alle
+  Jahre, daneben ein Balken je Jahr, damit auf einen Blick sichtbar ist, wie
+  sich die Jahre zueinander verhalten.
+- Darunter vier Kennzahlen: bestes Jahr, stärkster Termin mit Datum und
+  Veranstaltung, Durchschnitt je Termin und das laufende Jahr im Vergleich zum
+  Vorjahr zum selben Stichtag.
+- Gezählt werden Kassenzählprotokolle und Altunterlagen zusammen, Stornos
+  bleiben aussen vor. Mehrere Kassen am selben Tag sind ein Termin.
+
 ## 1.48.1 - 2026-09-07
 
 - Beim neuen Protokoll heisst das Datumsfeld jetzt "Datum der Veranstaltung"
