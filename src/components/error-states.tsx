@@ -29,9 +29,11 @@ export function ErrorView({
 	error,
 	reset,
 }: {
-	error?: Error;
+	error?: unknown;
 	reset?: () => void;
 }): JSX.Element {
+	const errorMessage = error instanceof Error ? error.message : null;
+
 	return (
 		<div className="flex min-h-[60vh] items-center justify-center px-4">
 			<Card className="w-full max-w-md">
@@ -43,9 +45,9 @@ export function ErrorView({
 					<p className="text-sm text-muted-foreground">
 						Beim Laden der Seite ist ein Fehler aufgetreten.
 					</p>
-					{import.meta.env.DEV && error?.message ? (
+					{import.meta.env.DEV && errorMessage ? (
 						<code className="block max-w-full overflow-x-auto rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-							{error.message}
+							{errorMessage}
 						</code>
 					) : null}
 					<div className="flex flex-wrap items-center justify-center gap-2">
