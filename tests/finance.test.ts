@@ -224,6 +224,23 @@ describe("Berlin reporting ranges", () => {
 		]);
 	});
 
+	it("keeps the previous year in the rolling twelve-month series", () => {
+		const series = computeSeries(
+			[
+				protokoll("Kirchweih", "2025-10-11", 50_000),
+				protokoll("Frühlingsfest", "2026-04-01", 12_300),
+			],
+			"month",
+			afterMidnightBerlin,
+		);
+		expect(series).toHaveLength(12);
+		expect(series[0]).toMatchObject({ key: "2025-05" });
+		expect(series.find((point) => point.key === "2025-10")).toMatchObject({
+			total: 50_000,
+			count: 1,
+		});
+	});
+
 	it("excludes future-dated entries from current context and monthly charts", () => {
 		const current = protokoll("Frühlingsfest", "2026-04-01", 12_300);
 		const future = protokoll("Zukunft", "2026-04-02", 99_900);

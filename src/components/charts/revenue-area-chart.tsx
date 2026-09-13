@@ -1,4 +1,4 @@
-import type { JSX } from "react";
+import { type JSX, useLayoutEffect, useRef, useState } from "react";
 import type { DateWindow } from "@/lib/dashboard-stats";
 import { formatCent, formatCentCompact } from "@/lib/money";
 
@@ -16,6 +16,33 @@ type RevenuePoint = {
 const VIEW_WIDTH = 1000;
 const VIEW_HEIGHT = 100;
 const GRID_LINES = 4;
+// Minimum gap between two neighbouring axis labels, in pixels.
+const LABEL_GAP_PX = 3;
+
+type MeasuredLabel = { index: number; x: number; width: number };
+
+// Labels that have to be hidden because they would touch their neighbour.
+// Each label is centred on its bucket. Walking from the last bucket backwards
+// keeps the current period labelled and drops only what actually collides.
+export function hiddenAxisLabels(
+	labels: MeasuredLabel[],
+	gap = LABEL_GAP_PX,
+): Set<number> {
+	const hidden = new Set<number>();
+	let previousLeft: number | null = null;
+	for (let i = labels.length - 1; i >= 0; i--) {
+		const label = labels[i];
+		if (
+			previousLeft !== null &&
+			label.x + label.width / 2 + gap > previousLeft
+		) {
+			hidden.add(label.index);
+			continue;
+		}
+		previousLeft = label.x - label.width / 2;
+	}
+	return hidden;
+}
 
 type Pt = { x: number; y: number };
 
@@ -82,6 +109,44 @@ export function RevenueAreaChart({
 		}
 		return index / (points.length - 1);
 	};
+
+	// Axis labels are measured after layout and the colliding ones are hidden,
+	// so a narrow phone shows fewer of them instead of printing them on top of
+	// each other. Before the first measurement every label is rendered, which
+	// keeps the server-rendered markup complete.
+	const axisRef = useRef<HTMLDivElement>(null);
+	const labelRefs = useRef(new Map<number, HTMLSpanElement>());
+	const [hiddenLabels, setHiddenLabels] = useState<Set<number>>(
+		() => new Set(),
+	);
+	useLayoutEffect(() => {
+		const axis = axisRef.current;
+		if (!axis) return;
+		const measure = () => {
+			const width = axis.clientWidth;
+			if (width <= 0) return;
+			const measured = [...labelRefs.current.entries()]
+				.sort(([a], [b]) => a - b)
+				.map(([index, element]) => ({
+					index,
+					x: xFrac(index) * width,
+					width: element.offsetWidth,
+				}));
+			const next = hiddenAxisLabels(measured);
+			setHiddenLabels((current) =>
+				current.size === next.size && [...next].every((i) => current.has(i))
+					? current
+					: next,
+			);
+		};
+		measure();
+		// Web fonts land after the first paint and change the label widths.
+		document.fonts?.ready.then(measure).catch(() => {});
+		if (typeof ResizeObserver === "undefined") return;
+		const observer = new ResizeObserver(measure);
+		observer.observe(axis);
+		return () => observer.disconnect();
+	}, [points]);
 	// Y in unitless viewBox space (0 = top, VIEW_HEIGHT = baseline).
 	const yFor = (value: number) => VIEW_HEIGHT - (VIEW_HEIGHT * value) / safeMax;
 
@@ -239,23 +304,33 @@ export function RevenueAreaChart({
 					})}
 				</div>
 
-				{/* X-axis month labels (HTML, aligned to data points). */}
-				<div className="absolute right-2 bottom-1 left-14 h-4">
-					{points.map((p, i) =>
-						p.label ? (
+				{/* X-axis labels (HTML, aligned to data points). */}
+				<div ref={axisRef} className="absolute right-2 bottom-1 left-14 h-4">
+					{points.map((p, i) => {
+						if (!p.label) return null;
+						// Hidden labels stay in the DOM so their width can be measured
+						// again when the card is resized.
+						return (
 							<span
 								key={`x-${p.key}`}
-								className={
+								ref={(element) => {
+									if (element) labelRefs.current.set(i, element);
+									else labelRefs.current.delete(i);
+								}}
+								aria-hidden={hiddenLabels.has(i) || undefined}
+								className={`absolute -translate-x-1/2 text-[11px] whitespace-nowrap ${
+									hiddenLabels.has(i) ? "invisible " : ""
+								}${
 									p.isCurrent
-										? "absolute -translate-x-1/2 text-[11px] font-semibold text-foreground whitespace-nowrap"
-										: "absolute -translate-x-1/2 text-[11px] text-muted-foreground whitespace-nowrap"
-								}
+										? "font-semibold text-foreground"
+										: "text-muted-foreground"
+								}`}
 								style={{ left: `${(xFrac(i) * 100).toFixed(3)}%` }}
 							>
 								{p.label}
 							</span>
-						) : null,
-					)}
+						);
+					})}
 				</div>
 			</div>
 

@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.50.1 - 2026-09-13
+
+- Der Umsatzverlauf zeigt wieder die kompletten zwölf Monate. Bisher hat der
+  gewählte Zeitraum die Kurve beschnitten, sodass die Monate aus dem Vorjahr
+  leer aussahen, obwohl die Einträge vorhanden waren.
+- Die Beschriftung unter der Kurve passt sich der Breite an. Auf dem Handy
+  schreiben sich die Wochen- und Monatsangaben nicht mehr übereinander. Der
+  aktuelle Zeitraum bleibt dabei immer beschriftet.
+
 ## 1.50.0 - 2026-09-08
 
 - Einträge lassen sich jetzt direkt im Vorjahresvergleich in einen anderen
