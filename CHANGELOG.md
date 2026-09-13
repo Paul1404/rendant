@@ -3,6 +3,13 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.50.2 - 2026-09-13
+
+- Die Umsatzkurve hat jetzt eine lesbare Skala. Die Beschriftung nennt runde
+  Beträge wie 5.000, 10.000 und 15.000 statt krummer Zwischenwerte, die Null
+  ist als eigene Linie sichtbar, und über dem höchsten Monat bleibt Luft, statt
+  dass er an den oberen Rand stößt.
+
 ## 1.50.1 - 2026-09-13
 
 - Der Umsatzverlauf zeigt wieder die kompletten zwölf Monate. Bisher hat der

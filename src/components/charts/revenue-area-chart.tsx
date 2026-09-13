@@ -15,9 +15,37 @@ type RevenuePoint = {
 
 const VIEW_WIDTH = 1000;
 const VIEW_HEIGHT = 100;
-const GRID_LINES = 4;
+// How many steps the y-axis aims for. The actual count follows from the
+// rounded step, so it can end up one higher.
+const AXIS_STEPS = 4;
 // Minimum gap between two neighbouring axis labels, in pixels.
 const LABEL_GAP_PX = 3;
+
+// Axis maximum and step rounded to a value a person would write down, so the
+// gridlines read 5k, 10k, 15k instead of the raw maximum divided by four. The
+// rounded maximum also leaves the highest bucket room below the top line.
+export function niceAxis(
+	max: number,
+	steps = AXIS_STEPS,
+): { max: number; step: number } {
+	if (!Number.isFinite(max) || max <= 0) return { max: 0, step: 0 };
+	const rough = max / steps;
+	const magnitude = 10 ** Math.floor(Math.log10(rough));
+	const normalized = rough / magnitude;
+	const factor =
+		normalized <= 1
+			? 1
+			: normalized <= 2
+				? 2
+				: normalized <= 2.5
+					? 2.5
+					: normalized <= 5
+						? 5
+						: 10;
+	// Cents are whole numbers, so a step below one cent would repeat labels.
+	const step = Math.max(1, Math.round(magnitude * factor));
+	return { max: Math.ceil(max / step) * step, step };
+}
 
 type MeasuredLabel = { index: number; x: number; width: number };
 
@@ -97,7 +125,9 @@ export function RevenueAreaChart({
 	onSelect?: (window: DateWindow | undefined) => void;
 }): JSX.Element {
 	const max = Math.max(0, ...points.map((p) => p.total));
-	const safeMax = max > 0 ? max : 1;
+	const axis = niceAxis(max);
+	// Everything is drawn against the rounded maximum, never the raw one.
+	const scaleMax = axis.max > 0 ? axis.max : 1;
 	// With many buckets (daily view) only mark days that actually have revenue,
 	// plus the current day, to keep the line readable.
 	const dense = points.length > 16;
@@ -148,7 +178,8 @@ export function RevenueAreaChart({
 		return () => observer.disconnect();
 	}, [points]);
 	// Y in unitless viewBox space (0 = top, VIEW_HEIGHT = baseline).
-	const yFor = (value: number) => VIEW_HEIGHT - (VIEW_HEIGHT * value) / safeMax;
+	const yFor = (value: number) =>
+		VIEW_HEIGHT - (VIEW_HEIGHT * value) / scaleMax;
 
 	const coords: Pt[] = points.map((p, i) => ({
 		x: xFrac(i) * VIEW_WIDTH,
@@ -160,10 +191,12 @@ export function RevenueAreaChart({
 			? `${linePath} L ${coords[coords.length - 1].x.toFixed(2)} ${VIEW_HEIGHT} L ${coords[0].x.toFixed(2)} ${VIEW_HEIGHT} Z`
 			: "";
 
-	// Tick values from top (safeMax) down to a value above the baseline.
-	const ticks = Array.from({ length: GRID_LINES }, (_, i) => {
-		const value = (safeMax * (GRID_LINES - i)) / GRID_LINES;
-		return { value, frac: 1 - value / safeMax };
+	// Tick values from zero up to the rounded maximum. The zero line is part of
+	// the scale so the baseline of the area is labelled instead of implied.
+	const tickCount = axis.step > 0 ? Math.round(axis.max / axis.step) : 0;
+	const ticks = Array.from({ length: tickCount + 1 }, (_, i) => {
+		const value = i * axis.step;
+		return { value, frac: 1 - value / scaleMax };
 	});
 
 	return (
