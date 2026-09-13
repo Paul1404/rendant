@@ -63,6 +63,7 @@ import {
 	session as sessionTable,
 	user as userTable,
 } from "@/server/db/auth-schema";
+import { logger } from "@/server/logger";
 import { getMcpStatus } from "@/server/mcp/auth";
 import {
 	AnlassKatalogConcurrencyError,
@@ -521,7 +522,11 @@ const settings = {
 				);
 				return result;
 			} catch (e) {
-				throw new ORPCError("BAD_REQUEST", { message: (e as Error).message });
+				logger.error("email settings update failed", { error: e });
+				throw new ORPCError("BAD_REQUEST", {
+					message:
+						"Die E-Mail-Einstellungen konnten nicht gespeichert werden. Bitte Eingaben prüfen und erneut versuchen.",
+				});
 			}
 		}),
 
@@ -539,8 +544,12 @@ const settings = {
 				});
 				return { ok: true };
 			} catch (e) {
+				// The SMTP answer names hosts, users and login failures. It belongs
+				// in the log, not in a toast.
+				logger.error("test email failed", { error: e, to: input.to });
 				throw new ORPCError("BAD_REQUEST", {
-					message: `Versand fehlgeschlagen: ${(e as Error).message}`,
+					message:
+						"Versand fehlgeschlagen. Bitte Host, Port, Benutzer und Passwort prüfen und erneut testen.",
 				});
 			}
 		}),

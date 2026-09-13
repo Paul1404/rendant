@@ -76,7 +76,7 @@ export function HelperHourNameVariantsForm() {
 				nach_id: nachId,
 			});
 			await refresh();
-			toast.success(`${saved.moved} Einträge auf "${label}" vereinheitlicht`);
+			toast.success(`${saved.moved} Einträge auf „${label}“ vereinheitlicht`);
 		} catch (error) {
 			toast.error(orpcMessage(error, "Zusammenführen fehlgeschlagen"));
 		} finally {
@@ -261,7 +261,7 @@ export function HelperHourNoteRulesForm() {
 						className="flex items-center justify-between gap-3 rounded-xl border p-3 text-sm"
 					>
 						<span>
-							Zeilen mit <span className="font-medium">"{rule.vermerk}"</span>{" "}
+							Zeilen mit <span className="font-medium">„{rule.vermerk}“</span>{" "}
 							in der Spalte Sonstiges buchen auf den Punkt{" "}
 							<span className="font-medium">{rule.kategorie_label}</span>
 						</span>
@@ -525,7 +525,7 @@ export function HelperHourCategoriesForm({
 										</SelectContent>
 									</Select>
 								</div>
-								<div className="flex items-end gap-2">
+								<div className="flex flex-wrap items-end gap-2">
 									<Button
 										type="button"
 										variant={draft.aktiv ? "outline" : "secondary"}
@@ -598,17 +598,18 @@ export function HelperHourCategoriesForm({
 									category.expenses === 0 ? (
 										<ConfirmDialog
 											title="Punkt löschen"
-											description={`"${category.label}" wird entfernt. Das ist nur möglich, solange keine Stunden und keine Abzüge darauf gebucht sind.`}
+											description={`„${category.label}“ wird entfernt. Das ist nur möglich, solange keine Stunden und keine Abzüge darauf gebucht sind.`}
 											confirmLabel="Löschen"
 											onConfirm={() => remove(category)}
 											trigger={
 												<Button
 													type="button"
 													variant="ghost"
-													size="sm"
+													size="icon-sm"
+													aria-label="Punkt löschen"
 													disabled={pending}
 												>
-													<Trash2 className="h-3.5 w-3.5" />
+													<Trash2 className="h-4 w-4" />
 												</Button>
 											}
 										/>

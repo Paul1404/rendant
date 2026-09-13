@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  formatCent,
+	formatCent,
 	formatCentCompact,
-  formatCentPlain,
-  parseGermanAmount,
+	formatCentPlain,
+	formatCentSymbol,
+	formatPercent,
+	parseGermanAmount,
 } from "@/lib/money";
 
 describe("parseGermanAmount", () => {
@@ -66,4 +68,37 @@ describe("parse/format round-trip", () => {
       expect(parseGermanAmount(formatCentPlain(cent))).toBe(cent);
     }
   });
+});
+
+describe("formatCentSymbol", () => {
+	it("keeps the figures of formatCent but uses the symbol", () => {
+		expect(formatCentSymbol(0)).toBe("0,00 €");
+		expect(formatCentSymbol(123456)).toBe("1.234,56 €");
+		expect(formatCentSymbol(-500)).toBe("-5,00 €");
+	});
+});
+
+describe("formatPercent", () => {
+	it("uses one decimal and a space before the sign", () => {
+		expect(formatPercent(5)).toBe("5,0 %");
+		expect(formatPercent(62.44)).toBe("62,4 %");
+		expect(formatPercent(0)).toBe("0,0 %");
+	});
+
+	it("marks a share that would round away instead of printing zero", () => {
+		expect(formatPercent(0.04)).toBe("< 0,1 %");
+		expect(formatPercent(-0.04)).toBe("> -0,1 %");
+		expect(formatPercent(0.05)).toBe("0,1 %");
+	});
+
+	it("adds the plus for deltas", () => {
+		expect(formatPercent(18.5, { sign: true })).toBe("+18,5 %");
+		expect(formatPercent(-4, { sign: true })).toBe("-4,0 %");
+		expect(formatPercent(0, { sign: true })).toBe("0,0 %");
+	});
+
+	it("survives values that are not numbers", () => {
+		expect(formatPercent(Number.NaN)).toBe("0,0 %");
+		expect(formatPercent(Number.POSITIVE_INFINITY)).toBe("0,0 %");
+	});
 });

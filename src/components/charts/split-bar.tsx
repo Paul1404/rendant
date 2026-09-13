@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import { formatCent } from "@/lib/money";
+import { formatCent, formatPercent } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
 type SplitSegment = {
@@ -8,16 +8,13 @@ type SplitSegment = {
 	tone: "primary" | "card" | "muted";
 };
 
+// Each segment needs its own colour from the chart palette. `bg-muted` used to
+// be both a segment and the empty track, so that share was invisible.
 const toneBar: Record<SplitSegment["tone"], string> = {
 	primary: "bg-primary",
-	card: "bg-primary/40",
-	muted: "bg-muted",
+	card: "bg-chart-3",
+	muted: "bg-chart-4",
 };
-
-const percentFormatter = new Intl.NumberFormat("de-DE", {
-	minimumFractionDigits: 1,
-	maximumFractionDigits: 1,
-});
 
 export function SplitBar({
 	segments,
@@ -28,7 +25,7 @@ export function SplitBar({
 
 	return (
 		<div className="w-full">
-			<div className="flex h-3 w-full overflow-hidden rounded-full bg-muted">
+			<div className="flex h-3 w-full overflow-hidden rounded-full bg-border">
 				{total > 0
 					? segments.map((segment) => {
 							const width = (Math.max(0, segment.value) / total) * 100;
@@ -67,7 +64,7 @@ export function SplitBar({
 									{formatCent(segment.value)}
 								</span>
 								<span className="w-14 text-right text-muted-foreground tabular-nums">
-									{`${percentFormatter.format(pct)} %`}
+									{formatPercent(pct)}
 								</span>
 							</li>
 						);

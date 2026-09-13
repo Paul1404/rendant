@@ -215,7 +215,7 @@ export function AnlassCatalogForm({
 									</Button>
 									<ConfirmDialog
 										title="Umsatzgruppe löschen"
-										description={`Umsatzgruppe "${entry.name}" wirklich löschen? Das geht nur, wenn ihr keine Belege zugeordnet sind. Sonst besser deaktivieren.`}
+										description={`Umsatzgruppe „${entry.name}“ wirklich löschen? Das geht nur, wenn ihr keine Belege zugeordnet sind. Sonst besser deaktivieren.`}
 										confirmLabel="Löschen"
 										destructive
 										pending={pending}

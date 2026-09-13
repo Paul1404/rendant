@@ -341,7 +341,7 @@ export function UserManagement({
 								className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3"
 							>
 								<div className="min-w-0">
-									<p className="truncate text-sm font-medium text-foreground">
+									<p className="break-all text-sm font-medium text-foreground">
 										{i.email}
 									</p>
 									<p className="text-[11px] text-muted-foreground">

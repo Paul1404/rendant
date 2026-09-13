@@ -83,6 +83,22 @@ export function formatDateTimeDe(value: Date | string): string {
 	return dateTimeFormatter.format(toDate(value));
 }
 
+const dateTimeSecondsFormatter = new Intl.DateTimeFormat("de-DE", {
+	timeZone: BERLIN_TZ,
+	day: "2-digit",
+	month: "2-digit",
+	year: "numeric",
+	hour: "2-digit",
+	minute: "2-digit",
+	second: "2-digit",
+});
+
+// Same shape as `formatDateTimeDe` plus seconds, for the audit trail where the
+// order of two events in the same minute matters.
+export function formatDateTimeSecondsDe(value: Date | string): string {
+	return dateTimeSecondsFormatter.format(toDate(value));
+}
+
 const isoDateFormatter = new Intl.DateTimeFormat("en-CA", {
 	timeZone: BERLIN_TZ,
 	year: "numeric",

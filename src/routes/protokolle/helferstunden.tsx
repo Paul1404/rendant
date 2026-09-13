@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { HelperHoursPage } from "@/components/helper-hours-page";
 import { PageHeader } from "@/components/page-header";
+import { currentYearBerlin } from "@/lib/date";
 
 export const Route = createFileRoute("/protokolle/helferstunden")({
 	validateSearch: (
@@ -29,9 +30,7 @@ function Page() {
 	const search = Route.useSearch();
 	const navigate = useNavigate({ from: "/protokolle/helferstunden" });
 	const selectedYear =
-		search.jahr === "alle"
-			? undefined
-			: (search.jahr ?? new Date().getFullYear());
+		search.jahr === "alle" ? undefined : (search.jahr ?? currentYearBerlin());
 	return (
 		<div className="space-y-8">
 			<PageHeader

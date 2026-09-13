@@ -62,7 +62,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { formatDateDe } from "@/lib/date";
 import { DENOMINATIONS } from "@/lib/denominations";
-import { formatCentPlain, parseGermanAmount } from "@/lib/money";
+import { formatCent, formatCentPlain, parseGermanAmount } from "@/lib/money";
 import { orpc, orpcClient } from "@/lib/orpc";
 import { orpcMessage } from "@/lib/orpc-error";
 import {
@@ -586,11 +586,11 @@ export function HistoricalRevenueDetailDialog({
 							/>
 							<DetailValue
 								label="Umsatz"
-								value={`${formatCentPlain(detail.umsatz_cent)} EUR`}
+								value={formatCent(detail.umsatz_cent)}
 							/>
 							<DetailValue
 								label="Ergebnis"
-								value={`${formatCentPlain(detail.umsatz_cent - detail.ausgaben_cent)} EUR`}
+								value={formatCent(detail.umsatz_cent - detail.ausgaben_cent)}
 							/>
 							<div className="sm:col-span-3">
 								<DetailValue label="Veranstaltung" value={detail.anlass} />
@@ -601,7 +601,7 @@ export function HistoricalRevenueDetailDialog({
 								<div className="flex flex-wrap items-center justify-between gap-2">
 									<div>
 										<p className="font-medium">Originalquelle</p>
-										<p className="text-xs text-muted-foreground">
+										<p className="break-all text-xs text-muted-foreground">
 											{detail.source.path ?? "Pfad nicht gespeichert"}
 										</p>
 									</div>
@@ -735,8 +735,8 @@ function CorrectionForm({
 			<div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-4">
 				<p className="font-medium">Vorher</p>
 				<p className="mt-1 text-xs text-muted-foreground">
-					{detail.anlass} · {formatCentPlain(detail.umsatz_cent)} EUR Umsatz ·{" "}
-					{formatCentPlain(detail.ausgaben_cent)} EUR Ausgaben
+					{detail.anlass} · {formatCent(detail.umsatz_cent)} Umsatz ·{" "}
+					{formatCent(detail.ausgaben_cent)} Ausgaben
 				</p>
 			</div>
 			<div className="grid gap-3 sm:grid-cols-2">
@@ -1003,7 +1003,7 @@ function SourceAccountingEvidence({ source }: { source: HistoricalSource }) {
 						{source.vat.map((row) => (
 							<Badge key={row.ust_basis_punkte} variant="outline">
 								{(row.ust_basis_punkte / 100).toLocaleString("de-DE")} %:{" "}
-								{formatCentPlain(row.betrag_cent)} EUR
+								{formatCent(row.betrag_cent)}
 							</Badge>
 						))}
 					</div>
@@ -1026,5 +1026,5 @@ function SourceAccountingEvidence({ source }: { source: HistoricalSource }) {
 }
 
 function moneyOrUnknown(value: number | null | undefined): string {
-	return value == null ? "Nicht bekannt" : `${formatCentPlain(value)} EUR`;
+	return value == null ? "Nicht bekannt" : formatCent(value);
 }

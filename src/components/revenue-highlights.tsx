@@ -12,7 +12,7 @@ import { Money } from "@/components/ui/money";
 import { FieldLabel } from "@/components/ui/section";
 import { toComparisonEntries } from "@/lib/anlass-comparison";
 import { formatDateDe, todayIsoDate } from "@/lib/date";
-import { formatCent, formatCentCompact } from "@/lib/money";
+import { formatCent, formatCentCompact, formatPercent } from "@/lib/money";
 import type { ProtokollRow } from "@/lib/protokoll-types";
 import {
 	buildRevenueHighlights,
@@ -51,6 +51,9 @@ export function RevenueHighlights({
 		firstYear && lastYear && firstYear !== lastYear
 			? `${firstYear} bis ${lastYear}`
 			: (firstYear ?? "");
+	const yearsWithRevenue = highlights.years.filter(
+		(year) => year.revenueCent > 0,
+	).length;
 
 	return (
 		<section className="space-y-3" aria-labelledby="revenue-highlights-heading">
@@ -72,8 +75,8 @@ export function RevenueHighlights({
 						<p className="mt-3 text-sm text-muted-foreground">
 							{highlights.dateCount}{" "}
 							{highlights.dateCount === 1 ? "Termin" : "Termine"} aus{" "}
-							{highlights.years.filter((year) => year.revenueCent > 0).length}{" "}
-							Jahren, {highlights.entryCount}{" "}
+							{yearsWithRevenue} {yearsWithRevenue === 1 ? "Jahr" : "Jahren"},{" "}
+							{highlights.entryCount}{" "}
 							{highlights.entryCount === 1 ? "Eintrag" : "Einträge"} insgesamt.
 						</p>
 						<p className="mt-1 text-xs text-muted-foreground">
@@ -94,7 +97,7 @@ export function RevenueHighlights({
 						highlights.bestYear ? (
 							<Money cent={highlights.bestYear.revenueCent} emphasis />
 						) : (
-							"Noch keine Daten"
+							"Noch kein Jahr erfasst"
 						)
 					}
 					hint={
@@ -112,7 +115,7 @@ export function RevenueHighlights({
 						highlights.bestDay ? (
 							<Money cent={highlights.bestDay.revenueCent} emphasis />
 						) : (
-							"Noch keine Daten"
+							"Noch kein Termin erfasst"
 						)
 					}
 					hint={
@@ -128,8 +131,20 @@ export function RevenueHighlights({
 				<HighlightTile
 					icon={Sigma}
 					label="Schnitt je Termin"
-					value={<Money cent={highlights.averagePerDateCent} emphasis />}
-					hint={`Über alle ${highlights.dateCount} Termine gerechnet`}
+					value={
+						highlights.dateCount > 0 ? (
+							<Money cent={highlights.averagePerDateCent} emphasis />
+						) : (
+							"Noch kein Termin erfasst"
+						)
+					}
+					hint={
+						highlights.dateCount > 0
+							? `Über ${highlights.dateCount} ${
+									highlights.dateCount === 1 ? "Termin" : "Termine"
+								} gerechnet`
+							: undefined
+					}
 				/>
 				{highlights.yearToDate ? (
 					<HighlightTile
@@ -187,7 +202,10 @@ function YearStrip({ highlights }: { highlights: RevenueHighlightsData }) {
 											best ? "bg-primary" : "bg-primary/30",
 										)}
 										style={{
-											height: `${Math.max(year.revenueCent > 0 ? 4 : 1.5, height)}%`,
+											// A year without turnover gets no bar at all. A stub would
+											// claim revenue that was never booked.
+											height:
+												year.revenueCent > 0 ? `${Math.max(2, height)}%` : "0%",
 										}}
 									/>
 								</span>
@@ -225,6 +243,16 @@ function YearToDateHint({
 	if (yearToDate.deltaPct === null) {
 		return <>Kein Vergleichswert aus {yearToDate.previousYear}</>;
 	}
+	// Against a near-empty previous year the percentage explodes and says less
+	// than the amount it is measured against.
+	if (Math.abs(yearToDate.deltaPct) >= 999) {
+		return (
+			<>
+				{yearToDate.previousYear} lag bis zum selben Stichtag bei{" "}
+				{formatCent(yearToDate.previousRevenueCent)}
+			</>
+		);
+	}
 	const up = yearToDate.deltaPct > 0.5;
 	const down = yearToDate.deltaPct < -0.5;
 	const Icon = up ? ArrowUpRight : down ? ArrowDownRight : Minus;
@@ -237,11 +265,8 @@ function YearToDateHint({
 			)}
 		>
 			<Icon className="h-3.5 w-3.5" />
-			{yearToDate.deltaPct.toLocaleString("de-DE", {
-				maximumFractionDigits: 1,
-				signDisplay: "exceptZero",
-			})}{" "}
-			% gegen {yearToDate.previousYear} zum selben Stichtag
+			{formatPercent(yearToDate.deltaPct, { sign: true })} gegen{" "}
+			{yearToDate.previousYear} zum selben Stichtag
 		</span>
 	);
 }

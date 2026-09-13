@@ -59,6 +59,9 @@ export type MonthPoint = {
 	total: number;
 	count: number;
 	isCurrent: boolean;
+	// A label the axis must not drop when space runs short, such as the one
+	// carrying the turn of the year.
+	labelPinned?: boolean;
 };
 
 export type AnlassPoint = { anlass: string; count: number; sum: number };
@@ -184,7 +187,13 @@ export function computeContext(
 		const month = Number(key.slice(5, 7));
 		buckets.push({
 			key,
-			label: MONTH_SHORT[month - 1],
+			// The rolling window always crosses a turn of the year, so the first
+			// bucket and every January carry the year with them.
+			label:
+				month === 1 || i === 11
+					? `${MONTH_SHORT[month - 1]} ${String(year).slice(2)}`
+					: MONTH_SHORT[month - 1],
+			labelPinned: month === 1 || i === 11,
 			longLabel: `${MONTH_LONG[month - 1]} ${year}`,
 			from: `${key}-01`,
 			to: addIsoCalendarDays(`${addMonthsToKey(key, 1)}-01`, -1),
@@ -321,7 +330,9 @@ export function computeSeries(
 			const agg = byDay.get(key) ?? { total: 0, count: 0 };
 			points.push({
 				key,
-				label: i % 5 === 0 ? ddmm(key) : "",
+				// Every fifth day counting back from today, plus the oldest bucket
+				// so the series does not start without a date.
+				label: i % 5 === 0 || i === DAY_BUCKETS - 1 ? ddmm(key) : "",
 				longLabel: formatDateDe(key),
 				from: key,
 				to: key,

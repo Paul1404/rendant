@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { hiddenAxisLabels } from "@/components/charts/revenue-area-chart";
+import {
+	hiddenAxisLabels,
+	niceAxis,
+} from "@/components/charts/revenue-area-chart";
 
 // Label widths measured in Chromium with IBM Plex Sans at 11px: a date label is
 // 32.4 px wide and 33 px semibold, a month name 14.9 to 19.5 px. The axis is
@@ -72,5 +75,86 @@ describe("revenue chart axis labels", () => {
 
 	it("hides nothing on an empty axis", () => {
 		expect(hiddenAxisLabels([]).size).toBe(0);
+	});
+});
+
+describe("revenue chart axis scale", () => {
+	// Cent values, as the chart stores them.
+	it("rounds the maximum up to a value a person would write down", () => {
+		// 17.400,00 EUR, the case that produced 17,4k / 13,1k / 8,7k / 4,4k.
+		expect(niceAxis(1_740_000)).toEqual({ max: 2_000_000, step: 500_000 });
+		expect(niceAxis(88_618_79)).toEqual({ max: 10_000_000, step: 2_500_000 });
+		expect(niceAxis(320_00)).toEqual({ max: 40_000, step: 10_000 });
+	});
+
+	it("keeps the highest bucket at or below the top gridline", () => {
+		for (const max of [1, 99, 1_000, 12_345, 634_00, 1_740_000, 9_999_999]) {
+			const axis = niceAxis(max);
+			expect(axis.max).toBeGreaterThanOrEqual(max);
+			expect(axis.max % axis.step).toBe(0);
+		}
+	});
+
+	it("produces four or five steps", () => {
+		for (const max of [1_000, 4_321, 63_400, 273_700, 1_740_000, 88_618_79]) {
+			const axis = niceAxis(max);
+			const steps = axis.max / axis.step;
+			expect(steps).toBeGreaterThanOrEqual(3);
+			expect(steps).toBeLessThanOrEqual(5);
+			expect(Number.isInteger(steps)).toBe(true);
+		}
+	});
+
+	it("never falls below a whole cent per step", () => {
+		expect(niceAxis(1).step).toBeGreaterThanOrEqual(1);
+		expect(niceAxis(3).step).toBeGreaterThanOrEqual(1);
+	});
+
+	it("collapses to nothing without positive values", () => {
+		expect(niceAxis(0)).toEqual({ max: 0, step: 0 });
+		expect(niceAxis(-5)).toEqual({ max: 0, step: 0 });
+		expect(niceAxis(Number.NaN)).toEqual({ max: 0, step: 0 });
+	});
+});
+
+describe("pinned axis labels", () => {
+	// Okt 25 and Jan 26 carry the turn of the year and are 40 px wide, their
+	// neighbours 19 px, on a 260 px phone axis.
+	function yearAxis(axisWidth: number) {
+		const widths = [40, 19.3, 18.5, 40, 18.3, 18.8, 17.5, 17.6, 18.1, 14.9, 19.1, 19.5];
+		return widths.map((width, index) => ({
+			index,
+			x: (index / (widths.length - 1)) * axisWidth,
+			width,
+			pinned: index === 0 || index === 3,
+		}));
+	}
+
+	it("keeps the labels carrying the year and drops a neighbour instead", () => {
+		const hidden = hiddenAxisLabels(yearAxis(PHONE_AXIS));
+		expect(hidden.has(0)).toBe(false);
+		expect(hidden.has(3)).toBe(false);
+		expect(hidden.size).toBeGreaterThan(0);
+	});
+
+	it("keeps them at every width a phone actually has", () => {
+		for (const axisWidth of [200, 260, 340, 520, 760]) {
+			const hidden = hiddenAxisLabels(yearAxis(axisWidth));
+			expect(hidden.has(0)).toBe(false);
+			expect(hidden.has(3)).toBe(false);
+		}
+	});
+
+	it("lets one pinned label go when two of them collide with each other", () => {
+		// Below roughly 160 px axis width the two year labels overlap. One of
+		// them has to give way, and it is the older one.
+		const hidden = hiddenAxisLabels(yearAxis(140));
+		expect(hidden.has(3)).toBe(false);
+		expect(hidden.has(0)).toBe(true);
+	});
+
+	it("still keeps the current period label", () => {
+		const labels = yearAxis(PHONE_AXIS);
+		expect(hiddenAxisLabels(labels).has(labels.length - 1)).toBe(false);
 	});
 });

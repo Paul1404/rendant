@@ -138,7 +138,7 @@ export function CatalogPicker({
 									<Plus className="h-3.5 w-3.5" />
 								)}
 								<span className="min-w-0 truncate">
-									„{query.trim()}" neu anlegen
+									„{query.trim()}“ neu anlegen
 								</span>
 							</button>
 						) : null}
