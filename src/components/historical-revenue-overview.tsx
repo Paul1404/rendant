@@ -878,56 +878,66 @@ function ComparisonCard({
 								key={year.year}
 								className="overflow-hidden rounded-xl bg-muted/35"
 							>
+								{/* Narrow screens stack Umsatz, Ergebnis and the summary in one
+								    column: two monospace amounts do not fit next to the year. From
+								    `sm` the wrapper dissolves into the four-column grid. */}
 								<button
 									type="button"
 									aria-expanded={expanded}
 									onClick={() => toggleYear(year.year)}
-									className="grid w-full grid-cols-[auto_1fr_auto] gap-x-4 gap-y-1 px-3 py-3 text-left transition-colors hover:bg-muted/60 sm:grid-cols-[4rem_1fr_1fr_auto] sm:items-center"
+									className="flex w-full items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/60 sm:grid sm:grid-cols-[4rem_1fr_1fr_auto] sm:items-center sm:gap-x-4 sm:gap-y-1"
 								>
-									<div className="row-span-2 flex items-center gap-2 font-semibold tabular-nums sm:row-span-1">
+									<div className="flex shrink-0 items-center gap-2 font-semibold tabular-nums">
 										<CalendarDays className="h-3.5 w-3.5 text-primary" />
 										{year.year}
 									</div>
-									<div className="flex items-center justify-between gap-2 sm:flex-col sm:items-start sm:gap-0.5">
-										<span className="text-xs text-muted-foreground">
-											Umsatz
-										</span>
-										<Money cent={year.revenueCent} emphasis />
-									</div>
-									<div className="flex items-center justify-between gap-2 sm:flex-col sm:items-start sm:gap-0.5">
-										<span className="text-xs text-muted-foreground">
-											Ergebnis
-										</span>
-										<Money
-											cent={year.revenueCent - year.expensesCent}
-											tone={
-												year.revenueCent - year.expensesCent < 0
-													? "negative"
-													: "default"
-											}
-										/>
+									<div className="flex min-w-0 flex-1 flex-col gap-1 sm:contents">
+										<div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 sm:flex-col sm:items-start">
+											<span className="text-xs text-muted-foreground">
+												Umsatz
+											</span>
+											<Money
+												cent={year.revenueCent}
+												emphasis
+												className="ml-auto sm:ml-0"
+											/>
+										</div>
+										<div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 sm:flex-col sm:items-start">
+											<span className="text-xs text-muted-foreground">
+												Ergebnis
+											</span>
+											<Money
+												cent={year.revenueCent - year.expensesCent}
+												tone={
+													year.revenueCent - year.expensesCent < 0
+														? "negative"
+														: "default"
+												}
+												className="ml-auto sm:ml-0"
+											/>
+										</div>
+										<div className="text-[11px] text-muted-foreground sm:col-span-2 sm:col-start-2">
+											{group.typ === "wiederkehrend" ? (
+												<span className="font-medium text-foreground/70">
+													{year.dates.size}{" "}
+													{year.dates.size === 1 ? "Termin" : "Termine"}
+													{year.dates.size > 0
+														? ` · Ø ${formatCentPlain(
+																Math.round(year.revenueCent / year.dates.size),
+															)} EUR/Termin`
+														: ""}
+													{" · "}
+												</span>
+											) : null}
+											{sourceSummary(year)}, zuletzt am{" "}
+											{formatDateDe(year.latestDate)}
+										</div>
 									</div>
 									{expanded ? (
-										<ChevronUp className="row-span-2 h-4 w-4 self-center sm:row-span-1" />
+										<ChevronUp className="h-4 w-4 shrink-0 self-center sm:col-start-4 sm:row-span-2 sm:row-start-1" />
 									) : (
-										<ChevronDown className="row-span-2 h-4 w-4 self-center sm:row-span-1" />
+										<ChevronDown className="h-4 w-4 shrink-0 self-center sm:col-start-4 sm:row-span-2 sm:row-start-1" />
 									)}
-									<div className="col-start-2 text-[11px] text-muted-foreground sm:col-span-2 sm:col-start-2">
-										{group.typ === "wiederkehrend" ? (
-											<span className="font-medium text-foreground/70">
-												{year.dates.size}{" "}
-												{year.dates.size === 1 ? "Termin" : "Termine"}
-												{year.dates.size > 0
-													? ` · Ø ${formatCentPlain(
-															Math.round(year.revenueCent / year.dates.size),
-														)} EUR/Termin`
-													: ""}
-												{" · "}
-											</span>
-										) : null}
-										{sourceSummary(year)}, zuletzt am{" "}
-										{formatDateDe(year.latestDate)}
-									</div>
 								</button>
 								{expanded ? (
 									<div className="space-y-3 border-border/60 border-t bg-background/55 p-3">

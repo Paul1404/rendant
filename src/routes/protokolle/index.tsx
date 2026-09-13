@@ -155,8 +155,11 @@ function ProtokolleListPage() {
 						selectedYear ? `Jahr ${selectedYear}` : RANGE_LABELS[timeRange]
 					}
 					vatRange={vatRange}
-					items={periodActive}
-					historicalItems={periodHistorical}
+					// The trend chart owns its own rolling window, so it gets the
+					// complete active data. Filtering it by the selected range cut
+					// every month that reached into the previous year.
+					items={allActive}
+					historicalItems={historicalActive}
 					seriesNow={
 						selectedYear ? new Date(selectedYear, 11, 31, 12) : new Date()
 					}
