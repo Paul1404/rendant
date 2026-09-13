@@ -11,6 +11,9 @@ hier entspricht `package.json` und der Versionsmarke in der App.
 - Die Beschriftung unter der Kurve passt sich der Breite an. Auf dem Handy
   schreiben sich die Wochen- und Monatsangaben nicht mehr übereinander. Der
   aktuelle Zeitraum bleibt dabei immer beschriftet.
+- Im Vorjahresvergleich stehen Umsatz und Ergebnis auf schmalen Bildschirmen
+  untereinander. Vorher lagen beide Beträge nebeneinander und der rechte war
+  abgeschnitten.
 
 ## 1.50.0 - 2026-09-08
 
