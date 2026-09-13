@@ -5,10 +5,51 @@ hier entspricht `package.json` und der Versionsmarke in der App.
 
 ## 1.50.2 - 2026-09-13
 
+Auswertungen
+
 - Die Umsatzkurve hat jetzt eine lesbare Skala. Die Beschriftung nennt runde
   Beträge wie 5.000, 10.000 und 15.000 statt krummer Zwischenwerte, die Null
   ist als eigene Linie sichtbar, und über dem höchsten Monat bleibt Luft, statt
   dass er an den oberen Rand stößt.
+- Die Monatsachse zeigt den Jahreswechsel. Der erste Monat und jeder Januar
+  tragen die Jahreszahl und bleiben auch auf dem Handy stehen.
+- Im Balken "Bar gegen Karte" hat jeder Anteil eine eigene Farbe. Der Anteil aus
+  Altunterlagen war bisher unsichtbar, weil er die Farbe der leeren Spur hatte.
+- Jahre ohne Umsatz haben im Jahresvergleich keinen Balkenstummel mehr, der
+  einen Umsatz behauptet, den es nicht gab.
+- Prozentwerte sind überall gleich geschrieben, mit einer Nachkommastelle. In
+  der Helferliste erscheint "< 0,1 %" statt seitenweise "0 %".
+- Ein Vergleich gegen einen fast leeren Vormonat nennt jetzt den Betrag statt
+  einer Prozentzahl mit fünf Stellen.
+- Die Kachel "Ausgaben" zeigt den Anteil am Umsatz statt der Gesamtzahl aller
+  Einträge, die nichts mit den Ausgaben zu tun hatte.
+- Die Helferstunden-Verteilung sagt, worauf sich der Prozentsatz bezieht, und
+  weist Stunden ohne Zuordnung gesondert aus.
+
+Anzeige auf dem Handy
+
+- Beträge, Bezeichnungen und Belegnummern werden nicht mehr abgeschnitten. Das
+  betrifft die Einträge im Umsatzvergleich, die Auswahl unter der Umsatzkurve,
+  die Tageseinnahmen im Protokoll, den Zeitraum-Umschalter, die Stückelung im
+  Formular, den Verschiebe-Dialog, offene Einladungen und lange Dateipfade.
+- Punkte in der Umsatzkurve lassen sich auf dem Handy treffen. Die Auswahlfläche
+  war teils nur wenige Pixel breit.
+
+Korrektheit und Texte
+
+- Die Zeiträume im Export richten sich wieder nach dem heutigen Datum. Sie waren
+  an den Zeitpunkt gebunden, zu dem der Server gestartet wurde, und liefen nach
+  längerer Laufzeit in die Vergangenheit.
+- Die Vorschau der Belegnummer nutzt dasselbe Jahr wie die Vergabe. Um den
+  Jahreswechsel konnte sie einen Tag zu früh das neue Jahr zeigen.
+- Zeitstempel im Ordner-Import werden in Berliner Zeit angezeigt, nicht zwei
+  Stunden daneben.
+- Beträge stehen überall im gleichen Format mit Tausenderpunkt.
+- Fehlermeldungen beim Anmelden sind deutsch, auch bei gesperrten Konten und zu
+  vielen Versuchen.
+- Der Test einer E-Mail-Verbindung meldet nicht mehr die technische Antwort des
+  Mailservers, sondern was zu prüfen ist.
+- Bei der Stundeneingabe sagt die Meldung, was genau nicht stimmt.
 
 ## 1.50.1 - 2026-09-13
 

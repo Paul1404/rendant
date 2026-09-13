@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDateDe } from "@/lib/date";
-import { formatCentPlain } from "@/lib/money";
+import { formatCent } from "@/lib/money";
 import { orpcClient } from "@/lib/orpc";
 import { orpcMessage } from "@/lib/orpc-error";
 import {
@@ -168,10 +168,15 @@ export function MoveRevenueEntriesDialog({
 						{entries.slice(0, 12).map((entry) => (
 							<div
 								key={`${entry.source}-${entry.id}`}
-								className="flex items-baseline justify-between gap-3"
+								className="flex items-start justify-between gap-3"
 							>
-								<span className="min-w-0 truncate">
-									{formatDateDe(entry.date)} · {entry.label}
+								{/* This list is the only check before the move, so the label
+								    wraps instead of being cut off. */}
+								<span className="min-w-0">
+									<span className="block break-words">{entry.label}</span>
+									<span className="block text-muted-foreground">
+										{formatDateDe(entry.date)}
+									</span>
 								</span>
 								<Money cent={entry.revenueCent} className="text-xs" />
 							</div>
@@ -182,7 +187,7 @@ export function MoveRevenueEntriesDialog({
 							</p>
 						) : null}
 						<p className="border-border/60 border-t pt-1.5 font-medium">
-							Summe {formatCentPlain(totalCent)} EUR
+							Summe {formatCent(totalCent)}
 						</p>
 					</div>
 

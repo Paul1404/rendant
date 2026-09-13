@@ -1874,11 +1874,14 @@ function DenominationSection({
 				return (
 					<div
 						key={d.key}
-						className="grid grid-cols-12 items-center gap-2 text-sm"
+						// Content-sized columns instead of a fixed twelfth each: at
+						// 320px a twelfth is 14px, too little for "500 EUR" or a
+						// five-figure subtotal.
+						className="grid grid-cols-[3.5rem_minmax(3rem,1fr)_auto] items-center gap-2 text-sm"
 					>
 						<Label
 							htmlFor={d.key}
-							className="col-span-3 justify-end text-right font-mono tabular-nums text-muted-foreground"
+							className="justify-end text-right font-mono tabular-nums text-muted-foreground"
 						>
 							{d.label}
 						</Label>
@@ -1892,10 +1895,10 @@ function DenominationSection({
 							onChange={(e) => setCount(d.key, e.target.value)}
 							onFocus={selectOnFocus}
 							onWheel={blurOnWheel}
-							className="col-span-4 text-right tabular-nums"
+							className="text-right tabular-nums"
 							aria-label={`Anzahl ${d.label}`}
 						/>
-						<div className="col-span-5 text-right">
+						<div className="text-right">
 							{isZero ? (
 								<span className="font-mono tabular-nums text-muted-foreground/40">
 									-

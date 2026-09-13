@@ -22,7 +22,7 @@ import {
 	auditActionLabel,
 	auditCategoryLabel,
 } from "@/lib/audit";
-import { BERLIN_TZ } from "@/lib/date";
+import { formatDateTimeSecondsDe } from "@/lib/date";
 import { orpc } from "@/lib/orpc";
 
 type AuditSearch = {
@@ -71,12 +71,6 @@ export const Route = createFileRoute("/protokolle/audit")({
 		context.queryClient.ensureQueryData(queryOptions(deps)),
 	head: () => ({ meta: [{ title: "Audit-Log · Rendant" }] }),
 	component: AuditPage,
-});
-
-const dateFormatter = new Intl.DateTimeFormat("de-DE", {
-	timeZone: BERLIN_TZ,
-	dateStyle: "medium",
-	timeStyle: "medium",
 });
 
 function AuditPage() {
@@ -161,7 +155,7 @@ function AuditPage() {
 								{data.items.map((event) => (
 									<TableRow key={event.id}>
 										<TableCell className="text-xs text-muted-foreground">
-											{dateFormatter.format(new Date(event.event_at))}
+											{formatDateTimeSecondsDe(event.event_at)}
 										</TableCell>
 										<TableCell className="min-w-52 whitespace-normal">
 											<div className="flex flex-wrap items-center gap-2">

@@ -6,6 +6,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
 
+// better-auth answers in English. Everything the login can run into gets a
+// German sentence that says what to do next.
+const LOGIN_ERRORS: Record<string, string> = {
+	INVALID_EMAIL_OR_PASSWORD: "E-Mail oder Passwort falsch",
+	USER_BANNED:
+		"Dieses Konto ist gesperrt. Bitte wende dich an einen Administrator.",
+	TOO_MANY_REQUESTS:
+		"Zu viele Versuche. Bitte in ein paar Minuten erneut anmelden.",
+	USER_NOT_FOUND: "E-Mail oder Passwort falsch",
+	EMAIL_NOT_VERIFIED:
+		"Diese E-Mail-Adresse ist noch nicht bestätigt. Bitte zuerst den Link aus der Einladung öffnen.",
+};
+
 export function LoginForm({ redirectTo }: { redirectTo: string }) {
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
@@ -19,9 +32,8 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
 			const { error } = await authClient.signIn.email({ email, password });
 			if (error) {
 				toast.error(
-					error.code === "INVALID_EMAIL_OR_PASSWORD"
-						? "E-Mail oder Passwort falsch"
-						: (error.message ?? "Anmeldung fehlgeschlagen"),
+					(error.code ? LOGIN_ERRORS[error.code] : undefined) ??
+						"Anmeldung fehlgeschlagen. Bitte später erneut versuchen.",
 				);
 				return;
 			}

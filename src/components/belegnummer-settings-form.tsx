@@ -14,6 +14,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { currentYearBerlin } from "@/lib/date";
 import { orpcClient } from "@/lib/orpc";
 import { orpcMessage } from "@/lib/orpc-error";
 import { cn } from "@/lib/utils";
@@ -130,7 +131,8 @@ export function BelegnummerSettingsForm({
 	// the server returns, so consecutive saves without a reload keep working.
 	const [updatedAt, setUpdatedAt] = useState(initialUpdatedAt);
 
-	const year = new Date().getFullYear();
+	// The server allocates in Berlin time, so the preview has to agree.
+	const year = currentYearBerlin();
 	const dirty = !settingsEqual(s, savedSettings);
 
 	const nextSeqGuess = useMemo(() => {

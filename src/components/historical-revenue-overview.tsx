@@ -54,7 +54,7 @@ import {
 	toComparisonEntries,
 } from "@/lib/anlass-comparison";
 import { formatDateDe, todayIsoDate } from "@/lib/date";
-import { formatCentPlain, parseGermanAmount } from "@/lib/money";
+import { formatCent, parseGermanAmount } from "@/lib/money";
 import { orpcClient } from "@/lib/orpc";
 import { orpcMessage } from "@/lib/orpc-error";
 import type { ProtokollRow } from "@/lib/protokoll-types";
@@ -745,7 +745,7 @@ function ComparisonCard({
 				<CardHeader className="border-b border-border/60 pb-4">
 					<div className="flex items-start justify-between gap-3">
 						<div className="min-w-0">
-							<CardTitle className="truncate">{group.label}</CardTitle>
+							<CardTitle className="break-words">{group.label}</CardTitle>
 							<div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
 								<CardDescription>
 									{years.length} {years.length === 1 ? "Jahr" : "Jahre"} erfasst
@@ -787,7 +787,7 @@ function ComparisonCard({
 						>
 							<span className="font-medium tabular-nums">
 								{delta >= 0 ? "+" : ""}
-								{formatCentPlain(delta)} EUR
+								{formatCent(delta)}
 							</span>{" "}
 							gegenüber {previous?.year}
 							{deltaPercent != null
@@ -922,9 +922,9 @@ function ComparisonCard({
 													{year.dates.size}{" "}
 													{year.dates.size === 1 ? "Termin" : "Termine"}
 													{year.dates.size > 0
-														? ` · Ø ${formatCentPlain(
+														? ` · Ø ${formatCent(
 																Math.round(year.revenueCent / year.dates.size),
-															)} EUR/Termin`
+															)}/Termin`
 														: ""}
 													{" · "}
 												</span>
@@ -969,7 +969,9 @@ function ComparisonCard({
 												.map((entry) => (
 													<div
 														key={`${entry.source}-${entry.id}`}
-														className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-2 rounded-lg bg-muted/30 px-2.5 py-2 text-xs"
+														// Same reason as the year row above: the amount and the
+														// action buttons leave no width for the label on a phone.
+														className="flex flex-col gap-1.5 rounded-lg bg-muted/30 px-2.5 py-2 text-xs sm:grid sm:grid-cols-[auto_1fr_auto_auto] sm:items-center sm:gap-2"
 													>
 														{canManage ? (
 															<input
@@ -988,10 +990,10 @@ function ComparisonCard({
 															<span className="h-1.5 w-1.5 rounded-full bg-primary" />
 														)}
 														<span className="min-w-0">
-															<span className="block truncate font-medium">
+															<span className="block break-words font-medium sm:truncate">
 																{entry.label}
 															</span>
-															<span className="text-muted-foreground">
+															<span className="block break-words text-muted-foreground">
 																{formatDateDe(entry.date)} · {entry.reference}
 															</span>
 														</span>

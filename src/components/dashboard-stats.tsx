@@ -32,7 +32,7 @@ import {
 	type PeriodStats,
 	revenueOf,
 } from "@/lib/finance";
-import { formatCent } from "@/lib/money";
+import { formatCent, formatPercent } from "@/lib/money";
 import { orpc } from "@/lib/orpc";
 import type { ProtokollRow } from "@/lib/protokoll-types";
 import { formatUstSatz } from "@/lib/ust";
@@ -125,7 +125,11 @@ export function FinanceOverview({
 					icon={ReceiptText}
 					label="Ausgaben"
 					cent={period.expenses}
-					hint={`${period.count} ${period.count === 1 ? "Eintrag" : "Einträge"}`}
+					hint={
+						period.revenueTotal > 0
+							? `${formatPercent((period.expenses / period.revenueTotal) * 100)} des Umsatzes`
+							: "Kein Umsatz im Zeitraum"
+					}
 				/>
 				<KpiCard
 					icon={CreditCard}
@@ -134,7 +138,7 @@ export function FinanceOverview({
 					hint={
 						period.cardSharePct === null
 							? "Keine Zahlungsart erfasst"
-							: `${period.cardSharePct.toLocaleString("de-DE", { maximumFractionDigits: 1 })} % des Umsatzes mit bekannter Zahlungsart`
+							: `${formatPercent(period.cardSharePct)} des Umsatzes mit bekannter Zahlungsart`
 					}
 				/>
 				<KpiCard
@@ -330,7 +334,7 @@ function RevenueDrilldown({
 					{rows.map((row) => (
 						<li
 							key={row.key}
-							className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-border/60 bg-background/60 px-3 py-2.5"
+							className="grid grid-cols-1 gap-2 rounded-lg border border-border/60 bg-background/60 px-3 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-3"
 						>
 							<div className="min-w-0">
 								<div className="flex min-w-0 items-center gap-2">
@@ -341,11 +345,11 @@ function RevenueDrilldown({
 									)}
 									<span className="truncate font-medium">{row.label}</span>
 								</div>
-								<p className="mt-0.5 truncate pl-5.5 text-xs text-muted-foreground">
+								<p className="mt-0.5 break-words pl-5.5 text-xs text-muted-foreground sm:truncate">
 									{formatDateDe(row.date)} · {row.reference}
 								</p>
 							</div>
-							<div className="flex items-center gap-2">
+							<div className="flex flex-wrap items-center justify-between gap-2">
 								<Money cent={row.revenue} emphasis />
 								{row.source === "protocol" && row.id ? (
 									<Button asChild variant="ghost" size="sm">
@@ -508,8 +512,8 @@ function KpiCard({
 							"mt-2 block font-mono font-semibold tracking-tight tabular-nums",
 							hero ? "text-primary" : "text-foreground",
 							hero
-								? "text-[clamp(0.9rem,4.2vw,1.7rem)] sm:text-[1.7rem]"
-								: "text-[clamp(0.85rem,3.6vw,1.35rem)] sm:text-[1.35rem]",
+								? "text-[clamp(0.75rem,4.2vw,1.7rem)] sm:text-[1.7rem]"
+								: "text-[clamp(0.7rem,3.6vw,1.35rem)] sm:text-[1.35rem]",
 						)}
 					>
 						{value}
@@ -525,8 +529,8 @@ function KpiCard({
 							// no-wrap figure. Scale the value down with the card width and
 							// pin it to the original fixed size from the sm breakpoint up.
 							hero
-								? "text-[clamp(0.9rem,4.2vw,1.7rem)] sm:text-[1.7rem]"
-								: "text-[clamp(0.85rem,3.6vw,1.35rem)] sm:text-[1.35rem]",
+								? "text-[clamp(0.75rem,4.2vw,1.7rem)] sm:text-[1.7rem]"
+								: "text-[clamp(0.7rem,3.6vw,1.35rem)] sm:text-[1.35rem]",
 						)}
 					/>
 				)}
@@ -559,6 +563,11 @@ function MomDelta({
 			</span>
 		);
 	}
+	// A near-empty previous month turns any figure into a four-digit percentage.
+	// The absolute comparison says more than "+499.900 %".
+	if (Math.abs(pct) >= 999 || lastMonth < 10_00) {
+		return <span>Vormonat kaum vergleichbar ({formatCent(lastMonth)})</span>;
+	}
 	const up = pct > 0;
 	return (
 		<span
@@ -572,9 +581,7 @@ function MomDelta({
 			) : (
 				<ArrowDownRight className="h-3 w-3" />
 			)}
-			{up ? "+" : ""}
-			{pct.toLocaleString("de-DE", { maximumFractionDigits: 1 })} % ggü.
-			Vormonat
+			{formatPercent(pct, { sign: true })} ggü. Vormonat
 		</span>
 	);
 }

@@ -59,6 +59,7 @@ import {
 } from "@/components/ui/select";
 import { StepList } from "@/components/ui/step-list";
 import { Textarea } from "@/components/ui/textarea";
+import { formatDateTimeDe } from "@/lib/date";
 import type {
 	HistoricalProtocolDraftDecision,
 	HistoricalProtocolDraftDetail,
@@ -158,14 +159,7 @@ function parseCent(value: string): number | null {
 }
 
 function draftIdentity(draft: HistoricalProtocolDraftSummary): string {
-	const createdAt = new Date(draft.createdAt).toLocaleString("de-DE", {
-		day: "2-digit",
-		month: "2-digit",
-		year: "numeric",
-		hour: "2-digit",
-		minute: "2-digit",
-	});
-	return `${createdAt} · ${draft.id.slice(0, 8)}`;
+	return `${formatDateTimeDe(draft.createdAt)} · ${draft.id.slice(0, 8)}`;
 }
 
 export function HistoricalProtocolFolderImport() {

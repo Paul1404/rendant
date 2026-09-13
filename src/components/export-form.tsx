@@ -18,18 +18,23 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FieldLabel } from "@/components/ui/section";
-import { todayIsoDate } from "@/lib/date";
+import {
+	addIsoCalendarDays,
+	currentYearBerlin,
+	todayIsoDate,
+} from "@/lib/date";
 import { cn } from "@/lib/utils";
-
-const TODAY = todayIsoDate();
 
 function isoFromParts(year: number, monthIndex: number, day: number) {
 	const pad = (n: number) => String(n).padStart(2, "0");
 	return `${year}-${pad(monthIndex + 1)}-${pad(day)}`;
 }
 
-const NOW = new Date(`${TODAY}T00:00:00`);
-const CURRENT_YEAR = NOW.getFullYear();
+// Never read the date at module level. The server process keeps running for
+// weeks, so a constant evaluated at boot would hand out stale ranges.
+function today(): string {
+	return todayIsoDate();
+}
 
 const PRESETS: ReadonlyArray<{
 	label: string;
@@ -37,36 +42,25 @@ const PRESETS: ReadonlyArray<{
 }> = [
 	{
 		label: "Aktuelles Jahr",
-		range: () => ({ von: isoFromParts(CURRENT_YEAR, 0, 1), bis: TODAY }),
+		range: () => ({
+			von: isoFromParts(currentYearBerlin(), 0, 1),
+			bis: today(),
+		}),
 	},
 	{
 		label: "Letztes Jahr",
 		range: () => ({
-			von: isoFromParts(CURRENT_YEAR - 1, 0, 1),
-			bis: isoFromParts(CURRENT_YEAR - 1, 11, 31),
+			von: isoFromParts(currentYearBerlin() - 1, 0, 1),
+			bis: isoFromParts(currentYearBerlin() - 1, 11, 31),
 		}),
 	},
 	{
 		label: "Aktueller Monat",
-		range: () => ({
-			von: isoFromParts(CURRENT_YEAR, NOW.getMonth(), 1),
-			bis: TODAY,
-		}),
+		range: () => ({ von: `${today().slice(0, 7)}-01`, bis: today() }),
 	},
 	{
 		label: "Letzte 30 Tage",
-		range: () => {
-			const start = new Date(NOW);
-			start.setDate(start.getDate() - 29);
-			return {
-				von: isoFromParts(
-					start.getFullYear(),
-					start.getMonth(),
-					start.getDate(),
-				),
-				bis: TODAY,
-			};
-		},
+		range: () => ({ von: addIsoCalendarDays(today(), -29), bis: today() }),
 	},
 ];
 
@@ -128,8 +122,8 @@ const EXPORTS: ReadonlyArray<{
 ];
 
 export function ExportForm({ isAdmin = false }: { isAdmin?: boolean }) {
-	const [von, setVon] = useState(isoFromParts(CURRENT_YEAR, 0, 1));
-	const [bis, setBis] = useState(TODAY);
+	const [von, setVon] = useState(() => isoFromParts(currentYearBerlin(), 0, 1));
+	const [bis, setBis] = useState(today);
 
 	const invalidRange = !von || !bis || von > bis;
 
@@ -200,7 +194,7 @@ export function ExportForm({ isAdmin = false }: { isAdmin?: boolean }) {
 								type="date"
 								value={bis}
 								min={von || undefined}
-								max={TODAY}
+								max={today()}
 								onChange={(e) => setBis(e.target.value)}
 								aria-invalid={invalidRange}
 								required

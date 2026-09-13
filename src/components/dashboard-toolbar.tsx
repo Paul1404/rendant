@@ -121,7 +121,7 @@ export function DashboardToolbar({
 			</div>
 
 			<div className="flex flex-wrap items-center gap-2">
-				<fieldset className="inline-flex items-center rounded-lg border border-border/60 bg-background/60 p-0.5 shadow-sm">
+				<fieldset className="flex flex-wrap items-center rounded-lg border border-border/60 bg-background/60 p-0.5 shadow-sm">
 					<legend className="sr-only">Zeitraum</legend>
 					{RANGES.map((r) => {
 						const active = initialRange === r.value;

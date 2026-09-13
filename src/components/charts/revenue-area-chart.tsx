@@ -1,6 +1,6 @@
 import { type JSX, useLayoutEffect, useRef, useState } from "react";
 import type { DateWindow } from "@/lib/dashboard-stats";
-import { formatCent, formatCentCompact } from "@/lib/money";
+import { formatCent, formatCentCompact, formatCentSymbol } from "@/lib/money";
 
 type RevenuePoint = {
 	key: string;
@@ -11,6 +11,7 @@ type RevenuePoint = {
 	total: number;
 	count: number;
 	isCurrent: boolean;
+	labelPinned?: boolean;
 };
 
 const VIEW_WIDTH = 1000;
@@ -47,7 +48,13 @@ export function niceAxis(
 	return { max: Math.ceil(max / step) * step, step };
 }
 
-type MeasuredLabel = { index: number; x: number; width: number };
+type MeasuredLabel = {
+	index: number;
+	x: number;
+	width: number;
+	// A pinned label wins a collision: its neighbour is dropped instead of it.
+	pinned?: boolean;
+};
 
 // Labels that have to be hidden because they would touch their neighbour.
 // Each label is centred on its bucket. Walking from the last bucket backwards
@@ -57,17 +64,27 @@ export function hiddenAxisLabels(
 	gap = LABEL_GAP_PX,
 ): Set<number> {
 	const hidden = new Set<number>();
-	let previousLeft: number | null = null;
+	type Kept = { index: number; left: number; pinned: boolean };
+	let previous: Kept | null = null;
 	for (let i = labels.length - 1; i >= 0; i--) {
 		const label = labels[i];
-		if (
-			previousLeft !== null &&
-			label.x + label.width / 2 + gap > previousLeft
-		) {
-			hidden.add(label.index);
-			continue;
+		const kept: Kept = {
+			index: label.index,
+			left: label.x - label.width / 2,
+			pinned: Boolean(label.pinned),
+		};
+		const collides =
+			previous !== null && label.x + label.width / 2 + gap > previous.left;
+		if (collides) {
+			// The pinned label survives a collision, the other one gives way.
+			if (label.pinned && previous !== null && !previous.pinned) {
+				hidden.add(previous.index);
+			} else {
+				hidden.add(label.index);
+				continue;
+			}
 		}
-		previousLeft = label.x - label.width / 2;
+		previous = kept;
 	}
 	return hidden;
 }
@@ -161,6 +178,7 @@ export function RevenueAreaChart({
 					index,
 					x: xFrac(index) * width,
 					width: element.offsetWidth,
+					pinned: points[index]?.labelPinned,
 				}));
 			const next = hiddenAxisLabels(measured);
 			setHiddenLabels((current) =>
@@ -301,7 +319,13 @@ export function RevenueAreaChart({
 								className={`group absolute top-0 bottom-0 -translate-x-1/2 rounded-sm outline-none transition-colors enabled:cursor-pointer enabled:hover:bg-primary/[0.04] focus-visible:ring-2 focus-visible:ring-primary/60 ${isSelected ? "bg-primary/[0.08]" : ""}`}
 								style={{
 									left: `${left.toFixed(3)}%`,
-									width: `${(100 / Math.max(points.length, 1)).toFixed(3)}%`,
+									// A bucket column can be a few pixels wide on a phone, which
+									// is not a target anyone can hit. Selectable buckets keep at
+									// least 24px; the disabled ones stay at their column width.
+									width:
+										p.count > 0
+											? `max(${(100 / Math.max(points.length, 1)).toFixed(3)}%, 24px)`
+											: `${(100 / Math.max(points.length, 1)).toFixed(3)}%`,
 								}}
 							>
 								{/* Dot, centered on its column. */}
@@ -326,7 +350,7 @@ export function RevenueAreaChart({
 										{p.longLabel}
 									</span>
 									<span className="block text-[11px] text-foreground">
-										{formatCent(p.total)}
+										{formatCentSymbol(p.total)}
 									</span>
 									<span className="block text-[10px] text-muted-foreground">
 										{`${p.count} ${p.count === 1 ? "Eintrag" : "Einträge"}`}

@@ -116,3 +116,45 @@ describe("revenue chart axis scale", () => {
 		expect(niceAxis(Number.NaN)).toEqual({ max: 0, step: 0 });
 	});
 });
+
+describe("pinned axis labels", () => {
+	// Okt 25 and Jan 26 carry the turn of the year and are 40 px wide, their
+	// neighbours 19 px, on a 260 px phone axis.
+	function yearAxis(axisWidth: number) {
+		const widths = [40, 19.3, 18.5, 40, 18.3, 18.8, 17.5, 17.6, 18.1, 14.9, 19.1, 19.5];
+		return widths.map((width, index) => ({
+			index,
+			x: (index / (widths.length - 1)) * axisWidth,
+			width,
+			pinned: index === 0 || index === 3,
+		}));
+	}
+
+	it("keeps the labels carrying the year and drops a neighbour instead", () => {
+		const hidden = hiddenAxisLabels(yearAxis(PHONE_AXIS));
+		expect(hidden.has(0)).toBe(false);
+		expect(hidden.has(3)).toBe(false);
+		expect(hidden.size).toBeGreaterThan(0);
+	});
+
+	it("keeps them at every width a phone actually has", () => {
+		for (const axisWidth of [200, 260, 340, 520, 760]) {
+			const hidden = hiddenAxisLabels(yearAxis(axisWidth));
+			expect(hidden.has(0)).toBe(false);
+			expect(hidden.has(3)).toBe(false);
+		}
+	});
+
+	it("lets one pinned label go when two of them collide with each other", () => {
+		// Below roughly 160 px axis width the two year labels overlap. One of
+		// them has to give way, and it is the older one.
+		const hidden = hiddenAxisLabels(yearAxis(140));
+		expect(hidden.has(3)).toBe(false);
+		expect(hidden.has(0)).toBe(true);
+	});
+
+	it("still keeps the current period label", () => {
+		const labels = yearAxis(PHONE_AXIS);
+		expect(hiddenAxisLabels(labels).has(labels.length - 1)).toBe(false);
+	});
+});

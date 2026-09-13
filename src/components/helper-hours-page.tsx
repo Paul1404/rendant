@@ -88,7 +88,7 @@ import {
 	type HelperHourCategory,
 	minutesFromCent,
 } from "@/lib/helper-hours";
-import { parseGermanAmount } from "@/lib/money";
+import { formatPercent, parseGermanAmount } from "@/lib/money";
 import { orpc, orpcClient } from "@/lib/orpc";
 import { orpcMessage } from "@/lib/orpc-error";
 
@@ -242,6 +242,23 @@ function parseHours(value: string): number | null {
 	return minutes % 15 === 0 ? minutes : null;
 }
 
+// Each rejection gets its own sentence. One shared message left people who
+// typed 30 reading that 30 is not a quarter hour, which it is.
+function hoursError(value: string): string | null {
+	const hours = Number(value.trim().replace(",", "."));
+	if (!Number.isFinite(hours)) {
+		return "Bitte eine Stundenzahl eingeben, zum Beispiel 2,5";
+	}
+	if (hours <= 0) return "Bitte mehr als 0 Stunden eingeben";
+	if (hours > 24) {
+		return "Pro Eintrag sind höchstens 24 Stunden möglich. Bitte auf mehrere Einträge aufteilen.";
+	}
+	if (Math.round(hours * 60) % 15 !== 0) {
+		return "Bitte in Viertelstunden angeben, zum Beispiel 2,25 oder 2,5";
+	}
+	return null;
+}
+
 export function HelperHoursPage({
 	isAdmin,
 	year,
@@ -311,7 +328,7 @@ export function HelperHoursPage({
 		event.preventDefault();
 		const minuten = parseHours(form.stunden);
 		if (!minuten) {
-			toast.error("Bitte Stunden in Viertelstunden angeben, zum Beispiel 2,5");
+			toast.error(hoursError(form.stunden) ?? "Stundenzahl ist ungültig");
 			return;
 		}
 		if (!form.person_id || !form.veranstaltung_id) {
@@ -1146,7 +1163,7 @@ function HelperHoursPeriodOverview({
 					<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
 						{distribution.map((entry) => {
 							const share = distributedMinutes
-								? Math.round((entry.minutes / distributedMinutes) * 100)
+								? (entry.minutes / distributedMinutes) * 100
 								: 0;
 							return (
 								<div key={entry.code} className="rounded-lg border p-3">
@@ -1159,16 +1176,24 @@ function HelperHoursPeriodOverview({
 									<div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
 										<div
 											className="h-full rounded-full bg-primary"
-											style={{ width: `${Math.max(share, 1)}%` }}
+											style={{ width: `${share}%` }}
 										/>
 									</div>
+									{/* The share is measured against the assigned minutes, not
+									    against the reported total above. Those two may differ. */}
 									<p className="mt-1 text-xs text-muted-foreground">
-										{share} % der Stunden
+										{formatPercent(share)} der zugeordneten Stunden
 									</p>
 								</div>
 							);
 						})}
 					</div>
+					{distributedMinutes > 0 && distributedMinutes !== summary.minutes ? (
+						<p className="mt-2 text-xs text-muted-foreground">
+							{formatMinutes(Math.abs(summary.minutes - distributedMinutes))} h
+							der gemeldeten Stunden sind keinem Punkt zugeordnet.
+						</p>
+					) : null}
 					{!isLoading && distribution.length === 0 ? (
 						<p className="rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground">
 							Für diesen Zeitraum sind noch keine Stunden vorhanden.
@@ -1284,15 +1309,19 @@ function HelperOverview({
 				header: "Stunden",
 				sortDescFirst: true,
 				cell: ({ row }) => {
+					// With around 170 helpers almost everyone sits below one percent.
+					// Rounding to whole percent filled the column with zeros.
 					const share = totalMinutes
-						? Math.round((row.original.minutes / totalMinutes) * 100)
+						? (row.original.minutes / totalMinutes) * 100
 						: 0;
 					return (
 						<div>
 							<p className="font-semibold tabular-nums">
 								{formatMinutes(row.original.minutes)} h
 							</p>
-							<p className="text-xs text-muted-foreground">{share} %</p>
+							<p className="text-xs text-muted-foreground">
+								{formatPercent(share)}
+							</p>
 						</div>
 					);
 				},

@@ -145,7 +145,7 @@ function ProtokollDetailPage() {
 				<div className="relative flex flex-wrap items-start justify-between gap-4">
 					<div>
 						<FieldLabel className="text-primary/90">Beleg</FieldLabel>
-						<h1 className="mt-1.5 font-mono text-2xl font-semibold tracking-tight text-foreground">
+						<h1 className="mt-1.5 break-all font-mono text-2xl font-semibold tracking-tight text-foreground">
 							{protokoll.belegnummer}
 						</h1>
 						<p className="mt-1 text-sm text-muted-foreground">
@@ -464,15 +464,15 @@ function ProtokollDetailPage() {
 
 					{protokoll.kartenzahlung_cent > 0 ? (
 						<div className="space-y-2">
-							<div className="flex items-center justify-between gap-4 rounded-xl border border-border/60 bg-muted/40 px-4 py-3">
-								<span className="flex items-center gap-2 text-sm font-medium text-foreground">
+							<div className="flex flex-col items-start gap-2 rounded-xl border border-border/60 bg-muted/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+								<span className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground">
 									<Banknote className="h-4 w-4 text-muted-foreground" />
 									Tageseinnahmen netto (ohne Kartenzahlung)
 								</span>
 								<Money cent={protokoll.tageseinnahmen_cent} emphasis />
 							</div>
-							<div className="flex items-center justify-between gap-4 rounded-xl border border-primary/25 bg-primary/[0.05] px-4 py-4">
-								<span className="flex items-center gap-2 text-sm font-medium text-foreground">
+							<div className="flex flex-col items-start gap-2 rounded-xl border border-primary/25 bg-primary/[0.05] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+								<span className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground">
 									<Banknote className="h-4 w-4 text-primary" />
 									Tageseinnahmen netto (mit Kartenzahlung)
 								</span>
@@ -487,8 +487,8 @@ function ProtokollDetailPage() {
 							</div>
 						</div>
 					) : (
-						<div className="flex items-center justify-between gap-4 rounded-xl border border-primary/25 bg-primary/[0.05] px-4 py-4">
-							<span className="flex items-center gap-2 text-sm font-medium text-foreground">
+						<div className="flex flex-col items-start gap-2 rounded-xl border border-primary/25 bg-primary/[0.05] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+							<span className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground">
 								<Banknote className="h-4 w-4 text-primary" />
 								Tageseinnahmen netto
 							</span>
