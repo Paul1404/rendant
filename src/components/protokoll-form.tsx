@@ -4,6 +4,7 @@ import {
 	Banknote,
 	Calculator,
 	Coins,
+	CreditCard,
 	FileText,
 	Loader2,
 	Percent,
@@ -31,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { WECHSELGELD_DEFAULT_CENT } from "@/lib/constants";
-import { todayIsoDate } from "@/lib/date";
+import { formatDateDe, todayIsoDate } from "@/lib/date";
 import {
 	DENOMINATIONS,
 	type DenominationCounts,
@@ -197,12 +198,14 @@ export function ProtokollForm({
 	registers = [],
 	canManageRegisters = false,
 	initialValues,
+	sumupActive = false,
 }: {
 	belegnummerPreview: string;
 	umsatzUstBasisDefault: UmsatzUstBasis;
 	registers?: CashRegisterPreset[];
 	canManageRegisters?: boolean;
 	initialValues?: ProtokollInitialValues;
+	sumupActive?: boolean;
 }) {
 	const [availableRegisters, setAvailableRegisters] = useState(registers);
 	const [showNewRegister, setShowNewRegister] = useState(false);
@@ -281,6 +284,16 @@ export function ProtokollForm({
 		formatCentPlain(initialWechselgeldCent),
 	);
 	const [kartenzahlungInput, setKartenzahlungInput] = useState("");
+	// Letzter SumUp-Abruf, als Hinweis unter dem Feld. Wird verworfen, sobald
+	// der Wert von Hand geändert wird, damit der Hinweis nie etwas anderes
+	// beschreibt als das, was im Feld steht.
+	const [sumupHint, setSumupHint] = useState<{
+		datum: string;
+		anzahl: number;
+		kartenzahlung_cent: number;
+		erstattet_cent: number;
+	} | null>(null);
+	const [sumupLoading, startSumup] = useTransition();
 	const [ausgaben, setAusgaben] = useState<AusgabeDraft[]>([]);
 	const [umsatzSplits, setUmsatzSplits] = useState<UmsatzUstDraft[]>([]);
 	const [umsatzUstBasis, setUmsatzUstBasis] = useState<UmsatzUstBasis>(
@@ -388,6 +401,26 @@ export function ProtokollForm({
 		() => parseGermanAmount(wechselgeldInput) ?? -1,
 		[wechselgeldInput],
 	);
+	function fetchSumup() {
+		startSumup(async () => {
+			try {
+				const res = await orpcClient.protokolle.sumupCardRevenue({ datum });
+				setKartenzahlungInput(formatCentPlain(res.kartenzahlung_cent));
+				setSumupHint({
+					datum: res.datum,
+					anzahl: res.anzahl,
+					kartenzahlung_cent: res.kartenzahlung_cent,
+					erstattet_cent: res.erstattet_cent,
+				});
+				if (res.anzahl === 0) {
+					toast.info("SumUp kennt für diesen Tag keine Kartenzahlung.");
+				}
+			} catch (e) {
+				toast.error(orpcMessage(e, "Abruf aus SumUp fehlgeschlagen"));
+			}
+		});
+	}
+
 	const kartenzahlungCent = useMemo(() => {
 		const trimmed = kartenzahlungInput.trim();
 		if (!trimmed) return 0;
@@ -1380,14 +1413,36 @@ export function ProtokollForm({
 									) : null}
 								</div>
 								<div className="space-y-2">
-									<Label htmlFor="kartenzahlung">Kartenzahlung EUR</Label>
+									<div className="flex items-center justify-between gap-2">
+										<Label htmlFor="kartenzahlung">Kartenzahlung EUR</Label>
+										{sumupActive ? (
+											<Button
+												type="button"
+												variant="ghost"
+												size="sm"
+												className="h-7 px-2 text-xs"
+												onClick={fetchSumup}
+												disabled={sumupLoading || !datum}
+											>
+												{sumupLoading ? (
+													<Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+												) : (
+													<CreditCard className="mr-1.5 h-3.5 w-3.5" />
+												)}
+												Aus SumUp übernehmen
+											</Button>
+										) : null}
+									</div>
 									<Input
 										id="kartenzahlung"
 										inputMode="decimal"
 										placeholder="0,00"
 										value={kartenzahlungInput}
 										onFocus={selectOnFocus}
-										onChange={(e) => setKartenzahlungInput(e.target.value)}
+										onChange={(e) => {
+											setKartenzahlungInput(e.target.value);
+											setSumupHint(null);
+										}}
 										aria-invalid={
 											kartenzahlungInput.trim() !== "" && kartenzahlungCent < 0
 										}
@@ -1404,6 +1459,21 @@ export function ProtokollForm({
 											className="text-[11px] text-destructive"
 										>
 											Bitte einen gültigen EUR-Betrag eingeben.
+										</p>
+									) : null}
+									{sumupHint ? (
+										<p className="text-[11px] text-muted-foreground">
+											SumUp: {sumupHint.anzahl}{" "}
+											{sumupHint.anzahl === 1
+												? "Kartenzahlung"
+												: "Kartenzahlungen"}{" "}
+											am {formatDateDe(sumupHint.datum)}
+											{sumupHint.erstattet_cent > 0
+												? `, abzüglich ${formatCent(sumupHint.erstattet_cent)} Erstattung`
+												: ""}
+											{sumupHint.datum !== datum
+												? ". Das Datum wurde seitdem geändert, bitte erneut abrufen."
+												: "."}
 										</p>
 									) : null}
 								</div>

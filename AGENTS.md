@@ -39,6 +39,12 @@ update the appropriate canonical documentation in the same change.
 - External side effects such as S3 uploads and email must not allow a retry to
   create duplicate accounting records. Prefer recoverable partial states and
   explicit regeneration.
+- The SumUp card revenue fetch (`src/server/services/sumup.ts`) is read-only
+  and advisory: it fills the Kartenzahlung field with the day's net card
+  payments (Berlin calendar day, refunds netted, cash rows skipped) and the
+  person saving the protocol remains responsible for the value. The API key is
+  stored encrypted via `secret-box` and never returned to the browser; the
+  merchant code is resolved from the key on save, never typed.
 - The Umsatzbereich is a reporting classification, not part of the signed
   document. An admin may move a booked protocol into another one with a reason;
   amounts, Belegnummer and Belegtext stay untouched so the stored PDF keeps

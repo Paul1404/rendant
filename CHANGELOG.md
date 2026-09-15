@@ -3,6 +3,25 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.51.0 - 2026-09-15
+
+Kartenzahlung aus SumUp
+
+- Die Kartenumsätze eines Veranstaltungstags lassen sich beim Erfassen eines
+  Protokolls direkt aus SumUp übernehmen. Im Feld Kartenzahlung gibt es dafür
+  den Knopf "Aus SumUp übernehmen". Rendant holt alle erfolgreichen
+  Kartenzahlungen des gewählten Tages, zieht bereits erstattete Beträge ab und
+  trägt die Summe ein. Barzahlungen, die in der SumUp-App erfasst wurden,
+  zählen nicht mit.
+- Der Wert bleibt ein Vorschlag. Ein Hinweis unter dem Feld nennt die Anzahl
+  der Zahlungen und den Tag, und er verschwindet, sobald der Betrag von Hand
+  geändert wird.
+- Admins richten die Anbindung unter Einstellungen im Abschnitt "Kartenzahlung
+  über SumUp" ein. Nötig ist nur ein API-Key aus dem SumUp-Dashboard. Rendant
+  prüft ihn beim Speichern, merkt sich das Händlerkonto und legt den Key
+  verschlüsselt ab. Ein Knopf "Verbindung testen" zeigt die heutigen
+  Kartenzahlungen. Jeder Abruf steht im Audit-Protokoll.
+
 ## 1.50.2 - 2026-09-13
 
 Auswertungen

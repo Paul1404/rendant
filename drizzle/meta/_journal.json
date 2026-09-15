@@ -239,6 +239,13 @@
       "when": 1788708502959,
       "tag": "0033_helper_hour_catalogue_cutover",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1789490617248,
+      "tag": "0034_sumup_settings",
+      "breakpoints": true
     }
   ]
 }

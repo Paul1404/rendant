@@ -137,3 +137,52 @@ export function formatFilenameStamp(value: Date): string {
 	const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
 	return `${get("year")}-${get("month")}-${get("day")}_${get("hour")}-${get("minute")}`;
 }
+
+// Offset of Berlin local time against UTC at the given instant, in
+// milliseconds. Positive in Germany (UTC+1 or UTC+2).
+function berlinOffsetMs(at: Date): number {
+	const parts = new Intl.DateTimeFormat("en-US", {
+		timeZone: BERLIN_TZ,
+		hourCycle: "h23",
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit",
+		second: "2-digit",
+	}).formatToParts(at);
+	const get = (type: string) =>
+		Number(parts.find((p) => p.type === type)?.value ?? "0");
+	const asUtc = Date.UTC(
+		get("year"),
+		get("month") - 1,
+		get("day"),
+		get("hour"),
+		get("minute"),
+		get("second"),
+	);
+	return asUtc - Math.floor(at.getTime() / 1000) * 1000;
+}
+
+// The instant at which the given Berlin calendar day begins. Needed wherever
+// an external system (SumUp) filters by UTC timestamps while the club thinks
+// in local days. Handles the DST switch by re-checking the offset once.
+export function berlinDayStartUtc(isoDate: string): Date {
+	if (!isIsoCalendarDate(isoDate)) {
+		throw new RangeError(`Invalid ISO calendar date: ${isoDate}`);
+	}
+	const [year, month, day] = isoDate.split("-").map(Number);
+	const guess = Date.UTC(year, month - 1, day);
+	let result = guess - berlinOffsetMs(new Date(guess));
+	const offsetAtResult = berlinOffsetMs(new Date(result));
+	if (result + offsetAtResult !== guess) result = guess - offsetAtResult;
+	return new Date(result);
+}
+
+// Half-open UTC range [from, to) covering one Berlin calendar day.
+export function berlinDayRangeUtc(isoDate: string): { from: Date; to: Date } {
+	return {
+		from: berlinDayStartUtc(isoDate),
+		to: berlinDayStartUtc(addIsoCalendarDays(isoDate, 1)),
+	};
+}
