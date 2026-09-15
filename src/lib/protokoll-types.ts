@@ -56,8 +56,21 @@ export type ProtokollRow = {
 	counts: DenominationCounts;
 };
 
+export type SumupTagRow = {
+	id: string;
+	datum: string;
+	anzahl: number;
+	brutto_cent: number;
+	erstattet_cent: number;
+	kartenzahlung_cent: number;
+	freigegeben_am: Date | null;
+};
+
 export type ProtokollDetail = {
 	protokoll: ProtokollRow;
 	ausgaben: AusgabeRow[];
 	umsatzUst: UmsatzUstRow[];
+	// Aus SumUp übernommene Tage. Leer, wenn die Kartenzahlung von Hand
+	// eingetragen wurde.
+	sumupTage: SumupTagRow[];
 };

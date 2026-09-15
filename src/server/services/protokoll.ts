@@ -7,6 +7,7 @@ import type {
 	AusgabeRow,
 	ProtokollDetail,
 	ProtokollRow,
+	SumupTagRow,
 	UmsatzUstRow,
 } from "@/lib/protokoll-types";
 import type {
@@ -20,6 +21,7 @@ import {
 	anlassKatalog,
 	ausgaben,
 	protokolle,
+	protokollSumupTage,
 	protokollUmsatzUst,
 } from "@/server/db/schema";
 import { logger } from "@/server/logger";
@@ -32,6 +34,10 @@ import { sendProtokollNotification } from "@/server/services/email";
 import { renderProtokollPdf } from "@/server/services/pdf";
 import { deletePdf, uploadPdf } from "@/server/services/s3";
 import { getVereinStammdaten } from "@/server/services/settings";
+import {
+	resolveSumupDaysForProtokoll,
+	type SumupDay,
+} from "@/server/services/sumup";
 
 type DbProtokoll = typeof protokolle.$inferSelect;
 type AuditActor = {
@@ -186,7 +192,31 @@ export async function getProtokoll(
 		.where(eq(protokollUmsatzUst.protokoll_id, id))
 		.orderBy(asc(protokollUmsatzUst.reihenfolge), asc(protokollUmsatzUst.id));
 
+	const sumupRows = await db
+		.select({
+			id: protokollSumupTage.id,
+			datum: protokollSumupTage.datum,
+			anzahl: protokollSumupTage.anzahl,
+			brutto_cent: protokollSumupTage.brutto_cent,
+			erstattet_cent: protokollSumupTage.erstattet_cent,
+			kartenzahlung_cent: protokollSumupTage.kartenzahlung_cent,
+			freigegeben_am: protokollSumupTage.freigegeben_am,
+		})
+		.from(protokollSumupTage)
+		.where(eq(protokollSumupTage.protokoll_id, id))
+		.orderBy(asc(protokollSumupTage.datum));
+
 	return {
+		sumupTage: sumupRows.map(
+			(s): SumupTagRow => ({
+				...s,
+				anzahl: Number(s.anzahl),
+				brutto_cent: Number(s.brutto_cent),
+				erstattet_cent: Number(s.erstattet_cent),
+				kartenzahlung_cent: Number(s.kartenzahlung_cent),
+				freigegeben_am: s.freigegeben_am ?? null,
+			}),
+		),
 		protokoll: rowToProtokoll(protoRows[0]),
 		ausgaben: ausgabenRows.map(
 			(a): AusgabeRow => ({
@@ -203,6 +233,17 @@ export async function getProtokoll(
 			}),
 		),
 	};
+}
+
+// Zwei Erfasser haben denselben SumUp-Tag im Dialog gesehen und beide
+// speichern: der Teilindex lässt nur den ersten durch.
+export class SumupDayTakenError extends Error {
+	constructor() {
+		super(
+			"Mindestens ein SumUp-Tag wurde inzwischen in einem anderen Protokoll übernommen. Bitte erneut aus SumUp übernehmen und die Auswahl prüfen.",
+		);
+		this.name = "SumupDayTakenError";
+	}
 }
 
 export type CreateResult = {
@@ -320,6 +361,16 @@ export async function createProtokoll(
 	const year = currentYearBerlin();
 	const customBelegnummer = input.belegnummer?.trim() || null;
 	const payloadHash = protokollIdempotencyPayloadHash(input, actor);
+	// SumUp wird vor der Transaktion befragt, damit kein Netzwerkaufruf eine
+	// Sperre auf der Belegnummer hält. Ein Fehler hier bricht das Speichern ab,
+	// bevor irgendetwas geschrieben wurde.
+	const sumupTage: Omit<SumupDay, "protokoll">[] =
+		input.sumup_tage.length > 0
+			? await resolveSumupDaysForProtokoll(
+					input.sumup_tage,
+					input.kartenzahlung_cent,
+				)
+			: [];
 	const maxRetries = customBelegnummer ? 1 : 3;
 	let attempt = 0;
 	let created: {
@@ -436,6 +487,19 @@ export async function createProtokoll(
 						})),
 					);
 				}
+				if (sumupTage.length > 0) {
+					await tx.insert(protokollSumupTage).values(
+						sumupTage.map((d) => ({
+							protokoll_id: proto.id,
+							datum: d.datum,
+							anzahl: d.anzahl,
+							brutto_cent: d.brutto_cent,
+							erstattet_cent: d.erstattet_cent,
+							kartenzahlung_cent: d.kartenzahlung_cent,
+							transaktionen: d.transaktionen,
+						})),
+					);
+				}
 				await recordAuditEventStrict(tx, {
 					...audit,
 					category: "protokolle",
@@ -451,6 +515,12 @@ export async function createProtokoll(
 						anlass: proto.anlass,
 						anlass_datum: input.anlass_datum,
 						kassennummer: input.kassennummer,
+						...(sumupTage.length > 0
+							? {
+									sumup_tage: sumupTage.map((d) => d.datum),
+									sumup_kartenzahlung_cent: input.kartenzahlung_cent,
+								}
+							: {}),
 					},
 				});
 				return { ...proto, created: true };
@@ -458,6 +528,13 @@ export async function createProtokoll(
 			break;
 		} catch (e) {
 			const code = (e as { code?: string }).code;
+			const constraint = (e as { constraint?: string }).constraint;
+			if (
+				code === "23505" &&
+				constraint === "protokoll_sumup_tage_datum_aktiv_idx"
+			) {
+				throw new SumupDayTakenError();
+			}
 			if (code === "23505") {
 				if (customBelegnummer) throw new Error("Belegnummer bereits vergeben");
 				if (attempt < maxRetries) continue;
@@ -593,6 +670,18 @@ export async function stornoProtokoll(
 			.where(and(eq(protokolle.id, id), isNull(protokolle.storniert_am)))
 			.returning({ id: protokolle.id });
 		if (rows.length > 0) {
+			// Die SumUp-Tage werden frei, damit das Ersatzprotokoll sie wieder
+			// übernehmen kann. Die Zeilen bleiben als Herkunft des stornierten
+			// Betrags stehen.
+			await tx
+				.update(protokollSumupTage)
+				.set({ freigegeben_am: stornoAm })
+				.where(
+					and(
+						eq(protokollSumupTage.protokoll_id, id),
+						isNull(protokollSumupTage.freigegeben_am),
+					),
+				);
 			await recordAuditEventStrict(tx, {
 				...audit,
 				category: "protokolle",

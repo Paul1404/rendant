@@ -40,9 +40,13 @@ update the appropriate canonical documentation in the same change.
   create duplicate accounting records. Prefer recoverable partial states and
   explicit regeneration.
 - The SumUp card revenue fetch (`src/server/services/sumup.ts`) is read-only
-  and advisory: it fills the Kartenzahlung field with the day's net card
-  payments (Berlin calendar day, refunds netted, cash rows skipped) and the
-  person saving the protocol remains responsible for the value. The API key is
+  and works on Berlin calendar days (refunds netted, cash rows skipped). The
+  person picks days in a dialog; the chosen days are stored in
+  `protokoll_sumup_tage` with a transaction snapshot, and a partial unique
+  index allows each day in only one active protocol. A storno sets
+  `freigegeben_am` instead of deleting the rows. On save the server re-fetches
+  the chosen days and rejects the write if the total no longer matches, so a
+  refund between fetch and save cannot book a stale amount. The API key is
   stored encrypted via `secret-box` and never returned to the browser; the
   merchant code is resolved from the key on save, never typed.
 - The Umsatzbereich is a reporting classification, not part of the signed

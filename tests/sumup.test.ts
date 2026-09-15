@@ -227,3 +227,74 @@ describe("listSumupTransactions", () => {
 		expect(SumupError).toBeDefined();
 	});
 });
+
+describe("groupTransactionsByDay", () => {
+	const tx = (over: Record<string, unknown>) => ({
+		id: String(over.id),
+		transaction_code: "T",
+		amount: 10,
+		currency: "EUR",
+		timestamp: "2026-09-12T18:00:00.000Z",
+		status: "SUCCESSFUL",
+		payment_type: "POS",
+		type: "PAYMENT",
+		refunded_amount: 0,
+		card_type: "VISA",
+		...over,
+	});
+
+	it("assigns each payment to its Berlin calendar day and keeps empty days", async () => {
+		const { groupTransactionsByDay } = await import(
+			"@/server/services/sumup"
+		);
+		const days = groupTransactionsByDay("2026-09-11", "2026-09-13", [
+			// 23:30 UTC on the 11th is already the 12th in Berlin (UTC+2).
+			tx({ id: "a", timestamp: "2026-09-11T23:30:00.000Z", amount: 5 }),
+			tx({ id: "b", timestamp: "2026-09-12T10:00:00.000Z", amount: 7.5 }),
+			tx({ id: "cash", timestamp: "2026-09-12T11:00:00.000Z", payment_type: "CASH" }),
+			tx({ id: "c", timestamp: "2026-09-13T20:00:00.000Z", amount: 1, refunded_amount: 1, status: "REFUNDED" }),
+		]);
+		expect(days.map((d) => d.datum)).toEqual([
+			"2026-09-11",
+			"2026-09-12",
+			"2026-09-13",
+		]);
+		expect(days[0].anzahl).toBe(0);
+		expect(days[1].kartenzahlung_cent).toBe(1250);
+		expect(days[1].anzahl).toBe(2);
+		expect(days[1].transaktionen.map((t) => t.id)).toEqual(["a", "b"]);
+		expect(days[2].kartenzahlung_cent).toBe(0);
+		expect(days[2].erstattet_cent).toBe(100);
+	});
+
+	it("snapshots only counting rows, in cent and sorted by time", async () => {
+		const { snapshotTransactions } = await import("@/server/services/sumup");
+		const snap = snapshotTransactions([
+			tx({ id: "late", timestamp: "2026-09-12T20:00:00.000Z", amount: 2.05 }),
+			tx({ id: "early", timestamp: "2026-09-12T08:00:00.000Z", amount: 30, refunded_amount: 12.5 }),
+			tx({ id: "failed", status: "FAILED" }),
+		]);
+		expect(snap.map((t) => t.id)).toEqual(["early", "late"]);
+		expect(snap[0]).toMatchObject({ amount_cent: 3000, refunded_cent: 1250 });
+		expect(snap[1]).toMatchObject({ amount_cent: 205, refunded_cent: 0 });
+	});
+});
+
+describe("SumupDaysSchema", () => {
+	it("rejects reversed and oversized ranges", async () => {
+		const v = await import("valibot");
+		const { SumupDaysSchema } = await import("@/lib/schemas");
+		expect(
+			v.safeParse(SumupDaysSchema, { von: "2026-01-10", bis: "2026-01-01" })
+				.success,
+		).toBe(false);
+		expect(
+			v.safeParse(SumupDaysSchema, { von: "2026-01-01", bis: "2026-03-31" })
+				.success,
+		).toBe(false);
+		expect(
+			v.safeParse(SumupDaysSchema, { von: "2026-01-01", bis: "2026-01-31" })
+				.success,
+		).toBe(true);
+	});
+});

@@ -3,6 +3,26 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.52.0 - 2026-09-15
+
+SumUp: Tage auswählen statt nur den Veranstaltungstag
+
+- "Aus SumUp übernehmen" öffnet jetzt einen Dialog mit Zeitraum. Vorbelegt ist
+  das Veranstaltungsdatum, der Zeitraum lässt sich aber frei ziehen und
+  wochenweise blättern. Wer erst Tage später zählt oder ein Fest über mehrere
+  Tage abrechnet, hakt einfach die passenden Tage an.
+- Jeder Tag zeigt Anzahl und Summe der Kartenzahlungen und lässt sich
+  aufklappen bis zur einzelnen Zahlung mit Uhrzeit, Kartenart und Erstattung.
+- Ein Tag, der schon in einem anderen Protokoll übernommen wurde, ist gesperrt
+  und nennt die Belegnummer. Derselbe Kartenumsatz kann so nicht zweimal
+  gebucht werden, auch nicht, wenn zwei Personen gleichzeitig erfassen.
+- Das Protokoll merkt sich die übernommenen Tage. Die Detailseite zeigt sie,
+  ein Storno gibt sie wieder frei, und beim Speichern prüft Rendant noch
+  einmal gegen SumUp, dass sich die Summe seit dem Abruf nicht geändert hat.
+- Unter "Umsätze im Vergleich" gibt es die Prüfung "Kartenumsätze aus SumUp":
+  sie listet die Tage mit Kartenzahlungen, die noch in keinem Protokoll
+  stecken, damit vor dem Monatsabschluss nichts vergessen wird.
+
 ## 1.51.0 - 2026-09-15
 
 Kartenzahlung aus SumUp

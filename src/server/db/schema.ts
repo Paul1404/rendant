@@ -151,6 +151,57 @@ export const protokolle = pgTable(
 	],
 );
 
+/**
+ * SumUp-Tage, die ein Protokoll als Kartenumsatz übernommen hat. Ein Tag kann
+ * nur in einem aktiven Protokoll stecken (Teilindex unten); ein Storno gibt
+ * ihn über `freigegeben_am` wieder frei, statt die Zeile zu löschen, damit
+ * die Herkunft des stornierten Betrags nachvollziehbar bleibt. Die
+ * Transaktionen werden als Momentaufnahme gespeichert, weil SumUp Zeilen
+ * nachträglich ändern kann (Erstattung) und der Beleg den Stand zum Zeitpunkt
+ * der Übernahme belegen muss.
+ */
+export const protokollSumupTage = pgTable(
+	"protokoll_sumup_tage",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		protokoll_id: uuid("protokoll_id")
+			.notNull()
+			.references(() => protokolle.id, { onDelete: "cascade" }),
+		datum: date("datum", { mode: "string" }).notNull(),
+		anzahl: integer("anzahl").notNull().default(0),
+		brutto_cent: integer("brutto_cent").notNull().default(0),
+		erstattet_cent: integer("erstattet_cent").notNull().default(0),
+		kartenzahlung_cent: integer("kartenzahlung_cent").notNull().default(0),
+		transaktionen: jsonb("transaktionen")
+			.$type<
+				{
+					id: string;
+					transaction_code: string;
+					timestamp: string;
+					amount_cent: number;
+					refunded_cent: number;
+					card_type: string;
+				}[]
+			>()
+			.notNull()
+			.default([]),
+		erstellt_am: timestamp("erstellt_am", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		freigegeben_am: timestamp("freigegeben_am", { withTimezone: true }),
+	},
+	(t) => [
+		index("idx_protokoll_sumup_tage_protokoll_id").on(t.protokoll_id),
+		uniqueIndex("protokoll_sumup_tage_datum_aktiv_idx")
+			.on(t.datum)
+			.where(sql`${t.freigegeben_am} IS NULL`),
+		check(
+			"protokoll_sumup_tage_cent_check",
+			sql`${t.anzahl} >= 0 AND ${t.brutto_cent} >= 0 AND ${t.erstattet_cent} >= 0 AND ${t.kartenzahlung_cent} >= 0`,
+		),
+	],
+);
+
 export const ausgaben = pgTable(
 	"ausgaben",
 	{
