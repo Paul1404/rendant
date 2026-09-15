@@ -513,6 +513,23 @@ export const EmailSettingsSchema = v.object({
 });
 export type EmailSettingsInput = v.InferOutput<typeof EmailSettingsSchema>;
 
+// SumUp-Anbindung. Der API-Key ist write-only: leer lässt den gespeicherten
+// Key stehen, clear_api_key entfernt ihn samt Händlerzuordnung.
+export const SumupSettingsSchema = v.object({
+	enabled: v.boolean(),
+	api_key: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(500)), ""),
+	clear_api_key: v.optional(v.boolean(), false),
+	expected_updated_at: expectedUpdatedAt,
+});
+export type SumupSettingsInput = v.InferOutput<typeof SumupSettingsSchema>;
+
+export const SumupCardRevenueSchema = v.object({
+	datum: historicalRevenueDate,
+});
+export type SumupCardRevenueInput = v.InferOutput<
+	typeof SumupCardRevenueSchema
+>;
+
 export const TestEmailSchema = v.object({
 	to: v.pipe(v.string(), v.trim(), v.email(), v.maxLength(255)),
 });

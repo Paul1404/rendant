@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
 	Bell,
 	Building2,
+	CreditCard,
 	HandHeart,
 	Hash,
 	Mail,
@@ -22,6 +23,7 @@ import { McpSettingsPanel } from "@/components/mcp-settings-panel";
 import { NotificationPrefForm } from "@/components/notification-pref-form";
 import { PageHeader } from "@/components/page-header";
 import { SettingsSkeleton } from "@/components/skeletons";
+import { SumupSettingsForm } from "@/components/sumup-settings-form";
 import { SectionHeading } from "@/components/ui/section";
 import { UmsatzUstBasisForm } from "@/components/umsatz-ust-basis-form";
 import { UserManagement } from "@/components/user-management";
@@ -31,19 +33,29 @@ import { orpcClient } from "@/lib/orpc";
 export const Route = createFileRoute("/protokolle/einstellungen")({
 	loader: async ({ context }) => {
 		const isAdmin = context.user.role === "admin";
-		const [belegnummer, basis, verein, registers, admin, email, mcp, notify] =
-			await Promise.all([
-				orpcClient.settings.getBelegnummer(),
-				orpcClient.settings.getUmsatzUstBasis(),
-				orpcClient.settings.getVerein(),
-				orpcClient.registers.list(),
-				isAdmin
-					? Promise.all([orpcClient.users.list(), orpcClient.invites.list()])
-					: Promise.resolve(null),
-				isAdmin ? orpcClient.settings.getEmail() : Promise.resolve(null),
-				isAdmin ? orpcClient.settings.getMcp() : Promise.resolve(null),
-				orpcClient.profile.getNotify(),
-			]);
+		const [
+			belegnummer,
+			basis,
+			verein,
+			registers,
+			admin,
+			email,
+			mcp,
+			notify,
+			sumup,
+		] = await Promise.all([
+			orpcClient.settings.getBelegnummer(),
+			orpcClient.settings.getUmsatzUstBasis(),
+			orpcClient.settings.getVerein(),
+			orpcClient.registers.list(),
+			isAdmin
+				? Promise.all([orpcClient.users.list(), orpcClient.invites.list()])
+				: Promise.resolve(null),
+			isAdmin ? orpcClient.settings.getEmail() : Promise.resolve(null),
+			isAdmin ? orpcClient.settings.getMcp() : Promise.resolve(null),
+			orpcClient.profile.getNotify(),
+			isAdmin ? orpcClient.settings.getSumup() : Promise.resolve(null),
+		]);
 		const helperHourValue = isAdmin
 			? await orpcClient.settings.getHelperHourValue()
 			: null;
@@ -61,6 +73,7 @@ export const Route = createFileRoute("/protokolle/einstellungen")({
 			admin: admin ? { users: admin[0], invites: admin[1] } : null,
 			email,
 			mcp,
+			sumup,
 			helperHourValue,
 			notifyProtokoll: notify.notify,
 		};
@@ -83,6 +96,7 @@ function EinstellungenPage() {
 		admin,
 		email,
 		mcp,
+		sumup,
 		helperHourValue,
 		notifyProtokoll,
 	} = Route.useLoaderData();
@@ -104,6 +118,7 @@ function EinstellungenPage() {
 					<SettingsLink href="#kassen">Kassen</SettingsLink>
 					<SettingsLink href="#buchhaltung">Buchhaltung</SettingsLink>
 					<SettingsLink href="#helferstunden">Helferstunden</SettingsLink>
+					<SettingsLink href="#sumup">SumUp</SettingsLink>
 					<SettingsLink href="#mcp">MCP &amp; Automatisierung</SettingsLink>
 					<SettingsLink href="#benutzer">Benutzer</SettingsLink>
 				</nav>
@@ -205,6 +220,20 @@ function EinstellungenPage() {
 						description="SMTP-Zugang und zusätzliche externe Empfänger für eine kurze Info-E-Mail bei jedem neuen Kassenzählprotokoll. Nur für Admins."
 					/>
 					<EmailSettingsForm initial={email} />
+				</section>
+			) : null}
+
+			{sumup ? (
+				<section
+					id="sumup"
+					className="mx-auto max-w-3xl scroll-mt-28 space-y-4"
+				>
+					<SectionHeading
+						icon={CreditCard}
+						title="Kartenzahlung über SumUp"
+						description="API-Key des SumUp-Kontos hinterlegen, damit die Kartenumsätze eines Tages beim Erfassen eines Protokolls abgerufen werden können. Nur für Admins."
+					/>
+					<SumupSettingsForm initial={sumup} />
 				</section>
 			) : null}
 

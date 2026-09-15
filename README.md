@@ -154,6 +154,10 @@ steht in [`docs/backup-restore.md`](docs/backup-restore.md).
 - Individuelle Benachrichtigungswahl je Konto sowie zusätzliche externe
   Empfänger. Die Benachrichtigung enthält bewusst keine Geldbeträge
 - Versand einer Test-E-Mail aus den Einstellungen
+- Optionale SumUp-Anbindung: Kartenumsätze eines Veranstaltungstags lassen sich
+  beim Erfassen eines Protokolls per Knopf aus SumUp übernehmen. Der API-Key
+  wird in der Anwendung hinterlegt, beim Speichern geprüft und verschlüsselt
+  gespeichert. Rendant liest nur die Transaktionshistorie
 - Responsive Oberfläche, Tastaturbedienung, Dark Mode und Befehlspalette
 - Anklickbare Versionsmarke mit den aus `CHANGELOG.md` erzeugten
   Versionshinweisen
@@ -270,7 +274,8 @@ Die weiteren `LFIO_*`-Variablen steuern Intervall, Zeitlimits, die höchstens
 tägliche und seitenbegrenzte Bucket-Inventur sowie Schwellenwerte der optionalen
 Telemetrie. SMTP-Server, Absender und Empfänger
 werden nicht als Umgebungsvariablen gesetzt, sondern durch einen Admin unter
-`Einstellungen > E-Mail-Benachrichtigungen` verwaltet.
+`Einstellungen > E-Mail-Benachrichtigungen` verwaltet. Der SumUp-API-Key wird
+ebenso in der App unter `Einstellungen > Kartenzahlung über SumUp` gepflegt.
 
 ## Nützliche Befehle
 

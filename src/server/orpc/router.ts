@@ -2,6 +2,7 @@ import { ORPCError } from "@orpc/server";
 import { and, desc, eq, sql } from "drizzle-orm";
 import * as v from "valibot";
 import { AUDIT_CATEGORIES } from "@/lib/audit";
+import { todayIsoDate } from "@/lib/date";
 import {
 	AnlassKatalogBulkAssignSchema,
 	AnlassKatalogSchema,
@@ -54,6 +55,8 @@ import {
 	InviteCreateSchema,
 	ProtokollReclassifySchema,
 	StornoSchema,
+	SumupCardRevenueSchema,
+	SumupSettingsSchema,
 	TestEmailSchema,
 	UmsatzUstBasisSettingsSchema,
 	VereinSettingsSchema,
@@ -194,6 +197,13 @@ import {
 	updateUmsatzUstBasisDefault,
 	updateVereinStammdaten,
 } from "@/server/services/settings";
+import {
+	fetchSumupCardRevenue,
+	getSumupSettings,
+	isSumupActive,
+	SumupError,
+	updateSumupSettings,
+} from "@/server/services/sumup";
 import { adminOnly, authed, pub } from "./base";
 
 const idInput = v.object({ id: v.pipe(v.string(), v.minLength(1)) });
@@ -239,6 +249,38 @@ const protokolle = {
 	nextBelegnummer: authed.handler(async () => ({
 		belegnummer: await previewNextBelegnummer(),
 	})),
+
+	// Kartenumsatz eines Veranstaltungstags aus SumUp, als Vorschlag für das
+	// Feld Kartenzahlung. Reiner Lesezugriff; der Erfasser entscheidet, ob der
+	// Wert übernommen wird.
+	sumupCardRevenue: authed
+		.input(SumupCardRevenueSchema)
+		.handler(async ({ input, context }) => {
+			try {
+				const result = await fetchSumupCardRevenue(input.datum);
+				await recordAuditEvent({
+					category: "protokolle",
+					action: "protokolle.sumup_card_revenue_fetched",
+					actor: context.user,
+					subject: { type: "sumup", id: input.datum, label: input.datum },
+					request: requestAuditContext(context),
+					metadata: {
+						datum: input.datum,
+						kartenzahlung_cent: result.kartenzahlung_cent,
+						anzahl: result.anzahl,
+					},
+				});
+				return result;
+			} catch (e) {
+				if (e instanceof SumupError) {
+					throw new ORPCError(
+						e.code === "NOT_CONFIGURED" ? "PRECONDITION_FAILED" : "BAD_GATEWAY",
+						{ message: e.message },
+					);
+				}
+				throw e;
+			}
+		}),
 
 	create: authed
 		.input(CreateProtokollSchema)
@@ -529,6 +571,69 @@ const settings = {
 				});
 			}
 		}),
+
+	getSumup: adminOnly.handler(() => getSumupSettings()),
+
+	// Für das Protokollformular: nur ob der Abruf angeboten wird, kein Detail.
+	getSumupActive: authed.handler(async () => ({
+		active: await isSumupActive(),
+	})),
+
+	updateSumup: adminOnly
+		.input(SumupSettingsSchema)
+		.handler(async ({ input, context }) => {
+			try {
+				return await updateSumupSettings(
+					{
+						enabled: input.enabled,
+						api_key: input.api_key,
+						clear_api_key: input.clear_api_key,
+					},
+					{
+						category: "settings",
+						action: "settings.sumup_changed",
+						actor: context.user,
+						subject: { type: "settings", id: "sumup", label: "SumUp" },
+						request: requestAuditContext(context),
+						metadata: {
+							enabled: input.enabled,
+							api_key_changed: Boolean(input.api_key || input.clear_api_key),
+						},
+					},
+					input.expected_updated_at,
+				);
+			} catch (e) {
+				if (e instanceof SumupError) {
+					throw new ORPCError("BAD_REQUEST", { message: e.message });
+				}
+				throw e;
+			}
+		}),
+
+	testSumup: adminOnly.handler(async ({ context }) => {
+		try {
+			const result = await fetchSumupCardRevenue(todayIsoDate());
+			await recordAuditEvent({
+				category: "settings",
+				action: "settings.sumup_tested",
+				actor: context.user,
+				subject: { type: "settings", id: "sumup", label: "SumUp" },
+				request: requestAuditContext(context),
+				metadata: { anzahl: result.anzahl },
+			});
+			return {
+				ok: true as const,
+				merchant_name: result.merchant_name,
+				anzahl: result.anzahl,
+				kartenzahlung_cent: result.kartenzahlung_cent,
+			};
+		} catch (e) {
+			if (e instanceof SumupError) {
+				throw new ORPCError("BAD_REQUEST", { message: e.message });
+			}
+			throw e;
+		}
+	}),
 
 	testEmail: adminOnly
 		.input(TestEmailSchema)

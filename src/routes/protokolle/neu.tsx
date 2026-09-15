@@ -22,10 +22,11 @@ export const Route = createFileRoute("/protokolle/neu")({
 	}),
 	loaderDeps: ({ search }) => ({ duplicate: search.duplicate }),
 	loader: async ({ context, deps }) => {
-		const [belegnummerRes, basisRes, registers] = await Promise.all([
+		const [belegnummerRes, basisRes, registers, sumup] = await Promise.all([
 			orpcClient.protokolle.nextBelegnummer(),
 			orpcClient.settings.getUmsatzUstBasis(),
 			orpcClient.registers.list(),
+			orpcClient.settings.getSumupActive(),
 		]);
 
 		let initialValues: ProtokollInitialValues | undefined;
@@ -63,6 +64,7 @@ export const Route = createFileRoute("/protokolle/neu")({
 			initialValues,
 			duplicateBelegnummer,
 			canManageRegisters: context.user.role === "admin",
+			sumupActive: sumup.active,
 		};
 	},
 	head: () => ({ meta: [{ title: "Neues Protokoll · Rendant" }] }),
@@ -78,6 +80,7 @@ function NewProtokollPage() {
 		initialValues,
 		duplicateBelegnummer,
 		canManageRegisters,
+		sumupActive,
 	} = Route.useLoaderData();
 
 	return (
@@ -120,6 +123,7 @@ function NewProtokollPage() {
 				registers={registers}
 				canManageRegisters={canManageRegisters}
 				initialValues={initialValues}
+				sumupActive={sumupActive}
 			/>
 		</div>
 	);

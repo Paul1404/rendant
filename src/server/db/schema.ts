@@ -344,6 +344,17 @@ export const appSettings = pgTable(
 		email_updated_at: timestamp("email_updated_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),
+		// SumUp-Anbindung. Der API-Key liegt wie das SMTP-Passwort verschlüsselt
+		// vor (secret-box). Der Händlercode wird beim Verbindungstest aus der
+		// Mitgliedschaft des Keys ermittelt und hier gemerkt, damit ein Abruf
+		// keinen zweiten Roundtrip braucht.
+		sumup_enabled: boolean("sumup_enabled").notNull().default(false),
+		sumup_api_key_enc: text("sumup_api_key_enc").notNull().default(""),
+		sumup_merchant_code: text("sumup_merchant_code").notNull().default(""),
+		sumup_merchant_name: text("sumup_merchant_name").notNull().default(""),
+		sumup_updated_at: timestamp("sumup_updated_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
 	},
 	(t) => [
 		check("app_settings_singleton_check", sql`${t.id} = 1`),
