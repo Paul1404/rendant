@@ -7,10 +7,18 @@
 // nie an den Browser gegeben. Jeder Abruf ist ein reiner Lesezugriff auf die
 // Transaktionshistorie; Rendant schreibt nichts nach SumUp.
 
-import { eq } from "drizzle-orm";
-import { berlinDayRangeUtc } from "@/lib/date";
+import { and, eq, gte, isNull, lte } from "drizzle-orm";
+import {
+	addIsoCalendarDays,
+	berlinDayRangeUtc,
+	todayIsoDate,
+} from "@/lib/date";
 import { db } from "@/server/db";
-import { appSettings } from "@/server/db/schema";
+import {
+	appSettings,
+	protokolle,
+	protokollSumupTage,
+} from "@/server/db/schema";
 import { logger } from "@/server/logger";
 import {
 	type RecordAuditInput,
@@ -418,16 +426,95 @@ export async function listSumupTransactions(input: {
 	return out;
 }
 
-export type SumupCardRevenueResult = SumupDaySummary & {
-	datum: string;
-	merchant_name: string;
+// ---- Tagesübersicht -------------------------------------------------------
+
+export type SumupTransactionSnapshot = {
+	id: string;
+	transaction_code: string;
+	timestamp: string;
+	amount_cent: number;
+	refunded_cent: number;
+	card_type: string;
 };
 
-// Kartenumsatz eines Veranstaltungstags (Berliner Kalendertag) aus SumUp.
-export async function fetchSumupCardRevenue(
-	datum: string,
-	fetchImpl?: typeof fetch,
-): Promise<SumupCardRevenueResult> {
+export type SumupDay = SumupDaySummary & {
+	datum: string;
+	transaktionen: SumupTransactionSnapshot[];
+	// Aktives Protokoll, das diesen Tag bereits übernommen hat.
+	protokoll: { id: string; belegnummer: string } | null;
+};
+
+export type SumupDaysResult = {
+	von: string;
+	bis: string;
+	merchant_name: string;
+	tage: SumupDay[];
+};
+
+// Nur die zählenden Zahlungen (siehe summarizeCardRevenue) als Momentaufnahme
+// für den Beleg, in Cent und ohne die Felder, die SumUp später ändern darf.
+export function snapshotTransactions(
+	transactions: SumupTransaction[],
+	currency = "EUR",
+): SumupTransactionSnapshot[] {
+	const seen = new Set<string>();
+	const out: SumupTransactionSnapshot[] = [];
+	for (const t of transactions) {
+		if (seen.has(t.id)) continue;
+		seen.add(t.id);
+		const isPayment = t.type === "" || t.type === "PAYMENT";
+		const ok = t.status === "SUCCESSFUL" || t.status === "REFUNDED";
+		const isCard = t.payment_type !== "CASH";
+		const sameCurrency = !t.currency || t.currency === currency;
+		if (!isPayment || !ok || !isCard || !sameCurrency) continue;
+		const amountCent = euroToCent(t.amount);
+		out.push({
+			id: t.id,
+			transaction_code: t.transaction_code,
+			timestamp: t.timestamp,
+			amount_cent: amountCent,
+			refunded_cent: Math.min(euroToCent(t.refunded_amount), amountCent),
+			card_type: t.card_type,
+		});
+	}
+	out.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+	return out;
+}
+
+// Ordnet Transaktionen ihrem Berliner Kalendertag zu und liefert für jeden
+// Tag des Zeitraums eine Zeile, auch ohne Umsatz, damit die Übersicht Lücken
+// zeigt statt sie zu verschweigen.
+export function groupTransactionsByDay(
+	von: string,
+	bis: string,
+	transactions: SumupTransaction[],
+): Omit<SumupDay, "protokoll">[] {
+	const byDay = new Map<string, SumupTransaction[]>();
+	for (const t of transactions) {
+		const ts = Date.parse(t.timestamp);
+		if (!Number.isFinite(ts)) continue;
+		const day = todayIsoDate(new Date(ts));
+		const list = byDay.get(day);
+		if (list) list.push(t);
+		else byDay.set(day, [t]);
+	}
+	const out: Omit<SumupDay, "protokoll">[] = [];
+	for (let d = von; d <= bis; d = addIsoCalendarDays(d, 1)) {
+		const list = byDay.get(d) ?? [];
+		out.push({
+			datum: d,
+			...summarizeCardRevenue(list),
+			transaktionen: snapshotTransactions(list),
+		});
+	}
+	return out;
+}
+
+async function loadCredentials(): Promise<{
+	apiKey: string;
+	merchantCode: string;
+	merchantName: string;
+}> {
 	const row = await loadRow();
 	const apiKey = row ? decryptSecret(row.sumup_api_key_enc) : "";
 	if (!row?.sumup_enabled || !apiKey || !row.sumup_merchant_code) {
@@ -436,17 +523,106 @@ export async function fetchSumupCardRevenue(
 			"SumUp ist nicht eingerichtet. Ein Admin kann die Anbindung unter Einstellungen aktivieren.",
 		);
 	}
-	const { from, to } = berlinDayRangeUtc(datum);
-	const transactions = await listSumupTransactions({
+	return {
 		apiKey,
 		merchantCode: row.sumup_merchant_code,
-		from,
-		to,
+		merchantName: row.sumup_merchant_name,
+	};
+}
+
+// Welche Tage des Zeitraums schon ein aktives Protokoll übernommen hat.
+export async function listAssignedSumupDays(
+	von: string,
+	bis: string,
+): Promise<Map<string, { id: string; belegnummer: string }>> {
+	const rows = await db
+		.select({
+			datum: protokollSumupTage.datum,
+			id: protokolle.id,
+			belegnummer: protokolle.belegnummer,
+		})
+		.from(protokollSumupTage)
+		.innerJoin(protokolle, eq(protokolle.id, protokollSumupTage.protokoll_id))
+		.where(
+			and(
+				isNull(protokollSumupTage.freigegeben_am),
+				gte(protokollSumupTage.datum, von),
+				lte(protokollSumupTage.datum, bis),
+			),
+		);
+	const out = new Map<string, { id: string; belegnummer: string }>();
+	for (const r of rows) {
+		out.set(r.datum, { id: r.id, belegnummer: r.belegnummer });
+	}
+	return out;
+}
+
+// Kartenumsätze je Tag für einen Zeitraum (Berliner Kalendertage), samt
+// Hinweis, welcher Tag schon in welchem Protokoll steckt.
+export async function fetchSumupDays(
+	von: string,
+	bis: string,
+	fetchImpl?: typeof fetch,
+): Promise<SumupDaysResult> {
+	const creds = await loadCredentials();
+	const [transactions, assigned] = await Promise.all([
+		listSumupTransactions({
+			apiKey: creds.apiKey,
+			merchantCode: creds.merchantCode,
+			from: berlinDayRangeUtc(von).from,
+			to: berlinDayRangeUtc(bis).to,
+			fetchImpl,
+		}),
+		listAssignedSumupDays(von, bis),
+	]);
+	return {
+		von,
+		bis,
+		merchant_name: creds.merchantName,
+		tage: groupTransactionsByDay(von, bis, transactions).map((d) => ({
+			...d,
+			protokoll: assigned.get(d.datum) ?? null,
+		})),
+	};
+}
+
+export class SumupMismatchError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "SumupMismatchError";
+	}
+}
+
+// Holt die gewählten Tage beim Speichern erneut aus SumUp. Was am Beleg
+// steht, muss dem entsprechen, was SumUp jetzt liefert; eine Erstattung
+// zwischen Abruf und Speichern fällt so auf, statt still einen falschen
+// Betrag zu buchen.
+export async function resolveSumupDaysForProtokoll(
+	dates: string[],
+	expectedCent: number,
+	fetchImpl?: typeof fetch,
+): Promise<Omit<SumupDay, "protokoll">[]> {
+	const unique = [...new Set(dates)].sort();
+	if (unique.length === 0) return [];
+	const von = unique[0];
+	const bis = unique[unique.length - 1];
+	const creds = await loadCredentials();
+	const transactions = await listSumupTransactions({
+		apiKey: creds.apiKey,
+		merchantCode: creds.merchantCode,
+		from: berlinDayRangeUtc(von).from,
+		to: berlinDayRangeUtc(bis).to,
 		fetchImpl,
 	});
-	return {
-		...summarizeCardRevenue(transactions),
-		datum,
-		merchant_name: row.sumup_merchant_name,
-	};
+	const wanted = new Set(unique);
+	const days = groupTransactionsByDay(von, bis, transactions).filter((d) =>
+		wanted.has(d.datum),
+	);
+	const total = days.reduce((s, d) => s + d.kartenzahlung_cent, 0);
+	if (total !== expectedCent) {
+		throw new SumupMismatchError(
+			"Die Kartenumsätze bei SumUp haben sich seit dem Abruf geändert. Bitte im Formular erneut aus SumUp übernehmen und dann speichern.",
+		);
+	}
+	return days;
 }

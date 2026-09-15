@@ -186,3 +186,24 @@ export function berlinDayRangeUtc(isoDate: string): { from: Date; to: Date } {
 		to: berlinDayStartUtc(addIsoCalendarDays(isoDate, 1)),
 	};
 }
+
+const weekdayFormatter = new Intl.DateTimeFormat("de-DE", {
+	timeZone: BERLIN_TZ,
+	weekday: "short",
+});
+
+// Kurzer Wochentag zu einem yyyy-mm-dd, etwa "Sa." für die SumUp-Übersicht.
+export function formatWeekdayDe(isoDate: string): string {
+	return weekdayFormatter.format(isoDateAtUtcNoon(isoDate));
+}
+
+const timeFormatter = new Intl.DateTimeFormat("de-DE", {
+	timeZone: BERLIN_TZ,
+	hour: "2-digit",
+	minute: "2-digit",
+});
+
+// Uhrzeit in Berlin, etwa "18:42".
+export function formatTimeDe(value: Date | string): string {
+	return timeFormatter.format(toDate(value));
+}

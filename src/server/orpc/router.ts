@@ -55,7 +55,7 @@ import {
 	InviteCreateSchema,
 	ProtokollReclassifySchema,
 	StornoSchema,
-	SumupCardRevenueSchema,
+	SumupDaysSchema,
 	SumupSettingsSchema,
 	TestEmailSchema,
 	UmsatzUstBasisSettingsSchema,
@@ -183,6 +183,7 @@ import {
 	ProtokollIdempotencyConflictError,
 	reclassifyProtokolle,
 	regenerateProtokollPdf,
+	SumupDayTakenError,
 	stornoProtokoll,
 } from "@/server/services/protokoll";
 import { vatSummary } from "@/server/services/reports";
@@ -198,10 +199,11 @@ import {
 	updateVereinStammdaten,
 } from "@/server/services/settings";
 import {
-	fetchSumupCardRevenue,
+	fetchSumupDays,
 	getSumupSettings,
 	isSumupActive,
 	SumupError,
+	SumupMismatchError,
 	updateSumupSettings,
 } from "@/server/services/sumup";
 import { adminOnly, authed, pub } from "./base";
@@ -250,24 +252,32 @@ const protokolle = {
 		belegnummer: await previewNextBelegnummer(),
 	})),
 
-	// Kartenumsatz eines Veranstaltungstags aus SumUp, als Vorschlag für das
-	// Feld Kartenzahlung. Reiner Lesezugriff; der Erfasser entscheidet, ob der
-	// Wert übernommen wird.
-	sumupCardRevenue: authed
-		.input(SumupCardRevenueSchema)
+	// Kartenumsätze je Tag aus SumUp für einen Zeitraum, samt Hinweis, welche
+	// Tage schon in einem Protokoll stecken. Reiner Lesezugriff; was davon in
+	// das Protokoll wandert, entscheidet der Erfasser im Dialog.
+	sumupDays: authed
+		.input(SumupDaysSchema)
 		.handler(async ({ input, context }) => {
 			try {
-				const result = await fetchSumupCardRevenue(input.datum);
+				const result = await fetchSumupDays(input.von, input.bis);
 				await recordAuditEvent({
 					category: "protokolle",
-					action: "protokolle.sumup_card_revenue_fetched",
+					action: "protokolle.sumup_days_fetched",
 					actor: context.user,
-					subject: { type: "sumup", id: input.datum, label: input.datum },
+					subject: {
+						type: "sumup",
+						id: `${input.von}_${input.bis}`,
+						label: `${input.von} bis ${input.bis}`,
+					},
 					request: requestAuditContext(context),
 					metadata: {
-						datum: input.datum,
-						kartenzahlung_cent: result.kartenzahlung_cent,
-						anzahl: result.anzahl,
+						von: input.von,
+						bis: input.bis,
+						tage_mit_umsatz: result.tage.filter((d) => d.anzahl > 0).length,
+						kartenzahlung_cent: result.tage.reduce(
+							(s, d) => s + d.kartenzahlung_cent,
+							0,
+						),
 					},
 				});
 				return result;
@@ -293,6 +303,17 @@ const protokolle = {
 			} catch (e) {
 				if (e instanceof ProtokollIdempotencyConflictError) {
 					throw new ORPCError("CONFLICT", { message: e.message });
+				}
+				if (e instanceof SumupDayTakenError) {
+					throw new ORPCError("CONFLICT", { message: e.message });
+				}
+				if (e instanceof SumupMismatchError) {
+					throw new ORPCError("CONFLICT", { message: e.message });
+				}
+				if (e instanceof SumupError) {
+					throw new ORPCError("BAD_GATEWAY", {
+						message: `${e.message} Alternativ die Kartenzahlung ohne SumUp-Verknüpfung speichern.`,
+					});
 				}
 				const msg = (e as Error).message;
 				if (msg === "Belegnummer bereits vergeben") {
@@ -612,20 +633,22 @@ const settings = {
 
 	testSumup: adminOnly.handler(async ({ context }) => {
 		try {
-			const result = await fetchSumupCardRevenue(todayIsoDate());
+			const heute = todayIsoDate();
+			const result = await fetchSumupDays(heute, heute);
+			const tag = result.tage[0];
 			await recordAuditEvent({
 				category: "settings",
 				action: "settings.sumup_tested",
 				actor: context.user,
 				subject: { type: "settings", id: "sumup", label: "SumUp" },
 				request: requestAuditContext(context),
-				metadata: { anzahl: result.anzahl },
+				metadata: { anzahl: tag?.anzahl ?? 0 },
 			});
 			return {
 				ok: true as const,
 				merchant_name: result.merchant_name,
-				anzahl: result.anzahl,
-				kartenzahlung_cent: result.kartenzahlung_cent,
+				anzahl: tag?.anzahl ?? 0,
+				kartenzahlung_cent: tag?.kartenzahlung_cent ?? 0,
 			};
 		} catch (e) {
 			if (e instanceof SumupError) {

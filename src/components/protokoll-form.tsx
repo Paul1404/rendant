@@ -17,6 +17,10 @@ import {
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { SanityWarnings } from "@/components/sanity-warnings";
+import {
+	SumupImportDialog,
+	type SumupSelection,
+} from "@/components/sumup-import-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataRow } from "@/components/ui/data-row";
@@ -287,13 +291,8 @@ export function ProtokollForm({
 	// Letzter SumUp-Abruf, als Hinweis unter dem Feld. Wird verworfen, sobald
 	// der Wert von Hand geändert wird, damit der Hinweis nie etwas anderes
 	// beschreibt als das, was im Feld steht.
-	const [sumupHint, setSumupHint] = useState<{
-		datum: string;
-		anzahl: number;
-		kartenzahlung_cent: number;
-		erstattet_cent: number;
-	} | null>(null);
-	const [sumupLoading, startSumup] = useTransition();
+	const [sumupHint, setSumupHint] = useState<SumupSelection | null>(null);
+	const [sumupOpen, setSumupOpen] = useState(false);
 	const [ausgaben, setAusgaben] = useState<AusgabeDraft[]>([]);
 	const [umsatzSplits, setUmsatzSplits] = useState<UmsatzUstDraft[]>([]);
 	const [umsatzUstBasis, setUmsatzUstBasis] = useState<UmsatzUstBasis>(
@@ -401,24 +400,9 @@ export function ProtokollForm({
 		() => parseGermanAmount(wechselgeldInput) ?? -1,
 		[wechselgeldInput],
 	);
-	function fetchSumup() {
-		startSumup(async () => {
-			try {
-				const res = await orpcClient.protokolle.sumupCardRevenue({ datum });
-				setKartenzahlungInput(formatCentPlain(res.kartenzahlung_cent));
-				setSumupHint({
-					datum: res.datum,
-					anzahl: res.anzahl,
-					kartenzahlung_cent: res.kartenzahlung_cent,
-					erstattet_cent: res.erstattet_cent,
-				});
-				if (res.anzahl === 0) {
-					toast.info("SumUp kennt für diesen Tag keine Kartenzahlung.");
-				}
-			} catch (e) {
-				toast.error(orpcMessage(e, "Abruf aus SumUp fehlgeschlagen"));
-			}
-		});
+	function applySumup(selection: SumupSelection) {
+		setKartenzahlungInput(formatCentPlain(selection.kartenzahlung_cent));
+		setSumupHint(selection);
 	}
 
 	const kartenzahlungCent = useMemo(() => {
@@ -799,6 +783,12 @@ export function ProtokollForm({
 			ausgaben: ausgabenPayload,
 			umsatz_ust: umsatzPayload,
 			umsatz_ust_basis: umsatzUstBasis,
+			// Nur wenn der Betrag noch der aus dem Dialog ist. Eine Handänderung
+			// löscht den Hinweis, und damit auch die Verknüpfung.
+			sumup_tage:
+				sumupHint && sumupHint.kartenzahlung_cent === kartenzahlungCent
+					? sumupHint.tage
+					: [],
 		};
 		// Only send belegnummer as a user-chosen override when the user
 		// actually edited the prefilled preview. Otherwise the server is left
@@ -1421,18 +1411,21 @@ export function ProtokollForm({
 												variant="ghost"
 												size="sm"
 												className="h-7 px-2 text-xs"
-												onClick={fetchSumup}
-												disabled={sumupLoading || !datum}
+												onClick={() => setSumupOpen(true)}
 											>
-												{sumupLoading ? (
-													<Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-												) : (
-													<CreditCard className="mr-1.5 h-3.5 w-3.5" />
-												)}
+												<CreditCard className="mr-1.5 h-3.5 w-3.5" />
 												Aus SumUp übernehmen
 											</Button>
 										) : null}
 									</div>
+									{sumupActive && sumupOpen ? (
+										<SumupImportDialog
+											open={sumupOpen}
+											onOpenChange={setSumupOpen}
+											datum={datum}
+											onApply={applySumup}
+										/>
+									) : null}
 									<Input
 										id="kartenzahlung"
 										inputMode="decimal"
@@ -1467,13 +1460,13 @@ export function ProtokollForm({
 											{sumupHint.anzahl === 1
 												? "Kartenzahlung"
 												: "Kartenzahlungen"}{" "}
-											am {formatDateDe(sumupHint.datum)}
+											{sumupHint.tage.length === 1
+												? `am ${formatDateDe(sumupHint.tage[0])}`
+												: `an ${sumupHint.tage.length} Tagen (${formatDateDe(sumupHint.tage[0])} bis ${formatDateDe(sumupHint.tage[sumupHint.tage.length - 1])})`}
 											{sumupHint.erstattet_cent > 0
 												? `, abzüglich ${formatCent(sumupHint.erstattet_cent)} Erstattung`
 												: ""}
-											{sumupHint.datum !== datum
-												? ". Das Datum wurde seitdem geändert, bitte erneut abrufen."
-												: "."}
+											. Die Tage werden am Protokoll vermerkt.
 										</p>
 									) : null}
 								</div>

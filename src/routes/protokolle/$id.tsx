@@ -12,6 +12,7 @@ import {
 	Calculator,
 	Coins,
 	Copy,
+	CreditCard,
 	Download,
 	Eye,
 	FileText,
@@ -39,6 +40,7 @@ import {
 } from "@/components/ui/table";
 import { formatDateDe, formatDateTimeDe } from "@/lib/date";
 import { DENOMINATIONS } from "@/lib/denominations";
+import { formatCent } from "@/lib/money";
 import { orpc } from "@/lib/orpc";
 import {
 	formatUstSatz as formatUstSatzLib,
@@ -106,7 +108,7 @@ function ProtokollDetailPage() {
 	const { user } = useRouteContext({ from: "/protokolle" });
 	const isAdmin = user.role === "admin";
 	const { data } = useSuspenseQuery(detailQueryOptions(id));
-	const { protokoll, ausgaben, umsatzUst } = data;
+	const { protokoll, ausgaben, umsatzUst, sumupTage } = data;
 	const sumScheine = DENOMINATIONS.filter((d) => d.kind === "schein").reduce(
 		(s, d) => s + protokoll.counts[d.key] * d.cent,
 		0,
@@ -461,6 +463,40 @@ function ProtokollDetailPage() {
 							</DataRow>
 						) : null}
 					</div>
+
+					{sumupTage.length > 0 ? (
+						<div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3 text-sm">
+							<p className="flex items-center gap-2 font-medium text-foreground">
+								<CreditCard className="h-4 w-4 text-muted-foreground" />
+								Kartenzahlung aus SumUp übernommen
+							</p>
+							<ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+								{sumupTage.map((t) => (
+									<li
+										key={t.id}
+										className="flex flex-wrap items-center gap-x-3 tabular-nums"
+									>
+										<span>{formatDateDe(t.datum)}</span>
+										<span>
+											{t.anzahl} {t.anzahl === 1 ? "Zahlung" : "Zahlungen"}
+											{t.erstattet_cent > 0
+												? `, ${formatCent(t.erstattet_cent)} erstattet`
+												: ""}
+										</span>
+										<span className="ml-auto text-foreground">
+											{formatCent(t.kartenzahlung_cent)}
+										</span>
+									</li>
+								))}
+							</ul>
+							{protokoll.storniert_am ? (
+								<p className="mt-2 text-xs text-muted-foreground">
+									Mit dem Storno sind diese Tage wieder frei und können in einem
+									neuen Protokoll übernommen werden.
+								</p>
+							) : null}
+						</div>
+					) : null}
 
 					{protokoll.kartenzahlung_cent > 0 ? (
 						<div className="space-y-2">

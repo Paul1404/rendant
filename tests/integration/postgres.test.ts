@@ -377,6 +377,7 @@ describe("PostgreSQL production paths", () => {
 			ausgaben: [],
 			umsatz_ust: [],
 			umsatz_ust_basis: "post_card" as const,
+			sumup_tage: [] as string[],
 		};
 
 		const results = await Promise.all([
@@ -521,6 +522,7 @@ describe("VAT summary aggregation", () => {
 			ausgaben: [],
 			umsatz_ust: [],
 			umsatz_ust_basis: "post_card" as const,
+			sumup_tage: [] as string[],
 			...overrides,
 		};
 	}
@@ -633,6 +635,7 @@ describe("moving protocols between Umsatzbereiche", () => {
 			ausgaben: [],
 			umsatz_ust: [],
 			umsatz_ust_basis: "post_card" as const,
+			sumup_tage: [] as string[],
 			...overrides,
 		};
 	}

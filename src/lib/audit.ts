@@ -60,7 +60,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
 	"protokolle.reclassified": "Protokoll umgruppiert",
 	"protokolle.pdf_regenerated": "PDF neu erzeugt",
 	"protokolle.pdf_viewed": "PDF angesehen",
-	"protokolle.sumup_card_revenue_fetched": "Kartenumsatz aus SumUp abgerufen",
+	"protokolle.sumup_days_fetched": "Kartenumsätze aus SumUp abgerufen",
 	"protokolle.pdf_downloaded": "PDF heruntergeladen",
 	"protokolle.storno_pdf_viewed": "Storno-PDF angesehen",
 	"protokolle.storno_pdf_downloaded": "Storno-PDF heruntergeladen",

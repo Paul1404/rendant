@@ -1,5 +1,14 @@
 import * as v from "valibot";
-import { isIsoCalendarDate, todayIsoDate } from "@/lib/date";
+import {
+	isIsoCalendarDate,
+	isoCalendarDayDifference,
+	todayIsoDate,
+} from "@/lib/date";
+
+// Zeitraum für die SumUp-Tagesübersicht. Begrenzt, weil jeder Tag ein
+// Aufruf der Transaktionshistorie mit Paging ist.
+export const SUMUP_MAX_RANGE_DAYS = 62;
+
 import { DENOMINATION_KEYS } from "@/lib/denominations";
 import { UMSATZBEREICHE } from "@/lib/umsatzbereich";
 
@@ -163,6 +172,13 @@ export const CreateProtokollSchema = v.object({
 		[],
 	),
 	umsatz_ust_basis: v.optional(UmsatzUstBasisSchema, "post_card"),
+	// Tage, deren Kartenumsatz aus SumUp übernommen wurde. Der Server holt sie
+	// beim Speichern erneut und prüft, dass die Summe zu kartenzahlung_cent
+	// passt, damit am Beleg nur steht, was SumUp tatsächlich geliefert hat.
+	sumup_tage: v.optional(
+		v.pipe(v.array(historicalRevenueDate), v.maxLength(SUMUP_MAX_RANGE_DAYS)),
+		[],
+	),
 });
 export type CreateProtokollInput = v.InferOutput<typeof CreateProtokollSchema>;
 
@@ -523,12 +539,18 @@ export const SumupSettingsSchema = v.object({
 });
 export type SumupSettingsInput = v.InferOutput<typeof SumupSettingsSchema>;
 
-export const SumupCardRevenueSchema = v.object({
-	datum: historicalRevenueDate,
-});
-export type SumupCardRevenueInput = v.InferOutput<
-	typeof SumupCardRevenueSchema
->;
+export const SumupDaysSchema = v.pipe(
+	v.object({
+		von: historicalRevenueDate,
+		bis: historicalRevenueDate,
+	}),
+	v.check((r) => r.von <= r.bis, "Das Startdatum muss vor dem Enddatum liegen"),
+	v.check(
+		(r) => isoCalendarDayDifference(r.bis, r.von) < SUMUP_MAX_RANGE_DAYS,
+		`Höchstens ${SUMUP_MAX_RANGE_DAYS} Tage auf einmal`,
+	),
+);
+export type SumupDaysInput = v.InferOutput<typeof SumupDaysSchema>;
 
 export const TestEmailSchema = v.object({
 	to: v.pipe(v.string(), v.trim(), v.email(), v.maxLength(255)),
