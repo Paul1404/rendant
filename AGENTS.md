@@ -162,6 +162,9 @@ update the appropriate canonical documentation in the same change.
   the browser. A message a schema states itself is already German and is used
   verbatim; Valibot's own wording is translated by issue type. Give a new rule a
   German message in the schema when the generic translation would be unclear.
+- A repeating external failure is logged once per cycle and retried with a
+  growing delay, never once per attempt per target. Four warnings a minute for
+  a permanent 404 cost nothing to produce and made the deploy log unusable.
 - Before calling a change complete, run `bun run check`, `bunx tsc --noEmit`,
   `bun run test`, and `bun run build`, then exercise the affected runtime flow
   where feasible.
