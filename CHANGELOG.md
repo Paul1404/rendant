@@ -3,6 +3,19 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.52.1 - 2026-09-20
+
+Fehlermeldungen beim Speichern nennen das Feld
+
+- Wenn eine Eingabe abgelehnt wurde, stand dort bisher "Input validation
+  failed". Das war englisch und sagte nicht, woran es lag. Jetzt nennt die
+  Meldung das Feld und den Grund, zum Beispiel "API-Key: höchstens 500
+  Zeichen" oder "Empfänger: keine gültige E-Mail-Adresse".
+- Der abgelehnte Wert selbst wird nicht mehr zurückgegeben. Ein API-Key oder
+  ein Passwort taucht damit in keiner Fehlermeldung auf.
+- Abgelehnte Eingaben stehen jetzt im Betriebsprotokoll, mit Feld und Regel,
+  aber ohne den Wert. Damit lässt sich so ein Fall nachvollziehen.
+
 ## 1.52.0 - 2026-09-15
 
 SumUp: Tage auswählen statt nur den Veranstaltungstag

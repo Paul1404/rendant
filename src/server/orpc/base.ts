@@ -1,4 +1,9 @@
-import { ORPCError, os } from "@orpc/server";
+import { ORPCError, os, ValidationError } from "@orpc/server";
+import {
+	type ValidationIssue,
+	validationIssueFields,
+	validationMessage,
+} from "@/lib/validation-message";
 import { logger } from "@/server/logger";
 import { CashRegisterConcurrencyError } from "@/server/services/cash-registers";
 import { SettingsConcurrencyError } from "@/server/services/settings";
@@ -19,6 +24,17 @@ export type ORPCContext = {
 
 const base = os.$context<ORPCContext>();
 
+// oRPC rejects a request whose input misses the schema with the English frame
+// message "Input validation failed" and attaches the raw issues. Neither is fit
+// for a person: the message names no field, and the issues carry the submitted
+// value. Both get replaced below, so every procedure answers the same way.
+function validationIssues(err: unknown): ValidationIssue[] | undefined {
+	if (!(err instanceof ORPCError)) return undefined;
+	if (!(err.cause instanceof ValidationError)) return undefined;
+	const issues = err.cause.issues;
+	return Array.isArray(issues) ? (issues as ValidationIssue[]) : undefined;
+}
+
 // Outermost middleware: log unhandled (unexpected) errors with context, and
 // debug-log expected ORPCErrors. Keeps error logging in one place instead of
 // scattered through procedures.
@@ -35,6 +51,21 @@ const logging = base.middleware(async ({ context, next, path }) => {
 				? new ORPCError("CONFLICT", { message: raw.message })
 				: raw;
 		const procedure = Array.isArray(path) ? path.join(".") : undefined;
+		const issues = validationIssues(err);
+		if (issues) {
+			// Which field a schema rejected is the only thing worth keeping, and the
+			// only thing safe to keep: the issues carry the submitted value, and for
+			// an API key or a password that must not reach a log or the browser.
+			logger.warn("orpc input rejected", {
+				event: "orpc.request.invalid",
+				requestId: context.requestId,
+				procedure,
+				fields: validationIssueFields(issues),
+			});
+			throw new ORPCError("BAD_REQUEST", {
+				message: validationMessage(issues),
+			});
+		}
 		if (err instanceof ORPCError) {
 			logger.debug("orpc procedure rejected", {
 				event: "orpc.request.rejected",

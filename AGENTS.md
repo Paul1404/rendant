@@ -154,6 +154,14 @@ update the appropriate canonical documentation in the same change.
 
 - Use Conventional Commits and explain why the change is needed.
 - UI copy is short, direct German. Do not use em dashes, en dashes, or emojis.
+- A rejected input never reaches a person as a framework message. The oRPC
+  logging middleware in `src/server/orpc/base.ts` turns "Input validation
+  failed" into the German sentence built by `src/lib/validation-message.ts`,
+  logs the field and the rule at warn level, and drops oRPC's issue list so the
+  submitted value, which may be an API key or a password, never travels back to
+  the browser. A message a schema states itself is already German and is used
+  verbatim; Valibot's own wording is translated by issue type. Give a new rule a
+  German message in the schema when the generic translation would be unclear.
 - Before calling a change complete, run `bun run check`, `bunx tsc --noEmit`,
   `bun run test`, and `bun run build`, then exercise the affected runtime flow
   where feasible.
