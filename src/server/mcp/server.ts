@@ -34,6 +34,13 @@ export async function handleMcpRequest(request: Request): Promise<Response> {
 	try {
 		const boundaryError = validateMcpRequestBoundary(request);
 		if (boundaryError) return boundaryError;
+		// The transport runs stateless, so there is no session and no
+		// server-initiated stream a GET could attach to. Serving one anyway
+		// produced an SSE response that this handler closed again immediately,
+		// which reads to a client as a dropped stream and invites an endless
+		// reconnect loop. 405 is the answer the spec provides for that, and the
+		// reference client treats it as final instead of retrying.
+		if (request.method !== "POST") return mcpMethodNotAllowedResponse();
 		if (!mcpIsConfigured()) {
 			return Response.json(
 				{
@@ -137,6 +144,20 @@ async function serveAuthenticatedRequest(
 	} finally {
 		void server.close().catch(() => undefined);
 	}
+}
+
+function mcpMethodNotAllowedResponse(): Response {
+	return Response.json(
+		{
+			jsonrpc: "2.0",
+			error: {
+				code: -32000,
+				message: "Method Not Allowed: this MCP endpoint only accepts POST",
+			},
+			id: null,
+		},
+		{ status: 405, headers: { allow: "POST" } },
+	);
 }
 
 function errorResult(message: string): ToolResult {

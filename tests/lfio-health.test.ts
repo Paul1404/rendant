@@ -86,6 +86,29 @@ describe("container memory helpers", () => {
 	});
 });
 
+describe("nextReportDelayMs", () => {
+	it("keeps the base cadence while the ingest endpoint answers", async () => {
+		const { nextReportDelayMs } = await import("@/server/services/lfio-health");
+
+		expect(nextReportDelayMs(0, 60_000, 3_600_000)).toBe(60_000);
+	});
+
+	it("doubles the delay per failed cycle and stops at the ceiling", async () => {
+		const { nextReportDelayMs } = await import("@/server/services/lfio-health");
+
+		expect(nextReportDelayMs(1, 60_000, 3_600_000)).toBe(120_000);
+		expect(nextReportDelayMs(2, 60_000, 3_600_000)).toBe(240_000);
+		expect(nextReportDelayMs(6, 60_000, 3_600_000)).toBe(3_600_000);
+		expect(nextReportDelayMs(99, 60_000, 3_600_000)).toBe(3_600_000);
+	});
+
+	it("never returns less than the base interval", async () => {
+		const { nextReportDelayMs } = await import("@/server/services/lfio-health");
+
+		expect(nextReportDelayMs(4, 60_000, 1_000)).toBe(60_000);
+	});
+});
+
 describe("bucket inventory gating", () => {
 	it("runs immediately, then only after the separate inventory interval", async () => {
 		const { isBucketInventoryDue } = await import(

@@ -269,10 +269,11 @@ Die vollständige Vorlage mit Kommentaren steht in [`.env.example`](.env.example
 | `S3_BUCKET_NAME` | Name des PDF-Buckets | Für PDFs |
 | `VEREINSNAME` | Fallback bis Vereinsstammdaten in der App gespeichert wurden | Nein |
 | `LFIO_INGEST_TOKEN` | Aktiviert die optionale LFIO-Telemetrie | Nein |
+| `LFIO_INGEST_URL` | Ziel der Telemetrie | Nein, Standard ist `https://lfio.pdcd.net/api/ingest` |
 
-Die weiteren `LFIO_*`-Variablen steuern Intervall, Zeitlimits, die höchstens
-tägliche und seitenbegrenzte Bucket-Inventur sowie Schwellenwerte der optionalen
-Telemetrie. SMTP-Server, Absender und Empfänger
+Die weiteren `LFIO_*`-Variablen steuern Intervall, Zeitlimits, Rückfallabstand
+nach Fehlversuchen, die höchstens tägliche und seitenbegrenzte Bucket-Inventur
+sowie Schwellenwerte der optionalen Telemetrie. SMTP-Server, Absender und Empfänger
 werden nicht als Umgebungsvariablen gesetzt, sondern durch einen Admin unter
 `Einstellungen > E-Mail-Benachrichtigungen` verwaltet. Der SumUp-API-Key wird
 ebenso in der App unter `Einstellungen > Kartenzahlung über SumUp` gepflegt.
@@ -328,6 +329,13 @@ der bisherigen Adresse erreichbar.
 Der Healthcheck testet die Datenbank und antwortet bei einem Ausfall mit HTTP
 503. Mit `LFIO_INGEST_TOKEN` sendet die Anwendung zusätzlich Betriebsmetriken
 für API, PostgreSQL, Laufzeit und Bucket an LFIO.
+
+Stand 20.09.2026 nimmt die alte Adresse `lfio.pdcd.net/api/ingest` nichts mehr
+an. Sie verweist per 308 auf `kataster.pdcd.net`, dort gibt es keine
+Ingest-Route. Solange kein Nachfolger in `LFIO_INGEST_URL` eingetragen ist,
+sollte `LFIO_INGEST_TOKEN` leer bleiben. Bleibt der Token gesetzt, meldet die
+Anwendung den Fehlschlag einmal pro Durchlauf und vergrößert den Abstand
+schrittweise bis auf eine Stunde, statt ihn jede Minute zu wiederholen.
 
 ## Datenmodell und Betriebsgrenzen
 

@@ -24,6 +24,27 @@ describe("Rendant MCP", () => {
 		expect(response.status).toBe(401);
 	});
 
+	it("answers GET and DELETE with 405 so no client opens a stream loop", async () => {
+		process.env.BETTER_AUTH_URL = "http://localhost:3000";
+		process.env.MCP_BEARER_TOKEN = "a".repeat(64);
+
+		for (const method of ["GET", "DELETE"]) {
+			const response = await handleMcpRequest(
+				streamRequest(method, "a".repeat(64)),
+			);
+			expect(response.status).toBe(405);
+			expect(response.headers.get("allow")).toBe("POST");
+		}
+	});
+
+	it("answers an unauthenticated GET with 405 rather than 401", async () => {
+		process.env.BETTER_AUTH_URL = "http://localhost:3000";
+		process.env.MCP_BEARER_TOKEN = "a".repeat(64);
+		const response = await handleMcpRequest(streamRequest("GET"));
+
+		expect(response.status).toBe(405);
+	});
+
 	it("exposes a secret-free status for the admin settings page", () => {
 		process.env.MCP_BEARER_TOKEN = "a".repeat(64);
 		process.env.MCP_ACCESS_MODE = "admin";
@@ -155,6 +176,18 @@ function auth(accessMode: "readonly" | "admin"): McpAuthContext {
 			requestId: crypto.randomUUID(),
 		},
 	};
+}
+
+function streamRequest(method: string, token?: string): Request {
+	return new Request("http://localhost:3000/api/mcp", {
+		method,
+		headers: {
+			accept: "text/event-stream",
+			host: "localhost:3000",
+			"mcp-protocol-version": "2025-06-18",
+			...(token ? { authorization: `Bearer ${token}` } : {}),
+		},
+	});
 }
 
 function mcpRequest(

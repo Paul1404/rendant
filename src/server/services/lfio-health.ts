@@ -73,20 +73,26 @@ type BucketInventoryState = {
 
 declare global {
 	// eslint-disable-next-line no-var
-	var __rendantLfioReporter: ReturnType<typeof setInterval> | undefined;
+	var __rendantLfioReporter: ReturnType<typeof setTimeout> | undefined;
 	// eslint-disable-next-line no-var
 	var __rendantLfioReporterInFlight: boolean | undefined;
+	// eslint-disable-next-line no-var
+	var __rendantLfioFailureStreak: number | undefined;
 	// eslint-disable-next-line no-var
 	var __rendantBucketInventoryState: BucketInventoryState | undefined;
 }
 
-const LFIO_INGEST_URL = "https://lfio.pdcd.net/api/ingest";
+// The ingest host has moved before: lfio.pdcd.net now answers with a 308 to
+// kataster.pdcd.net, which carries no ingest route. A baked-in URL made that
+// only fixable by a deploy, so the target is configurable.
+const DEFAULT_INGEST_URL = "https://lfio.pdcd.net/api/ingest";
 const DEFAULT_INTERVAL_MS = 60_000;
 const DEFAULT_PROBE_TIMEOUT_MS = 10_000;
 const DEFAULT_DEGRADE_SAMPLES = 3;
 const DEFAULT_RECOVER_SAMPLES = 2;
 const DEFAULT_BUCKET_INVENTORY_INTERVAL_MS = 24 * 60 * 60 * 1_000;
 const DEFAULT_BUCKET_INVENTORY_MAX_PAGES = 100;
+const DEFAULT_MAX_BACKOFF_MS = 60 * 60 * 1_000;
 
 const log = logger.child({ integration: "lfio" });
 const gates = new Map<string, HysteresisGate>();
@@ -137,6 +143,28 @@ function reportIntervalMs(): number {
 
 function probeTimeoutMs(): number {
 	return envNumber("LFIO_PROBE_TIMEOUT_MS", DEFAULT_PROBE_TIMEOUT_MS, 1_000);
+}
+
+function ingestUrl(): string {
+	return process.env.LFIO_INGEST_URL?.trim() || DEFAULT_INGEST_URL;
+}
+
+function maxBackoffMs(): number {
+	return envNumber("LFIO_MAX_BACKOFF_MS", DEFAULT_MAX_BACKOFF_MS, 5_000);
+}
+
+// A failing ingest endpoint is retried with a growing delay instead of every
+// minute forever. A permanent failure such as a 404 then costs a handful of
+// log lines a day and still recovers on its own once the endpoint answers.
+export function nextReportDelayMs(
+	failedCycles: number,
+	baseMs: number,
+	maxMs: number,
+): number {
+	const ceiling = Math.max(maxMs, baseMs);
+	if (failedCycles <= 0) return baseMs;
+	const grown = baseMs * 2 ** Math.min(failedCycles, 20);
+	return Math.min(grown, ceiling);
 }
 
 function bucketInventoryIntervalMs(): number {
@@ -918,12 +946,15 @@ async function collectLfioPayloads(): Promise<LfioPayload[]> {
 		.filter((payload): payload is LfioPayload => Boolean(payload));
 }
 
-async function postToLfio(token: string, payload: LfioPayload): Promise<void> {
+async function postToLfio(
+	token: string,
+	payload: LfioPayload,
+): Promise<string | null> {
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), probeTimeoutMs());
 
 	try {
-		const response = await fetch(LFIO_INGEST_URL, {
+		const response = await fetch(ingestUrl(), {
 			method: "POST",
 			headers: {
 				Authorization: `Bearer ${token}`,
@@ -933,18 +964,37 @@ async function postToLfio(token: string, payload: LfioPayload): Promise<void> {
 			signal: controller.signal,
 		});
 
-		if (!response.ok) {
-			log.warn("LFIO ingest returned a non-success response", {
-				assetKey: payload.assetKey,
-				status: response.status,
-				statusText: response.statusText,
-			});
-		}
+		if (response.ok) return null;
+		return `${payload.assetKey}: HTTP ${response.status} ${response.statusText}`.trimEnd();
 	} catch (err) {
-		log.warn("LFIO ingest failed", { assetKey: payload.assetKey, err });
+		const reason = err instanceof Error ? err.message : String(err);
+		return `${payload.assetKey}: ${reason}`;
 	} finally {
 		clearTimeout(timeout);
 	}
+}
+
+export function lfioFailureStreak(): number {
+	return globalThis.__rendantLfioFailureStreak ?? 0;
+}
+
+// One line per reporting cycle, not one per asset: a broken ingest endpoint
+// used to write four warnings a minute and bury every other deploy log.
+function noteCycleFailure(details: string[], attempted: number): void {
+	const failedCycles = lfioFailureStreak() + 1;
+	globalThis.__rendantLfioFailureStreak = failedCycles;
+	log.warn("LFIO ingest failed", {
+		url: ingestUrl(),
+		failed: details.length,
+		attempted,
+		failedCycles,
+		nextAttemptInMs: nextReportDelayMs(
+			failedCycles,
+			reportIntervalMs(),
+			maxBackoffMs(),
+		),
+		details,
+	});
 }
 
 export async function reportHealthToLfio(): Promise<void> {
@@ -956,10 +1006,45 @@ export async function reportHealthToLfio(): Promise<void> {
 
 	try {
 		const payloads = await collectLfioPayloads();
-		await Promise.all(payloads.map((payload) => postToLfio(token, payload)));
+		const results = await Promise.all(
+			payloads.map((payload) => postToLfio(token, payload)),
+		);
+		const failures = results.filter((result): result is string =>
+			Boolean(result),
+		);
+
+		if (failures.length > 0) {
+			noteCycleFailure(failures, payloads.length);
+			return;
+		}
+
+		if (lfioFailureStreak() > 0) {
+			log.info("LFIO ingest recovered", { failedCycles: lfioFailureStreak() });
+		}
+		globalThis.__rendantLfioFailureStreak = 0;
+	} catch (err) {
+		// Collecting the payloads is itself a probe and can throw. Treat it as a
+		// failed cycle so the backoff applies instead of a per-minute crash loop.
+		noteCycleFailure([String(err instanceof Error ? err.message : err)], 0);
 	} finally {
 		globalThis.__rendantLfioReporterInFlight = false;
 	}
+}
+
+function scheduleLfioReport(delayMs: number): void {
+	const timer = setTimeout(() => {
+		void reportHealthToLfio().finally(() => {
+			scheduleLfioReport(
+				nextReportDelayMs(
+					lfioFailureStreak(),
+					reportIntervalMs(),
+					maxBackoffMs(),
+				),
+			);
+		});
+	}, delayMs);
+	timer.unref?.();
+	globalThis.__rendantLfioReporter = timer;
 }
 
 export function startLfioHealthReporter(): void {
@@ -970,11 +1055,7 @@ export function startLfioHealthReporter(): void {
 		return;
 	}
 
-	void reportHealthToLfio();
-	const timer = setInterval(
-		() => void reportHealthToLfio(),
-		reportIntervalMs(),
-	);
-	timer.unref?.();
-	globalThis.__rendantLfioReporter = timer;
+	// Self-rescheduling rather than a fixed interval, so a failing endpoint can
+	// be retried more slowly without changing the healthy cadence.
+	scheduleLfioReport(0);
 }

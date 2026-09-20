@@ -223,6 +223,13 @@ Assume concurrent users and multiple Railway instances for every shared write.
 - `/api/mcp` is a stateless Streamable HTTP endpoint with mandatory bearer
   authentication, host/origin validation, DNS-rebinding protection and bounded
   per-IP and per-token request rates.
+- Only POST is served. Stateless means there is no session and no
+  server-initiated stream, so GET and DELETE answer 405 with `Allow: POST`.
+  Serving the SSE stream that the SDK transport offers for GET produced a
+  response the handler closed again in the same tick, which a client reads as a
+  dropped stream and answers with a reconnect. Keep the 405; the rate limiter
+  cannot substitute for it, because a rejected request is still a logged
+  request at the Railway edge.
 - MCP tools delegate to existing oRPC procedures. Do not add raw SQL, direct
   table writes, secret reads or parallel business logic to the MCP layer.
 - `MCP_ACCESS_MODE=readonly` exposes analysis tools only. `admin` may expose

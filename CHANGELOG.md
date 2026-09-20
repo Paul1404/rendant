@@ -3,6 +3,19 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.52.2 - 2026-09-20
+
+Betriebsprotokolle bleiben lesbar
+
+- Die Telemetrie an LFIO meldete jeden Fehlversuch einzeln und wiederholte ihn
+  jede Minute. Fehlversuche stehen jetzt gebündelt in einer Zeile und werden
+  mit wachsendem Abstand wiederholt, bis die Gegenstelle wieder antwortet.
+- Das Ziel der Telemetrie ist jetzt einstellbar, statt fest im Programm zu
+  stehen.
+- Der Maschinenzugang nimmt nur noch Anfragen entgegen, die er auch beantworten
+  kann. Eine Verbindung, die er vorher sofort wieder schloss, wird jetzt klar
+  abgelehnt, damit sie nicht endlos neu aufgebaut wird.
+
 ## 1.52.1 - 2026-09-20
 
 Fehlermeldungen beim Speichern nennen das Feld
