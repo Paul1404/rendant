@@ -176,6 +176,10 @@ update the appropriate canonical documentation in the same change.
 
 ## Maintaining this file
 
+Public screenshots belong in `docs/screenshots/` and must come from an isolated
+demo instance with synthetic accounting records. Label the demo data in the
+README. Never publish actual financial records or uploaded source documents.
+
 Keep this file concise and update it when verified repository behavior changes.
 Move detailed explanations to `docs/` and keep `CLAUDE.md` as the compatibility
 import unless Claude-specific guidance is genuinely required.
