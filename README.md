@@ -18,7 +18,8 @@ Die Nutzung erfordert eine gesonderte schriftliche Vereinbarung. Siehe
 ![Rendant: Kassenübersicht und Umsatzverlauf mit Beispieldaten](docs/screenshots/overview.png)
 
 Die Aufnahme zeigt die echte Anwendung in einer lokalen Demo-Instanz.
-Namen, Belege und Beträge sind synthetische Beispieldaten, keine Vereinsdaten.
+Sie umfasst 162 synthetische Kassenprotokolle mit insgesamt 100.000 EUR
+Jahresumsatz. Namen, Belege und Beträge sind Beispieldaten, keine Vereinsdaten.
 
 [Arbeitsbereiche](#arbeitsbereiche) · [Funktionsumfang](#funktionsumfang) ·
 [Lokale Entwicklung](#lokale-entwicklung) · [Lizenz](#lizenz)
