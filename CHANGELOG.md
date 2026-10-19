@@ -3,6 +3,17 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.53.0 - 2026-10-19
+
+Veranstaltungen auf einen Blick
+
+- Belege derselben Veranstaltung am selben Tag stehen gemeinsam in der Liste.
+  Eine Randmarkierung zeigt den Zusammenhang, darunter steht die Summe der
+  aktiven Belege einschließlich Kartenzahlungen. Stornos zählen nicht mit.
+- Die Gruppierung gilt auf dem Handy und in der Tabelle. Beim Blättern bleiben
+  zusammengehörige Belege auf einer Seite; die Seitenlänge kann dafür abweichen.
+- Die Summen beziehen sich auf die aktuelle Filterauswahl.
+
 ## 1.52.2 - 2026-09-20
 
 Betriebsprotokolle bleiben lesbar

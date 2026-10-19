@@ -49,6 +49,9 @@ update the appropriate canonical documentation in the same change.
   refund between fetch and save cannot book a stale amount. The API key is
   stored encrypted via `secret-box` and never returned to the browser; the
   merchant code is resolved from the key on save, never typed.
+- The protocol list groups receipts by date, catalogue occasion (or matching
+  legacy label) and Umsatzbereich. Event subtotals include active cash and card
+  revenue in the current filter selection. Pagination keeps each group intact.
 - The Umsatzbereich is a reporting classification, not part of the signed
   document. An admin may move a booked protocol into another one with a reason;
   amounts, Belegnummer and Belegtext stay untouched so the stored PDF keeps
