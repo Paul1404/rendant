@@ -9,7 +9,7 @@ import {
 	useTable,
 } from "@tanstack/react-table";
 import { ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
-import { useMemo } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Money } from "@/components/ui/money";
@@ -30,6 +30,11 @@ import {
 } from "@/components/ui/table";
 import { groupByMonth } from "@/lib/dashboard-stats";
 import { formatDateDe } from "@/lib/date";
+import {
+	groupProtokollEvents,
+	type ProtokollEventGroup,
+	paginateProtokollEvents,
+} from "@/lib/protokoll-groups";
 import type { ProtokollRow } from "@/lib/protokoll-types";
 import { cn } from "@/lib/utils";
 
@@ -138,12 +143,37 @@ export function ProtokollList({ items }: Props) {
 		],
 		[todayKey],
 	);
+	const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 25 });
+	const pages = useMemo(
+		() =>
+			paginateProtokollEvents(
+				groupByMonth(items).flatMap((month) =>
+					groupProtokollEvents(month.items),
+				),
+				pagination.pageSize,
+			),
+		[items, pagination.pageSize],
+	);
+	// Reset on filter changes, preserve the current page on background refreshes.
+	const scopeKey = JSON.stringify(items.map((item) => item.id));
+	const [previousScope, setPreviousScope] = useState(scopeKey);
+	const pageIndex =
+		scopeKey !== previousScope
+			? 0
+			: Math.min(pagination.pageIndex, Math.max(pages.length - 1, 0));
+	if (scopeKey !== previousScope) {
+		setPreviousScope(scopeKey);
+		setPagination((previous) => ({ ...previous, pageIndex: 0 }));
+	}
 	const table = useTable({
 		features: dashboardTableFeatures,
-		data: items,
+		data: pages[pageIndex] ?? [],
 		columns,
 		getRowId: (row) => row.id,
-		initialState: { pagination: { pageIndex: 0, pageSize: 25 } },
+		manualPagination: true,
+		pageCount: pages.length,
+		state: { pagination: { ...pagination, pageIndex } },
+		onPaginationChange: setPagination,
 	});
 	const pageRows = table.getRowModel().rows;
 	const pageItems = pageRows.map((row) => row.original);
@@ -198,7 +228,7 @@ export function ProtokollList({ items }: Props) {
 								label={group.label}
 								count={group.count}
 								sumActiveCent={group.sumActiveCent}
-								rowIds={group.items.map((item) => item.id)}
+								events={groupProtokollEvents(group.items)}
 								rowsById={rowsById}
 							/>
 						))}
@@ -219,13 +249,37 @@ export function ProtokollList({ items }: Props) {
 								<Money cent={g.sumActiveCent} className="text-foreground" />
 							</span>
 						</div>
-						<ul className="space-y-2">
-							{g.items.map((p) => (
-								<li key={p.id}>
-									<MobileCard
-										p={p}
-										isToday={formatDateDe(p.anlass_datum) === todayKey}
-									/>
+						<ul className="space-y-3">
+							{groupProtokollEvents(g.items).map((event) => (
+								<li
+									key={event.key}
+									className={cn(
+										event.items.length > 1 &&
+											"overflow-hidden rounded-xl border border-primary/20 border-l-[3px] border-l-primary/50 bg-card/80",
+									)}
+								>
+									<ul
+										className={cn(
+											event.items.length > 1
+												? "divide-y divide-border/60"
+												: "space-y-2",
+										)}
+									>
+										{event.items.map((p) => (
+											<li key={p.id}>
+												<MobileCard
+													p={p}
+													grouped={event.items.length > 1}
+													isToday={formatDateDe(p.anlass_datum) === todayKey}
+												/>
+											</li>
+										))}
+									</ul>
+									{event.items.length > 1 ? (
+										<div className="border-t border-primary/15 bg-primary/5 px-3.5 py-3">
+											<EventSummary event={event} />
+										</div>
+									) : null}
 								</li>
 							))}
 						</ul>
@@ -240,7 +294,7 @@ export function ProtokollList({ items }: Props) {
 						{table.getPageCount()}
 					</span>
 					<div className="flex items-center gap-2">
-						<span>Einträge pro Seite</span>
+						<span>Einträge pro Seite (ca.)</span>
 						<Select
 							value={String(table.state.pagination.pageSize)}
 							onValueChange={(value) => {
@@ -290,13 +344,13 @@ function MonthRows({
 	label,
 	count,
 	sumActiveCent,
-	rowIds,
+	events,
 	rowsById,
 }: {
 	label: string;
 	count: number;
 	sumActiveCent: number;
-	rowIds: string[];
+	events: ProtokollEventGroup[];
 	rowsById: Map<string, Row<typeof dashboardTableFeatures, ProtokollRow>>;
 }) {
 	return (
@@ -316,38 +370,88 @@ function MonthRows({
 					</div>
 				</TableCell>
 			</TableRow>
-			{rowIds.map((rowId) => {
-				const row = rowsById.get(rowId);
-				if (!row) return null;
-				return (
-					<TableRow
-						key={row.id}
-						className="group transition-colors hover:bg-muted/30"
-					>
-						{row.getAllCells().map((cell) => (
-							<TableCell
-								key={cell.id}
+			{events.map((event) => (
+				<Fragment key={event.key}>
+					{event.items.map((item) => {
+						const row = rowsById.get(item.id);
+						if (!row) return null;
+						return (
+							<TableRow
+								key={row.id}
 								className={cn(
-									cell.column.id === "tageseinnahmen" && "text-right",
-									cell.column.id === "actions" && "text-right",
+									"group transition-colors hover:bg-muted/30",
+									event.items.length > 1 &&
+										"bg-primary/[0.025] [&>td:first-child]:border-l-[3px] [&>td:first-child]:border-l-primary/50",
 								)}
 							>
-								{flexRender(cell.column.columnDef.cell, cell.getContext())}
+								{row.getAllCells().map((cell) => (
+									<TableCell
+										key={cell.id}
+										className={cn(
+											cell.column.id === "tageseinnahmen" && "text-right",
+											cell.column.id === "actions" && "text-right",
+										)}
+									>
+										{flexRender(cell.column.columnDef.cell, cell.getContext())}
+									</TableCell>
+								))}
+							</TableRow>
+						);
+					})}
+					{event.items.length > 1 ? (
+						<TableRow className="bg-primary/5 hover:bg-primary/5">
+							<TableCell
+								colSpan={6}
+								className="border-l-[3px] border-l-primary/50 px-4 py-3"
+							>
+								<EventSummary event={event} />
 							</TableCell>
-						))}
-					</TableRow>
-				);
-			})}
+						</TableRow>
+					) : null}
+				</Fragment>
+			))}
 		</>
 	);
 }
 
-function MobileCard({ p, isToday }: { p: ProtokollRow; isToday: boolean }) {
+function EventSummary({ event }: { event: ProtokollEventGroup }) {
+	return (
+		<div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1 text-xs">
+			<div className="min-w-0 flex-1 whitespace-normal">
+				<p className="font-medium text-foreground">{event.label}</p>
+				<p className="mt-0.5 text-muted-foreground">
+					{event.items.length} Belege ·{" "}
+					{formatDateDe(event.items[0].anlass_datum)}
+				</p>
+			</div>
+			<div className="shrink-0 text-right">
+				<p className="mb-0.5 text-muted-foreground">
+					Summe aktiv{event.hasCardRevenue ? " inkl. Karte" : ""}
+				</p>
+				<Money cent={event.sumActiveCent} className="font-medium" />
+			</div>
+		</div>
+	);
+}
+
+function MobileCard({
+	p,
+	isToday,
+	grouped = false,
+}: {
+	p: ProtokollRow;
+	isToday: boolean;
+	grouped?: boolean;
+}) {
 	return (
 		<Link
 			to="/protokolle/$id"
 			params={{ id: p.id }}
-			className="block rounded-xl border border-border bg-card/80 p-3.5 shadow-sm ring-1 ring-foreground/5 transition-colors active:bg-muted/50"
+			className={cn(
+				"block p-3.5 transition-colors active:bg-muted/50",
+				!grouped &&
+					"rounded-xl border border-border bg-card/80 shadow-sm ring-1 ring-foreground/5",
+			)}
 		>
 			<div className="flex items-start justify-between gap-3">
 				<div className="min-w-0 flex-1">
