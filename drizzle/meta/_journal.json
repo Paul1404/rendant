@@ -253,6 +253,13 @@
       "when": 1789493023989,
       "tag": "0035_protokoll_sumup_tage",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792764248419,
+      "tag": "0036_datev_deliveries",
+      "breakpoints": true
     }
   ]
 }

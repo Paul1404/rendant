@@ -9,6 +9,10 @@ import {
 	BelegnummerSettingsSchema,
 	CashRegisterSchema,
 	CreateProtokollSchema,
+	DatevResolveSchema,
+	DatevSendSchema,
+	DatevSettingsSchema,
+	DatevStatusSchema,
 	EmailSettingsSchema,
 	ExportQuerySchema,
 	HelperHourAliasCreateSchema,
@@ -89,6 +93,13 @@ import {
 	listCashRegisters,
 	updateCashRegister,
 } from "@/server/services/cash-registers";
+import {
+	getDatevSettings,
+	getDatevStatus,
+	resolveDatevDelivery,
+	sendDatevProtocol,
+	updateDatevSettings,
+} from "@/server/services/datev";
 import {
 	getEmailSettings,
 	sendInvitationEmail,
@@ -235,6 +246,23 @@ function publicBaseUrl(headers: Headers): string | null {
 // ---- Protokolle ----------------------------------------------------------
 
 const protokolle = {
+	datevStatus: adminOnly
+		.input(DatevStatusSchema)
+		.handler(({ input }) => getDatevStatus(input.id)),
+	sendDatev: adminOnly.input(DatevSendSchema).handler(({ input, context }) =>
+		sendDatevProtocol(input, {
+			actor: context.user,
+			request: requestAuditContext(context),
+		}),
+	),
+	resolveDatev: adminOnly
+		.input(DatevResolveSchema)
+		.handler(({ input, context }) =>
+			resolveDatevDelivery(input, {
+				actor: context.user,
+				request: requestAuditContext(context),
+			}),
+		),
 	list: authed
 		.input(v.object({ includeStorniert: v.optional(v.boolean(), false) }))
 		.handler(({ input }) =>
@@ -410,6 +438,15 @@ const protokolle = {
 // ---- Settings ------------------------------------------------------------
 
 const settings = {
+	getDatev: adminOnly.handler(() => getDatevSettings()),
+	updateDatev: adminOnly
+		.input(DatevSettingsSchema)
+		.handler(({ input, context }) =>
+			updateDatevSettings(input, {
+				actor: context.user,
+				request: requestAuditContext(context),
+			}),
+		),
 	getMcp: adminOnly.handler(() => getMcpStatus()),
 
 	getBelegnummer: authed.handler(async () => ({

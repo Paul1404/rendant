@@ -3,6 +3,19 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.54.0 - 2026-10-23
+
+Kassenbelege direkt an DATEV senden
+
+- Admins können gespeicherte Protokoll- und Stornobelege direkt aus dem
+  Protokoll per E-Mail an den DATEV-Belegtyp „Kasse“ senden. Zieladresse und
+  freigeschalteter Absender werden einmalig in den Einstellungen hinterlegt.
+- Vor dem Versand werden Beleg und Ziel bestätigt. Der Versandstatus bleibt
+  sichtbar und verhindert versehentliches mehrfaches Senden.
+- Bei unklarem Versand kann nach der Prüfung in DATEV mit Begründung bestätigt
+  oder ein neuer Versuch freigegeben werden. Die DATEV-Rückmeldung per E-Mail
+  bestätigt die Verarbeitung.
+
 ## 1.53.0 - 2026-10-19
 
 Veranstaltungen auf einen Blick

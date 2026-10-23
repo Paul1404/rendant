@@ -197,16 +197,77 @@ type TransportConfig = {
 	password: string;
 };
 
-function buildTransport(cfg: TransportConfig) {
+function buildTransport(cfg: TransportConfig, bounded = false) {
 	const transport = nodemailer.createTransport({
 		host: cfg.host,
 		port: cfg.port,
 		// Implicit TLS for port 465 (ssl), STARTTLS upgrade otherwise.
 		secure: cfg.security === "ssl",
+		...(bounded
+			? {
+					connectionTimeout: 15_000,
+					greetingTimeout: 15_000,
+					socketTimeout: 60_000,
+				}
+			: {}),
 		...(cfg.security === "starttls" ? { requireTLS: true } : {}),
 		...(cfg.user ? { auth: { user: cfg.user, pass: cfg.password } } : {}),
 	});
 	return transport;
+}
+
+// Prepare before claiming a delivery. Once send() starts, any exception may
+// mean that the SMTP server accepted the message but its reply was lost.
+export async function prepareDatevEmail(sender: string) {
+	const row = await loadRow();
+	if (!row?.smtp_enabled)
+		throw new Error("Bitte zuerst den E-Mail-Versand aktivieren.");
+	const info = await loadTransportConfig();
+	if (!info || info.cfg.security === "none") {
+		throw new Error(
+			"Für DATEV muss ein verschlüsselter E-Mail-Versand eingerichtet sein.",
+		);
+	}
+	const transport = buildTransport(info.cfg, true);
+	return async (mail: {
+		to: string;
+		filename: string;
+		content: Buffer;
+		messageId: string;
+		subject: string;
+	}) => {
+		try {
+			const result = await transport.sendMail({
+				from: sender,
+				to: mail.to,
+				envelope: { from: sender, to: [mail.to] },
+				subject: mail.subject,
+				messageId: mail.messageId,
+				text: "Kassenbeleg aus Rendant. Der Beleg befindet sich im PDF-Anhang.",
+				attachments: [
+					{
+						filename: mail.filename,
+						content: mail.content,
+						contentType: "application/pdf",
+					},
+				],
+			});
+			if (
+				!result.accepted.some(
+					(address: string | { address: string }) =>
+						(typeof address === "string"
+							? address
+							: address.address
+						).toLowerCase() === mail.to.toLowerCase(),
+				)
+			)
+				throw new Error(
+					"DATEV-Empfänger wurde vom Mailserver nicht angenommen.",
+				);
+		} finally {
+			transport.close();
+		}
+	};
 }
 
 async function loadTransportConfig(): Promise<{

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { BelegnummerSettingsForm } from "@/components/belegnummer-settings-form";
 import { CashRegistersForm } from "@/components/cash-registers-form";
+import { DatevSettingsForm } from "@/components/datev-settings-form";
 import { EmailSettingsForm } from "@/components/email-settings-form";
 import {
 	HelperHourCategoriesForm,
@@ -59,8 +60,10 @@ export const Route = createFileRoute("/protokolle/einstellungen")({
 		const helperHourValue = isAdmin
 			? await orpcClient.settings.getHelperHourValue()
 			: null;
+		const datev = isAdmin ? await orpcClient.settings.getDatev() : null;
 		return {
 			currentUserId: context.user.id,
+			datev,
 			settings: belegnummer.settings,
 			preview: belegnummer.preview,
 			// Each form carries the stamp it was rendered from and sends it back on
@@ -86,6 +89,7 @@ export const Route = createFileRoute("/protokolle/einstellungen")({
 function EinstellungenPage() {
 	const {
 		currentUserId,
+		datev,
 		settings,
 		preview,
 		belegnummerUpdatedAt,
@@ -119,6 +123,7 @@ function EinstellungenPage() {
 					<SettingsLink href="#buchhaltung">Buchhaltung</SettingsLink>
 					<SettingsLink href="#helferstunden">Helferstunden</SettingsLink>
 					<SettingsLink href="#sumup">SumUp</SettingsLink>
+					<SettingsLink href="#datev">DATEV</SettingsLink>
 					<SettingsLink href="#mcp">MCP &amp; Automatisierung</SettingsLink>
 					<SettingsLink href="#benutzer">Benutzer</SettingsLink>
 				</nav>
@@ -220,6 +225,20 @@ function EinstellungenPage() {
 						description="SMTP-Zugang und zusätzliche externe Empfänger für eine kurze Info-E-Mail bei jedem neuen Kassenzählprotokoll. Nur für Admins."
 					/>
 					<EmailSettingsForm initial={email} />
+				</section>
+			) : null}
+
+			{datev ? (
+				<section
+					id="datev"
+					className="mx-auto max-w-3xl scroll-mt-28 space-y-4"
+				>
+					<SectionHeading
+						icon={Receipt}
+						title="DATEV · Kassenbelege"
+						description="Protokoll- und Stornobelege direkt über DATEV Upload Mail senden. Nur für Admins."
+					/>
+					<DatevSettingsForm initial={datev} />
 				</section>
 			) : null}
 

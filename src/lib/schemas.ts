@@ -557,6 +557,52 @@ export const TestEmailSchema = v.object({
 });
 export type TestEmailInput = v.InferOutput<typeof TestEmailSchema>;
 
+const DatevAddressSchema = v.pipe(
+	v.string(),
+	v.trim(),
+	v.toLowerCase(),
+	v.regex(
+		/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}@uploadmail\.datev\.de$/,
+		"Bitte die DATEV-Zieladresse für den Belegtyp Kasse eintragen.",
+	),
+);
+export const DatevSettingsSchema = v.object({
+	enabled: v.boolean(),
+	recipient: v.union([v.literal(""), DatevAddressSchema]),
+	sender: v.union([
+		v.literal(""),
+		v.pipe(
+			v.string(),
+			v.trim(),
+			v.email("Bitte einen gültigen DATEV-Absender eintragen."),
+			v.maxLength(255),
+		),
+	]),
+	expected_updated_at: v.pipe(v.string(), v.isoTimestamp()),
+});
+export const DatevDocumentSchema = v.picklist(["original", "storno"]);
+export const DatevStatusSchema = v.object({ id: v.pipe(v.string(), v.uuid()) });
+export const DatevSendSchema = v.object({
+	id: v.pipe(v.string(), v.uuid()),
+	document: DatevDocumentSchema,
+	expected_delivery_attempt_id: v.nullable(v.pipe(v.string(), v.uuid())),
+	expected_settings_updated_at: v.pipe(v.string(), v.isoTimestamp()),
+	expected_pdf_key: v.pipe(v.string(), v.minLength(1), v.maxLength(1024)),
+});
+export const DatevResolveSchema = v.object({
+	id: v.pipe(v.string(), v.uuid()),
+	document: DatevDocumentSchema,
+	attempt_id: v.pipe(v.string(), v.uuid()),
+	expected_revision: v.pipe(v.number(), v.integer(), v.minValue(0)),
+	outcome: v.picklist(["sent", "ready"]),
+	reason: v.pipe(
+		v.string(),
+		v.trim(),
+		v.minLength(10, "Bitte die Prüfung mit mindestens 10 Zeichen begründen."),
+		v.maxLength(1000),
+	),
+});
+
 export const InviteCreateSchema = v.object({
 	email: v.pipe(v.string(), v.trim(), v.email(), v.maxLength(200)),
 	role: v.optional(v.picklist(["user", "admin"]), "user"),

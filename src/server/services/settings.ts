@@ -51,6 +51,7 @@ export type SettingsGroup =
 	| "helferstunde_wert_updated_at"
 	| "verein_updated_at"
 	| "email_updated_at"
+	| "datev_updated_at"
 	| "sumup_updated_at";
 
 type SettingsRow = typeof appSettings.$inferSelect;
