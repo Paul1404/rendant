@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.55.1 - 2026-10-23
+
+Verbleibende Sicherheitswarnungen behoben
+
+- Zwei veraltete Hilfsbibliotheken für Excel-Dateien und Datenbankwerkzeuge
+  wurden durch geprüfte, korrigierte Versionen ersetzt. Excel-Exporte und
+  Datenbankaktualisierungen bleiben unverändert nutzbar.
+
 ## 1.55.0 - 2026-10-23
 
 Aktuelle Software und verlässlichere Startprüfung
