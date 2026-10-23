@@ -39,6 +39,12 @@ update the appropriate canonical documentation in the same change.
 - External side effects such as S3 uploads and email must not allow a retry to
   create duplicate accounting records. Prefer recoverable partial states and
   explicit regeneration.
+- DATEV Upload Mail sends stored PDFs only, through admin-only UI actions. The
+  configurable recipient is restricted to `uploadmail.datev.de`; use the
+  explicitly approved sender and existing encrypted SMTP transport. A durable
+  `datev_deliveries` claim separates original and cancellation documents. Never
+  auto-retry after SMTP submission starts: ambiguous or stale sends require an
+  audited manual reconciliation. SMTP acceptance does not prove DATEV import.
 - The SumUp card revenue fetch (`src/server/services/sumup.ts`) is read-only
   and works on Berlin calendar days (refunds netted, cash rows skipped). The
   person picks days in a dialog; the chosen days are stored in

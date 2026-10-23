@@ -19,6 +19,7 @@ import {
 	Fingerprint,
 	ReceiptText,
 } from "lucide-react";
+import { DatevSendPanel } from "@/components/datev-send-panel";
 import { RegeneratePdfButton } from "@/components/regenerate-pdf-button";
 import { DetailSkeleton } from "@/components/skeletons";
 import { StornoDialog } from "@/components/storno-dialog";
@@ -250,6 +251,14 @@ function ProtokollDetailPage() {
 					erzeugt werden. Mit dem Aktualisieren-Symbol oben kannst du es jetzt
 					nachholen.
 				</Callout>
+			) : null}
+
+			{isAdmin ? (
+				<DatevSendPanel
+					key={protokoll.id}
+					protokollId={protokoll.id}
+					belegnummer={protokoll.belegnummer}
+				/>
 			) : null}
 
 			<Card>

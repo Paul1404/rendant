@@ -160,6 +160,9 @@ steht in [`docs/backup-restore.md`](docs/backup-restore.md).
 - Individuelle Benachrichtigungswahl je Konto sowie zusätzliche externe
   Empfänger. Die Benachrichtigung enthält bewusst keine Geldbeträge
 - Versand einer Test-E-Mail aus den Einstellungen
+- Direkter Versand gespeicherter Original- und Stornobelege an DATEV Upload
+  Mail, Belegtyp „Kasse“, mit Versandstatus und Schutz vor Doppelübertragungen
+
 - Optionale SumUp-Anbindung: Kartenumsätze eines Veranstaltungstags lassen sich
   beim Erfassen eines Protokolls per Knopf aus SumUp übernehmen. Der API-Key
   wird in der Anwendung hinterlegt, beim Speichern geprüft und verschlüsselt
@@ -167,6 +170,36 @@ steht in [`docs/backup-restore.md`](docs/backup-restore.md).
 - Responsive Oberfläche, Tastaturbedienung, Dark Mode und Befehlspalette
 - Anklickbare Versionsmarke mit den aus `CHANGELOG.md` erzeugten
   Versionshinweisen
+
+### DATEV-Kassenbelege senden
+
+Unter `Einstellungen > DATEV` hinterlegt ein Admin die Zieladresse für „Kasse“
+aus DATEV Belege online und einen dort bestätigten Absender. Dieser Absender
+muss auch über den eingerichteten SMTP-Zugang senden dürfen. E-Mail-Versand und
+TLS müssen aktiviert sein. Die Zieladresse wird in der Datenbank konfiguriert,
+nicht im Quellcode oder in Umgebungsvariablen.
+
+Auf der Protokollseite zeigt der Bereich „DATEV · Kasse“ Original und gegebenenfalls
+Storno getrennt an. „An DATEV senden“ öffnet die Prüfung von Beleg, Absender und
+Ziel. Erst die Bestätigung sendet genau das gespeicherte PDF als einzelnen
+Anhang. Es entsteht weder ein neues Protokoll noch eine Buchung in DATEV.
+
+„Per E-Mail gesendet“ bestätigt nur die Annahme durch den SMTP-Server. DATEV
+meldet die Verarbeitung per E-Mail; den tatsächlichen Eingang in Belege online
+prüft die zuständige Person. Siehe [DATEV Upload Mail](https://apps.datev.de/help-center/documents/1007550).
+
+Der Versand wird pro Protokoll und Dokumentart in `datev_deliveries` reserviert.
+Gleichzeitige Klicks und Wiederholungen lösen keinen zweiten Versand aus.
+Fehlt das PDF oder scheitert die Vorbereitung, kann ohne Versandreservierung
+erneut versucht werden. Sobald die SMTP-Übertragung begonnen hat, ist ein
+Fehler dagegen unklar und wird niemals automatisch wiederholt. Nach einem
+Prozessabbruch bleibt ein laufender Vorgang gesperrt; nach fünf Minuten lässt
+er sich manuell klären. Unter „Versand prüfen“ bestätigt ein Admin nach Prüfung
+von DATEV und der Rückmeldung mit Begründung den Eingang oder gibt einen neuen
+Versuch frei. Das gilt auch bei einer späteren Ablehnung durch DATEV. Eine
+Freigabe selbst sendet noch nichts. Versandversuche und Klärungen stehen im
+Audit-Log; es werden Ziel, Absender, PDF-Schlüssel und SHA-256 der gesendeten
+Datei festgehalten. Der bestehende `pdf_sha256` bleibt der Buchungsdaten-Hash.
 
 ## Technischer Aufbau
 

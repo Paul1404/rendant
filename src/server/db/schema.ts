@@ -15,6 +15,7 @@ import {
 	uniqueIndex,
 	uuid,
 } from "drizzle-orm/pg-core";
+import type { DatevDeliveryState, DatevDocument } from "@/lib/datev";
 import type { DenominationCounts } from "@/lib/denominations";
 import type { HistoricalProtocolParsedRow } from "@/lib/historical-protocol-import";
 
@@ -147,6 +148,47 @@ export const protokolle = pgTable(
 		check(
 			"protokolle_umsatzbereich_check",
 			sql`${t.umsatzbereich} IS NULL OR ${t.umsatzbereich} IN ('wirtschaftsbetrieb', 'veranstaltungen', 'eintrittsgelder', 'verkauf_spielfeld', 'seniorennachmittag', 'sonstiges')`,
+		),
+	],
+);
+
+// One durable delivery claim per document. Ambiguous SMTP outcomes need an
+// audited manual decision before another attempt is allowed.
+export const datevDeliveries = pgTable(
+	"datev_deliveries",
+	{
+		protokoll_id: uuid("protokoll_id")
+			.notNull()
+			.references(() => protokolle.id, { onDelete: "restrict" }),
+		document: text("document").$type<DatevDocument>().notNull(),
+		state: text("state").$type<DatevDeliveryState>().notNull(),
+		attempt_id: uuid("attempt_id").notNull(),
+		revision: integer("revision").notNull().default(0),
+		pdf_key: text("pdf_key").notNull(),
+		pdf_bytes_sha256: text("pdf_bytes_sha256").notNull(),
+		recipient: text("recipient").notNull(),
+		sender: text("sender").notNull(),
+		requested_by: text("requested_by").notNull(),
+		started_at: timestamp("started_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		sent_at: timestamp("sent_at", { withTimezone: true }),
+		message_id: text("message_id"),
+	},
+	(t) => [
+		primaryKey({ columns: [t.protokoll_id, t.document] }),
+		check("datev_document_check", sql`${t.document} IN ('original', 'storno')`),
+		check(
+			"datev_state_check",
+			sql`${t.state} IN ('ready', 'sending', 'sent', 'uncertain')`,
+		),
+		check(
+			"datev_pdf_hash_check",
+			sql`${t.pdf_bytes_sha256} ~ '^[a-f0-9]{64}$'`,
+		),
+		check(
+			"datev_sent_at_check",
+			sql`(${t.state} = 'sent') = (${t.sent_at} IS NOT NULL)`,
 		),
 	],
 );
@@ -367,6 +409,12 @@ export const appSettings = pgTable(
 			.notNull()
 			.default(true),
 		notify_recipients: text("notify_recipients").notNull().default(""),
+		datev_enabled: boolean("datev_enabled").notNull().default(false),
+		datev_recipient: text("datev_recipient").notNull().default(""),
+		datev_sender: text("datev_sender").notNull().default(""),
+		datev_updated_at: timestamp("datev_updated_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
 		updated_at: timestamp("updated_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),
