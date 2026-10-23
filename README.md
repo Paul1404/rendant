@@ -361,10 +361,15 @@ Pfad und unveränderten Suchparametern an die Hauptadresse weiter. API-,
 Serverfunktions- und Asset-Anfragen bleiben für bereits geöffnete Sitzungen auf
 der bisherigen Adresse erreichbar.
 
-Der Healthcheck unter `/api/health` testet die Datenbank und die PDF-Erzeugung.
+Der Healthcheck unter `/api/health` testet die Datenbank, das zur Anmeldung passende Datenbankschema und die PDF-Erzeugung.
 Bei einem Ausfall antwortet er mit HTTP 503. Die PDF-Prüfung rendert einen festen
 Testbeleg und hält das Ergebnis für die Laufzeit des Prozesses vor. Es werden
-keine Betriebsmetriken an externe Dienste gesendet.
+keine Betriebsmetriken an externe Dienste gesendet. Datenbank und Anmeldeschema
+werden jeweils nach spätestens zehn Sekunden als ausgefallen gemeldet, eine
+hängende PDF-Prüfung nach spätestens 15 Sekunden. Die Antwort enthält `ok`,
+`db`, `auth` und `pdf`; HTTP 200 setzt alle vier Werte voraus. Diese
+Bereitschaftsprüfung ersetzt keinen angemeldeten Funktionstest und prüft keine
+externen Dienste wie SumUp, E-Mail oder den Objektspeicher.
 
 ## Datenmodell und Betriebsgrenzen
 
