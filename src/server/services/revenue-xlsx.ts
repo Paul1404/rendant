@@ -1,19 +1,9 @@
 import ExcelJS from "exceljs";
-import type { RevenueExportRow } from "@/lib/revenue-csv";
-
-const HEADER = [
-	"Datum",
-	"Jahr",
-	"Umsatzbereich",
-	"Details",
-	"Umsatz brutto EUR",
-	"Ausgaben EUR",
-	"Überschuss EUR",
-	"Quelle",
-	"Quellreferenz",
-	"Status",
-	"Bemerkung",
-] as const;
+import {
+	REVENUE_EXPORT_HEADERS,
+	type RevenueExportRow,
+	revenuePaymentSplitLabel,
+} from "@/lib/revenue-csv";
 
 function excelDate(iso: string): Date {
 	const [year, month, day] = iso.split("-").map(Number);
@@ -30,7 +20,7 @@ export async function revenueXlsxDocument(
 		views: [{ state: "frozen", ySplit: 1 }],
 	});
 
-	sheet.addRow(HEADER);
+	sheet.addRow([...REVENUE_EXPORT_HEADERS]);
 	for (const row of rows) {
 		sheet.addRow([
 			excelDate(row.date),
@@ -39,7 +29,10 @@ export async function revenueXlsxDocument(
 			row.occasion.includes(" · ")
 				? row.occasion.slice(row.occasion.indexOf(" · ") + 3)
 				: row.occasion,
+			row.revenueCashCent === null ? null : row.revenueCashCent / 100,
+			row.revenueCardCent === null ? null : row.revenueCardCent / 100,
 			row.revenueCent / 100,
+			revenuePaymentSplitLabel(row),
 			row.expensesCent / 100,
 			(row.revenueCent - row.expensesCent) / 100,
 			row.source,
@@ -49,13 +42,16 @@ export async function revenueXlsxDocument(
 		]);
 	}
 
-	sheet.autoFilter = { from: "A1", to: "K1" };
+	sheet.autoFilter = { from: "A1", to: "N1" };
 	sheet.columns = [
 		{ width: 13 },
 		{ width: 9 },
 		{ width: 30 },
 		{ width: 26 },
 		{ width: 19 },
+		{ width: 19 },
+		{ width: 27 },
+		{ width: 25 },
 		{ width: 16 },
 		{ width: 18 },
 		{ width: 22 },
@@ -73,7 +69,7 @@ export async function revenueXlsxDocument(
 	header.alignment = { vertical: "middle" };
 	header.height = 24;
 	sheet.getColumn(1).numFmt = "dd.mm.yyyy";
-	for (const column of [5, 6, 7]) {
+	for (const column of [5, 6, 7, 9, 10]) {
 		sheet.getColumn(column).numFmt = "#,##0.00 [$€-407]";
 	}
 	for (let rowNumber = 2; rowNumber <= sheet.rowCount; rowNumber += 1) {

@@ -77,7 +77,7 @@ const EXPORTS: ReadonlyArray<{
 		id: "revenue-xlsx",
 		title: "Umsätze (Excel)",
 		description:
-			"Echte Excel-Arbeitsmappe mit Filtern, formatierten Beträgen und Kassenzählprotokollen plus historischen Werten.",
+			"Bar, Karte und Gesamtumsatz getrennt mit Filtern und formatierten Beträgen. Historische Werte ohne bekannte Aufteilung sind gekennzeichnet.",
 		path: "/api/export/revenue/xlsx",
 		icon: FileSpreadsheet,
 		button: "Excel herunterladen",
@@ -86,7 +86,7 @@ const EXPORTS: ReadonlyArray<{
 		id: "revenue",
 		title: "Umsätze (CSV)",
 		description:
-			"Kassenzählprotokolle und historische Werte in einer gemeinsamen Umsatzliste mit Herkunft und Status.",
+			"Bar, Karte und Gesamtumsatz getrennt mit Herkunft und Status. Historische Werte ohne bekannte Aufteilung sind gekennzeichnet.",
 		path: "/api/export/revenue",
 		icon: ChartNoAxesColumnIncreasing,
 		button: "Herunterladen",

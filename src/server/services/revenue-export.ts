@@ -79,6 +79,8 @@ export async function loadRevenueExportRows(
 			comparisonGroup: row.comparisonGroup ?? row.occasion,
 			revenueCent:
 				Number(row.revenueCashCent) + Number(row.revenueCardCent ?? 0),
+			revenueCashCent: Number(row.revenueCashCent),
+			revenueCardCent: Number(row.revenueCardCent ?? 0),
 			expensesCent: Number(row.expensesCent),
 			source: "Kassenzählprotokoll" as const,
 			reference: row.reference,
@@ -93,6 +95,8 @@ export async function loadRevenueExportRows(
 				: "",
 			comparisonGroup: row.comparisonGroup ?? row.legacyComparisonGroup,
 			revenueCent: Number(row.revenueCent),
+			revenueCashCent: null,
+			revenueCardCent: null,
 			expensesCent: Number(row.expensesCent),
 			source: "Altunterlage" as const,
 			reference: row.reference ?? "",

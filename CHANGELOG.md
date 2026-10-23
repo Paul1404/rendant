@@ -3,6 +3,16 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.54.1 - 2026-10-23
+
+Bar- und Kartenumsätze im Export unterscheiden
+
+- Der Umsatzexport für Excel und CSV zeigt Barumsatz, Kartenumsatz und
+  Gesamtumsatz in eigenen Spalten.
+- Bei historischen Werten ohne bekannte Aufteilung bleiben Bar und Karte leer.
+  Der Hinweis „Aufteilung unbekannt“ kennzeichnet diese Zeilen; Gesamtumsatz,
+  Ausgaben und Überschuss bleiben erhalten.
+
 ## 1.54.0 - 2026-10-23
 
 Kassenbelege direkt an DATEV senden
