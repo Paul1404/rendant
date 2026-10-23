@@ -144,6 +144,8 @@ update the appropriate canonical documentation in the same change.
 - Release notes explain the visible workflow benefit in plain German. Keep
   framework, database, MCP, and other implementation details out unless users
   need them to act.
+- Load the release-notes dialog with the version chip, not on click. Tabs may
+  stay open across deployments that remove the previous build's asset chunks.
 - Before choosing a version during concurrent work, refresh and inspect the
   latest `package.json` and top of `CHANGELOG.md` to avoid duplicate or
   out-of-order releases.

@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.54.3 - 2026-10-23
+
+Versionshinweise auch in länger geöffneten Tabs öffnen
+
+- Die Versionsmarke öffnet „Was ist neu“ ohne nachträgliches Laden. Dadurch
+  bleiben die Hinweise auch nach einer Aktualisierung der Anwendung erreichbar,
+  wenn der Tab noch die vorherige Version zeigt.
+
 ## 1.54.2 - 2026-10-23
 
 Stillgelegte Betriebsüberwachung entfernt
