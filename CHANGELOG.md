@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.54.2 - 2026-10-23
+
+Stillgelegte Betriebsüberwachung entfernt
+
+- Rendant sendet keine Betriebsmetriken mehr an den stillgelegten Dienst LFIO.
+  Damit entfallen die wiederkehrenden Fehlermeldungen und Hintergrundabfragen.
+- Die Gesundheitsprüfung für Datenbank und PDF-Erzeugung bleibt erhalten.
+
 ## 1.54.1 - 2026-10-23
 
 Bar- und Kartenumsätze im Export unterscheiden

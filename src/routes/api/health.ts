@@ -1,11 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import {
-	collectHealthSnapshot,
-	startLfioHealthReporter,
-} from "@/server/services/lfio-health";
+import { collectHealthSnapshot } from "@/server/services/health";
 import { collectPdfHealthSnapshot } from "@/server/services/pdf-health";
-
-startLfioHealthReporter();
 
 export const Route = createFileRoute("/api/health")({
 	server: {

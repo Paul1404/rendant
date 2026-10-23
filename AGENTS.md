@@ -183,6 +183,8 @@ update the appropriate canonical documentation in the same change.
 - `/api/health` includes a cached production PDF render. Preserve the
   production-image readiness assertion when changing React PDF, PDFKit, fonts,
   Nitro bundling, or the Docker runtime.
+- LFIO is retired. Health checks run on request without an external telemetry
+  reporter; keep database and PDF readiness independent of external monitoring.
 - Keep `AGENTS.md`, `.env.example`, migrations, and operational documentation in
   sync with behavior changes.
 
