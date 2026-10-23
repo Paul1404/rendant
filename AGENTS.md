@@ -20,6 +20,9 @@ update the appropriate canonical documentation in the same change.
   `auth-schema.ts` wholesale and has been observed dropping the `account`
   unique indexes and relaxing `notNull`. Diff it and hand-apply only the
   intended field change.
+- Better Auth >= 1.7.3 no longer writes account `issuer`. Migration 0037 makes
+  the legacy field nullable without losing its values. Keep the provider/account
+  unique indexes and test both new and historical account sign-in on PostgreSQL.
 - `src/routeTree.gen.ts` is generated. Never edit it by hand.
 - Build output is `.output/` (Nitro). Run it with
   `bun .output/server/index.mjs`.
@@ -185,6 +188,11 @@ update the appropriate canonical documentation in the same change.
 - `/api/health` includes a cached production PDF render. Preserve the
   production-image readiness assertion when changing React PDF, PDFKit, fonts,
   Nitro bundling, or the Docker runtime.
+- Readiness also awaits Better Auth's schema verdict (`auth: true`) and reads
+  the physical auth tables and legacy issuer constraint; the adapter only checks
+  the declared Drizzle model, and context creation does not await its verdict. Database/schema probes time out
+  after ten seconds, PDF rendering after fifteen. CI must assert all readiness
+  flags in the actual production image, alongside authenticated integration tests.
 - LFIO is retired. Health checks run on request without an external telemetry
   reporter; keep database and PDF readiness independent of external monitoring.
 - Keep `AGENTS.md`, `.env.example`, migrations, and operational documentation in

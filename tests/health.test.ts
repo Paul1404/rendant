@@ -1,16 +1,32 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ execute: vi.fn(), error: vi.fn() }));
-vi.mock("@/server/db", () => ({ db: { execute: mocks.execute } }));
+const mocks = vi.hoisted(() => ({
+	execute: vi.fn(),
+	error: vi.fn(),
+	checkSchema: vi.fn(),
+}));
+vi.mock("@/server/auth", () => ({
+	auth: { $context: Promise.resolve({ checkSchema: mocks.checkSchema }) },
+}));
+vi.mock("@/server/db", () => ({
+	db: {
+		execute: mocks.execute,
+		select: () => ({ from: () => ({ limit: async () => [] }) }),
+	},
+}));
 vi.mock("@/server/logger", () => ({
 	logger: { child: () => ({ error: mocks.error }) },
 }));
-import { collectHealthSnapshot } from "@/server/services/health";
+import {
+	collectAuthReadiness,
+	collectHealthSnapshot,
+} from "@/server/services/health";
 
 beforeEach(() => {
 	vi.useFakeTimers();
 	mocks.execute.mockReset();
 	mocks.error.mockReset();
+	mocks.checkSchema.mockReset();
 });
 
 afterEach(() => {
@@ -19,6 +35,30 @@ afterEach(() => {
 });
 
 describe("database readiness without external telemetry", () => {
+	it("requires an authentication schema that accepts the current runtime", async () => {
+		mocks.checkSchema.mockResolvedValue(undefined);
+		mocks.execute.mockResolvedValue({ rows: [{ issuer_optional: true }] });
+		expect(await collectAuthReadiness()).toBe(true);
+		mocks.checkSchema.mockRejectedValue(new Error("private schema details"));
+		expect(await collectAuthReadiness()).toBe(false);
+		expect(vi.getTimerCount()).toBe(0);
+	});
+
+	it("rejects a live issuer constraint even if the declared model is compatible", async () => {
+		mocks.checkSchema.mockResolvedValue(undefined);
+		mocks.execute.mockResolvedValue({ rows: [{ issuer_optional: false }] });
+		expect(await collectAuthReadiness()).toBe(false);
+		expect(vi.getTimerCount()).toBe(0);
+	});
+
+	it("bounds a stuck authentication schema check", async () => {
+		mocks.checkSchema.mockImplementation(() => new Promise(() => {}));
+		const ready = collectAuthReadiness();
+		await vi.advanceTimersByTimeAsync(10_000);
+		expect(await ready).toBe(false);
+		expect(vi.getTimerCount()).toBe(0);
+	});
+
 	it("reports a healthy database and clears the timeout", async () => {
 		mocks.execute.mockResolvedValue({ rows: [{ value: 1 }] });
 		const fetchSpy = vi.spyOn(globalThis, "fetch");

@@ -3,6 +3,16 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.55.0 - 2026-10-23
+
+Aktuelle Software und verlässlichere Startprüfung
+
+- Die Gesundheitsprüfung erkennt jetzt auch eine nicht betriebsbereite
+  Anmeldung. Eine hängende PDF-Prüfung endet nach spätestens 15 Sekunden,
+  statt eine Aktualisierung der Anwendung unbegrenzt aufzuhalten.
+- Softwarekomponenten und Laufzeit wurden aktualisiert. Bestehende Konten und
+  Sitzungen bleiben erhalten; neue Konten nutzen das aktuelle Anmeldeverfahren.
+
 ## 1.54.3 - 2026-10-23
 
 Versionshinweise auch in länger geöffneten Tabs öffnen

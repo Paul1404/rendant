@@ -20,7 +20,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.4
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -65,7 +65,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.4
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -109,7 +109,7 @@ jobs:
           curl --silent --fail --retry 20 --retry-delay 1 --retry-all-errors
           http://127.0.0.1:3000/api/health
           | jq --exit-status
-          '.ok == true and .db == true and .pdf == true and .pdfLatencyMs >= 0'
+          '.ok == true and .db == true and .pdf == true and .auth == true and .pdfLatencyMs >= 0'
 
       - name: Show production logs on failure
         if: failure()

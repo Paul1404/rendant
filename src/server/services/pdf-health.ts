@@ -14,6 +14,7 @@ export type PdfHealthSnapshot = {
 };
 
 const MIN_PDF_BYTES = 5_000;
+const RENDER_TIMEOUT_MS = 15_000;
 let readinessPromise: Promise<PdfHealthSnapshot> | undefined;
 const log = logger.child({ capability: "pdf" });
 
@@ -105,8 +106,17 @@ export async function checkPdfReadiness(
 	renderer: PdfRenderer = renderProtokollPdf,
 ): Promise<PdfHealthSnapshot> {
 	const started = performance.now();
+	let timeout: ReturnType<typeof setTimeout> | undefined;
 	try {
-		const { buffer, hash } = await renderer(pdfSmokeData());
+		const { buffer, hash } = await Promise.race([
+			renderer(pdfSmokeData()),
+			new Promise<never>((_, reject) => {
+				timeout = setTimeout(
+					() => reject(new Error("PDF readiness render timed out")),
+					RENDER_TIMEOUT_MS,
+				);
+			}),
+		]);
 		if (!isValidPdfBuffer(buffer) || !/^[a-f0-9]{64}$/.test(hash)) {
 			throw new Error("PDF renderer returned an invalid document");
 		}
@@ -126,6 +136,8 @@ export async function checkPdfReadiness(
 			latencyMs,
 			message: "PDF renderer failed",
 		};
+	} finally {
+		if (timeout) clearTimeout(timeout);
 	}
 }
 
