@@ -28,6 +28,12 @@ jobs:
       - name: Lint & format check
         run: bun run check
 
+      - name: Audit dependencies
+        run: bun audit
+
+      - name: Check migration tooling
+        run: bunx drizzle-kit check
+
       - name: Typecheck
         run: bunx tsc --noEmit
 

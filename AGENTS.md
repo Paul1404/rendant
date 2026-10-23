@@ -26,6 +26,10 @@ update the appropriate canonical documentation in the same change.
 - `src/routeTree.gen.ts` is generated. Never edit it by hand.
 - Build output is `.output/` (Nitro). Run it with
   `bun .output/server/index.mjs`.
+- Security overrides for `exceljs>uuid` and `@esbuild-kit/core-utils>esbuild`
+  are parent-scoped. Preserve CommonJS UUID v4 and loader transform compatibility;
+  exercise extended Excel formatting, Drizzle CLI schema loading, and migrations
+  when changing or removing them. Recheck whether upstream ranges include fixes.
 
 ## Multi-user correctness
 
