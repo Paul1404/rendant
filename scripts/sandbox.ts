@@ -415,7 +415,6 @@ export async function main(): Promise<void> {
 			AWS_ENDPOINT_URL_S3: objectStore.endpoint,
 			S3_BUCKET_NAME: S3_BUCKET,
 			VEREINSNAME: "SV Untereuerheim Sandbox",
-			LFIO_INGEST_TOKEN: "",
 		};
 		await waitForDatabaseConnection(sandboxEnv.DATABASE_URL as string);
 
