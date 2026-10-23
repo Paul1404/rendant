@@ -58,6 +58,9 @@ update the appropriate canonical documentation in the same change.
 - The protocol list groups receipts by date, catalogue occasion (or matching
   legacy label) and Umsatzbereich. Event subtotals include active cash and card
   revenue in the current filter selection. Pagination keeps each group intact.
+- Revenue CSV and Excel exports separate cash, card and total revenue.
+  Historical revenue has no payment split: export blank cash/card cells and
+  explicitly mark the split as unknown, never infer cash revenue from the total.
 - The Umsatzbereich is a reporting classification, not part of the signed
   document. An admin may move a booked protocol into another one with a reason;
   amounts, Belegnummer and Belegtext stay untouched so the stored PDF keeps
