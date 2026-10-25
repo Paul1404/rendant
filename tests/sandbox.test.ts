@@ -4,9 +4,23 @@ import {
 	objectStoreResponse,
 	parsePublishedPort,
 	sandboxPort,
+	startObjectStore,
 } from "../scripts/sandbox";
 
 describe("disposable sandbox", () => {
+	it("serves uploaded markup as a download with MIME sniffing disabled", async () => {
+		const { server, endpoint } = await startObjectStore();
+		try {
+			const url = `${endpoint}/rendant-sandbox/test.pdf`;
+			await fetch(url, { method: "PUT", body: "<script>alert(1)</script>" });
+			const response = await fetch(url);
+			expect(response.headers.get("content-type")).toBe("application/pdf");
+			expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+			expect(await response.text()).toBe("<script>alert(1)</script>");
+		} finally {
+			await new Promise<void>((resolve) => server.close(() => resolve()));
+		}
+	});
 	it("generates fresh throwaway credentials and secrets", () => {
 		const first = createSandboxCredentials();
 		const second = createSandboxCredentials();

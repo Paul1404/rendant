@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.55.3 - 2026-10-25
+
+Sicherere lokale Testumgebung
+
+- Die lokale Testumgebung gibt keine Passwörter mehr in Protokollen aus.
+  Das Anmeldepasswort wird vor dem Start über `SANDBOX_ADMIN_PASSWORD` gesetzt.
+- Antworten des lokalen Dateispeichers werden ausdrücklich als Dateien ausgeliefert.
+
 ## 1.55.2 - 2026-10-25
 
 Sparsamere Speicherverwaltung im laufenden Betrieb

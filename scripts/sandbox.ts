@@ -67,7 +67,9 @@ export function parsePublishedPort(output: string): number {
 	const match = output.trim().match(/:(\d+)$/);
 	const port = Number(match?.[1]);
 	if (!Number.isInteger(port) || port < 1 || port > 65_535) {
-		throw new Error(`Docker-Port konnte nicht gelesen werden: ${output.trim()}`);
+		throw new Error(
+			`Docker-Port konnte nicht gelesen werden: ${output.trim()}`,
+		);
 	}
 	return port;
 }
@@ -94,12 +96,19 @@ export function objectStoreResponse(
 	objects: Map<string, Buffer>,
 ): ObjectStoreResult {
 	const url = new URL(requestUrl, "http://127.0.0.1");
-	const bucketPath = url.pathname === `/${S3_BUCKET}` || url.pathname === `/${S3_BUCKET}/`;
+	const bucketPath =
+		url.pathname === `/${S3_BUCKET}` || url.pathname === `/${S3_BUCKET}/`;
 
 	if (method === "HEAD" && bucketPath) return { status: 200 };
-	if (method === "GET" && bucketPath && url.searchParams.get("list-type") === "2") {
+	if (
+		method === "GET" &&
+		bucketPath &&
+		url.searchParams.get("list-type") === "2"
+	) {
 		const prefix = url.searchParams.get("prefix") ?? "";
-		const entries = [...objects.entries()].filter(([key]) => key.startsWith(prefix));
+		const entries = [...objects.entries()].filter(([key]) =>
+			key.startsWith(prefix),
+		);
 		const contents = entries
 			.map(
 				([key, value]) =>
@@ -153,7 +162,12 @@ async function readRequestBody(request: IncomingMessage): Promise<Buffer> {
 	return Buffer.concat(chunks);
 }
 
-function writeResponse(response: ServerResponse, result: ObjectStoreResult): void {
+function writeResponse(
+	response: ServerResponse,
+	result: ObjectStoreResult,
+): void {
+	response.setHeader("content-type", "application/octet-stream");
+	response.setHeader("x-content-type-options", "nosniff");
 	response.writeHead(result.status, {
 		"x-amz-request-id": "rendant-sandbox",
 		...result.headers,
@@ -161,7 +175,10 @@ function writeResponse(response: ServerResponse, result: ObjectStoreResult): voi
 	response.end(result.body);
 }
 
-async function startObjectStore(): Promise<{ server: Server; endpoint: string }> {
+export async function startObjectStore(): Promise<{
+	server: Server;
+	endpoint: string;
+}> {
 	const objects = new Map<string, Buffer>();
 	const server = createServer(async (request, response) => {
 		try {
@@ -195,7 +212,11 @@ function closeServer(server: Server): Promise<void> {
 function run(
 	command: string,
 	args: string[],
-	options: { env?: NodeJS.ProcessEnv; capture?: boolean; allowFailure?: boolean } = {},
+	options: {
+		env?: NodeJS.ProcessEnv;
+		capture?: boolean;
+		allowFailure?: boolean;
+	} = {},
 ): string {
 	const result = spawnSync(command, args, {
 		cwd: process.cwd(),
@@ -205,10 +226,7 @@ function run(
 	});
 	if (result.error) throw result.error;
 	if (result.status !== 0 && !options.allowFailure) {
-		const detail = options.capture ? result.stderr.trim() : "";
-		throw new Error(
-			`${command} ${args.join(" ")} ist mit Status ${result.status ?? 1} beendet.${detail ? ` ${detail}` : ""}`,
-		);
+		throw new Error(`${command} ist mit Status ${result.status ?? 1} beendet.`);
 	}
 	return options.capture ? result.stdout : "";
 }
@@ -227,7 +245,7 @@ function runAsync(
 		child.once("error", reject);
 		child.once("exit", (code) => {
 			if (code === 0) resolve();
-			else reject(new Error(`${command} ${args.join(" ")} ist mit Status ${code ?? 1} beendet.`));
+			else reject(new Error(`${command} ist mit Status ${code ?? 1} beendet.`));
 		});
 	});
 }
@@ -294,14 +312,21 @@ async function waitForPublishedPort(port: number): Promise<void> {
 		if (connected) return;
 		await new Promise((resolve) => setTimeout(resolve, 250));
 	}
-	throw new Error("Der veröffentlichte PostgreSQL-Port wurde nicht rechtzeitig bereit.");
+	throw new Error(
+		"Der veröffentlichte PostgreSQL-Port wurde nicht rechtzeitig bereit.",
+	);
 }
 
-async function waitForDatabaseConnection(connectionString: string): Promise<void> {
+async function waitForDatabaseConnection(
+	connectionString: string,
+): Promise<void> {
 	const deadline = Date.now() + 30_000;
 	let lastError: unknown;
 	while (Date.now() < deadline) {
-		const client = new Client({ connectionString, connectionTimeoutMillis: 2_000 });
+		const client = new Client({
+			connectionString,
+			connectionTimeoutMillis: 2_000,
+		});
 		try {
 			await client.connect();
 			await client.query("select 1");
@@ -318,7 +343,10 @@ async function waitForDatabaseConnection(connectionString: string): Promise<void
 	});
 }
 
-async function waitUntilReady(baseUrl: string, server: ChildProcess): Promise<void> {
+async function waitUntilReady(
+	baseUrl: string,
+	server: ChildProcess,
+): Promise<void> {
 	const deadline = Date.now() + 120_000;
 	while (Date.now() < deadline) {
 		if (server.exitCode !== null) {
@@ -334,7 +362,9 @@ async function waitUntilReady(baseUrl: string, server: ChildProcess): Promise<vo
 		}
 		await new Promise((resolve) => setTimeout(resolve, 250));
 	}
-	throw new Error(`Sandbox-Server unter ${baseUrl} wurde nicht rechtzeitig bereit.`);
+	throw new Error(
+		`Sandbox-Server unter ${baseUrl} wurde nicht rechtzeitig bereit.`,
+	);
 }
 
 function waitForExit(server: ChildProcess): Promise<number> {
@@ -347,7 +377,13 @@ function waitForExit(server: ChildProcess): Promise<number> {
 export async function main(): Promise<void> {
 	const port = sandboxPort(process.env.SANDBOX_PORT);
 	const baseUrl = `http://127.0.0.1:${port}`;
-	const credentials = createSandboxCredentials();
+	const password = process.env.SANDBOX_ADMIN_PASSWORD;
+	if (!password || password.length < 12) {
+		throw new Error(
+			"SANDBOX_ADMIN_PASSWORD mit mindestens 12 Zeichen vor dem Start setzen. Zugangsdaten werden nicht ausgegeben.",
+		);
+	}
+	const credentials = { ...createSandboxCredentials(), password };
 	const containerName = `rendant-sandbox-${randomBytes(6).toString("hex")}`;
 	let appServer: ChildProcess | undefined;
 	let objectStore: Awaited<ReturnType<typeof startObjectStore>> | undefined;
@@ -386,10 +422,16 @@ export async function main(): Promise<void> {
 				"--env",
 				`POSTGRES_DB=${POSTGRES_DATABASE}`,
 				"--env",
-				`POSTGRES_PASSWORD=${credentials.databasePassword}`,
+				"POSTGRES_PASSWORD",
 				POSTGRES_IMAGE,
 			],
-			{ capture: true },
+			{
+				capture: true,
+				env: {
+					...process.env,
+					POSTGRES_PASSWORD: credentials.databasePassword,
+				},
+			},
 		);
 		await waitForPostgres(containerName);
 		const databasePort = parsePublishedPort(
@@ -442,8 +484,12 @@ export async function main(): Promise<void> {
 		console.log("\nRendant Sandbox ist bereit");
 		console.log(`URL:      ${baseUrl}/login`);
 		console.log(`E-Mail:   ${credentials.email}`);
-		console.log(`Passwort: ${credentials.password}`);
-		console.log("\nMit Ctrl-C beenden. Danach werden alle Sandbox-Daten gelöscht.\n");
+		console.log(
+			"Passwort: wie vor dem Start in SANDBOX_ADMIN_PASSWORD gesetzt.",
+		);
+		console.log(
+			"\nMit Ctrl-C beenden. Danach werden alle Sandbox-Daten gelöscht.\n",
+		);
 
 		const exitCode = await waitForExit(appServer);
 		if (!stopRequested && exitCode !== 0) {
