@@ -218,3 +218,9 @@ Production server commands pass `bun --smol` explicitly. Keep this scoped to
 the long-lived server process; do not set global `BUN_OPTIONS` for builds,
 installs or migrations. Preserve readiness and background work when measuring
 memory savings. Removing the runtime flag is the rollback.
+
+## Local sandbox credentials
+
+Set `SANDBOX_ADMIN_PASSWORD` to a locally chosen password of at least 12 characters
+before starting the disposable sandbox. The launcher never prints passwords or
+command arguments that may contain credentials. No production credential is needed.
