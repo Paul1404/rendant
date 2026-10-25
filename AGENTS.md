@@ -211,3 +211,10 @@ README. Never publish actual financial records or uploaded source documents.
 Keep this file concise and update it when verified repository behavior changes.
 Move detailed explanations to `docs/` and keep `CLAUDE.md` as the compatibility
 import unless Claude-specific guidance is genuinely required.
+
+## Runtime memory mode
+
+Production server commands pass `bun --smol` explicitly. Keep this scoped to
+the long-lived server process; do not set global `BUN_OPTIONS` for builds,
+installs or migrations. Preserve readiness and background work when measuring
+memory savings. Removing the runtime flag is the rollback.
