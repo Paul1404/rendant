@@ -16,7 +16,7 @@ RUN bun run build
 FROM oven/bun:1.4.4-alpine AS prod-deps
 WORKDIR /app
 COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile --production
+RUN bun install --frozen-lockfile --production --omit=peer
 
 # 3. runner -- standalone Nitro output plus what the migrator needs.
 FROM oven/bun:1.4.4-alpine AS runner
