@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.55.4 - 2026-10-25
+
+- Unbenötigte Entwicklungswerkzeuge werden nicht mehr in den laufenden Server
+  übernommen. Sicherheitsprüfungen kontrollieren das erzeugte Server-Abbild
+  vor jeder Freigabe.
+
 ## 1.55.3 - 2026-10-25
 
 Sicherere lokale Testumgebung
