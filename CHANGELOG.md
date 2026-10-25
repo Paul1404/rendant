@@ -3,6 +3,13 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.55.2 - 2026-10-25
+
+Sparsamere Speicherverwaltung im laufenden Betrieb
+
+- Der Server startet mit einer speichersparenden Laufzeiteinstellung.
+  Bereitschaftsprüfungen und Hintergrundaufgaben bleiben aktiv.
+
 ## 1.55.1 - 2026-10-23
 
 Verbleibende Sicherheitswarnungen behoben
