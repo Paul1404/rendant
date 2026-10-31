@@ -254,7 +254,8 @@ export async function verifySumupApiKey(
 ): Promise<SumupMerchant> {
 	const payload = await sumupGet({
 		apiKey,
-		path: "/v0.1/memberships?limit=50&resource.type=merchant",
+		// Memberships allows at most 25 items, unlike transaction history.
+		path: "/v0.1/memberships?limit=25&kind=merchant&status=accepted",
 		fetchImpl,
 	});
 	const merchant = pickMerchant(payload);

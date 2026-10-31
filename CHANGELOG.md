@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.55.5 - 2026-10-31
+
+- Ein SumUp-API-Key lässt sich wieder speichern. Die Prüfung des Händlerkontos
+  verwendet jetzt eine zulässige Abfrage und scheitert nicht mehr an Fehler 400.
+- Eine Sicherheitslücke in einer Hilfsbibliothek für Excel-Dateien wurde behoben.
+
 ## 1.55.4 - 2026-10-25
 
 - Unbenötigte Entwicklungswerkzeuge werden nicht mehr in den laufenden Server
