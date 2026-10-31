@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.55.6 - 2026-10-31
+
+- Die SumUp-Auswahl lädt beim Öffnen automatisch sieben Tage bis zum
+  Veranstaltungsdatum. So lässt sich beim Zählen am Freitag direkt der
+  Kartenumsatz vom Donnerstag auswählen. Kein Tag ist vorausgewählt.
+- Beim Wechsel des Zeitraums werden die Umsätze automatisch geladen und die
+  bisherige Auswahl geleert. Einzelne Zahlungen bleiben pro Tag einsehbar.
+
 ## 1.55.5 - 2026-10-31
 
 - Ein SumUp-API-Key lässt sich wieder speichern. Die Prüfung des Händlerkontos
