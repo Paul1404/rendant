@@ -70,6 +70,9 @@ update the appropriate canonical documentation in the same change.
 - SumUp membership discovery allows `limit` up to 25, not the transaction
   history's page size of 100. Use the documented `kind=merchant` and
   `status=accepted` filters when validating a new API key.
+- The SumUp picker automatically loads seven calendar days ending at the event
+  date (capped at today). Days require explicit selection, never preselect every
+  unassigned day in the range. Changing the range clears the selection.
 - The protocol list groups receipts by date, catalogue occasion (or matching
   legacy label) and Umsatzbereich. Event subtotals include active cash and card
   revenue in the current filter selection. Pagination keeps each group intact.

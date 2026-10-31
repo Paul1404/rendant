@@ -1,7 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ChevronDown, ChevronRight, CreditCard, Loader2 } from "lucide-react";
-import { useState, useTransition } from "react";
-import { toast } from "sonner";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
@@ -26,7 +26,7 @@ import {
 	todayIsoDate,
 } from "@/lib/date";
 import { formatCent } from "@/lib/money";
-import { orpcClient } from "@/lib/orpc";
+import { orpc, type orpcClient } from "@/lib/orpc";
 import { orpcMessage } from "@/lib/orpc-error";
 import { SUMUP_MAX_RANGE_DAYS } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
@@ -44,11 +44,10 @@ export type SumupSelection = {
 	kartenzahlung_cent: number;
 };
 
-// Wählt die SumUp-Tage aus, deren Kartenumsatz in das Protokoll wandert. Der
-// Zeitraum ist mit dem Veranstaltungsdatum vorbelegt, lässt sich aber frei
-// ziehen, weil selten am Tag der Veranstaltung gezählt wird und ein Fest über
-// mehrere Tage gehen kann. Tage, die schon in einem Protokoll stecken, sind
-// gesperrt und nennen den Beleg.
+// Wählt die SumUp-Tage aus, deren Kartenumsatz in das Protokoll wandert.
+// Die sieben Tage bis zum Veranstaltungsdatum werden automatisch geladen.
+// Die Person wählt ausdrücklich die passenden Tage, weil oft erst später
+// gezählt wird. Bereits gebuchte Tage sind gesperrt und nennen den Beleg.
 export function SumupImportDialog({
 	open,
 	onOpenChange,
@@ -62,12 +61,10 @@ export function SumupImportDialog({
 }) {
 	const heute = todayIsoDate();
 	const start = isIsoCalendarDate(datum) && datum <= heute ? datum : heute;
-	const [von, setVon] = useState(start);
+	const [von, setVon] = useState(() => addIsoCalendarDays(start, -6));
 	const [bis, setBis] = useState(start);
-	const [result, setResult] = useState<SumupDaysResult | null>(null);
 	const [selected, setSelected] = useState<Set<string>>(new Set());
 	const [expanded, setExpanded] = useState<string | null>(null);
-	const [loading, startLoad] = useTransition();
 
 	const rangeError = (() => {
 		if (!isIsoCalendarDate(von) || !isIsoCalendarDate(bis)) {
@@ -81,26 +78,19 @@ export function SumupImportDialog({
 		return null;
 	})();
 
-	function load() {
-		if (rangeError) return;
-		startLoad(async () => {
-			try {
-				const res = await orpcClient.protokolle.sumupDays({ von, bis });
-				setResult(res);
-				setExpanded(null);
-				// Vorauswahl: alle freien Tage mit Umsatz. Bei einem einzelnen Tag
-				// ist das genau der Tag, bei einem Fest das ganze Wochenende.
-				setSelected(
-					new Set(
-						res.tage
-							.filter((d) => d.anzahl > 0 && !d.protokoll)
-							.map((d) => d.datum),
-					),
-				);
-			} catch (e) {
-				toast.error(orpcMessage(e, "Abruf aus SumUp fehlgeschlagen"));
-			}
-		});
+	const query = useQuery({
+		...orpc.protokolle.sumupDays.queryOptions({ input: { von, bis } }),
+		enabled: open && !rangeError,
+		retry: false,
+	});
+	const loading = query.isFetching;
+	const result = query.isError || rangeError ? undefined : query.data;
+
+	function changeRange(nextVon: string, nextBis: string) {
+		setVon(nextVon);
+		setBis(nextBis);
+		setSelected(new Set());
+		setExpanded(null);
 	}
 
 	function toggle(day: SumupDay) {
@@ -119,11 +109,12 @@ export function SumupImportDialog({
 		const nextVon = addIsoCalendarDays(von, days);
 		const nextBis = addIsoCalendarDays(nextVon, span);
 		if (nextBis > heute) return;
-		setVon(nextVon);
-		setBis(nextBis);
+		changeRange(nextVon, nextBis);
 	}
 
-	const chosen = (result?.tage ?? []).filter((d) => selected.has(d.datum));
+	const chosen = (result?.tage ?? []).filter(
+		(d) => selected.has(d.datum) && !d.protokoll && d.anzahl > 0,
+	);
 	const summary: SumupSelection = {
 		tage: chosen.map((d) => d.datum),
 		anzahl: chosen.reduce((s, d) => s + d.anzahl, 0),
@@ -134,6 +125,7 @@ export function SumupImportDialog({
 	const tageMitUmsatz = result?.tage.filter((d) => d.anzahl > 0) ?? [];
 
 	function apply() {
+		if (loading || rangeError || query.isError || chosen.length === 0) return;
 		onApply(summary);
 		onOpenChange(false);
 	}
@@ -147,9 +139,9 @@ export function SumupImportDialog({
 						Kartenzahlung aus SumUp übernehmen
 					</DialogTitle>
 					<DialogDescription>
-						Zeitraum wählen und laden. Die Tage, die zu diesem Protokoll
-						gehören, anhaken. Die Summe der gewählten Tage wird als
-						Kartenzahlung eingetragen.
+						Die letzten sieben Tage werden automatisch geladen. Wähle den
+						Veranstaltungstag, auch wenn die Kasse erst später gezählt wird. Für
+						mehrtägige Veranstaltungen kannst du mehrere Tage auswählen.
 					</DialogDescription>
 				</DialogHeader>
 
@@ -161,7 +153,7 @@ export function SumupImportDialog({
 							type="date"
 							value={von}
 							max={heute}
-							onChange={(e) => setVon(e.target.value)}
+							onChange={(e) => changeRange(e.target.value, bis)}
 						/>
 					</div>
 					<div className="space-y-1.5">
@@ -171,16 +163,16 @@ export function SumupImportDialog({
 							type="date"
 							value={bis}
 							max={heute}
-							onChange={(e) => setBis(e.target.value)}
+							onChange={(e) => changeRange(von, e.target.value)}
 						/>
 					</div>
 					<Button
 						type="button"
-						onClick={load}
+						onClick={() => void query.refetch()}
 						disabled={loading || Boolean(rangeError)}
 					>
 						{loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-						{result ? "Neu laden" : "Laden"}
+						{loading ? "Wird geladen" : "Neu laden"}
 					</Button>
 				</div>
 				<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -217,7 +209,11 @@ export function SumupImportDialog({
 					</span>
 				</div>
 
-				{result ? (
+				{query.isError && !rangeError ? (
+					<Callout tone="danger" title="Abruf aus SumUp fehlgeschlagen">
+						{orpcMessage(query.error, "Bitte erneut laden.")}
+					</Callout>
+				) : result ? (
 					tageMitUmsatz.length === 0 ? (
 						<Callout
 							tone="info"
@@ -249,7 +245,7 @@ export function SumupImportDialog({
 													type="checkbox"
 													aria-label={`${formatDateDe(day.datum)} übernehmen`}
 													checked={checked}
-													disabled={taken}
+													disabled={taken || loading}
 													onChange={() => toggle(day)}
 													className="h-4 w-4 shrink-0 accent-primary"
 												/>
@@ -330,11 +326,16 @@ export function SumupImportDialog({
 					)
 				) : (
 					<p className="text-xs text-muted-foreground">
-						Noch nichts geladen. Rendant liest nur die Transaktionshistorie und
-						zieht erstattete Beträge ab. Barzahlungen aus der SumUp-App zählen
-						nicht mit.
+						{loading
+							? "Kartenzahlungen werden geladen."
+							: "Bitte einen gültigen Zeitraum wählen."}
 					</p>
 				)}
+
+				<p className="text-xs text-muted-foreground">
+					Erstattungen sind abgezogen. Barzahlungen aus der SumUp-App zählen
+					nicht mit.
+				</p>
 
 				<DialogFooter className="flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<div className="text-sm">
@@ -366,7 +367,12 @@ export function SumupImportDialog({
 						<Button
 							type="button"
 							onClick={apply}
-							disabled={chosen.length === 0}
+							disabled={
+								chosen.length === 0 ||
+								loading ||
+								Boolean(rangeError) ||
+								query.isError
+							}
 						>
 							Übernehmen
 						</Button>
