@@ -90,6 +90,40 @@ describe("summarizeCardRevenue", () => {
 	});
 });
 
+describe("verifySumupApiKey", () => {
+	it("uses the membership API limit and accepted merchant filters", async () => {
+		const { verifySumupApiKey } = await import("@/server/services/sumup");
+		const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+			const url = new URL(String(input));
+			expect(url.origin).toBe("https://api.sumup.com");
+			expect(url.pathname).toBe("/v0.1/memberships");
+			expect(init?.method).toBe("GET");
+			expect(new Headers(init?.headers).get("authorization")).toBe(
+				"Bearer test-key",
+			);
+			const limit = Number(url.searchParams.get("limit"));
+			// Match the upstream contract so the original limit=50 fails.
+			if (!Number.isInteger(limit) || limit < 1 || limit > 25) {
+				return new Response("Bad Request", { status: 400 });
+			}
+			expect(url.searchParams.get("kind")).toBe("merchant");
+			expect(url.searchParams.get("status")).toBe("accepted");
+			return Response.json({
+				items: [{
+					resource_id: "MABC123",
+					type: "merchant",
+					status: "accepted",
+					resource: { id: "MABC123", type: "merchant", name: "SV Verein" },
+				}],
+			});
+		}) as typeof fetch;
+		await expect(verifySumupApiKey("test-key", fetchImpl)).resolves.toEqual({
+			code: "MABC123",
+			name: "SV Verein",
+		});
+	});
+});
+
 describe("pickMerchant", () => {
 	it("returns the first accepted merchant membership", async () => {
 		const { pickMerchant } = await import("@/server/services/sumup");
