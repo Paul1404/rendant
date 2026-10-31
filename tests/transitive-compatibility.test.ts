@@ -1,4 +1,8 @@
 import { createRequire } from "node:module";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { PassThrough, Readable } from "node:stream";
 import ExcelJS from "exceljs";
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
@@ -6,6 +10,100 @@ import { describe, expect, it } from "vitest";
 const require = createRequire(import.meta.url);
 
 describe("patched transitive dependencies", () => {
+	it("preserves recursive archive matching, exclusions and legacy glob expansion", async () => {
+		const excelRequire = createRequire(require.resolve("exceljs/package.json"));
+		const archiver = excelRequire("archiver");
+		const archiveRequire = createRequire(excelRequire.resolve("archiver"));
+		const utils = archiveRequire("archiver-utils");
+		const directory = await mkdtemp(join(tmpdir(), "rendant-glob-"));
+		try {
+			await mkdir(join(directory, "nested"));
+			await Promise.all([
+				writeFile(join(directory, "first.txt"), "first"),
+				writeFile(join(directory, "nested", "second.txt"), "second"),
+				writeFile(join(directory, "nested", "skip.txt"), "excluded"),
+				writeFile(join(directory, "other.csv"), "csv"),
+				writeFile(join(directory, ".hidden.txt"), "hidden"),
+			]);
+			expect(
+				utils.file
+					.expand({ cwd: directory, nodir: true }, [
+						"**/*.{txt,csv}",
+						"!**/skip.txt",
+					])
+					.sort(),
+			).toEqual(["first.txt", "nested/second.txt", "other.csv"]);
+
+			const archive = archiver("zip");
+			const chunks: Buffer[] = [];
+			const completed = new Promise<Buffer>((resolve, reject) => {
+				archive.on("data", (chunk: Buffer) => chunks.push(chunk));
+				archive.on("error", reject);
+				archive.on("end", () => resolve(Buffer.concat(chunks)));
+			});
+			archive.glob("**/*.txt", { cwd: directory, ignore: ["**/skip.txt"] });
+			await archive.finalize();
+			const zip = await JSZip.loadAsync(await completed);
+			expect(Object.keys(zip.files).sort()).toEqual([
+				"first.txt",
+				"nested/second.txt",
+			]);
+			expect(await zip.file("nested/second.txt")!.async("string")).toBe(
+				"second",
+			);
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
+	});
+
+	it("writes and reopens streaming Excel archives with styles and shared strings", async () => {
+		const stream = new PassThrough();
+		const chunks: Buffer[] = [];
+		stream.on("data", (chunk: Buffer) => chunks.push(chunk));
+		const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
+			stream,
+			useStyles: true,
+			useSharedStrings: true,
+		});
+		const sheet = workbook.addWorksheet("Streaming");
+		sheet.addRow(["Kartenumsatz", 12.5]);
+		sheet.getCell("B1").numFmt = "0.00";
+		sheet.getRow(1).commit();
+		await workbook.commit();
+		const bytes = Buffer.concat(chunks);
+		const reopened = new ExcelJS.Workbook();
+		await reopened.xlsx.load(
+			bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+		);
+		expect(reopened.getWorksheet("Streaming")?.getCell("A1").value).toBe(
+			"Kartenumsatz",
+		);
+		expect(reopened.getWorksheet("Streaming")?.getCell("B1").value).toBe(12.5);
+		expect(reopened.getWorksheet("Streaming")?.getCell("B1").numFmt).toBe(
+			"0.00",
+		);
+		// WorkbookReader uses unzipper rather than the in-memory JSZip reader.
+		const reader = new ExcelJS.stream.xlsx.WorkbookReader(
+			Readable.from([bytes]),
+			{
+				sharedStrings: "cache",
+				styles: "cache",
+				worksheets: "emit",
+			},
+		);
+		const rows: unknown[][] = [];
+		for await (const worksheet of reader) {
+			for await (const row of worksheet) {
+				rows.push([
+					row.getCell(1).value,
+					row.getCell(2).value,
+					row.getCell(2).numFmt,
+				]);
+			}
+		}
+		expect(rows).toEqual([["Kartenumsatz", 12.5, "0.00"]]);
+	});
+
 	it("generates UUID-backed Excel formatting and reopens the workbook", async () => {
 		const excelRequire = createRequire(require.resolve("exceljs/package.json"));
 		const { v4, validate, version } = excelRequire("uuid");

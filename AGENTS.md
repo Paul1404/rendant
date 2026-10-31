@@ -30,6 +30,11 @@ update the appropriate canonical documentation in the same change.
   are parent-scoped. Preserve CommonJS UUID v4 and loader transform compatibility;
   exercise extended Excel formatting, Drizzle CLI schema loading, and migrations
   when changing or removing them. Recheck whether upstream ranges include fixes.
+- ExcelJS security overrides use `archiver-utils>glob` 14.x,
+  `exceljs>unzipper` 0.12.x and `readdir-glob>minimatch` 11.x. Never force
+  minimatch 11 into glob 7: glob 7 reads private RegExp fields it no longer has.
+  Preserve recursive matching, exclusions, archive and streaming XLSX read/write
+  coverage when updating these overrides; upstream still requests older versions.
 
 ## Multi-user correctness
 
@@ -62,6 +67,9 @@ update the appropriate canonical documentation in the same change.
   refund between fetch and save cannot book a stale amount. The API key is
   stored encrypted via `secret-box` and never returned to the browser; the
   merchant code is resolved from the key on save, never typed.
+- SumUp membership discovery allows `limit` up to 25, not the transaction
+  history's page size of 100. Use the documented `kind=merchant` and
+  `status=accepted` filters when validating a new API key.
 - The protocol list groups receipts by date, catalogue occasion (or matching
   legacy label) and Umsatzbereich. Event subtotals include active cash and card
   revenue in the current filter selection. Pagination keeps each group intact.
@@ -159,10 +167,10 @@ update the appropriate canonical documentation in the same change.
 
 ## Deployment
 
-- Railway builds `rendant-app` from `main` with check suites disabled, so every
-  push to `main` deploys to production immediately without waiting for CI. Prove
-  a change on a PR before merging, and land related work as one commit rather
-  than several, since each merge is its own production deploy.
+- Railway builds `rendant-app` from `main` with check suites enabled and waits
+  for successful GitHub workflows before deploying. Prove a change on a PR
+  before merging, and land related work as one commit rather than several,
+  since each merge is its own production deploy.
 - `preDeployCommand` applies Drizzle migrations against the production database
   in a separate container before the new app starts. A non-zero exit aborts the
   deployment and the previous release keeps serving, so a migration that must
