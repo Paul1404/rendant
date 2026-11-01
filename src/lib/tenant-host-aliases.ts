@@ -29,6 +29,7 @@ export function configuredTenantHostAliases(
 				hostname,
 			) ||
 			typeof value !== "string" ||
+			value === "admin" ||
 			!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(value)
 		)
 			throw new Error(
@@ -78,6 +79,7 @@ export function configuredTenantCanonicalHosts(
 	const owners = new Map<string, string>();
 	for (const [slug, value] of Object.entries(parsed)) {
 		if (
+			slug === "admin" ||
 			!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(slug) ||
 			typeof value !== "string"
 		)
@@ -85,6 +87,10 @@ export function configuredTenantCanonicalHosts(
 				"Bevorzugte Vereinsadressen brauchen gültige Vereinskennungen und einzelne Domains",
 			);
 		const hostname = value.toLowerCase().replace(/\.$/, "");
+		if (hostname === `admin.${base}`)
+			throw new Error(
+				"Die Betreiberadresse darf keinem Verein zugeordnet werden",
+			);
 		if (
 			!base ||
 			!hostname.endsWith(`.${base}`) ||
@@ -116,7 +122,7 @@ export function tenantCanonicalHost(
 	baseDomain: string | undefined,
 	raw: string | undefined,
 ): string | null {
-	if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(slug))
+	if (slug === "admin" || !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(slug))
 		throw new Error("Ungültige Vereinskennung");
 	const canonical = configuredTenantCanonicalHosts(raw, baseDomain);
 	const preferred = canonical.get(slug);
@@ -145,6 +151,10 @@ export function configuredTenantHostBindings(
 	}
 	if (base) {
 		for (const [hostname, slug] of bindings) {
+			if (hostname === `admin.${base}`)
+				throw new Error(
+					"Die Betreiberadresse darf keinem Verein zugeordnet werden",
+				);
 			if (hostname === base)
 				throw new Error(
 					"Die gemeinsame Rendant-Adresse darf keinem einzelnen Verein zugeordnet werden",

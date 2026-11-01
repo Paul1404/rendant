@@ -1,4 +1,5 @@
 import { auth } from "@/server/auth";
+import { isOperatorHost } from "@/server/operator-host";
 import { requestIdFromHeaders } from "@/server/request-id";
 import {
 	resolveTenantSession,
@@ -51,8 +52,10 @@ export async function createORPCContext(
 			}
 		: null;
 	let resolved: Awaited<ReturnType<typeof resolveTenantSession>> = null;
-	let tenantError: string | undefined;
-	if (identity) {
+	let tenantError: string | undefined = isOperatorHost(headers)
+		? "Die Betreiberverwaltung enthält keine Vereinsbuchhaltung"
+		: undefined;
+	if (identity && !isOperatorHost(headers)) {
 		try {
 			resolved = await resolveTenantSession(headers);
 		} catch (error) {

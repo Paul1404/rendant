@@ -1,3 +1,4 @@
+import { ORPCError } from "@orpc/server";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest, setCookie } from "@tanstack/react-start/server";
 import * as v from "valibot";
@@ -7,6 +8,10 @@ import {
 	pinTenantScope,
 	tenantRequestHeaders,
 } from "@/lib/tenant-client";
+import {
+	isOperatorHost,
+	resolveOperatorSession,
+} from "@/server/services/operator-auth";
 import { getVereinsname } from "@/server/services/settings";
 import {
 	createTenant,
@@ -38,6 +43,39 @@ export type SessionUser = {
 	canCreateTenant: boolean;
 	tenantHostBound: boolean;
 };
+
+export type OperatorUser = {
+	id: string;
+	email: string;
+	name: string;
+	role: "admin";
+};
+export type OperatorEntry = {
+	operatorHost: boolean;
+	user: OperatorUser | null;
+	forbidden: boolean;
+};
+
+export const fetchOperatorSession = createServerFn({ method: "GET" }).handler(
+	async (): Promise<OperatorEntry> => {
+		const headers = new Headers(getRequest().headers);
+		if (!isOperatorHost(headers))
+			return { operatorHost: false, user: null, forbidden: false };
+		try {
+			const resolved = await resolveOperatorSession(headers);
+			return {
+				operatorHost: true,
+				user: resolved?.user ?? null,
+				forbidden: false,
+			};
+		} catch (error) {
+			if (error instanceof ORPCError && error.code === "FORBIDDEN") {
+				return { operatorHost: true, user: null, forbidden: true };
+			}
+			throw error;
+		}
+	},
+);
 
 function requestHeaders(): Headers {
 	// During SSR, server functions execute locally and their call-option headers
@@ -106,6 +144,9 @@ export async function fetchSession(
 
 const fetchBrandingServer = createServerFn({ method: "GET" }).handler(
 	async (): Promise<Branding> => {
+		if (isOperatorHost(new Headers(getRequest().headers))) {
+			return { vereinsname: "Vereinsverwaltung", operatorHost: true };
+		}
 		try {
 			const resolved = await resolveBootstrapSession();
 			if (!resolved) {

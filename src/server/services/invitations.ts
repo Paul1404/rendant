@@ -1,4 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
+import { ORPCError } from "@orpc/server";
 import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { db, globalDb } from "@/server/db";
@@ -13,7 +14,11 @@ import {
 	recordAuditEventStrict,
 } from "@/server/services/audit";
 import { requireTenant, withTenant } from "@/server/tenant-context";
-import { resolveHostTenant, TenantAccessError } from "./tenants";
+import {
+	type GlobalTransaction,
+	resolveHostTenant,
+	TenantAccessError,
+} from "./tenants";
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -53,77 +58,87 @@ export async function listInvites(): Promise<Invite[]> {
 	return rows.map(rowToInvite);
 }
 
-export async function createInvite(opts: {
+export type CreateInviteOptions = {
 	email: string;
 	role: "user" | "admin";
 	invitedBy: string | null;
 	audit: Omit<RecordAuditInput, "category" | "action" | "subject">;
-}): Promise<InviteWithLink> {
-	const email = opts.email.trim().toLowerCase();
+};
+
+export async function createInvite(
+	opts: CreateInviteOptions,
+): Promise<InviteWithLink> {
 	const tenant = requireTenant();
-	return globalDb.transaction(async (tx) => {
-		await tx.execute(
-			sql`select set_config('app.tenant_id', ${tenant.id}, true)`,
-		);
-		// Serialize invitation creation per normalized email across all app
-		// instances. A read-before-write check alone permits two admins to create
-		// simultaneously valid invitations for the same future account.
-		await tx.execute(
-			sql`select pg_advisory_xact_lock(hashtextextended(${email}, 0))`,
-		);
+	return globalDb.transaction((tx) =>
+		createInviteInTransaction(tx, tenant.id, opts),
+	);
+}
 
-		const existingMember = await tx
-			.select({ id: userTable.id })
-			.from(userTable)
-			.innerJoin(memberships, eq(memberships.user_id, userTable.id))
-			.where(
-				and(eq(userTable.email, email), eq(memberships.tenant_id, tenant.id)),
-			)
-			.limit(1);
-		if (existingMember.length > 0) {
-			throw new Error("Dieses Konto gehört bereits zum Verein");
-		}
+export async function createInviteInTransaction(
+	tx: GlobalTransaction,
+	tenantId: string,
+	opts: CreateInviteOptions,
+): Promise<InviteWithLink> {
+	const email = opts.email.trim().toLowerCase();
+	await tx.execute(sql`select set_config('app.tenant_id', ${tenantId}, true)`);
+	// Serialize invitation creation per normalized email across all app
+	// instances. A read-before-write check alone permits two admins to create
+	// simultaneously valid invitations for the same future account.
+	await tx.execute(
+		sql`select pg_advisory_xact_lock(hashtextextended(${email}, 0))`,
+	);
 
-		const activeInvite = await tx
-			.select({ id: invitations.id })
-			.from(invitations)
-			.where(
-				and(
-					eq(invitations.email, email),
-					eq(invitations.tenant_id, tenant.id),
-					isNull(invitations.accepted_at),
-					gt(invitations.expires_at, new Date()),
-				),
-			)
-			.limit(1);
-		if (activeInvite.length > 0) {
-			throw new Error(
-				"Für diese E-Mail besteht bereits eine gültige Einladung",
-			);
-		}
-
-		const token = randomBytes(32).toString("base64url");
-		const rows = await tx
-			.insert(invitations)
-			.values({
-				tenant_id: tenant.id,
-				email,
-				token,
-				role: opts.role,
-				invited_by: opts.invitedBy,
-				expires_at: new Date(Date.now() + INVITE_TTL_MS),
-			})
-			.returning();
-		const invite = { ...rowToInvite(rows[0]), token };
-		await recordAuditEventStrict(tx, {
-			...opts.audit,
-			category: "users",
-			action: "users.invite_created",
-			subject: { type: "invite", id: invite.id, label: invite.email },
-			metadata: { ...opts.audit.metadata, role: invite.role },
+	const existingMember = await tx
+		.select({ id: userTable.id })
+		.from(userTable)
+		.innerJoin(memberships, eq(memberships.user_id, userTable.id))
+		.where(and(eq(userTable.email, email), eq(memberships.tenant_id, tenantId)))
+		.limit(1);
+	if (existingMember.length > 0) {
+		throw new ORPCError("CONFLICT", {
+			message: "Dieses Konto gehört bereits zum Verein",
 		});
-		return invite;
+	}
+
+	const activeInvite = await tx
+		.select({ id: invitations.id })
+		.from(invitations)
+		.where(
+			and(
+				eq(invitations.email, email),
+				eq(invitations.tenant_id, tenantId),
+				isNull(invitations.accepted_at),
+				gt(invitations.expires_at, new Date()),
+			),
+		)
+		.limit(1);
+	if (activeInvite.length > 0) {
+		throw new ORPCError("CONFLICT", {
+			message: "Für diese E-Mail besteht bereits eine gültige Einladung",
+		});
+	}
+
+	const token = randomBytes(32).toString("base64url");
+	const rows = await tx
+		.insert(invitations)
+		.values({
+			tenant_id: tenantId,
+			email,
+			token,
+			role: opts.role,
+			invited_by: opts.invitedBy,
+			expires_at: new Date(Date.now() + INVITE_TTL_MS),
+		})
+		.returning();
+	const invite = { ...rowToInvite(rows[0]), token };
+	await recordAuditEventStrict(tx, {
+		...opts.audit,
+		category: "users",
+		action: "users.invite_created",
+		subject: { type: "invite", id: invite.id, label: invite.email },
+		metadata: { ...opts.audit.metadata, role: invite.role },
 	});
+	return invite;
 }
 
 export async function revokeInvite(

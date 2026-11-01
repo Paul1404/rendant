@@ -15,9 +15,10 @@ Betreiberbereich sind nicht Teil dieses Ausbaus.
 
 ## Mitgliedschaften und neue Vereine
 
-Aktive SVU-Admins können einen Verein über die Vereinsauswahl anlegen. Dabei
-werden der Verein, ihre Admin-Mitgliedschaft, leere Einstellungen und die
-allgemeine Kategorie Vereinsbeitrag gemeinsam angelegt. Weitere Abteilungen
+Berechtigte Betreiber können einen Verein über die getrennte Betreiberverwaltung
+anlegen. Dabei werden der Verein, leere Einstellungen und die allgemeine
+Kategorie Vereinsbeitrag gemeinsam angelegt. Eine Mitgliedschaft wird dabei
+nicht automatisch vergeben. Weitere Abteilungen
 werden im jeweiligen Verein gepflegt. Bestehende SVU-Kategorien bleiben erhalten.
 
 Admins laden Personen in ihren eigenen Verein ein. Bestehende Konten müssen
@@ -163,3 +164,30 @@ nicht unterbrechen und darf den Token nicht für SSV freigeben.
 `infra/rendant-app-dns.yaml` besitzt ausschließlich die CNAME- und
 Verifikations-TXT-Einträge der beiden neuen Vereinsadressen. Die beim Registrar
 angelegte Zone sowie andere Domains werden nicht durch diese Vorlage ersetzt.
+
+## Getrennte Betreiberverwaltung
+
+`TENANT_ADMIN_HOST=admin.rendant.app` ist eine eigene Verwaltungsadresse.
+`PLATFORM_ADMIN_EMAILS` benennt die berechtigten Betreiber einzeln. Ein dort
+aufgeführtes Konto benötigt zusätzlich eine aktive, nicht gesperrte
+SVU-Admin-Mitgliedschaft. Die globale Better-Auth-Rolle genügt nicht; ein
+Vereinsadmin anderer Vereine erhält dadurch keinen Verwaltungszugriff.
+
+Die Verwaltung listet Vereinsnamen, Kennungen, eingerichtete Adressen und
+Mitgliedschaften. Betreiber können Vereine anlegen, Namen ändern und
+Mitgliederrechte oder Einladungen verwalten. Der Name ändert keine Kennung,
+Belegnummer oder Buchung. Der Schutz des letzten aktiven Admins bleibt erhalten.
+Einladungen benötigen eine ausdrücklich eingerichtete Adresse des Zielvereins;
+fehlende DNS-Einrichtung wird nicht durch einen Link zum falschen Verein ersetzt.
+
+Die Verwaltungsadresse besitzt keinen Standardverein und erlaubt weder
+Buchhaltungs-RPC noch den bestehenden SVU-MCP-Zugang. Auch ein Betreiber muss
+für Buchhaltungsdaten die passende Vereinsadresse mit einer eigenen
+Mitgliedschaft verwenden. Cookies bleiben auf ihren jeweiligen Host begrenzt;
+beim ersten Aufruf der Verwaltungsadresse ist eine neue Anmeldung erforderlich.
+
+Alle schreibenden Verwaltungsaktionen prüfen die aktuelle Berechtigung innerhalb
+der Schreibtransaktion erneut, verwenden ausdrücklich den gewählten Verein und
+halten den Vorgang im Audit-Log fest. Es gibt keine Löschfunktion für Vereine
+oder Buchungen. Die DNS-Vorlage ergänzt nur CNAME und Verifikations-TXT für die
+Verwaltungsadresse und ersetzt keine bestehenden Vereinsadressen.

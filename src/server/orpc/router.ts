@@ -218,6 +218,7 @@ import {
 	setTenantUserRole,
 } from "@/server/services/tenants";
 import { adminOnly, authed, pub } from "./base";
+import { operators } from "./operator";
 
 const idInput = v.object({ id: v.pipe(v.string(), v.minLength(1)) });
 
@@ -1555,6 +1556,7 @@ const health = pub.handler(async () => {
 });
 
 export const router = {
+	operators,
 	protokolle,
 	settings,
 	registers,

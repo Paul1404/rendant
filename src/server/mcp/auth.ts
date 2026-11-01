@@ -1,5 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { resolveTrustedOrigins } from "@/server/auth-origins";
+import { isOperatorHost } from "@/server/operator-host";
 import type { ORPCContext } from "@/server/orpc/base";
 import { clientIpFromHeaders } from "@/server/orpc/context";
 import { requestIdFromHeaders } from "@/server/request-id";
@@ -51,6 +52,8 @@ export function getMcpStatus(): McpStatus {
 export function authenticateMcpRequest(
 	request: Request,
 ): McpAuthContext | null {
+	if (isOperatorHost(new Headers({ host: new URL(request.url).host })))
+		return null;
 	const expected = configuredToken();
 	if (!expected) return null;
 	const hostTenant = tenantSlugForHost(new URL(request.url).host);
@@ -134,6 +137,8 @@ export function mcpUnauthorizedResponse(): Response {
 
 export function validateMcpRequestBoundary(request: Request): Response | null {
 	const requested = new URL(request.url);
+	if (isOperatorHost(new Headers({ host: requested.host })))
+		return new Response("invalid host", { status: 403 });
 	const hostTenant = tenantSlugForHost(requested.host);
 	const origins = configuredOrigins(request);
 	if (

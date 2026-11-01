@@ -6,6 +6,10 @@ import { globalDb } from "@/server/db";
 import { user as userTable } from "@/server/db/auth-schema";
 import { appSettings, helperHourCategories } from "@/server/db/schema";
 import { memberships, tenants } from "@/server/db/tenant-schema";
+import {
+	isOperatorHost,
+	platformAdminEmailAllowed,
+} from "@/server/operator-host";
 import { requireTenant, SVU_TENANT_ID } from "@/server/tenant-context";
 import {
 	TenantHostnameError,
@@ -92,6 +96,7 @@ export function selectTenant(
 export async function resolveHostTenant(
 	headers: Headers,
 ): Promise<{ id: string; slug: string; name: string } | null> {
+	if (isOperatorHost(headers)) throw new TenantAccessError();
 	let slug: string | null;
 	try {
 		slug = tenantSlugForHost(headers.get("host"));
@@ -148,7 +153,7 @@ export async function resolveTenantSession(headers: Headers) {
 
 export async function isPlatformAdmin(userId: string): Promise<boolean> {
 	const [member] = await globalDb
-		.select({ role: memberships.role })
+		.select({ role: memberships.role, email: userTable.email })
 		.from(memberships)
 		.innerJoin(userTable, eq(userTable.id, memberships.user_id))
 		.where(
@@ -161,7 +166,33 @@ export async function isPlatformAdmin(userId: string): Promise<boolean> {
 			),
 		)
 		.limit(1);
-	return Boolean(member);
+	return Boolean(member && platformAdminEmailAllowed(member.email));
+}
+
+export type GlobalTransaction = Parameters<
+	Parameters<typeof globalDb.transaction>[0]
+>[0];
+
+export async function assertPlatformAdminInTransaction(
+	tx: GlobalTransaction,
+	userId: string,
+): Promise<void> {
+	const [member] = await tx
+		.select({ email: userTable.email })
+		.from(memberships)
+		.innerJoin(userTable, eq(userTable.id, memberships.user_id))
+		.where(
+			and(
+				eq(memberships.tenant_id, SVU_TENANT_ID),
+				eq(memberships.user_id, userId),
+				eq(memberships.role, "admin"),
+				eq(memberships.banned, false),
+				sql`${userTable.banned} is not true`,
+			),
+		)
+		.for("update");
+	if (!member || !platformAdminEmailAllowed(member.email))
+		throw new TenantAccessError();
 }
 
 export async function assertPlatformAdmin(userId: string): Promise<void> {
@@ -182,13 +213,15 @@ export async function createTenant(opts: {
 	slug: string;
 	actor: NonNullable<RecordAuditInput["actor"]>;
 	audit?: RecordAuditInput["request"];
+	grantCreatorMembership?: boolean;
 }): Promise<TenantMembership> {
 	const name = opts.name.trim();
 	const slug = opts.slug.trim().toLowerCase();
 	if (
 		name.length < 2 ||
 		name.length > 120 ||
-		!/^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$/.test(slug)
+		!/^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$/.test(slug) ||
+		slug === "admin"
 	) {
 		throw new ORPCError("BAD_REQUEST", {
 			message:
@@ -197,21 +230,7 @@ export async function createTenant(opts: {
 	}
 	await assertPlatformAdmin(opts.actor.id);
 	return globalDb.transaction(async (tx) => {
-		const [operator] = await tx
-			.select({ role: memberships.role })
-			.from(memberships)
-			.innerJoin(userTable, eq(userTable.id, memberships.user_id))
-			.where(
-				and(
-					eq(memberships.tenant_id, SVU_TENANT_ID),
-					eq(memberships.user_id, opts.actor.id),
-					eq(memberships.role, "admin"),
-					eq(memberships.banned, false),
-					sql`${userTable.banned} is not true`,
-				),
-			)
-			.for("update");
-		if (!operator) throw new TenantAccessError();
+		await assertPlatformAdminInTransaction(tx, opts.actor.id);
 		const id = randomUUID();
 		const [created] = await tx
 			.insert(tenants)
@@ -223,9 +242,11 @@ export async function createTenant(opts: {
 				message: "Diese Vereinskennung ist bereits vergeben",
 			});
 		await tx.execute(sql`select set_config('app.tenant_id', ${id}, true)`);
-		await tx
-			.insert(memberships)
-			.values({ tenant_id: id, user_id: opts.actor.id, role: "admin" });
+		if (opts.grantCreatorMembership !== false) {
+			await tx
+				.insert(memberships)
+				.values({ tenant_id: id, user_id: opts.actor.id, role: "admin" });
+		}
 		await tx
 			.insert(appSettings)
 			.values({ tenant_id: id, id: 1, vereinsname: name });
@@ -245,6 +266,7 @@ export async function createTenant(opts: {
 			actor: opts.actor,
 			subject: { type: "tenant", id, label: name },
 			request: opts.audit,
+			metadata: { operator: opts.grantCreatorMembership === false },
 		});
 		return { id, slug, name, role: "admin" };
 	});
@@ -268,14 +290,15 @@ export async function listTenantUsers() {
 		.orderBy(desc(memberships.created_at));
 }
 
-async function changeTenantMember(opts: {
+export async function changeTenantMember(opts: {
 	id: string;
 	role?: "user" | "admin";
 	banned?: boolean;
 	actor: NonNullable<RecordAuditInput["actor"]>;
 	audit?: RecordAuditInput["request"];
+	operatorTenant?: { id: string; slug: string; name: string };
 }) {
-	const tenant = requireTenant();
+	const tenant = opts.operatorTenant ?? requireTenant();
 	if (opts.id === opts.actor.id && (opts.role === "user" || opts.banned))
 		throw new ORPCError("BAD_REQUEST", {
 			message:
@@ -285,21 +308,26 @@ async function changeTenantMember(opts: {
 		await tx.execute(
 			sql`select pg_advisory_xact_lock(hashtextextended(${`rendant:tenant-admin:${tenant.id}`}, 0))`,
 		);
-		const [actor] = await tx
-			.select({ role: memberships.role })
-			.from(memberships)
-			.innerJoin(userTable, eq(userTable.id, memberships.user_id))
-			.where(
-				and(
-					eq(memberships.tenant_id, tenant.id),
-					eq(memberships.user_id, opts.actor.id),
-					eq(memberships.role, "admin"),
-					eq(memberships.banned, false),
-					sql`${userTable.banned} is not true`,
-				),
-			)
-			.for("update");
-		if (!actor) throw new TenantAccessError();
+		if (opts.operatorTenant) {
+			await assertPlatformAdminInTransaction(tx, opts.actor.id);
+		} else {
+			const [actor] = await tx
+				.select({ role: memberships.role })
+				.from(memberships)
+				.innerJoin(userTable, eq(userTable.id, memberships.user_id))
+				.where(
+					and(
+						eq(memberships.tenant_id, tenant.id),
+						eq(memberships.user_id, opts.actor.id),
+						eq(memberships.role, "admin"),
+						eq(memberships.banned, false),
+						sql`${userTable.banned} is not true`,
+					),
+				)
+				.for("update");
+			if (!actor) throw new TenantAccessError();
+		}
+
 		const [target] = await tx
 			.select({
 				id: userTable.id,
@@ -390,6 +418,7 @@ async function changeTenantMember(opts: {
 			metadata: {
 				role: opts.role ?? target.role,
 				banned: opts.banned ?? target.banned,
+				...(opts.operatorTenant ? { operator: true } : {}),
 				...(legacyGlobalBanCleared
 					? { legacy_global_ban_cleared: true, previous_global_banned: true }
 					: {}),

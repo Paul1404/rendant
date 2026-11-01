@@ -946,3 +946,47 @@ export const HistoricalProtocolDraftTransitionSchema = v.object({
 export const HistoricalProtocolDraftListSchema = v.object({
 	include_archived: v.optional(v.boolean(), false),
 });
+
+// Operator-only metadata and membership controls never accept financial values,
+// database ownership changes or a caller-supplied authorization mode.
+export const OperatorTenantTargetSchema = v.object({
+	tenantId: v.pipe(v.string(), v.uuid()),
+});
+export const OperatorTenantCreateSchema = v.object({
+	name: v.pipe(v.string(), v.trim(), v.minLength(2), v.maxLength(120)),
+	slug: v.pipe(
+		v.string(),
+		v.trim(),
+		v.regex(
+			/^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$/,
+			"Die Kennung muss 3 bis 50 kleine Buchstaben, Ziffern oder Bindestriche enthalten",
+		),
+		v.check(
+			(value) => value !== "admin",
+			"Diese Kennung ist für die Betreiberverwaltung reserviert",
+		),
+	),
+});
+export const OperatorTenantRenameSchema = v.object({
+	...OperatorTenantTargetSchema.entries,
+	name: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120)),
+});
+export const OperatorInviteSchema = v.object({
+	...OperatorTenantTargetSchema.entries,
+	email: v.pipe(v.string(), v.trim(), v.email(), v.maxLength(254)),
+	role: v.picklist(["user", "admin"]),
+});
+export const OperatorInviteRevokeSchema = v.object({
+	...OperatorTenantTargetSchema.entries,
+	id: v.pipe(v.string(), v.uuid()),
+});
+export const OperatorMemberRoleSchema = v.object({
+	...OperatorTenantTargetSchema.entries,
+	id: v.pipe(v.string(), v.minLength(1), v.maxLength(200)),
+	role: v.picklist(["user", "admin"]),
+});
+export const OperatorMemberBanSchema = v.object({
+	...OperatorTenantTargetSchema.entries,
+	id: v.pipe(v.string(), v.minLength(1), v.maxLength(200)),
+	banned: v.boolean(),
+});

@@ -4,6 +4,7 @@ type Props = {
 	variant?: "bar" | "hero";
 	onDark?: boolean;
 	className?: string;
+	caption?: string;
 };
 
 function RegisterMark({ compact = false }: { compact?: boolean }) {
@@ -36,6 +37,7 @@ export function BrandLockup({
 	variant = "bar",
 	onDark = false,
 	className,
+	caption = "Finanzverwaltung",
 }: Props) {
 	const markColor = onDark ? "text-nav-accent" : "text-brass";
 
@@ -66,7 +68,7 @@ export function BrandLockup({
 			<span className="hidden flex-col leading-tight sm:flex">
 				<span className="wordmark text-base text-current">Rendant</span>
 				<span className="mt-1 text-[10px] uppercase tracking-[0.16em] text-current/70">
-					Finanzverwaltung
+					{caption}
 				</span>
 			</span>
 		</div>

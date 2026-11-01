@@ -1,4 +1,5 @@
 import { configuredTenantHostBindings } from "@/lib/tenant-host-aliases";
+import { configuredOperatorHost } from "@/server/operator-host";
 
 /** Only the HTTP authority binds a tenant. Forwarded/custom host headers are not
  * trusted here: clients can supply them, and a tenant selector is not a host. */
@@ -30,6 +31,7 @@ export function tenantSlugForHost(
 ): string | null {
 	if (authority === null) return null;
 	const hostname = hostnameFromAuthority(authority);
+	if (hostname === configuredOperatorHost()) return null;
 	const aliases = configuredTenantHostBindings(
 		aliasesJson,
 		canonicalJson,
@@ -57,5 +59,5 @@ export function tenantSlugForHost(
 	const slug = hostname.slice(0, -base.length - 1);
 	if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(slug))
 		throw new TenantHostnameError();
-	return slug;
+	return slug === "admin" ? null : slug;
 }
