@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
 import type { FormEvent } from "react";
 import { PageHeader } from "@/components/page-header";
@@ -24,6 +24,7 @@ import {
 } from "@/lib/audit";
 import { formatDateTimeSecondsDe } from "@/lib/date";
 import { orpc } from "@/lib/orpc";
+import { requireClubPermission } from "@/lib/route-permissions";
 
 type AuditSearch = {
 	page?: number;
@@ -54,7 +55,7 @@ function queryOptions(search: AuditSearch) {
 
 export const Route = createFileRoute("/protokolle/audit")({
 	beforeLoad: ({ context }) => {
-		if (context.user.role !== "admin") throw redirect({ to: "/protokolle" });
+		requireClubPermission(context.user, "audit.read");
 	},
 	validateSearch: (search: Record<string, unknown>): AuditSearch => {
 		const rawPage = Number(search.page);
@@ -94,7 +95,7 @@ function AuditPage() {
 			<PageHeader
 				eyebrow="Administration"
 				title="Audit-Log"
-				description="Nachvollziehbare Ereignisspur für Anmeldungen, Benutzer, Protokolle, Exporte, Kassen und Einstellungen. Nur für Admins sichtbar."
+				description="Nachvollziehbare Ereignisspur für Anmeldungen, Benutzer, Protokolle, Exporte, Kassen und Einstellungen."
 			/>
 
 			<Card>

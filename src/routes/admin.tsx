@@ -30,7 +30,12 @@ function AdminPage() {
 		<OperatorConsole
 			user={operator}
 			selectedTenantId={tenant}
-			onSelect={(id) => void navigate({ search: { tenant: id } })}
+			onSelect={(id) =>
+				void navigate({
+					search: { tenant: id },
+					hash: "operator-selected-club",
+				})
+			}
 		/>
 	);
 }

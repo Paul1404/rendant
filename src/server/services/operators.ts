@@ -1,5 +1,6 @@
 import { ORPCError } from "@orpc/server";
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import type { ClubRole } from "@/lib/permissions";
 import { globalDb } from "@/server/db";
 import { user as userTable } from "@/server/db/auth-schema";
 import { appSettings, invitations } from "@/server/db/schema";
@@ -172,7 +173,7 @@ export async function inviteOperatorMember(
 	input: {
 		tenantId: string;
 		email: string;
-		role: "user" | "admin";
+		role: ClubRole;
 		sendEmail?: boolean;
 	},
 	actor: Actor,
@@ -263,7 +264,7 @@ export async function revokeOperatorInvite(
 }
 
 export async function setOperatorMemberRole(
-	input: { tenantId: string; id: string; role: "user" | "admin" },
+	input: { tenantId: string; id: string; role: ClubRole },
 	actor: Actor,
 	request?: RequestAudit,
 ) {

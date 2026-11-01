@@ -2,6 +2,7 @@ import { ORPCError } from "@orpc/server";
 import * as v from "valibot";
 import { AUDIT_CATEGORIES } from "@/lib/audit";
 import { todayIsoDate } from "@/lib/date";
+import { CLUB_ROLES, hasPermission } from "@/lib/permissions";
 import {
 	AnlassKatalogBulkAssignSchema,
 	AnlassKatalogSchema,
@@ -57,6 +58,7 @@ import {
 	InviteAcceptSchema,
 	InviteCreateSchema,
 	ProtokollReclassifySchema,
+	RolePolicyUpdateSchema,
 	StornoSchema,
 	SumupDaysSchema,
 	SumupSettingsSchema,
@@ -198,6 +200,10 @@ import {
 import { tenantPublicBaseUrl } from "@/server/services/public-url";
 import { vatSummary } from "@/server/services/reports";
 import {
+	getRolePolicyForCurrentTenant,
+	updateRolePolicy,
+} from "@/server/services/role-policy";
+import {
 	getBelegnummerSettings,
 	getHelperHourValueCent,
 	getSettingsStamp,
@@ -221,7 +227,7 @@ import {
 	setTenantUserBanned,
 	setTenantUserRole,
 } from "@/server/services/tenants";
-import { adminOnly, authed, pub } from "./base";
+import { authed, permitted, permittedAny, pub } from "./base";
 import { operators } from "./operator";
 
 const idInput = v.object({ id: v.pipe(v.string(), v.minLength(1)) });
@@ -229,16 +235,18 @@ const idInput = v.object({ id: v.pipe(v.string(), v.minLength(1)) });
 // ---- Protokolle ----------------------------------------------------------
 
 const protokolle = {
-	datevStatus: adminOnly
+	datevStatus: permitted("datev.send", "finance.read")
 		.input(DatevStatusSchema)
 		.handler(({ input }) => getDatevStatus(input.id)),
-	sendDatev: adminOnly.input(DatevSendSchema).handler(({ input, context }) =>
-		sendDatevProtocol(input, {
-			actor: context.user,
-			request: requestAuditContext(context),
-		}),
-	),
-	resolveDatev: adminOnly
+	sendDatev: permitted("datev.send", "finance.read")
+		.input(DatevSendSchema)
+		.handler(({ input, context }) =>
+			sendDatevProtocol(input, {
+				actor: context.user,
+				request: requestAuditContext(context),
+			}),
+		),
+	resolveDatev: permitted("datev.send", "finance.read")
 		.input(DatevResolveSchema)
 		.handler(({ input, context }) =>
 			resolveDatevDelivery(input, {
@@ -246,27 +254,29 @@ const protokolle = {
 				request: requestAuditContext(context),
 			}),
 		),
-	list: authed
+	list: permitted("finance.read")
 		.input(v.object({ includeStorniert: v.optional(v.boolean(), false) }))
 		.handler(({ input }) =>
 			listProtokolle({ includeStorniert: input.includeStorniert }),
 		),
 
-	get: authed.input(idInput).handler(async ({ input }) => {
-		const detail = await getProtokoll(input.id);
-		if (!detail)
-			throw new ORPCError("NOT_FOUND", { message: "Nicht gefunden" });
-		return detail;
-	}),
+	get: permitted("finance.read")
+		.input(idInput)
+		.handler(async ({ input }) => {
+			const detail = await getProtokoll(input.id);
+			if (!detail)
+				throw new ORPCError("NOT_FOUND", { message: "Nicht gefunden" });
+			return detail;
+		}),
 
-	nextBelegnummer: authed.handler(async () => ({
+	nextBelegnummer: permitted("finance.read").handler(async () => ({
 		belegnummer: await previewNextBelegnummer(),
 	})),
 
 	// Kartenumsätze je Tag aus SumUp für einen Zeitraum, samt Hinweis, welche
 	// Tage schon in einem Protokoll stecken. Reiner Lesezugriff; was davon in
 	// das Protokoll wandert, entscheidet der Erfasser im Dialog.
-	sumupDays: authed
+	sumupDays: permitted("finance.read")
 		.input(SumupDaysSchema)
 		.handler(async ({ input, context }) => {
 			try {
@@ -303,7 +313,7 @@ const protokolle = {
 			}
 		}),
 
-	create: authed
+	create: permitted("protocols.create", "finance.read")
 		.input(CreateProtokollSchema)
 		.handler(async ({ input, context }) => {
 			try {
@@ -349,7 +359,7 @@ const protokolle = {
 	// The Umsatzbereich is a reporting classification, not part of the signed
 	// document, so it can be corrected without a storno. Admin-only and with a
 	// reason, like every other change to a booked record.
-	reclassify: adminOnly
+	reclassify: permitted("protocols.reclassify", "finance.read")
 		.input(ProtokollReclassifySchema)
 		.handler(({ input, context }) =>
 			reclassifyProtokolle(input, context.user, {
@@ -359,7 +369,7 @@ const protokolle = {
 
 	// Admin-only, like every other destructive accounting operation and like the
 	// MCP layer already classified it.
-	storno: adminOnly
+	storno: permitted("protocols.cancel", "finance.read")
 		.input(
 			v.object({
 				id: v.pipe(v.string(), v.minLength(1)),
@@ -389,7 +399,7 @@ const protokolle = {
 
 	// Regeneration remains admin-only and retains previously published documents
 	// so historical database recovery points still reference available evidence.
-	regeneratePdf: adminOnly
+	regeneratePdf: permitted("documents.regenerate", "finance.read")
 		.input(idInput)
 		.handler(async ({ input, context }) => {
 			try {
@@ -421,8 +431,8 @@ const protokolle = {
 // ---- Settings ------------------------------------------------------------
 
 const settings = {
-	getDatev: adminOnly.handler(() => getDatevSettings()),
-	updateDatev: adminOnly
+	getDatev: permitted("integrations.manage").handler(() => getDatevSettings()),
+	updateDatev: permitted("integrations.manage")
 		.input(DatevSettingsSchema)
 		.handler(({ input, context }) =>
 			updateDatevSettings(input, {
@@ -430,7 +440,7 @@ const settings = {
 				request: requestAuditContext(context),
 			}),
 		),
-	getMcp: adminOnly.handler(() => getMcpStatus()),
+	getMcp: permitted("integrations.manage").handler(() => getMcpStatus()),
 
 	getBelegnummer: authed.handler(async () => ({
 		settings: await getBelegnummerSettings(),
@@ -438,7 +448,7 @@ const settings = {
 		updated_at: await getSettingsStamp("belegnummer_updated_at"),
 	})),
 
-	updateBelegnummer: adminOnly
+	updateBelegnummer: permitted("settings.manage")
 		.input(BelegnummerSettingsSchema)
 		.handler(async ({ input, context }) => {
 			const updated = await updateBelegnummerSettings(
@@ -481,7 +491,7 @@ const settings = {
 		updated_at: await getSettingsStamp("umsatz_ust_updated_at"),
 	})),
 
-	updateUmsatzUstBasis: adminOnly
+	updateUmsatzUstBasis: permitted("settings.manage")
 		.input(UmsatzUstBasisSettingsSchema)
 		.handler(async ({ input, context }) => {
 			const umsatz_ust_basis = await updateUmsatzUstBasisDefault(
@@ -511,7 +521,7 @@ const settings = {
 		updated_at: await getSettingsStamp("helferstunde_wert_updated_at"),
 	})),
 
-	updateHelperHourValue: adminOnly
+	updateHelperHourValue: permitted("settings.manage")
 		.input(HelperHourValueSchema)
 		.handler(async ({ input, context }) => ({
 			wert_cent: await updateHelperHourValueCent(
@@ -538,7 +548,7 @@ const settings = {
 		updated_at: await getSettingsStamp("verein_updated_at"),
 	})),
 
-	updateVerein: adminOnly
+	updateVerein: permitted("settings.manage")
 		.input(VereinSettingsSchema)
 		.handler(async ({ input, context }) => {
 			const result = await updateVereinStammdaten(
@@ -567,9 +577,9 @@ const settings = {
 			};
 		}),
 
-	getEmail: adminOnly.handler(() => getEmailSettings()),
+	getEmail: permitted("integrations.manage").handler(() => getEmailSettings()),
 
-	updateEmail: adminOnly
+	updateEmail: permitted("integrations.manage")
 		.input(EmailSettingsSchema)
 		.handler(async ({ input, context }) => {
 			try {
@@ -613,14 +623,14 @@ const settings = {
 			}
 		}),
 
-	getSumup: adminOnly.handler(() => getSumupSettings()),
+	getSumup: permitted("integrations.manage").handler(() => getSumupSettings()),
 
 	// Für das Protokollformular: nur ob der Abruf angeboten wird, kein Detail.
 	getSumupActive: authed.handler(async () => ({
 		active: await isSumupActive(),
 	})),
 
-	updateSumup: adminOnly
+	updateSumup: permitted("integrations.manage")
 		.input(SumupSettingsSchema)
 		.handler(async ({ input, context }) => {
 			try {
@@ -651,34 +661,36 @@ const settings = {
 			}
 		}),
 
-	testSumup: adminOnly.handler(async ({ context }) => {
-		try {
-			const heute = todayIsoDate();
-			const result = await fetchSumupDays(heute, heute);
-			const tag = result.tage[0];
-			await recordAuditEvent({
-				category: "settings",
-				action: "settings.sumup_tested",
-				actor: context.user,
-				subject: { type: "settings", id: "sumup", label: "SumUp" },
-				request: requestAuditContext(context),
-				metadata: { anzahl: tag?.anzahl ?? 0 },
-			});
-			return {
-				ok: true as const,
-				merchant_name: result.merchant_name,
-				anzahl: tag?.anzahl ?? 0,
-				kartenzahlung_cent: tag?.kartenzahlung_cent ?? 0,
-			};
-		} catch (e) {
-			if (e instanceof SumupError) {
-				throw new ORPCError("BAD_REQUEST", { message: e.message });
+	testSumup: permitted("integrations.manage", "finance.read").handler(
+		async ({ context }) => {
+			try {
+				const heute = todayIsoDate();
+				const result = await fetchSumupDays(heute, heute);
+				const tag = result.tage[0];
+				await recordAuditEvent({
+					category: "settings",
+					action: "settings.sumup_tested",
+					actor: context.user,
+					subject: { type: "settings", id: "sumup", label: "SumUp" },
+					request: requestAuditContext(context),
+					metadata: { anzahl: tag?.anzahl ?? 0 },
+				});
+				return {
+					ok: true as const,
+					merchant_name: result.merchant_name,
+					anzahl: tag?.anzahl ?? 0,
+					kartenzahlung_cent: tag?.kartenzahlung_cent ?? 0,
+				};
+			} catch (e) {
+				if (e instanceof SumupError) {
+					throw new ORPCError("BAD_REQUEST", { message: e.message });
+				}
+				throw e;
 			}
-			throw e;
-		}
-	}),
+		},
+	),
 
-	testEmail: adminOnly
+	testEmail: permitted("integrations.manage")
 		.input(TestEmailSchema)
 		.handler(async ({ input, context }) => {
 			try {
@@ -706,9 +718,11 @@ const settings = {
 // ---- Cash registers ------------------------------------------------------
 
 const registers = {
-	list: authed.handler(() => listCashRegisters()),
+	list: permittedAny("finance.read", "registers.manage").handler(() =>
+		listCashRegisters(),
+	),
 
-	create: adminOnly
+	create: permitted("registers.manage")
 		.input(CashRegisterSchema)
 		.handler(async ({ input, context }) => {
 			try {
@@ -729,7 +743,7 @@ const registers = {
 			}
 		}),
 
-	update: adminOnly
+	update: permitted("registers.manage")
 		.input(
 			v.object({
 				id: v.pipe(v.string(), v.minLength(1)),
@@ -767,25 +781,29 @@ const registers = {
 			}
 		}),
 
-	remove: adminOnly.input(idInput).handler(async ({ input, context }) => {
-		const register = await deleteCashRegister(input.id, {
-			category: "kassen",
-			action: "kassen.deleted",
-			actor: context.user,
-			request: requestAuditContext(context),
-		});
-		if (!register)
-			throw new ORPCError("NOT_FOUND", { message: "Kasse nicht gefunden" });
-		return { ok: true };
-	}),
+	remove: permitted("registers.manage")
+		.input(idInput)
+		.handler(async ({ input, context }) => {
+			const register = await deleteCashRegister(input.id, {
+				category: "kassen",
+				action: "kassen.deleted",
+				actor: context.user,
+				request: requestAuditContext(context),
+			});
+			if (!register)
+				throw new ORPCError("NOT_FOUND", { message: "Kasse nicht gefunden" });
+			return { ok: true };
+		}),
 };
 
 // ---- Anlass catalog ------------------------------------------------------
 
 const anlassKatalog = {
-	list: authed.handler(() => listKatalog()),
+	list: permittedAny("finance.read", "occasions.manage").handler(() =>
+		listKatalog(),
+	),
 
-	create: adminOnly
+	create: permitted("occasions.manage")
 		.input(AnlassKatalogSchema)
 		.handler(async ({ input, context }) => {
 			try {
@@ -806,7 +824,7 @@ const anlassKatalog = {
 			}
 		}),
 
-	bulkAssign: adminOnly
+	bulkAssign: permitted("occasions.manage", "finance.read")
 		.input(AnlassKatalogBulkAssignSchema)
 		.handler(async ({ input, context }) => {
 			try {
@@ -844,7 +862,7 @@ const anlassKatalog = {
 			}
 		}),
 
-	update: adminOnly
+	update: permitted("occasions.manage")
 		.input(
 			v.object({
 				id: v.pipe(v.string(), v.minLength(1)),
@@ -888,24 +906,26 @@ const anlassKatalog = {
 			}
 		}),
 
-	remove: adminOnly.input(idInput).handler(async ({ input, context }) => {
-		const result = await deleteKatalog(input.id, {
-			category: "anlass",
-			action: "anlass.deleted",
-			actor: context.user,
-			request: requestAuditContext(context),
-		});
-		if (result.status === "referenced") {
-			throw new ORPCError("CONFLICT", {
-				message: `Umsatzgruppe ist ${result.references} Belegen zugeordnet. Bitte stattdessen deaktivieren.`,
+	remove: permitted("occasions.manage")
+		.input(idInput)
+		.handler(async ({ input, context }) => {
+			const result = await deleteKatalog(input.id, {
+				category: "anlass",
+				action: "anlass.deleted",
+				actor: context.user,
+				request: requestAuditContext(context),
 			});
-		}
-		if (result.status === "not_found")
-			throw new ORPCError("NOT_FOUND", {
-				message: "Umsatzgruppe nicht gefunden",
-			});
-		return { ok: true };
-	}),
+			if (result.status === "referenced") {
+				throw new ORPCError("CONFLICT", {
+					message: `Umsatzgruppe ist ${result.references} Belegen zugeordnet. Bitte stattdessen deaktivieren.`,
+				});
+			}
+			if (result.status === "not_found")
+				throw new ORPCError("NOT_FOUND", {
+					message: "Umsatzgruppe nicht gefunden",
+				});
+			return { ok: true };
+		}),
 };
 
 // ---- Invites & users -----------------------------------------------------
@@ -918,11 +938,15 @@ const invites = {
 		.handler(({ input, context }) =>
 			requestInvitePasswordReset(input.token, context.headers),
 		),
-	list: adminOnly.handler(() => listInvites()),
+	list: permitted("users.manage").handler(() => listInvites()),
 
-	create: adminOnly
+	create: permitted("users.manage")
 		.input(InviteCreateSchema)
 		.handler(async ({ input, context }) => {
+			if (input.role !== "user" && !hasPermission(context.user, "roles.manage"))
+				throw new ORPCError("FORBIDDEN", {
+					message: "Für die Zuweisung dieser Rolle besteht keine Berechtigung",
+				});
 			try {
 				const invite = await createInvite({
 					email: input.email,
@@ -948,18 +972,20 @@ const invites = {
 			}
 		}),
 
-	revoke: adminOnly.input(idInput).handler(async ({ input, context }) => {
-		const invite = await revokeInvite(input.id, {
-			actor: context.user,
-			request: requestAuditContext(context),
-		});
-		if (!invite) {
-			throw new ORPCError("NOT_FOUND", {
-				message: "Einladung nicht gefunden oder bereits angenommen",
+	revoke: permitted("users.manage")
+		.input(idInput)
+		.handler(async ({ input, context }) => {
+			const invite = await revokeInvite(input.id, {
+				actor: context.user,
+				request: requestAuditContext(context),
 			});
-		}
-		return { ok: true };
-	}),
+			if (!invite) {
+				throw new ORPCError("NOT_FOUND", {
+					message: "Einladung nicht gefunden oder bereits angenommen",
+				});
+			}
+			return { ok: true };
+		}),
 
 	getByToken: pub
 		.input(v.object({ token: v.pipe(v.string(), v.minLength(1)) }))
@@ -991,12 +1017,12 @@ const invites = {
 };
 
 const users = {
-	list: adminOnly.handler(() => listTenantUsers()),
-	setRole: adminOnly
+	list: permitted("users.manage").handler(() => listTenantUsers()),
+	setRole: permitted("roles.manage")
 		.input(
 			v.object({
 				id: v.pipe(v.string(), v.minLength(1)),
-				role: v.picklist(["user", "admin"]),
+				role: v.picklist(CLUB_ROLES),
 			}),
 		)
 		.handler(({ input, context }) =>
@@ -1007,7 +1033,7 @@ const users = {
 				requestAuditContext(context),
 			),
 		),
-	setBanned: adminOnly
+	setBanned: permitted("users.manage")
 		.input(
 			v.object({ id: v.pipe(v.string(), v.minLength(1)), banned: v.boolean() }),
 		)
@@ -1021,7 +1047,7 @@ const users = {
 		),
 
 	// Admin override of another account's notification preference.
-	setNotify: adminOnly
+	setNotify: permitted("users.manage")
 		.input(
 			v.object({
 				id: v.pipe(v.string(), v.minLength(1)),
@@ -1068,22 +1094,24 @@ const profile = {
 // ---- Historical revenue -------------------------------------------------
 
 const historicalRevenue = {
-	list: authed.handler(() => listHistoricalRevenues()),
-	page: authed
+	list: permitted("finance.read").handler(() => listHistoricalRevenues()),
+	page: permitted("finance.read")
 		.input(HistoricalRevenuePageSchema)
 		.handler(({ input }) => listHistoricalRevenuePage(input)),
-	get: authed.input(HistoricalRevenueGetSchema).handler(async ({ input }) => {
-		try {
-			return await getHistoricalRevenueDetails(input.id);
-		} catch (error) {
-			if (error instanceof HistoricalRevenueNotFoundError) {
-				throw new ORPCError("NOT_FOUND", { message: error.message });
+	get: permitted("finance.read")
+		.input(HistoricalRevenueGetSchema)
+		.handler(async ({ input }) => {
+			try {
+				return await getHistoricalRevenueDetails(input.id);
+			} catch (error) {
+				if (error instanceof HistoricalRevenueNotFoundError) {
+					throw new ORPCError("NOT_FOUND", { message: error.message });
+				}
+				throw error;
 			}
-			throw error;
-		}
-	}),
+		}),
 
-	create: adminOnly
+	create: permitted("revenues.manage", "finance.read")
 		.input(HistoricalRevenueCreateSchema)
 		.handler(async ({ input, context }) => {
 			try {
@@ -1105,7 +1133,7 @@ const historicalRevenue = {
 			}
 		}),
 
-	cancel: adminOnly
+	cancel: permitted("revenues.manage", "finance.read")
 		.input(HistoricalRevenueCancelSchema)
 		.handler(async ({ input, context }) => {
 			try {
@@ -1127,7 +1155,7 @@ const historicalRevenue = {
 			}
 		}),
 
-	correct: adminOnly
+	correct: permitted("revenues.manage", "finance.read")
 		.input(HistoricalRevenueCorrectSchema)
 		.handler(async ({ input, context }) => {
 			try {
@@ -1169,13 +1197,13 @@ function throwHistoricalProtocolDraftError(error: unknown): never {
 }
 
 const historicalProtocolImport = {
-	list: adminOnly
+	list: permitted("imports.manage", "finance.read", "helpers.read")
 		.input(HistoricalProtocolDraftListSchema)
 		.handler(({ input }) =>
 			listHistoricalProtocolImportDrafts(input.include_archived),
 		),
 
-	summary: adminOnly
+	summary: permitted("imports.manage", "finance.read", "helpers.read")
 		.input(HistoricalProtocolDraftGetSchema)
 		.handler(async ({ input }) => {
 			try {
@@ -1185,7 +1213,7 @@ const historicalProtocolImport = {
 			}
 		}),
 
-	analyze: adminOnly
+	analyze: permitted("imports.manage", "finance.read", "helpers.read")
 		.input(HistoricalProtocolDraftAnalyzeSchema)
 		.handler(async ({ input }) => {
 			try {
@@ -1195,7 +1223,7 @@ const historicalProtocolImport = {
 			}
 		}),
 
-	queryItems: adminOnly
+	queryItems: permitted("imports.manage", "finance.read", "helpers.read")
 		.input(HistoricalProtocolDraftQuerySchema)
 		.handler(async ({ input }) => {
 			try {
@@ -1205,7 +1233,7 @@ const historicalProtocolImport = {
 			}
 		}),
 
-	get: adminOnly
+	get: permitted("imports.manage", "finance.read", "helpers.read")
 		.input(HistoricalProtocolDraftGetSchema)
 		.handler(async ({ input }) => {
 			try {
@@ -1215,7 +1243,7 @@ const historicalProtocolImport = {
 			}
 		}),
 
-	updateItem: adminOnly
+	updateItem: permitted("imports.manage", "finance.read", "helpers.read")
 		.input(HistoricalProtocolDraftUpdateItemSchema)
 		.handler(async ({ input, context }) => {
 			try {
@@ -1229,7 +1257,7 @@ const historicalProtocolImport = {
 			}
 		}),
 
-	bulkUpdate: adminOnly
+	bulkUpdate: permitted("imports.manage", "finance.read", "helpers.read")
 		.input(HistoricalProtocolDraftBulkUpdateSchema)
 		.handler(async ({ input, context }) => {
 			try {
@@ -1243,15 +1271,15 @@ const historicalProtocolImport = {
 			}
 		}),
 
-	validate: adminOnly
+	validate: permitted("imports.manage", "finance.read", "helpers.read")
 		.input(HistoricalProtocolDraftGetSchema)
 		.handler(({ input }) => validateHistoricalProtocolImportDraft(input.id)),
 
-	planReviewPhase: adminOnly
+	planReviewPhase: permitted("imports.manage", "finance.read", "helpers.read")
 		.input(HistoricalProtocolReviewPhasePlanSchema)
 		.handler(({ input }) => planHistoricalProtocolReviewPhase(input)),
 
-	createReviewPhase: adminOnly
+	createReviewPhase: permitted("imports.manage", "finance.read", "helpers.read")
 		.input(HistoricalProtocolReviewPhaseCreateSchema)
 		.handler(async ({ input, context }) => {
 			try {
@@ -1263,19 +1291,23 @@ const historicalProtocolImport = {
 			}
 		}),
 
-	listReviewPhases: adminOnly
+	listReviewPhases: permitted("imports.manage", "finance.read", "helpers.read")
 		.input(HistoricalProtocolReviewPhaseListSchema)
 		.handler(({ input }) => listHistoricalProtocolReviewPhases(input.draft_id)),
 
-	queryReviewPhaseItems: adminOnly
+	queryReviewPhaseItems: permitted(
+		"imports.manage",
+		"finance.read",
+		"helpers.read",
+	)
 		.input(HistoricalProtocolReviewPhaseQuerySchema)
 		.handler(({ input }) => queryHistoricalProtocolReviewPhaseItems(input)),
 
-	planReviewUpdate: adminOnly
+	planReviewUpdate: permitted("imports.manage", "finance.read", "helpers.read")
 		.input(HistoricalProtocolReviewUpdatePlanSchema)
 		.handler(({ input }) => planHistoricalProtocolReviewUpdate(input)),
 
-	applyReviewUpdate: adminOnly
+	applyReviewUpdate: permitted("imports.manage", "finance.read", "helpers.read")
 		.input(HistoricalProtocolReviewUpdateApplySchema)
 		.handler(async ({ input, context }) => {
 			try {
@@ -1287,7 +1319,11 @@ const historicalProtocolImport = {
 			}
 		}),
 
-	completeReviewPhase: adminOnly
+	completeReviewPhase: permitted(
+		"imports.manage",
+		"finance.read",
+		"helpers.read",
+	)
 		.input(HistoricalProtocolReviewPhaseTransitionSchema)
 		.handler(async ({ input, context }) => {
 			try {
@@ -1303,7 +1339,7 @@ const historicalProtocolImport = {
 			}
 		}),
 
-	reopenReviewPhase: adminOnly
+	reopenReviewPhase: permitted("imports.manage", "finance.read", "helpers.read")
 		.input(HistoricalProtocolReviewPhaseTransitionSchema)
 		.handler(async ({ input, context }) => {
 			try {
@@ -1315,7 +1351,7 @@ const historicalProtocolImport = {
 			}
 		}),
 
-	markReady: adminOnly
+	markReady: permitted("imports.manage", "finance.read", "helpers.read")
 		.input(HistoricalProtocolDraftTransitionSchema)
 		.handler(async ({ input, context }) => {
 			try {
@@ -1330,7 +1366,7 @@ const historicalProtocolImport = {
 			}
 		}),
 
-	reopen: adminOnly
+	reopen: permitted("imports.manage", "finance.read", "helpers.read")
 		.input(HistoricalProtocolDraftTransitionSchema)
 		.handler(async ({ input, context }) => {
 			try {
@@ -1345,7 +1381,7 @@ const historicalProtocolImport = {
 			}
 		}),
 
-	archive: adminOnly
+	archive: permitted("imports.manage", "finance.read", "helpers.read")
 		.input(HistoricalProtocolDraftTransitionSchema)
 		.handler(async ({ input, context }) => {
 			try {
@@ -1360,7 +1396,7 @@ const historicalProtocolImport = {
 			}
 		}),
 
-	restore: adminOnly
+	restore: permitted("imports.manage", "finance.read", "helpers.read")
 		.input(HistoricalProtocolDraftTransitionSchema)
 		.handler(async ({ input, context }) => {
 			try {
@@ -1375,7 +1411,7 @@ const historicalProtocolImport = {
 			}
 		}),
 
-	apply: adminOnly
+	apply: permitted("imports.manage", "finance.read", "helpers.read")
 		.input(HistoricalProtocolDraftTransitionSchema)
 		.handler(async ({ input, context }) => {
 			try {
@@ -1394,140 +1430,146 @@ const historicalProtocolImport = {
 // ---- Reports -------------------------------------------------------------
 
 const reports = {
-	vat: authed
+	vat: permitted("finance.read")
 		.input(ExportQuerySchema)
 		.handler(({ input }) => vatSummary(input.von, input.bis)),
 };
 
 const helperHours = {
-	list: authed
+	list: permitted("helpers.read")
 		.input(HelperHourListSchema)
 		.handler(({ input }) => listHelperHours(input.jahr)),
-	entries: authed
+	entries: permitted("helpers.read")
 		.input(HelperHourEntriesSchema)
 		.handler(({ input }) => listHelperHourEntries(input)),
-	create: authed.input(HelperHourCreateSchema).handler(({ input, context }) =>
-		createHelperHour(input, context.user, {
-			request: requestAuditContext(context),
-		}),
-	),
-	createExpense: adminOnly
+	create: permitted("helpers.write", "helpers.read")
+		.input(HelperHourCreateSchema)
+		.handler(({ input, context }) =>
+			createHelperHour(input, context.user, {
+				request: requestAuditContext(context),
+			}),
+		),
+	createExpense: permitted("helpers.manage", "helpers.read")
 		.input(HelperHourExpenseCreateSchema)
 		.handler(({ input, context }) =>
 			createHelperHourExpense(input, context.user, {
 				request: requestAuditContext(context),
 			}),
 		),
-	cancelExpense: adminOnly
+	cancelExpense: permitted("helpers.manage", "helpers.read")
 		.input(HelperHourExpenseCancelSchema)
 		.handler(({ input, context }) =>
 			cancelHelperHourExpense(input.id, input.grund, context.user, {
 				request: requestAuditContext(context),
 			}),
 		),
-	categories: authed.handler(() => listHelperHourCategoriesWithUsage()),
-	createCategory: adminOnly
+	categories: permitted("helpers.read").handler(() =>
+		listHelperHourCategoriesWithUsage(),
+	),
+	createCategory: permitted("helpers.manage", "helpers.read")
 		.input(HelperHourCategoryCreateSchema)
 		.handler(({ input, context }) =>
 			createHelperHourCategory(input, context.user, {
 				request: requestAuditContext(context),
 			}),
 		),
-	updateCategory: adminOnly
+	updateCategory: permitted("helpers.manage", "helpers.read")
 		.input(HelperHourCategoryUpdateSchema)
 		.handler(({ input, context }) =>
 			updateHelperHourCategory(input, context.user, {
 				request: requestAuditContext(context),
 			}),
 		),
-	deleteCategory: adminOnly
+	deleteCategory: permitted("helpers.manage", "helpers.read")
 		.input(HelperHourCategoryDeleteSchema)
 		.handler(({ input, context }) =>
 			deleteHelperHourCategory(input.id, context.user, {
 				request: requestAuditContext(context),
 			}),
 		),
-	nameVariants: authed.handler(() => listHelperHourNameVariants()),
-	catalog: authed.handler(() => listHelperHourCatalog()),
-	createPerson: adminOnly
+	nameVariants: permitted("helpers.read").handler(() =>
+		listHelperHourNameVariants(),
+	),
+	catalog: permitted("helpers.read").handler(() => listHelperHourCatalog()),
+	createPerson: permitted("helpers.manage", "helpers.read")
 		.input(HelperHourPersonSchema)
 		.handler(({ input, context }) =>
 			createHelperHourPerson(input, context.user, {
 				request: requestAuditContext(context),
 			}),
 		),
-	updatePerson: adminOnly
+	updatePerson: permitted("helpers.manage", "helpers.read")
 		.input(HelperHourPersonUpdateSchema)
 		.handler(({ input, context }) =>
 			updateHelperHourPerson(input, context.user, {
 				request: requestAuditContext(context),
 			}),
 		),
-	mergePersons: adminOnly
+	mergePersons: permitted("helpers.manage", "helpers.read")
 		.input(HelperHourPersonMergeSchema)
 		.handler(({ input, context }) =>
 			mergeHelperHourPersons(input, context.user, {
 				request: requestAuditContext(context),
 			}),
 		),
-	createEvent: adminOnly
+	createEvent: permitted("helpers.manage", "helpers.read")
 		.input(HelperHourEventSchema)
 		.handler(({ input, context }) =>
 			createHelperHourEvent(input, context.user, {
 				request: requestAuditContext(context),
 			}),
 		),
-	updateEvent: adminOnly
+	updateEvent: permitted("helpers.manage", "helpers.read")
 		.input(HelperHourEventUpdateSchema)
 		.handler(({ input, context }) =>
 			updateHelperHourEvent(input, context.user, {
 				request: requestAuditContext(context),
 			}),
 		),
-	mergeEvents: adminOnly
+	mergeEvents: permitted("helpers.manage", "helpers.read")
 		.input(HelperHourEventMergeSchema)
 		.handler(({ input, context }) =>
 			mergeHelperHourEvents(input, context.user, {
 				request: requestAuditContext(context),
 			}),
 		),
-	createAlias: adminOnly
+	createAlias: permitted("helpers.manage", "helpers.read")
 		.input(HelperHourAliasCreateSchema)
 		.handler(({ input, context }) =>
 			createHelperHourAlias(input, context.user, {
 				request: requestAuditContext(context),
 			}),
 		),
-	deleteAlias: adminOnly
+	deleteAlias: permitted("helpers.manage", "helpers.read")
 		.input(HelperHourAliasDeleteSchema)
 		.handler(({ input, context }) =>
 			deleteHelperHourAlias(input.id, context.user, {
 				request: requestAuditContext(context),
 			}),
 		),
-	noteRules: authed.handler(() => listHelperHourNoteRules()),
-	createNoteRule: adminOnly
+	noteRules: permitted("helpers.read").handler(() => listHelperHourNoteRules()),
+	createNoteRule: permitted("helpers.manage", "helpers.read")
 		.input(HelperHourNoteRuleCreateSchema)
 		.handler(({ input, context }) =>
 			createHelperHourNoteRule(input, context.user, {
 				request: requestAuditContext(context),
 			}),
 		),
-	deleteNoteRule: adminOnly
+	deleteNoteRule: permitted("helpers.manage", "helpers.read")
 		.input(HelperHourNoteRuleDeleteSchema)
 		.handler(({ input, context }) =>
 			deleteHelperHourNoteRule(input.id, context.user, {
 				request: requestAuditContext(context),
 			}),
 		),
-	correctEntry: adminOnly
+	correctEntry: permitted("helpers.manage", "helpers.read")
 		.input(HelperHourEntryCorrectSchema)
 		.handler(({ input, context }) =>
 			correctHelperHourEntry(input, context.user, {
 				request: requestAuditContext(context),
 			}),
 		),
-	deleteEntry: adminOnly
+	deleteEntry: permitted("helpers.manage", "helpers.read")
 		.input(HelperHourEntryDeleteSchema)
 		.handler(({ input, context }) =>
 			deleteHelperHourEntry(input.id, input.grund, context.user, {
@@ -1539,7 +1581,7 @@ const helperHours = {
 // ---- Audit log ----------------------------------------------------------
 
 const audit = {
-	list: adminOnly
+	list: permitted("audit.read", "finance.read")
 		.input(
 			v.object({
 				page: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1)), 1),
@@ -1567,6 +1609,16 @@ const health = pub.handler(async () => {
 });
 
 export const router = {
+	roles: {
+		get: permitted("roles.manage").handler(() =>
+			getRolePolicyForCurrentTenant(),
+		),
+		update: permitted("roles.manage")
+			.input(RolePolicyUpdateSchema)
+			.handler(({ input, context }) =>
+				updateRolePolicy(input, context.user, requestAuditContext(context)),
+			),
+	},
 	recovery: {
 		request: pub
 			.input(v.object({ email: v.pipe(v.string(), v.maxLength(320)) }))

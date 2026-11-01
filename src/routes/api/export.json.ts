@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import * as v from "valibot";
 import { secureDownloadHeaders } from "@/lib/download-headers";
+import { hasEveryPermission } from "@/lib/permissions";
 import { ExportQuerySchema } from "@/lib/schemas";
 import {
 	auditActor,
@@ -21,9 +22,16 @@ export const Route = createFileRoute("/api/export/json")({
 							{ status: 401 },
 						);
 					}
-					if (session.user.role !== "admin") {
+					if (
+						!hasEveryPermission(
+							session.user,
+							"exports.archive",
+							"finance.read",
+							"helpers.read",
+						)
+					) {
 						return Response.json(
-							{ error: "Adminrechte erforderlich" },
+							{ error: "Für diese Funktion besteht keine Berechtigung" },
 							{ status: 403 },
 						);
 					}

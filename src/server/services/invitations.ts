@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { ORPCError } from "@orpc/server";
 import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
+import type { ClubRole } from "@/lib/permissions";
 import { auth } from "@/server/auth";
 import { db, globalDb } from "@/server/db";
 import {
@@ -9,12 +10,22 @@ import {
 } from "@/server/db/auth-schema";
 import { invitations } from "@/server/db/schema";
 import { memberships, tenants } from "@/server/db/tenant-schema";
+import { platformAdminEmailAllowed } from "@/server/operator-host";
 import {
 	type RecordAuditInput,
 	recordAuditEventStrict,
 } from "@/server/services/audit";
-import { requireTenant, withTenant } from "@/server/tenant-context";
 import {
+	requireTenant,
+	SVU_TENANT_ID,
+	withTenant,
+} from "@/server/tenant-context";
+import {
+	assertCanDelegateRoleInTransaction,
+	assertTenantPermissionsInTransaction,
+} from "./role-policy";
+import {
+	assertPlatformAdminInTransaction,
 	type GlobalTransaction,
 	resolveHostTenant,
 	TenantAccessError,
@@ -60,7 +71,7 @@ export async function listInvites(): Promise<Invite[]> {
 
 export type CreateInviteOptions = {
 	email: string;
-	role: "user" | "admin";
+	role: ClubRole;
 	invitedBy: string | null;
 	audit: Omit<RecordAuditInput, "category" | "action" | "subject">;
 };
@@ -69,9 +80,34 @@ export async function createInvite(
 	opts: CreateInviteOptions,
 ): Promise<InviteWithLink> {
 	const tenant = requireTenant();
-	return globalDb.transaction((tx) =>
-		createInviteInTransaction(tx, tenant.id, opts),
-	);
+	return globalDb.transaction(async (tx) => {
+		await tx.execute(
+			sql`select pg_advisory_xact_lock(hashtextextended(${`rendant:tenant-admin:${tenant.id}`}, 0))`,
+		);
+		if (!opts.audit.actor) throw new TenantAccessError();
+		await assertTenantPermissionsInTransaction(
+			tx,
+			tenant.id,
+			opts.audit.actor.id,
+			"users.manage",
+			...(opts.role === "user" ? [] : ["roles.manage" as const]),
+		);
+		await assertCanDelegateRoleInTransaction(
+			tx,
+			tenant.id,
+			opts.audit.actor.id,
+			opts.role,
+			"users.manage",
+		);
+		if (
+			tenant.id === SVU_TENANT_ID &&
+			opts.role === "admin" &&
+			platformAdminEmailAllowed(opts.email)
+		) {
+			await assertPlatformAdminInTransaction(tx, opts.audit.actor.id);
+		}
+		return createInviteInTransaction(tx, tenant.id, opts);
+	});
 }
 
 export async function createInviteInTransaction(
@@ -318,7 +354,7 @@ export async function acceptInvite(opts: {
 					.values({
 						tenant_id: tenant.id,
 						user_id: userId,
-						role: inviteRow.role === "admin" ? "admin" : "user",
+						role: inviteRow.role,
 					})
 					.onConflictDoNothing({
 						target: [memberships.tenant_id, memberships.user_id],

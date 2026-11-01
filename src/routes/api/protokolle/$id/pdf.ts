@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { secureDownloadHeaders } from "@/lib/download-headers";
+import { hasEveryPermission } from "@/lib/permissions";
 import {
 	auditActor,
 	auditRequest,
@@ -18,6 +19,12 @@ export const Route = createFileRoute("/api/protokolle/$id/pdf")({
 						return Response.json(
 							{ error: "Nicht angemeldet" },
 							{ status: 401 },
+						);
+					}
+					if (!hasEveryPermission(session.user, "finance.read")) {
+						return Response.json(
+							{ error: "Für diese Funktion besteht keine Berechtigung" },
+							{ status: 403 },
 						);
 					}
 					const detail = await getProtokoll(params.id);

@@ -1,6 +1,10 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+vi.mock("@/server/services/role-policy", async () => {
+	const { DEFAULT_ROLE_PERMISSIONS } = await import("@/lib/permissions");
+	return { getTenantRolePermissions: async (_tenant: string, role: "user" | "admin") => DEFAULT_ROLE_PERMISSIONS[role] };
+});
 import { authenticateMcpRequest, getMcpStatus, type McpAuthContext } from "@/server/mcp/auth";
 import { buildMcpServer, handleMcpRequest } from "@/server/mcp/server";
 

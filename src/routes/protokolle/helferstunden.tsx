@@ -2,8 +2,12 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { HelperHoursPage } from "@/components/helper-hours-page";
 import { PageHeader } from "@/components/page-header";
 import { currentYearBerlin } from "@/lib/date";
+import { hasPermission } from "@/lib/permissions";
+import { requireClubPermission } from "@/lib/route-permissions";
 
 export const Route = createFileRoute("/protokolle/helferstunden")({
+	beforeLoad: ({ context }) =>
+		requireClubPermission(context.user, "helpers.read"),
 	validateSearch: (
 		search: Record<string, unknown>,
 	): { jahr?: number | "alle" } => {
@@ -39,7 +43,10 @@ function Page() {
 				description="Helfereinsätze schnell erfassen, nachvollziehen und aus der bisherigen Excel-Liste übernehmen."
 			/>
 			<HelperHoursPage
-				isAdmin={user.role === "admin"}
+				isAdmin={hasPermission(user, "helpers.manage")}
+				canWrite={hasPermission(user, "helpers.write")}
+				canImport={hasPermission(user, "imports.manage")}
+				canExport={hasPermission(user, "exports.download")}
 				year={selectedYear}
 				onYearChange={(year) =>
 					void navigate({ search: { jahr: year ?? "alle" } })

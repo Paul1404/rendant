@@ -30,6 +30,12 @@ import { authClient } from "@/lib/auth-client";
 import { formatDateDe } from "@/lib/date";
 import { orpc, orpcClient } from "@/lib/orpc";
 import { orpcMessage } from "@/lib/orpc-error";
+import {
+	CLUB_ROLES,
+	type ClubRole,
+	isClubRole,
+	roleLabel,
+} from "@/lib/permissions";
 import type { OperatorUser } from "@/lib/server-fns";
 
 type TenantSummary = Awaited<
@@ -163,6 +169,9 @@ export function OperatorConsole({
 										<TableHead>Adresse</TableHead>
 										<TableHead>Mitglieder</TableHead>
 										<TableHead>Admins</TableHead>
+										<TableHead className="sticky right-0 z-10 border-l bg-background">
+											<span className="sr-only">Aktionen</span>
+										</TableHead>
 									</TableRow>
 								</TableHeader>
 								<TableBody>
@@ -205,6 +214,18 @@ export function OperatorConsole({
 											</TableCell>
 											<TableCell>{tenant.memberCount}</TableCell>
 											<TableCell>{tenant.adminCount}</TableCell>
+											<TableCell className="sticky right-0 z-10 border-l bg-background">
+												<Button
+													variant={
+														tenant.id === selected?.id ? "secondary" : "outline"
+													}
+													size="sm"
+													onClick={() => onSelect(tenant.id)}
+													aria-label={`${tenant.name} verwalten`}
+												>
+													Verwalten
+												</Button>
+											</TableCell>
 										</TableRow>
 									))}
 								</TableBody>
@@ -388,7 +409,11 @@ function ClubDetails({
 			<div className="flex items-start gap-2">
 				<Building2 className="mt-1 h-5 w-5 shrink-0 text-primary" />
 				<div>
-					<h2 id="operator-selected-club" className="font-heading text-xl">
+					<h2
+						id="operator-selected-club"
+						tabIndex={-1}
+						className="scroll-mt-24 font-heading text-xl outline-none"
+					>
 						{tenant.name}
 					</h2>
 					<p className="mt-1 font-mono text-xs text-muted-foreground">
@@ -414,7 +439,7 @@ function ClubDetails({
 					</DialogTrigger>
 					{tenant.adminCount === 0 && (
 						<p className="text-sm text-muted-foreground">
-							Für diesen Verein ist noch kein aktiver Admin eingerichtet.
+							Die technische Rolle Admin ist hier noch nicht vergeben.
 						</p>
 					)}
 					{pendingAdminCount > 0 && (
@@ -543,7 +568,7 @@ function ClubDetails({
 }
 
 type MemberAction =
-	| { kind: "role"; member: Member; role: "user" | "admin" }
+	| { kind: "role"; member: Member; role: ClubRole }
 	| { kind: "ban"; member: Member; banned: boolean };
 function MemberList({
 	members,
@@ -610,12 +635,17 @@ function MemberList({
 											setAction({
 												kind: "role",
 												member,
-												role: event.target.value === "admin" ? "admin" : "user",
+												role: isClubRole(event.target.value)
+													? event.target.value
+													: "user",
 											})
 										}
 									>
-										<option value="user">Benutzer</option>
-										<option value="admin">Admin</option>
+										{CLUB_ROLES.map((role) => (
+											<option key={role} value={role}>
+												{roleLabel(role)}
+											</option>
+										))}
 									</select>
 								</TableCell>
 								<TableCell>
@@ -662,7 +692,7 @@ function MemberList({
 				}
 				description={
 					action
-						? `${action.member.name}: ${action.kind === "role" ? `Rolle auf ${action.role === "admin" ? "Admin" : "Benutzer"} ändern.` : "Die Änderung gilt nur für diesen Verein."}`
+						? `${action.member.name}: ${action.kind === "role" ? `Rolle auf ${roleLabel(action.role)} ändern.` : "Die Änderung gilt nur für diesen Verein."}`
 						: ""
 				}
 				confirmLabel="Bestätigen"
@@ -714,7 +744,7 @@ export function OperatorInvitePanel({
 	const submitPending = useRef(false);
 	const queryClient = useQueryClient();
 	const [email, setEmail] = useState("");
-	const [role, setRole] = useState<"user" | "admin">("user");
+	const [role, setRole] = useState<ClubRole>("user");
 	const [sendEmail, setSendEmail] = useState(false);
 	const [createdInvite, setCreatedInvite] = useState<{
 		id: string;
@@ -815,12 +845,15 @@ export function OperatorInvitePanel({
 							className={selectClass}
 							value={role}
 							onChange={(event) =>
-								setRole(event.target.value === "admin" ? "admin" : "user")
+								isClubRole(event.target.value) && setRole(event.target.value)
 							}
 							disabled={create.isPending || !addressConfigured}
 						>
-							<option value="user">Benutzer</option>
-							<option value="admin">Admin</option>
+							{CLUB_ROLES.map((role) => (
+								<option key={role} value={role}>
+									{roleLabel(role)}
+								</option>
+							))}
 						</select>
 					)}
 				</div>
@@ -943,9 +976,7 @@ function InviteList({
 							{invites.map((invite) => (
 								<TableRow key={invite.id}>
 									<TableCell>{invite.email}</TableCell>
-									<TableCell>
-										{invite.role === "admin" ? "Admin" : "Benutzer"}
-									</TableCell>
+									<TableCell>{roleLabel(invite.role)}</TableCell>
 									<TableCell>
 										{invite.accepted_at
 											? "Angenommen"

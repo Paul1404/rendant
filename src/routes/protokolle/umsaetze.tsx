@@ -5,6 +5,8 @@ import { PageHeader } from "@/components/page-header";
 import { RevenueHighlights } from "@/components/revenue-highlights";
 import { SumupOpenDays } from "@/components/sumup-open-days";
 import { orpc, orpcClient } from "@/lib/orpc";
+import { hasPermission } from "@/lib/permissions";
+import { requireClubPermission } from "@/lib/route-permissions";
 
 const historicalQueryOptions = orpc.historicalRevenue.list.queryOptions({
 	refetchInterval: 15_000,
@@ -24,6 +26,8 @@ const anlassKatalogQueryOptions = orpc.anlassKatalog.list.queryOptions({
 });
 
 export const Route = createFileRoute("/protokolle/umsaetze")({
+	beforeLoad: ({ context }) =>
+		requireClubPermission(context.user, "finance.read"),
 	loader: async ({ context }) => {
 		const [, , , sumup] = await Promise.all([
 			context.queryClient.ensureQueryData(historicalQueryOptions),
@@ -51,12 +55,15 @@ function RevenueComparisonPage() {
 				description="Umsätze nach Bereich und Zeitraum, einschließlich Altunterlagen."
 			/>
 			<RevenueHighlights historical={historical} protocols={protocols} />
-			{sumupActive ? <SumupOpenDays /> : null}
+			{sumupActive ? (
+				<SumupOpenDays canCreate={hasPermission(user, "protocols.create")} />
+			) : null}
 			<HistoricalRevenueOverview
 				initialHistorical={historical}
 				protocols={protocols}
 				anlassKatalog={anlassKatalog}
-				canCreate={user.role === "admin"}
+				canCreate={hasPermission(user, "revenues.manage")}
+				permissions={user.permissions}
 			/>
 		</div>
 	);

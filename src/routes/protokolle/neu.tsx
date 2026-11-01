@@ -7,11 +7,15 @@ import {
 } from "@/components/protokoll-form";
 import { NeuSkeleton } from "@/components/skeletons";
 import { orpcClient } from "@/lib/orpc";
+import { hasPermission } from "@/lib/permissions";
+import { requireClubPermission } from "@/lib/route-permissions";
 
 const UUID_RE =
 	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const Route = createFileRoute("/protokolle/neu")({
+	beforeLoad: ({ context }) =>
+		requireClubPermission(context.user, "protocols.create"),
 	validateSearch: (
 		search: Record<string, unknown>,
 	): { duplicate?: string } => ({
@@ -63,7 +67,7 @@ export const Route = createFileRoute("/protokolle/neu")({
 			registers,
 			initialValues,
 			duplicateBelegnummer,
-			canManageRegisters: context.user.role === "admin",
+			canManageRegisters: hasPermission(context.user, "registers.manage"),
 			sumupActive: sumup.active,
 		};
 	},

@@ -4,6 +4,7 @@ import { ClubAccessDenied } from "@/components/club-access-denied";
 import { ResetPasswordForm } from "@/components/invite-password-recovery";
 import { LoginForm } from "@/components/login-form";
 import { VersionChip } from "@/components/version-chip";
+import { firstClubPath } from "@/lib/permissions";
 import { sanitizeAuthRedirect } from "@/lib/redirect";
 import { fetchClubEntry, fetchOperatorSession } from "@/lib/server-fns";
 import { useBranding } from "@/routes/__root";
@@ -28,7 +29,7 @@ export const Route = createFileRoute("/login")({
 		// A reset link remains usable even while another account is signed in.
 		if (search?.resetToken) return { operatorEntry, clubForbidden: false };
 		const entry = await fetchClubEntry();
-		if (entry.user) throw redirect({ to: "/protokolle" });
+		if (entry.user) throw redirect({ to: firstClubPath(entry.user) });
 		return { operatorEntry, clubForbidden: entry.forbidden };
 	},
 	head: () => ({ meta: [{ title: "Anmelden · Rendant" }] }),

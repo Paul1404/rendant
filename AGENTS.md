@@ -51,6 +51,18 @@ update the appropriate canonical documentation in the same change.
   global bans remain effective; only an SVU admin may explicitly clear one.
   Only allowlisted operators with active SVU admin membership may provision
   clubs; tenant admin rights never grant operator access.
+- Club RBAC has `user`, `admin` and `board`. Per-club policy/version live on
+  `tenants`; defaults preserve User grants and give Board full club capabilities.
+  Resolve capabilities from the current membership and policy on each request,
+  never global identity roles or client claims. Enforce them on RPC, API imports,
+  downloads and MCP; UI visibility alone is insufficient. See `docs/roles.md`.
+  Actual Admin retains protected user/role management; non-Admins cannot modify
+  Admin membership/policy or delegate grants they do not hold. Recheck control
+  mutations in their transaction, preserve last-Admin/last-manager guards and
+  serialize versioned role-policy edits with membership administration.
+  Pre-RBAC application rollback can bypass saved restrictions. After Board
+  assignment or policy customization, recover with an RBAC-aware application;
+  preserve policy/version during backup and isolated restore rehearsals.
 - Password recovery uses Better Auth's native one-use, one-hour tokens and
   revokes all sessions of the global identity. Delivery requires a server-only
   verified scope for an active membership or valid pending invitation on the
@@ -112,6 +124,10 @@ update the appropriate canonical documentation in the same change.
 - After a successful mutation, invalidate every affected TanStack Query before
   navigating or showing data as current. Handle conflicts with a clear German
   message and a safe retry path.
+- When TanStack Form uses a stable default-values reference, update that baseline
+  before explicit save/reload/discard resets. Otherwise the next options update
+  can visually restore old defaults after a successful save. Background reads
+  must not replace an unsaved role-policy draft.
 - External side effects such as S3 uploads and email must not allow a retry to
   create duplicate accounting records. Prefer recoverable partial states and
   explicit regeneration.

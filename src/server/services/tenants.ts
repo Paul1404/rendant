@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { ORPCError } from "@orpc/server";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { type ClubRole, normalizeRolePolicy } from "@/lib/permissions";
 import { auth } from "@/server/auth";
 import { globalDb } from "@/server/db";
 import { user as userTable } from "@/server/db/auth-schema";
@@ -16,6 +17,12 @@ import {
 	tenantSlugForHost,
 } from "@/server/tenant-hostname";
 import { type RecordAuditInput, recordAuditEventStrict } from "./audit";
+import {
+	assertActiveRoleManager,
+	assertCanDelegateRoleInTransaction,
+	assertTenantPermissionsInTransaction,
+	getTenantRolePermissions,
+} from "./role-policy";
 
 export { SVU_TENANT_ID } from "@/server/tenant-context";
 export const TENANT_COOKIE = "rendant-tenant";
@@ -25,7 +32,7 @@ export type TenantMembership = {
 	id: string;
 	slug: string;
 	name: string;
-	role: "admin" | "user";
+	role: ClubRole;
 };
 
 export class TenantAccessError extends ORPCError<"FORBIDDEN", undefined> {
@@ -147,8 +154,10 @@ export async function resolveTenantSession(headers: Headers) {
 		hostTenant,
 	);
 	if (!tenant) return null;
-	const user = { ...session.user, role: tenant.role };
-	return { session: { ...session, user }, tenant, user };
+	const permissions = await getTenantRolePermissions(tenant.id, tenant.role);
+	const scopedTenant = { ...tenant, permissions };
+	const user = { ...session.user, role: tenant.role, permissions };
+	return { session: { ...session, user }, tenant: scopedTenant, user };
 }
 
 export async function isPlatformAdmin(userId: string): Promise<boolean> {
@@ -299,14 +308,14 @@ export async function listTenantUsers() {
 
 export async function changeTenantMember(opts: {
 	id: string;
-	role?: "user" | "admin";
+	role?: ClubRole;
 	banned?: boolean;
 	actor: NonNullable<RecordAuditInput["actor"]>;
 	audit?: RecordAuditInput["request"];
 	operatorTenant?: { id: string; slug: string; name: string };
 }) {
 	const tenant = opts.operatorTenant ?? requireTenant();
-	if (opts.id === opts.actor.id && (opts.role === "user" || opts.banned))
+	if (opts.id === opts.actor.id && (opts.role !== undefined || opts.banned))
 		throw new ORPCError("BAD_REQUEST", {
 			message:
 				"Die eigene Admin-Rolle kann nicht entfernt und das eigene Konto nicht gesperrt werden",
@@ -318,21 +327,12 @@ export async function changeTenantMember(opts: {
 		if (opts.operatorTenant) {
 			await assertPlatformAdminInTransaction(tx, opts.actor.id);
 		} else {
-			const [actor] = await tx
-				.select({ role: memberships.role })
-				.from(memberships)
-				.innerJoin(userTable, eq(userTable.id, memberships.user_id))
-				.where(
-					and(
-						eq(memberships.tenant_id, tenant.id),
-						eq(memberships.user_id, opts.actor.id),
-						eq(memberships.role, "admin"),
-						eq(memberships.banned, false),
-						sql`${userTable.banned} is not true`,
-					),
-				)
-				.for("update");
-			if (!actor) throw new TenantAccessError();
+			await assertTenantPermissionsInTransaction(
+				tx,
+				tenant.id,
+				opts.actor.id,
+				opts.role !== undefined ? "roles.manage" : "users.manage",
+			);
 		}
 
 		const [target] = await tx
@@ -354,11 +354,36 @@ export async function changeTenantMember(opts: {
 			.for("update");
 		if (!target)
 			throw new ORPCError("NOT_FOUND", { message: "Konto nicht gefunden" });
+		if (!opts.operatorTenant) {
+			const actualRole = await assertTenantPermissionsInTransaction(
+				tx,
+				tenant.id,
+				opts.actor.id,
+				opts.role !== undefined ? "roles.manage" : "users.manage",
+			);
+			if (target.role === "admin" && actualRole !== "admin")
+				throw new TenantAccessError();
+			if (opts.banned === false && target.banned)
+				await assertCanDelegateRoleInTransaction(
+					tx,
+					tenant.id,
+					opts.actor.id,
+					target.role,
+					"users.manage",
+				);
+			if (opts.role !== undefined)
+				await assertCanDelegateRoleInTransaction(
+					tx,
+					tenant.id,
+					opts.actor.id,
+					opts.role,
+				);
+		}
 		if (
 			target.role === "admin" &&
 			!target.banned &&
 			!target.globalBanned &&
-			(opts.role === "user" || opts.banned)
+			((opts.role !== undefined && opts.role !== "admin") || opts.banned)
 		) {
 			const [admins] = await tx
 				.select({ count: sql<number>`count(*)` })
@@ -378,10 +403,28 @@ export async function changeTenantMember(opts: {
 						"Der letzte aktive Admin kann nicht herabgestuft oder gesperrt werden",
 				});
 		}
+		// Operator eligibility is outside club RBAC. Protect it in both directions
+		// so a club manager cannot disable the only operator or reactivate one.
+		if (
+			tenant.id === SVU_TENANT_ID &&
+			platformAdminEmailAllowed(target.email) &&
+			!opts.operatorTenant
+		) {
+			await assertPlatformAdminInTransaction(tx, opts.actor.id);
+		}
 		const legacyGlobalBanCleared =
 			opts.banned === false && target.globalBanned === true;
 		if (legacyGlobalBanCleared) {
-			if (tenant.id !== SVU_TENANT_ID) {
+			if (
+				tenant.id !== SVU_TENANT_ID ||
+				(!opts.operatorTenant &&
+					(await assertTenantPermissionsInTransaction(
+						tx,
+						tenant.id,
+						opts.actor.id,
+						"users.manage",
+					)) !== "admin")
+			) {
 				throw new ORPCError("FORBIDDEN", {
 					message:
 						"Dieses Konto ist vereinsübergreifend gesperrt. Bitte den Betreiber kontaktieren",
@@ -411,6 +454,16 @@ export async function changeTenantMember(opts: {
 		await tx.execute(
 			sql`select set_config('app.tenant_id', ${tenant.id}, true)`,
 		);
+		const [policyRow] = await tx
+			.select({ policy: tenants.role_permissions })
+			.from(tenants)
+			.where(eq(tenants.id, tenant.id));
+		await assertActiveRoleManager(
+			tx,
+			tenant.id,
+			normalizeRolePolicy(policyRow?.policy),
+		);
+
 		await recordAuditEventStrict(tx, {
 			category: "users",
 			action:
@@ -441,7 +494,7 @@ export async function changeTenantMember(opts: {
 
 export function setTenantUserRole(
 	id: string,
-	role: "user" | "admin",
+	role: ClubRole,
 	actor: NonNullable<RecordAuditInput["actor"]>,
 	audit?: RecordAuditInput["request"],
 ) {

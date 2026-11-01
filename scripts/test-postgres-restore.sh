@@ -55,6 +55,10 @@ RENDANT_TEST_DATABASE_URL="$source_url" python3 scripts/postgres-connection.py R
 INSERT INTO tenants(id, slug, name) VALUES ('00000000-0000-4000-8000-000000000002', 'restore-other', 'Synthetic other club');
 INSERT INTO app_settings(id, tenant_id) VALUES (1, '00000000-0000-4000-8000-000000000002');
 INSERT INTO "user"(id, name, email) VALUES ('restore-test-user', 'Synthetic restore', 'restore@example.invalid');
+UPDATE tenants SET role_permissions = '{"user":["finance.read"],"admin":["users.manage","roles.manage"],"board":["helpers.read"]}'::jsonb,
+ role_permissions_version = 7 WHERE id = '00000000-0000-4000-8000-000000000001';
+INSERT INTO tenant_memberships(tenant_id,user_id,role)
+ VALUES ('00000000-0000-4000-8000-000000000001','restore-test-user','board');
 INSERT INTO belegnummer_sequences(tenant_id, year, next_sequence) VALUES ('00000000-0000-4000-8000-000000000001', 2026, 17);
 SQL
 DATABASE_URL="$source_url" scripts/backup-postgres.sh "$work/synthetic.dump" >/dev/null

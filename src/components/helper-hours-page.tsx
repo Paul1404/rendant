@@ -263,10 +263,16 @@ function hoursError(value: string): string | null {
 
 export function HelperHoursPage({
 	isAdmin,
+	canWrite = false,
+	canImport = false,
+	canExport = false,
 	year,
 	onYearChange,
 }: {
 	isAdmin: boolean;
+	canWrite?: boolean;
+	canImport?: boolean;
+	canExport?: boolean;
 	year?: number;
 	onYearChange: (year?: number) => void;
 }) {
@@ -287,9 +293,10 @@ export function HelperHoursPage({
 		kategorie: "gesamtverein",
 		bemerkung: "",
 	});
-	const { data: catalog, refetch: refetchCatalog } = useQuery(
-		orpc.helperHours.catalog.queryOptions({}),
-	);
+	const { data: catalog, refetch: refetchCatalog } = useQuery({
+		...orpc.helperHours.catalog.queryOptions({}),
+		enabled: canWrite,
+	});
 	const personOptions = (catalog?.persons ?? []).map((person) => ({
 		id: person.id,
 		label: `${person.nachname}, ${person.vorname}`,
@@ -375,164 +382,188 @@ export function HelperHoursPage({
 
 	return (
 		<div className="space-y-6">
-			<Card variant="hero">
-				<CardHeader>
-					<CardTitle className="flex items-center gap-2">
-						<Plus className="h-4 w-4 text-primary" />
-						Helferstunde erfassen
-					</CardTitle>
-					<CardDescription>
-						Person, Anlass und Stunden. Die Zuordnung ist mit einem Klick
-						erledigt.
-					</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<form
-						className="grid gap-4 sm:grid-cols-2 lg:grid-cols-12"
-						onSubmit={submit}
-					>
-						<div className="space-y-1.5 lg:col-span-3">
-							<Label htmlFor="hh-date">Datum</Label>
-							<Input
-								id="hh-date"
-								type="date"
-								value={form.datum}
-								onChange={(e) => setForm({ ...form, datum: e.target.value })}
-								required
-							/>
-						</div>
-						<div className="sm:col-span-2 lg:col-span-5">
-							<CatalogPicker
-								id="hh-event"
-								label="Veranstaltung"
-								placeholder="Veranstaltung suchen oder anlegen"
-								emptyHint="Keine Veranstaltung gefunden"
-								options={eventOptions}
-								value={form.veranstaltung_id || null}
-								onChange={(id) => setForm({ ...form, veranstaltung_id: id })}
-								onCreate={async (name) => {
-									try {
-										const angelegt = await orpcClient.helperHours.createEvent({
-											name,
-										});
-										await refetchCatalog();
-										toast.success("Veranstaltung angelegt");
-										return angelegt.id;
-									} catch (error) {
-										toast.error(orpcMessage(error, "Anlegen fehlgeschlagen"));
-										return null;
-									}
-								}}
-							/>
-						</div>
-						<div className="sm:col-span-2 lg:col-span-4">
-							<CatalogPicker
-								id="hh-person"
-								label="Helfer"
-								placeholder="Namen suchen oder anlegen"
-								emptyHint="Kein Helfer gefunden"
-								options={personOptions}
-								value={form.person_id || null}
-								onChange={(id) => setForm({ ...form, person_id: id })}
-								onCreate={async (eingabe) => {
-									// "Nachname, Vorname" oder "Vorname Nachname"
-									const [a, b] = eingabe.includes(",")
-										? eingabe.split(",").map((part) => part.trim())
-										: (() => {
-												const teile = eingabe.trim().split(/\s+/);
-												const vorname = teile.shift() ?? "";
-												return [teile.join(" "), vorname];
-											})();
-									if (!a || !b) {
-										toast.error(
-											'Bitte Nachname und Vorname angeben, etwa "Schmitt, Wolfgang"',
-										);
-										return null;
-									}
-									try {
-										const angelegt = await orpcClient.helperHours.createPerson({
-											nachname: a,
-											vorname: b,
-										});
-										await refetchCatalog();
-										toast.success("Helfer angelegt");
-										return angelegt.id;
-									} catch (error) {
-										toast.error(orpcMessage(error, "Anlegen fehlgeschlagen"));
-										return null;
-									}
-								}}
-							/>
-						</div>
-						<div className="space-y-1.5 lg:col-span-3">
-							<Label htmlFor="hh-hours">Stunden</Label>
-							<Input
-								id="hh-hours"
-								inputMode="decimal"
-								value={form.stunden}
-								onChange={(e) => setForm({ ...form, stunden: e.target.value })}
-								placeholder="2,5"
-								required
-							/>
-							<div className="flex gap-1">
-								{[1, 2, 3, 4, 5].map((h) => (
-									<Button
-										key={h}
-										type="button"
-										variant="ghost"
-										size="sm"
-										onClick={() => setForm({ ...form, stunden: String(h) })}
-									>
-										{h} h
-									</Button>
-								))}
+			{canWrite && (
+				<Card variant="hero">
+					<CardHeader>
+						<CardTitle className="flex items-center gap-2">
+							<Plus className="h-4 w-4 text-primary" />
+							Helferstunde erfassen
+						</CardTitle>
+						<CardDescription>
+							Person, Anlass und Stunden. Die Zuordnung ist mit einem Klick
+							erledigt.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<form
+							className="grid gap-4 sm:grid-cols-2 lg:grid-cols-12"
+							onSubmit={submit}
+						>
+							<div className="space-y-1.5 lg:col-span-3">
+								<Label htmlFor="hh-date">Datum</Label>
+								<Input
+									id="hh-date"
+									type="date"
+									value={form.datum}
+									onChange={(e) => setForm({ ...form, datum: e.target.value })}
+									required
+								/>
 							</div>
-						</div>
-						<div className="space-y-1.5 lg:col-span-4">
-							<Label>Zuordnung</Label>
-							<Select
-								value={selectedCategory}
-								onValueChange={(value) =>
-									setForm({ ...form, kategorie: value })
-								}
-							>
-								<SelectTrigger className="w-full">
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									{options.map((c) => (
-										<SelectItem key={c.code} value={c.code}>
-											{c.label}
-										</SelectItem>
+							<div className="sm:col-span-2 lg:col-span-5">
+								<CatalogPicker
+									id="hh-event"
+									label="Veranstaltung"
+									placeholder={
+										isAdmin
+											? "Veranstaltung suchen oder anlegen"
+											: "Veranstaltung suchen"
+									}
+									emptyHint="Keine Veranstaltung gefunden"
+									options={eventOptions}
+									value={form.veranstaltung_id || null}
+									onChange={(id) => setForm({ ...form, veranstaltung_id: id })}
+									onCreate={
+										isAdmin
+											? async (name) => {
+													try {
+														const angelegt =
+															await orpcClient.helperHours.createEvent({
+																name,
+															});
+														await refetchCatalog();
+														toast.success("Veranstaltung angelegt");
+														return angelegt.id;
+													} catch (error) {
+														toast.error(
+															orpcMessage(error, "Anlegen fehlgeschlagen"),
+														);
+														return null;
+													}
+												}
+											: undefined
+									}
+								/>
+							</div>
+							<div className="sm:col-span-2 lg:col-span-4">
+								<CatalogPicker
+									id="hh-person"
+									label="Helfer"
+									placeholder={
+										isAdmin ? "Namen suchen oder anlegen" : "Namen suchen"
+									}
+									emptyHint="Kein Helfer gefunden"
+									options={personOptions}
+									value={form.person_id || null}
+									onChange={(id) => setForm({ ...form, person_id: id })}
+									onCreate={
+										isAdmin
+											? async (eingabe) => {
+													// "Nachname, Vorname" oder "Vorname Nachname"
+													const [a, b] = eingabe.includes(",")
+														? eingabe.split(",").map((part) => part.trim())
+														: (() => {
+																const teile = eingabe.trim().split(/\s+/);
+																const vorname = teile.shift() ?? "";
+																return [teile.join(" "), vorname];
+															})();
+													if (!a || !b) {
+														toast.error(
+															'Bitte Nachname und Vorname angeben, etwa "Schmitt, Wolfgang"',
+														);
+														return null;
+													}
+													try {
+														const angelegt =
+															await orpcClient.helperHours.createPerson({
+																nachname: a,
+																vorname: b,
+															});
+														await refetchCatalog();
+														toast.success("Helfer angelegt");
+														return angelegt.id;
+													} catch (error) {
+														toast.error(
+															orpcMessage(error, "Anlegen fehlgeschlagen"),
+														);
+														return null;
+													}
+												}
+											: undefined
+									}
+								/>
+							</div>
+							<div className="space-y-1.5 lg:col-span-3">
+								<Label htmlFor="hh-hours">Stunden</Label>
+								<Input
+									id="hh-hours"
+									inputMode="decimal"
+									value={form.stunden}
+									onChange={(e) =>
+										setForm({ ...form, stunden: e.target.value })
+									}
+									placeholder="2,5"
+									required
+								/>
+								<div className="flex gap-1">
+									{[1, 2, 3, 4, 5].map((h) => (
+										<Button
+											key={h}
+											type="button"
+											variant="ghost"
+											size="sm"
+											onClick={() => setForm({ ...form, stunden: String(h) })}
+										>
+											{h} h
+										</Button>
 									))}
-								</SelectContent>
-							</Select>
-						</div>
-						<div className="space-y-1.5 sm:col-span-2 lg:col-span-5">
-							<Label htmlFor="hh-note">Bemerkung</Label>
-							<Textarea
-								id="hh-note"
-								value={form.bemerkung}
-								onChange={(e) =>
-									setForm({ ...form, bemerkung: e.target.value })
-								}
-								placeholder="Optional"
-								rows={2}
-							/>
-						</div>
-						<div className="flex items-end sm:col-span-2 lg:col-span-12">
-							<Button className="w-full sm:w-auto" disabled={saving}>
-								{saving ? (
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-								) : (
-									<Plus className="mr-2 h-4 w-4" />
-								)}
-								Speichern
-							</Button>
-						</div>
-					</form>
-				</CardContent>
-			</Card>
+								</div>
+							</div>
+							<div className="space-y-1.5 lg:col-span-4">
+								<Label>Zuordnung</Label>
+								<Select
+									value={selectedCategory}
+									onValueChange={(value) =>
+										setForm({ ...form, kategorie: value })
+									}
+								>
+									<SelectTrigger className="w-full">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										{options.map((c) => (
+											<SelectItem key={c.code} value={c.code}>
+												{c.label}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+							<div className="space-y-1.5 sm:col-span-2 lg:col-span-5">
+								<Label htmlFor="hh-note">Bemerkung</Label>
+								<Textarea
+									id="hh-note"
+									value={form.bemerkung}
+									onChange={(e) =>
+										setForm({ ...form, bemerkung: e.target.value })
+									}
+									placeholder="Optional"
+									rows={2}
+								/>
+							</div>
+							<div className="flex items-end sm:col-span-2 lg:col-span-12">
+								<Button className="w-full sm:w-auto" disabled={saving}>
+									{saving ? (
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									) : (
+										<Plus className="mr-2 h-4 w-4" />
+									)}
+									Speichern
+								</Button>
+							</div>
+						</form>
+					</CardContent>
+				</Card>
+			)}
 			{/* Auswertung kommt nach der Erfassung: die meisten Mitglieder tragen nur
 			    ein. Ein einziger Aufklapper, damit die Karten ihre eigenen
 			    Ueberschriften behalten und nichts doppelt steht. */}
@@ -564,6 +595,7 @@ export function HelperHoursPage({
 						selected={activeDepartment}
 						onSelected={setSelectedDepartment}
 						isAdmin={isAdmin}
+						canExport={canExport}
 						onChanged={() =>
 							queryClient.invalidateQueries({
 								queryKey: orpc.helperHours.list.key({ type: "query" }),
@@ -573,8 +605,8 @@ export function HelperHoursPage({
 					<HelperHoursEntries year={year} isAdmin={isAdmin} />
 				</div>
 			</CollapsibleSection>
-			{isAdmin ? <HelperHoursImport onImported={refreshHours} /> : null}
-			{isAdmin ? (
+			{canImport ? <HelperHoursImport onImported={refreshHours} /> : null}
+			{canImport ? (
 				<HelperHourExpenseImport
 					onImported={() =>
 						queryClient.invalidateQueries({
@@ -1536,6 +1568,7 @@ function HelperHoursBudgets({
 	selected,
 	onSelected,
 	isAdmin,
+	canExport,
 	onChanged,
 }: {
 	budgets: Budget[];
@@ -1545,6 +1578,7 @@ function HelperHoursBudgets({
 	selected: string | null;
 	onSelected: (value: string) => void;
 	isAdmin: boolean;
+	canExport: boolean;
 	onChanged: () => Promise<unknown>;
 }) {
 	const budget = budgets.find((entry) => entry.code === selected);
@@ -1703,15 +1737,17 @@ function HelperHoursBudgets({
 							Export mit Übersicht, Helferstunden und Abzügen.
 						</p>
 					</div>
-					<Button asChild variant="outline">
-						<TenantDownloadLink
-							href={`/api/export/helper-hours/xlsx?abteilung=${selected ?? ""}`}
-							download
-						>
-							<Download className="mr-1 h-4 w-4" />
-							Excel-Übersicht
-						</TenantDownloadLink>
-					</Button>
+					{canExport ? (
+						<Button asChild variant="outline">
+							<TenantDownloadLink
+								href={`/api/export/helper-hours/xlsx?abteilung=${selected ?? ""}`}
+								download
+							>
+								<Download className="mr-1 h-4 w-4" />
+								Excel-Übersicht
+							</TenantDownloadLink>
+						</Button>
+					) : null}
 				</div>
 				{isAdmin ? (
 					<div className="border-t pt-5">

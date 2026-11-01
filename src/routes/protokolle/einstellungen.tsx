@@ -11,6 +11,7 @@ import {
 	Users,
 	Wallet,
 } from "lucide-react";
+import { AnlassCatalogForm } from "@/components/anlass-catalog-form";
 import { BelegnummerSettingsForm } from "@/components/belegnummer-settings-form";
 import { CashRegistersForm } from "@/components/cash-registers-form";
 import { DatevSettingsForm } from "@/components/datev-settings-form";
@@ -23,6 +24,7 @@ import {
 import { McpSettingsPanel } from "@/components/mcp-settings-panel";
 import { NotificationPrefForm } from "@/components/notification-pref-form";
 import { PageHeader } from "@/components/page-header";
+import { RolePermissionsForm } from "@/components/role-permissions-form";
 import { SettingsSkeleton } from "@/components/skeletons";
 import { SumupSettingsForm } from "@/components/sumup-settings-form";
 import { SectionHeading } from "@/components/ui/section";
@@ -30,54 +32,69 @@ import { UmsatzUstBasisForm } from "@/components/umsatz-ust-basis-form";
 import { UserManagement } from "@/components/user-management";
 import { VereinSettingsForm } from "@/components/verein-settings-form";
 import { orpcClient } from "@/lib/orpc";
+import { hasPermission } from "@/lib/permissions";
 
 export const Route = createFileRoute("/protokolle/einstellungen")({
 	loader: async ({ context }) => {
-		const isAdmin = context.user.role === "admin";
+		const user = context.user;
+		const canSettings = hasPermission(user, "settings.manage");
+		const canIntegrations = hasPermission(user, "integrations.manage");
+		const canHelpers = hasPermission(user, "helpers.manage");
 		const [
-			belegnummer,
-			basis,
-			verein,
+			bookkeeping,
 			registers,
 			admin,
 			email,
 			mcp,
 			notify,
 			sumup,
-		] = await Promise.all([
-			orpcClient.settings.getBelegnummer(),
-			orpcClient.settings.getUmsatzUstBasis(),
-			orpcClient.settings.getVerein(),
-			orpcClient.registers.list(),
-			isAdmin
-				? Promise.all([orpcClient.users.list(), orpcClient.invites.list()])
-				: Promise.resolve(null),
-			isAdmin ? orpcClient.settings.getEmail() : Promise.resolve(null),
-			isAdmin ? orpcClient.settings.getMcp() : Promise.resolve(null),
-			orpcClient.profile.getNotify(),
-			isAdmin ? orpcClient.settings.getSumup() : Promise.resolve(null),
-		]);
-		const helperHourValue = isAdmin
-			? await orpcClient.settings.getHelperHourValue()
-			: null;
-		const datev = isAdmin ? await orpcClient.settings.getDatev() : null;
-		return {
-			currentUserId: context.user.id,
+			helperHourValue,
 			datev,
-			settings: belegnummer.settings,
-			preview: belegnummer.preview,
-			// Each form carries the stamp it was rendered from and sends it back on
-			// save, so a concurrent edit is rejected instead of overwritten.
-			belegnummerUpdatedAt: belegnummer.updated_at,
-			umsatzUstBasis: basis.umsatz_ust_basis,
-			umsatzUstUpdatedAt: basis.updated_at,
-			verein,
+			occasions,
+		] = await Promise.all([
+			canSettings
+				? Promise.all([
+						orpcClient.settings.getBelegnummer(),
+						orpcClient.settings.getUmsatzUstBasis(),
+						orpcClient.settings.getVerein(),
+					]).then(([belegnummer, basis, verein]) => ({
+						belegnummer,
+						basis,
+						verein,
+					}))
+				: null,
+			hasPermission(user, "registers.manage")
+				? orpcClient.registers.list()
+				: null,
+			hasPermission(user, "users.manage")
+				? Promise.all([
+						orpcClient.users.list(),
+						orpcClient.invites.list(),
+					]).then(([users, invites]) => ({ users, invites }))
+				: null,
+			canIntegrations ? orpcClient.settings.getEmail() : null,
+			canIntegrations ? orpcClient.settings.getMcp() : null,
+			orpcClient.profile.getNotify(),
+			canIntegrations ? orpcClient.settings.getSumup() : null,
+			canSettings || canHelpers
+				? orpcClient.settings.getHelperHourValue()
+				: null,
+			canIntegrations ? orpcClient.settings.getDatev() : null,
+			hasPermission(user, "occasions.manage")
+				? orpcClient.anlassKatalog.list()
+				: null,
+		]);
+		return {
+			currentUserId: user.id,
+			bookkeeping,
 			registers,
-			admin: admin ? { users: admin[0], invites: admin[1] } : null,
+			admin,
 			email,
 			mcp,
 			sumup,
 			helperHourValue,
+			datev,
+			occasions,
 			notifyProtokoll: notify.notify,
 		};
 	},
@@ -87,78 +104,71 @@ export const Route = createFileRoute("/protokolle/einstellungen")({
 });
 
 function EinstellungenPage() {
+	const { user } = Route.useRouteContext();
 	const {
 		currentUserId,
-		datev,
-		settings,
-		preview,
-		belegnummerUpdatedAt,
-		umsatzUstBasis,
-		umsatzUstUpdatedAt,
-		verein,
+		bookkeeping,
 		registers,
 		admin,
 		email,
 		mcp,
 		sumup,
 		helperHourValue,
+		datev,
+		occasions,
 		notifyProtokoll,
 	} = Route.useLoaderData();
-
+	const canHelpers = hasPermission(user, "helpers.manage");
 	return (
 		<div className="space-y-10">
 			<PageHeader
-				eyebrow="Buchhaltung"
+				eyebrow="Vereinsverwaltung"
 				title="Einstellungen"
-				description="Vorlagen, Standardwerte, Benutzer und kontrollierte Integrationen für Rendant."
+				description="Vereinsdaten, Vorlagen, Zugänge und deine persönlichen Benachrichtigungen."
 			/>
-
-			{admin ? (
-				<nav
-					aria-label="Einstellungsbereiche"
-					className="mx-auto flex max-w-3xl flex-wrap gap-2"
-				>
-					<SettingsLink href="#verein">Verein</SettingsLink>
-					<SettingsLink href="#kassen">Kassen</SettingsLink>
-					<SettingsLink href="#buchhaltung">Buchhaltung</SettingsLink>
+			<nav
+				aria-label="Einstellungsbereiche"
+				className="mx-auto flex max-w-3xl flex-wrap gap-2"
+			>
+				{bookkeeping && (
+					<>
+						<SettingsLink href="#verein">Verein</SettingsLink>
+						<SettingsLink href="#buchhaltung">Buchhaltung</SettingsLink>
+					</>
+				)}
+				{registers && <SettingsLink href="#kassen">Kassen</SettingsLink>}
+				{occasions && (
+					<SettingsLink href="#anlaesse">Veranstaltungsanlässe</SettingsLink>
+				)}
+				{helperHourValue && (
 					<SettingsLink href="#helferstunden">Helferstunden</SettingsLink>
-					<SettingsLink href="#sumup">SumUp</SettingsLink>
-					<SettingsLink href="#datev">DATEV</SettingsLink>
+				)}
+				{sumup && <SettingsLink href="#sumup">SumUp</SettingsLink>}
+				{datev && <SettingsLink href="#datev">DATEV</SettingsLink>}
+				{mcp && (
 					<SettingsLink href="#mcp">MCP &amp; Automatisierung</SettingsLink>
-					<SettingsLink href="#benutzer">Benutzer</SettingsLink>
-				</nav>
-			) : null}
-
-			{admin ? (
-				<section
-					id="verein"
-					className="mx-auto max-w-3xl scroll-mt-28 space-y-4"
-				>
-					<SectionHeading
-						icon={Building2}
-						title="Verein"
-						description="Stammdaten des Vereins, für den diese Rendant-Instanz läuft. Der Name erscheint dezent in der App; Anschrift, Vorstand und Registereintrag stehen in der Fußzeile der PDF-Protokolle. Nur für Admins."
-					/>
-					<VereinSettingsForm initial={verein} />
-				</section>
-			) : null}
-
-			{admin ? (
-				<section
-					id="kassen"
-					className="mx-auto max-w-3xl scroll-mt-28 space-y-4"
-				>
-					<SectionHeading
-						icon={Wallet}
-						title="Kassen"
-						description="Vorlagen für Kassennummer, Kassenbezeichnung und Anfangsbestand (Wechselgeld). Beim Erfassen eines Protokolls lassen sich diese Werte mit einem Klick übernehmen. Nur für Admins."
-					/>
-					<CashRegistersForm initial={registers} />
-				</section>
-			) : null}
-
-			{admin ? (
+				)}
+				{hasPermission(user, "roles.manage") && (
+					<SettingsLink href="#rollen">Rollen und Rechte</SettingsLink>
+				)}
+				{admin && <SettingsLink href="#benutzer">Benutzer</SettingsLink>}
+				<SettingsLink href="#benachrichtigungen">
+					Meine Benachrichtigungen
+				</SettingsLink>
+			</nav>
+			{bookkeeping && (
 				<>
+					<section
+						id="verein"
+						className="mx-auto max-w-3xl scroll-mt-28 space-y-4"
+					>
+						<SectionHeading
+							icon={Building2}
+							title="Verein"
+							description="Stammdaten für die App und neue PDF-Protokolle. Bereits gespeicherte Belege bleiben unverändert."
+						/>
+						<VereinSettingsForm initial={bookkeeping.verein} />
+					</section>
 					<section
 						id="buchhaltung"
 						className="mx-auto max-w-3xl scroll-mt-28 space-y-4"
@@ -166,83 +176,109 @@ function EinstellungenPage() {
 						<SectionHeading
 							icon={Hash}
 							title="Belegnummer-Format"
-							description="Aussehen der Belegnummer für neue Protokolle. Wir empfehlen, das Format während eines Geschäftsjahres nicht mehr zu ändern. Das Finanzamt verlangt sonst eine Begründung für einen Formatwechsel mitten im Jahr. Nur für Admins."
+							description="Aussehen der Belegnummer für neue Protokolle. Ein Formatwechsel innerhalb eines Geschäftsjahres sollte begründet werden."
 						/>
 						<BelegnummerSettingsForm
-							initial={settings}
-							serverPreview={preview}
-							initialUpdatedAt={belegnummerUpdatedAt}
+							initial={bookkeeping.belegnummer.settings}
+							serverPreview={bookkeeping.belegnummer.preview}
+							initialUpdatedAt={bookkeeping.belegnummer.updated_at}
 						/>
 					</section>
-
 					<section className="mx-auto max-w-3xl space-y-4">
 						<SectionHeading
 							icon={Receipt}
 							title="USt.-Aufteilung"
-							description="Standard, ob die Aufteilung des Umsatzes nach USt.-Sätzen auf die Tageseinnahmen vor oder nach Kartenzahlung bezogen wird. Nur für Admins."
+							description="Standard für die Aufteilung des Umsatzes nach USt.-Sätzen vor oder nach Kartenzahlung."
 						/>
 						<UmsatzUstBasisForm
-							initial={umsatzUstBasis}
-							initialUpdatedAt={umsatzUstUpdatedAt}
+							initial={bookkeeping.basis.umsatz_ust_basis}
+							initialUpdatedAt={bookkeeping.basis.updated_at}
 						/>
 					</section>
-
-					{helperHourValue ? (
-						<section
-							id="helferstunden"
-							className="mx-auto max-w-3xl scroll-mt-28 space-y-4"
-						>
-							<SectionHeading
-								icon={HandHeart}
-								title="Helferstunden"
-								description="Abteilungen und Vereinsbeiträge, denen Helferstunden zugeordnet werden, sowie der Stundenwert, mit dem Käufe in abgezogene Stunden umgerechnet werden. Nur für Admins."
-							/>
-							<HelperHourCategoriesForm
-								valueCent={helperHourValue.wert_cent}
-								valueUpdatedAt={helperHourValue.updated_at}
-							/>
+				</>
+			)}
+			{registers && (
+				<section
+					id="kassen"
+					className="mx-auto max-w-3xl scroll-mt-28 space-y-4"
+				>
+					<SectionHeading
+						icon={Wallet}
+						title="Kassen"
+						description="Vorlagen für Kassennummer, Kassenbezeichnung und Wechselgeld."
+					/>
+					<CashRegistersForm initial={registers} />
+				</section>
+			)}
+			{occasions && (
+				<section
+					id="anlaesse"
+					className="mx-auto max-w-3xl scroll-mt-28 space-y-4"
+				>
+					<SectionHeading
+						icon={Receipt}
+						title="Veranstaltungsanlässe"
+						description="Wiederkehrende und einmalige Anlässe für die Zuordnung von Einnahmen."
+					/>
+					<AnlassCatalogForm initial={occasions} />
+				</section>
+			)}
+			{helperHourValue && (
+				<section
+					id="helferstunden"
+					className="mx-auto max-w-3xl scroll-mt-28 space-y-4"
+				>
+					<SectionHeading
+						icon={HandHeart}
+						title="Helferstunden"
+						description="Stundenwert und Zuordnungen für die Vereinsarbeit."
+					/>
+					<HelperHourCategoriesForm
+						valueCent={helperHourValue.wert_cent}
+						valueUpdatedAt={helperHourValue.updated_at}
+						canManageCategories={canHelpers}
+						canManageValue={hasPermission(user, "settings.manage")}
+					/>
+					{canHelpers && (
+						<>
 							<HelperHourNoteRulesForm />
 							<HelperHourNameVariantsForm />
-						</section>
-					) : null}
-				</>
-			) : null}
-
-			<section className="mx-auto max-w-3xl space-y-4">
+						</>
+					)}
+				</section>
+			)}
+			<section id="benachrichtigungen" className="mx-auto max-w-3xl space-y-4">
 				<SectionHeading
 					icon={Bell}
 					title="Meine Benachrichtigungen"
-					description="Stelle ein, ob du selbst eine Info-E-Mail erhältst, sobald ein neues Kassenzählprotokoll erfasst wurde."
+					description="Stelle ein, ob du selbst eine Info-E-Mail zu neuen Kassenzählprotokollen erhältst."
 				/>
 				<NotificationPrefForm initial={notifyProtokoll} />
 			</section>
-
-			{email ? (
+			{email && (
 				<section className="mx-auto max-w-3xl space-y-4">
 					<SectionHeading
 						icon={Mail}
 						title="E-Mail-Benachrichtigungen"
-						description="SMTP-Zugang und zusätzliche externe Empfänger für eine kurze Info-E-Mail bei jedem neuen Kassenzählprotokoll. Nur für Admins."
+						description="SMTP-Zugang und zusätzliche Empfänger für neue Kassenzählprotokolle."
 					/>
 					<EmailSettingsForm initial={email} />
 				</section>
-			) : null}
-
-			{datev ? (
+			)}
+			{datev && (
 				<section
 					id="datev"
 					className="mx-auto max-w-3xl scroll-mt-28 space-y-4"
 				>
 					<SectionHeading
 						icon={Receipt}
-						title="DATEV · Kassenbelege"
-						description="Protokoll- und Stornobelege direkt über DATEV Upload Mail senden. Nur für Admins."
+						title="DATEV Kassenbelege"
+						description="Versand der Protokoll- und Stornobelege über DATEV Upload Mail konfigurieren."
 					/>
 					<DatevSettingsForm initial={datev} />
 				</section>
-			) : null}
-
-			{sumup ? (
+			)}
+			{sumup && (
 				<section
 					id="sumup"
 					className="mx-auto max-w-3xl scroll-mt-28 space-y-4"
@@ -250,24 +286,38 @@ function EinstellungenPage() {
 					<SectionHeading
 						icon={CreditCard}
 						title="Kartenzahlung über SumUp"
-						description="API-Key des SumUp-Kontos hinterlegen, damit die Kartenumsätze eines Tages beim Erfassen eines Protokolls abgerufen werden können. Nur für Admins."
+						description="SumUp-Konto für den Abruf der Kartenumsätze verbinden."
 					/>
-					<SumupSettingsForm initial={sumup} />
+					<SumupSettingsForm
+						initial={sumup}
+						canTest={hasPermission(user, "finance.read")}
+					/>
 				</section>
-			) : null}
-
-			{mcp ? (
+			)}
+			{mcp && (
 				<section id="mcp" className="mx-auto max-w-3xl scroll-mt-28 space-y-4">
 					<SectionHeading
 						icon={Network}
 						title="MCP & Automatisierung"
-						description="Status und Sicherheitsgrenze für Codex und andere vertrauenswürdige Assistenten. Nur für Admins."
+						description="Status und Sicherheitsgrenze für vertrauenswürdige Assistenten."
 					/>
 					<McpSettingsPanel status={mcp} />
 				</section>
-			) : null}
-
-			{admin ? (
+			)}
+			{hasPermission(user, "roles.manage") && (
+				<section
+					id="rollen"
+					className="mx-auto max-w-6xl scroll-mt-28 space-y-4"
+				>
+					<SectionHeading
+						icon={Users}
+						title="Rollen und Berechtigungen"
+						description="Rechte von Benutzer, Admin und Vorstand für diesen Verein anpassen."
+					/>
+					<RolePermissionsForm />
+				</section>
+			)}
+			{admin && (
 				<section
 					id="benutzer"
 					className="mx-auto max-w-3xl scroll-mt-28 space-y-4"
@@ -275,15 +325,17 @@ function EinstellungenPage() {
 					<SectionHeading
 						icon={Users}
 						title="Benutzer & Einladungen"
-						description="Lade weitere Personen ein und verwalte bestehende Konten. Nur für Admins sichtbar."
+						description="Lade weitere Personen ein und verwalte die Zugänge zu diesem Verein."
 					/>
 					<UserManagement
+						canManageRoles={hasPermission(user, "roles.manage")}
+						canAssignAdmin={user.role === "admin"}
 						users={admin.users}
 						invites={admin.invites}
 						currentUserId={currentUserId}
 					/>
 				</section>
-			) : null}
+			)}
 		</div>
 	);
 }

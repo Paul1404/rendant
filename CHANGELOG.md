@@ -3,6 +3,20 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.62.0 - 2026-11-01
+
+- Jeder Verein hat in der Betreiberübersicht einen deutlich sichtbaren
+  „Verwalten“-Button. Die gewählte Vereinsverwaltung wird direkt angesprungen.
+- Neben Benutzer und Admin gibt es die Rolle Vorstand. Sie erhält zunächst alle
+  Verwaltungsrechte für ihren eigenen Verein.
+- Unter Einstellungen lassen sich die Rechte der Rollen je Verein anpassen,
+  etwa für Buchungen, Stornos, Helferstunden, Exporte und Integrationen.
+  Erforderliche Leserechte werden dabei sichtbar berücksichtigt.
+- Geänderte Rechte gelten auch für direkte Aufrufe und Downloads. Gleichzeitige
+  Änderungen werden erkannt, statt sich unbemerkt zu überschreiben.
+- Der letzte technische Admin bleibt geschützt. Eingeschränkte Rollen können
+  sich entzogene Rechte nicht selbst zurückgeben oder über andere Konten erweitern.
+
 ## 1.61.0 - 2026-11-01
 
 - Die Vereinsverwaltung bietet einen eigenen Schritt zum Einladen eines

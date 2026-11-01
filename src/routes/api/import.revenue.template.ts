@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { secureDownloadHeaders } from "@/lib/download-headers";
+import { hasEveryPermission } from "@/lib/permissions";
 import { listKatalog } from "@/server/services/anlass-catalog";
 import {
 	auditActor,
@@ -20,9 +21,16 @@ export const Route = createFileRoute("/api/import/revenue/template")({
 							{ status: 401 },
 						);
 					}
-					if ((session.user as { role?: string }).role !== "admin") {
+					if (
+						!hasEveryPermission(
+							session.user,
+							"imports.manage",
+							"finance.read",
+							"helpers.read",
+						)
+					) {
 						return Response.json(
-							{ error: "Adminrechte erforderlich" },
+							{ error: "Für diese Funktion besteht keine Berechtigung" },
 							{ status: 403 },
 						);
 					}

@@ -28,7 +28,13 @@ export type SumupSettingsView = {
 	updated_at: string | undefined;
 };
 
-export function SumupSettingsForm({ initial }: { initial: SumupSettingsView }) {
+export function SumupSettingsForm({
+	initial,
+	canTest = false,
+}: {
+	initial: SumupSettingsView;
+	canTest?: boolean;
+}) {
 	const router = useRouter();
 	const [pending, start] = useTransition();
 	const [testing, startTest] = useTransition();
@@ -203,7 +209,7 @@ export function SumupSettingsForm({ initial }: { initial: SumupSettingsView }) {
 							Verwerfen
 						</Button>
 					) : null}
-					{saved.has_api_key && !dirty ? (
+					{canTest && saved.has_api_key && !dirty ? (
 						<Button variant="outline" onClick={test} disabled={testing}>
 							{testing ? (
 								<Loader2 className="mr-2 h-4 w-4 animate-spin" />

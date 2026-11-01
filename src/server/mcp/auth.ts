@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import { DEFAULT_ROLE_PERMISSIONS, type Permission } from "@/lib/permissions";
 import { resolveTrustedOrigins } from "@/server/auth-origins";
 import { isOperatorHost } from "@/server/operator-host";
 import type { ORPCContext } from "@/server/orpc/base";
@@ -15,6 +16,12 @@ import { tenantSlugForHost } from "@/server/tenant-hostname";
 // and off by default: those tools can mint an admin account, so they should
 // require a human session rather than a long-lived static token.
 export type McpAccessMode = "readonly" | "admin" | "identity";
+
+export function mcpPermissionCeiling(mode: McpAccessMode): Permission[] {
+	if (mode === "readonly")
+		return ["finance.read", "helpers.read", "exports.download"];
+	return [...DEFAULT_ROLE_PERMISSIONS[mode === "admin" ? "admin" : "user"]];
+}
 
 export type McpAuthContext = {
 	accessMode: McpAccessMode;
@@ -77,6 +84,7 @@ export function authenticateMcpRequest(
 		return null;
 
 	const accessMode = configuredAccessMode();
+	const permissions = mcpPermissionCeiling(accessMode);
 	const actor = configuredActor();
 	const headers = new Headers(request.headers);
 	const requestId = requestIdFromHeaders(headers);
@@ -84,7 +92,8 @@ export function authenticateMcpRequest(
 		id: SVU_TENANT_ID,
 		slug: "svu",
 		name: "SVU",
-		role: accessMode === "readonly" ? "user" : "admin",
+		role: accessMode === "admin" ? "admin" : "user",
+		permissions,
 	};
 	headers.set("x-request-id", requestId);
 	return {
@@ -100,6 +109,7 @@ export function authenticateMcpRequest(
 				email: actor.email,
 				name: actor.name,
 				role: accessMode === "admin" ? "admin" : "user",
+				permissions,
 			},
 			headers,
 			clientIp: clientIpFromHeaders(headers),

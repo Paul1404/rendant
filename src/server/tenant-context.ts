@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import type { ClubRole, Permission } from "@/lib/permissions";
 
 export const SVU_TENANT_ID = "00000000-0000-4000-8000-000000000001";
 
@@ -6,7 +7,8 @@ export type TenantContext = {
 	id: string;
 	slug: string;
 	name: string;
-	role?: "admin" | "user";
+	role?: ClubRole;
+	permissions?: readonly Permission[];
 };
 
 const storage = new AsyncLocalStorage<TenantContext>();
