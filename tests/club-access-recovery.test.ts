@@ -31,6 +31,19 @@ describe("club access recovery routes", () => {
 		expect(html).not.toContain('type="password"');
 	});
 
+	it("opens a member reset link without redirecting an already signed-in account into accounting", async () => {
+		state.operator.mockResolvedValue({ operatorHost: false, user: null, forbidden: false });
+		state.entry.mockClear();
+		const context = await LoginRoute.options.beforeLoad?.({ search: { resetToken: "synthetic-reset" } } as never);
+		expect(context).toMatchObject({ clubForbidden: false });
+		expect(state.entry).not.toHaveBeenCalled();
+		vi.spyOn(LoginRoute, "useRouteContext").mockReturnValue(context as never);
+		vi.spyOn(LoginRoute, "useSearch").mockReturnValue({ resetToken: "synthetic-reset" });
+		const html = renderToStaticMarkup(createElement(LoginRoute.options.component as () => React.ReactNode));
+		expect(html).toContain("Neues Passwort festlegen");
+		expect(html).toContain("Passwort wiederholen");
+	});
+
 	it("redirects a denied accounting entry to the recoverable login before loading financial pages", async () => {
 		state.entry.mockResolvedValue({ user: null, forbidden: true });
 		await expect(ClubRoute.options.beforeLoad?.({ location: { searchStr: "", href: "/protokolle" } } as never)).rejects.toMatchObject({ options: { to: "/login" } });

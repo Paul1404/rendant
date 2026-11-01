@@ -1,6 +1,7 @@
 import { Eye, EyeOff, Loader2, LogIn } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { MemberPasswordRecovery } from "@/components/invite-password-recovery";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +20,13 @@ const LOGIN_ERRORS: Record<string, string> = {
 		"Diese E-Mail-Adresse ist noch nicht bestätigt. Bitte zuerst den Link aus der Einladung öffnen.",
 };
 
-export function LoginForm({ redirectTo }: { redirectTo: string }) {
+export function LoginForm({
+	redirectTo,
+	allowRecovery = true,
+}: {
+	redirectTo: string;
+	allowRecovery?: boolean;
+}) {
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
@@ -105,6 +112,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
 						</>
 					)}
 				</Button>
+				{allowRecovery && <MemberPasswordRecovery email={email} />}
 			</form>
 		</div>
 	);

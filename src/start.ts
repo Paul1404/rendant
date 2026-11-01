@@ -66,12 +66,24 @@ const csrf = createCsrfMiddleware({
 // here. The rest is cheap defence in depth. No CSP yet: it needs to be measured
 // against the Nitro asset graph first, and report-only would be the way in.
 const securityHeaders = createMiddleware({ type: "request" }).server(
-	async ({ next }) => {
+	async ({ next, request }) => {
 		const result = await next();
 		const headers = result.response.headers;
 		headers.set("X-Frame-Options", "DENY");
 		headers.set("X-Content-Type-Options", "nosniff");
 		headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+		const path = new URL(request.url).pathname;
+		if (
+			path === "/login" ||
+			path.startsWith("/invite/") ||
+			path.startsWith("/api/auth/")
+		) {
+			// Invitation and recovery URLs carry capabilities. Keep their pages
+			// out of shared caches, referrer headers and search indexes.
+			headers.set("Cache-Control", "private, no-store");
+			headers.set("Referrer-Policy", "no-referrer");
+			headers.set("X-Robots-Tag", "noindex, nofollow");
+		}
 		return result;
 	},
 );

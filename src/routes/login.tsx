@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { BrandLockup } from "@/components/brand-lockup";
 import { ClubAccessDenied } from "@/components/club-access-denied";
+import { ResetPasswordForm } from "@/components/invite-password-recovery";
 import { LoginForm } from "@/components/login-form";
 import { VersionChip } from "@/components/version-chip";
 import { sanitizeAuthRedirect } from "@/lib/redirect";
@@ -8,16 +9,24 @@ import { fetchClubEntry, fetchOperatorSession } from "@/lib/server-fns";
 import { useBranding } from "@/routes/__root";
 
 export const Route = createFileRoute("/login")({
-	validateSearch: (search: Record<string, unknown>): { from?: string } => ({
+	validateSearch: (
+		search: Record<string, unknown>,
+	): { from?: string; resetToken?: string } => ({
 		from: typeof search.from === "string" ? search.from : undefined,
+		resetToken:
+			typeof search.resetToken === "string" && search.resetToken.length <= 512
+				? search.resetToken
+				: undefined,
 	}),
-	beforeLoad: async () => {
+	beforeLoad: async ({ search }) => {
 		const operatorEntry = await fetchOperatorSession();
 		if (operatorEntry.operatorHost) {
 			if (operatorEntry.user || operatorEntry.forbidden)
 				throw redirect({ to: "/admin" });
 			return { operatorEntry, clubForbidden: false };
 		}
+		// A reset link remains usable even while another account is signed in.
+		if (search?.resetToken) return { operatorEntry, clubForbidden: false };
 		const entry = await fetchClubEntry();
 		if (entry.user) throw redirect({ to: "/protokolle" });
 		return { operatorEntry, clubForbidden: entry.forbidden };
@@ -27,7 +36,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-	const { from } = Route.useSearch();
+	const { from, resetToken } = Route.useSearch();
 	const { operatorEntry, clubForbidden } = Route.useRouteContext();
 	const branding = useBranding();
 	const redirectTo = operatorEntry.operatorHost
@@ -60,7 +69,24 @@ function LoginPage() {
 				</div>
 
 				<div className="mt-8 overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-					<LoginForm redirectTo={redirectTo} />
+					{resetToken && !operatorEntry.operatorHost ? (
+						<div className="p-6">
+							<ResetPasswordForm
+								key={resetToken}
+								resetToken={resetToken}
+								recovery={
+									<a className="text-sm underline" href="/login">
+										Neuen Link anfordern
+									</a>
+								}
+							/>
+						</div>
+					) : (
+						<LoginForm
+							redirectTo={redirectTo}
+							allowRecovery={!operatorEntry.operatorHost}
+						/>
+					)}
 				</div>
 
 				<div className="mt-7 flex justify-center">

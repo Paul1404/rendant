@@ -182,6 +182,10 @@ import {
 	setUserNotifyPref,
 } from "@/server/services/notification-prefs";
 import {
+	requestInvitePasswordReset,
+	requestMemberPasswordReset,
+} from "@/server/services/password-recovery";
+import {
 	createProtokoll,
 	getProtokoll,
 	listProtokolle,
@@ -907,6 +911,13 @@ const anlassKatalog = {
 // ---- Invites & users -----------------------------------------------------
 
 const invites = {
+	requestPasswordReset: pub
+		.input(
+			v.object({ token: v.pipe(v.string(), v.minLength(1), v.maxLength(256)) }),
+		)
+		.handler(({ input, context }) =>
+			requestInvitePasswordReset(input.token, context.headers),
+		),
 	list: adminOnly.handler(() => listInvites()),
 
 	create: adminOnly
@@ -1556,6 +1567,13 @@ const health = pub.handler(async () => {
 });
 
 export const router = {
+	recovery: {
+		request: pub
+			.input(v.object({ email: v.pipe(v.string(), v.maxLength(320)) }))
+			.handler(({ input, context }) =>
+				requestMemberPasswordReset(input.email, context.headers),
+			),
+	},
 	operators,
 	protokolle,
 	settings,

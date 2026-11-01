@@ -3,6 +3,10 @@ import { Loader2, UserPlus } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { BrandLockup } from "@/components/brand-lockup";
+import {
+	InvitePasswordRecovery,
+	InviteResetPasswordForm,
+} from "@/components/invite-password-recovery";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,6 +18,14 @@ import { selectTenant } from "@/lib/server-fns";
 import { useBranding } from "@/routes/__root";
 
 export const Route = createFileRoute("/invite/$token")({
+	validateSearch: (
+		search: Record<string, unknown>,
+	): { resetToken?: string } => ({
+		resetToken:
+			typeof search.resetToken === "string" && search.resetToken.length <= 512
+				? search.resetToken
+				: undefined,
+	}),
 	loader: ({ params }) =>
 		orpcClient.invites.getByToken({ token: params.token }),
 	head: () => ({ meta: [{ title: "Einladung · Rendant" }] }),
@@ -23,10 +35,13 @@ export const Route = createFileRoute("/invite/$token")({
 function InvitePage() {
 	const { token } = Route.useParams();
 	const invite = Route.useLoaderData();
+	const { resetToken } = Route.useSearch();
 	const branding = useBranding();
 	const [name, setName] = useState("");
 	const [password, setPassword] = useState("");
+	const [showPassword, setShowPassword] = useState(false);
 	const [pending, start] = useTransition();
+	const [signingOut, setSigningOut] = useState(false);
 	const { data: session, isPending: sessionPending } = authClient.useSession();
 
 	if (!invite.valid) {
@@ -38,13 +53,33 @@ function InvitePage() {
 							Diese Einladung ist ungültig oder abgelaufen.
 						</h2>
 						<p className="text-sm text-muted-foreground">
-							Bitte den Administrator um eine neue Einladung bitten.
+							Bitte den Administrator um eine neue Einladung bitten. Falls du
+							die Einladung bereits angenommen hast, kannst du dich direkt
+							anmelden.
 						</p>
+						<Button asChild variant="outline" className="mt-4">
+							<a href="/login">Zur Anmeldung</a>
+						</Button>
 					</CardContent>
 				</Card>
 			</Shell>
 		);
 	}
+
+	if (resetToken && invite.existingAccount)
+		return (
+			<Shell vereinsname={invite.tenantName}>
+				<Card>
+					<CardContent>
+						<InviteResetPasswordForm
+							token={token}
+							resetToken={resetToken}
+							email={invite.email}
+						/>
+					</CardContent>
+				</Card>
+			</Shell>
+		);
 
 	const inviteEmail = invite.email;
 	const existingAccount = invite.existingAccount;
@@ -112,9 +147,19 @@ function InvitePage() {
 								{invite.email} an.
 							</p>
 							<Button
+								disabled={signingOut}
 								onClick={async () => {
-									await authClient.signOut();
-									window.location.reload();
+									setSigningOut(true);
+									try {
+										const { error } = await authClient.signOut();
+										if (error) throw new Error("Abmelden fehlgeschlagen");
+										window.location.reload();
+									} catch {
+										toast.error(
+											"Abmelden fehlgeschlagen. Bitte erneut versuchen.",
+										);
+										setSigningOut(false);
+									}
 								}}
 							>
 								Konto wechseln
@@ -127,6 +172,7 @@ function InvitePage() {
 									<Label htmlFor="name">Name</Label>
 									<Input
 										id="name"
+										maxLength={120}
 										autoComplete="name"
 										value={name}
 										onChange={(e) => setName(e.target.value)}
@@ -142,7 +188,7 @@ function InvitePage() {
 									</Label>
 									<Input
 										id="password"
-										type="password"
+										type={showPassword ? "text" : "password"}
 										autoComplete={
 											existingAccount ? "current-password" : "new-password"
 										}
@@ -150,9 +196,18 @@ function InvitePage() {
 										onChange={(e) => setPassword(e.target.value)}
 										required
 										minLength={existingAccount ? undefined : 8}
+										maxLength={256}
 										aria-describedby="password-help"
 										className="h-10"
 									/>
+									<Button
+										type="button"
+										variant="link"
+										className="h-auto px-0 text-xs"
+										onClick={() => setShowPassword(!showPassword)}
+									>
+										{showPassword ? "Passwort verbergen" : "Passwort anzeigen"}
+									</Button>
 									<p
 										id="password-help"
 										className="text-[11px] text-muted-foreground"
@@ -186,6 +241,9 @@ function InvitePage() {
 										? "Einladung annehmen"
 										: "Konto anlegen"}
 							</Button>
+							{existingAccount && !matchingSession && (
+								<InvitePasswordRecovery token={token} />
+							)}
 						</form>
 					)}
 				</CardContent>
