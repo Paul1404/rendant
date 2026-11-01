@@ -4,6 +4,7 @@ import {
 	isoCalendarDayDifference,
 	todayIsoDate,
 } from "@/lib/date";
+import { PERMISSION_KEYS } from "@/lib/permissions";
 
 // Zeitraum für die SumUp-Tagesübersicht. Begrenzt, weil jeder Tag ein
 // Aufruf der Transaktionshistorie mit Paging ist.
@@ -605,7 +606,7 @@ export const DatevResolveSchema = v.object({
 
 export const InviteCreateSchema = v.object({
 	email: v.pipe(v.string(), v.trim(), v.email(), v.maxLength(200)),
-	role: v.optional(v.picklist(["user", "admin"]), "user"),
+	role: v.optional(v.picklist(["user", "admin", "board"]), "user"),
 });
 export type InviteCreateInput = v.InferOutput<typeof InviteCreateSchema>;
 
@@ -974,7 +975,7 @@ export const OperatorTenantRenameSchema = v.object({
 export const OperatorInviteSchema = v.object({
 	...OperatorTenantTargetSchema.entries,
 	email: v.pipe(v.string(), v.trim(), v.email(), v.maxLength(254)),
-	role: v.picklist(["user", "admin"]),
+	role: v.picklist(["user", "admin", "board"]),
 	sendEmail: v.optional(v.boolean(), false),
 });
 export const OperatorInviteRevokeSchema = v.object({
@@ -984,10 +985,30 @@ export const OperatorInviteRevokeSchema = v.object({
 export const OperatorMemberRoleSchema = v.object({
 	...OperatorTenantTargetSchema.entries,
 	id: v.pipe(v.string(), v.minLength(1), v.maxLength(200)),
-	role: v.picklist(["user", "admin"]),
+	role: v.picklist(["user", "admin", "board"]),
 });
 export const OperatorMemberBanSchema = v.object({
 	...OperatorTenantTargetSchema.entries,
 	id: v.pipe(v.string(), v.minLength(1), v.maxLength(200)),
 	banned: v.boolean(),
+});
+
+const RolePermissionListSchema = v.pipe(
+	v.array(v.picklist(PERMISSION_KEYS)),
+	v.maxLength(
+		PERMISSION_KEYS.length,
+		"Bitte jede Berechtigung höchstens einmal auswählen",
+	),
+	v.check(
+		(keys) => new Set(keys).size === keys.length,
+		"Bitte jede Berechtigung höchstens einmal auswählen",
+	),
+);
+export const RolePolicyUpdateSchema = v.object({
+	version: v.pipe(v.number(), v.integer(), v.minValue(1)),
+	roles: v.object({
+		user: RolePermissionListSchema,
+		admin: RolePermissionListSchema,
+		board: RolePermissionListSchema,
+	}),
 });

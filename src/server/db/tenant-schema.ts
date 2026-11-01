@@ -4,6 +4,7 @@ import {
 	boolean,
 	check,
 	index,
+	integer,
 	jsonb,
 	pgTable,
 	primaryKey,
@@ -11,6 +12,7 @@ import {
 	timestamp,
 	uuid,
 } from "drizzle-orm/pg-core";
+import type { ClubRole, RolePolicy } from "@/lib/permissions";
 import { user } from "./auth-schema";
 
 // The control plane is global. Business queries use a restricted PostgreSQL
@@ -22,12 +24,27 @@ export const tenants = pgTable(
 		id: uuid("id").primaryKey().defaultRandom(),
 		slug: text("slug").notNull().unique(),
 		name: text("name").notNull(),
+		role_permissions: jsonb("role_permissions")
+			.$type<Partial<RolePolicy>>()
+			.notNull()
+			.default({}),
+		role_permissions_version: integer("role_permissions_version")
+			.notNull()
+			.default(1),
 		created_at: timestamp("created_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),
 	},
 	(t) => [
 		check("tenants_slug_check", sql`${t.slug} ~ '^[a-z0-9][a-z0-9-]{0,62}$'`),
+		check(
+			"tenants_role_permissions_check",
+			sql`jsonb_typeof(${t.role_permissions}) = 'object'`,
+		),
+		check(
+			"tenants_role_permissions_version_check",
+			sql`${t.role_permissions_version} >= 1`,
+		),
 		check("tenants_name_check", sql`length(trim(${t.name})) BETWEEN 1 AND 120`),
 	],
 );
@@ -41,7 +58,7 @@ export const memberships = pgTable(
 		user_id: text("user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
-		role: text("role").$type<"user" | "admin">().notNull().default("user"),
+		role: text("role").$type<ClubRole>().notNull().default("user"),
 		banned: boolean("banned").notNull().default(false),
 		notify_protokoll: boolean("notify_protokoll").notNull().default(true),
 		created_at: timestamp("created_at", { withTimezone: true })
@@ -54,7 +71,10 @@ export const memberships = pgTable(
 	(t) => [
 		primaryKey({ columns: [t.tenant_id, t.user_id] }),
 		index("tenant_memberships_user_idx").on(t.user_id),
-		check("tenant_memberships_role_check", sql`${t.role} IN ('user', 'admin')`),
+		check(
+			"tenant_memberships_role_check",
+			sql`${t.role} IN ('user', 'admin', 'board')`,
+		),
 	],
 );
 

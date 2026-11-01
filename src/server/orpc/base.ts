@@ -1,4 +1,5 @@
 import { ORPCError, os, ValidationError } from "@orpc/server";
+import { hasEveryPermission, type Permission } from "@/lib/permissions";
 import {
 	type ValidationIssue,
 	validationIssueFields,
@@ -15,6 +16,7 @@ export type AuthUser = {
 	email: string;
 	name: string;
 	role: string;
+	permissions?: readonly Permission[];
 };
 
 export type ORPCContext = {
@@ -111,23 +113,32 @@ const requireUser = base.middleware(async ({ context, next }) => {
 	);
 });
 
-const requireAdmin = base
-	.$context<ORPCContext & { user: AuthUser; tenant: TenantContext }>()
-	.middleware(async ({ context, next }) => {
-		if (!context.user) {
-			throw new ORPCError("UNAUTHORIZED", { message: "Nicht angemeldet" });
-		}
-		if (context.user.role !== "admin") {
-			throw new ORPCError("FORBIDDEN", {
-				message: "Adminrechte erforderlich",
-			});
-		}
-		return next({ context });
-	});
-
 export const pub = base.use(logging);
 export const authed = pub.use(requireUser);
-export const adminOnly = authed.use(requireAdmin);
+
+export function permitted(...permissions: Permission[]) {
+	return authed.use(async ({ context, next }) => {
+		if (!hasEveryPermission(context.user, ...permissions))
+			throw new ORPCError("FORBIDDEN", {
+				message: "Für diese Funktion besteht keine Berechtigung",
+			});
+		return next({ context });
+	});
+}
+
+export function permittedAny(...permissions: Permission[]) {
+	return authed.use(async ({ context, next }) => {
+		if (
+			!permissions.some((permission) =>
+				hasEveryPermission(context.user, permission),
+			)
+		)
+			throw new ORPCError("FORBIDDEN", {
+				message: "Für diese Funktion besteht keine Berechtigung",
+			});
+		return next({ context });
+	});
+}
 
 const requireOperator = base.middleware(async ({ context, next }) => {
 	// Never authorize from context.user or the historical global account role.

@@ -2,6 +2,7 @@ import { call } from "@orpc/server";
 import { toJsonSchema } from "@valibot/to-json-schema";
 import * as v from "valibot";
 import { AUDIT_CATEGORIES } from "@/lib/audit";
+import { CLUB_ROLES } from "@/lib/permissions";
 import {
 	AnlassKatalogBulkAssignSchema,
 	AnlassKatalogSchema,
@@ -1046,7 +1047,7 @@ const TOOLS: McpTool[] = [
 		minMode: "identity",
 		input: v.object({
 			id: v.pipe(v.string(), v.minLength(1)),
-			role: v.picklist(["user", "admin"]),
+			role: v.picklist(CLUB_ROLES),
 		}),
 		annotations: WRITE,
 		execute: (context, input) => call(router.users.setRole, input, { context }),

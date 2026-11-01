@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import * as v from "valibot";
 import { secureDownloadHeaders } from "@/lib/download-headers";
+import { hasEveryPermission } from "@/lib/permissions";
 import {
 	auditActor,
 	auditRequest,
@@ -19,6 +20,18 @@ export const Route = createFileRoute("/api/export/helper-hours/xlsx")({
 						return Response.json(
 							{ error: "Nicht angemeldet" },
 							{ status: 401 },
+						);
+					}
+					if (
+						!hasEveryPermission(
+							session.user,
+							"exports.download",
+							"helpers.read",
+						)
+					) {
+						return Response.json(
+							{ error: "Für diese Funktion besteht keine Berechtigung" },
+							{ status: 403 },
 						);
 					}
 					// Categories are configurable, so the code is validated by shape

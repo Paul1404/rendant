@@ -9,23 +9,22 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { formatDateDe } from "@/lib/date";
-import { APP_NAV_ITEMS } from "@/lib/navigation";
+import { visibleNavigation } from "@/lib/navigation";
 import { orpc } from "@/lib/orpc";
+import { hasPermission } from "@/lib/permissions";
 
 export function CommandPalette() {
 	const [open, setOpen] = useState(false);
 	const navigate = useNavigate();
 	const { user } = useRouteContext({ from: "/protokolle" });
-	const navItems = APP_NAV_ITEMS.filter(
-		(item) => !item.adminOnly || user.role === "admin",
-	);
+	const navItems = visibleNavigation(user);
 
 	// The palette is mounted on every /protokolle route, so this only loads once
 	// the dialog is actually opened. Landing on Helferstunden or Einstellungen no
 	// longer downloads the whole protocol list for a dialog nobody opened.
 	const { data: protokolle } = useQuery({
 		...orpc.protokolle.list.queryOptions({ input: { includeStorniert: true } }),
-		enabled: open,
+		enabled: open && hasPermission(user, "finance.read"),
 	});
 
 	useEffect(() => {
@@ -81,7 +80,9 @@ export function CommandPalette() {
 							))}
 						</Command.Group>
 
-						{protokolle && protokolle.length > 0 ? (
+						{hasPermission(user, "finance.read") &&
+						protokolle &&
+						protokolle.length > 0 ? (
 							<Command.Group heading="Protokolle">
 								{protokolle.map((p) => (
 									<Command.Item

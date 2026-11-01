@@ -274,6 +274,13 @@
       "when": 1793540838555,
       "tag": "0038_shared_tenants",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1793565203947,
+      "tag": "0039_club_rbac",
+      "breakpoints": true
     }
   ]
 }

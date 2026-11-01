@@ -25,6 +25,8 @@ import {
 	revenueOf,
 } from "@/lib/finance";
 import { orpc } from "@/lib/orpc";
+import { hasPermission } from "@/lib/permissions";
+import { requireClubPermission } from "@/lib/route-permissions";
 
 type ProtokolleSearch = {
 	q?: string;
@@ -50,6 +52,8 @@ const historicalRevenueQueryOptions = orpc.historicalRevenue.list.queryOptions({
 });
 
 export const Route = createFileRoute("/protokolle/")({
+	beforeLoad: ({ context }) =>
+		requireClubPermission(context.user, "finance.read"),
 	validateSearch: (search: Record<string, unknown>): ProtokolleSearch => {
 		const drilldown = parseDateWindow(search.von, search.bis);
 		const range =
@@ -87,6 +91,8 @@ export const Route = createFileRoute("/protokolle/")({
 
 function ProtokolleListPage() {
 	const search = Route.useSearch();
+	const { user } = Route.useRouteContext();
+	const canCreate = hasPermission(user, "protocols.create");
 	const navigate = useNavigate({ from: "/protokolle/" });
 	const { data: all } = useSuspenseQuery(listQueryOptions);
 	const { data: historical } = useSuspenseQuery(historicalRevenueQueryOptions);
@@ -135,14 +141,20 @@ function ProtokolleListPage() {
 			<PageHeader
 				eyebrow="Buchhaltung"
 				title="Kassenzählprotokolle"
-				description="Übersicht der erfassten Belege. Neue Protokolle anlegen und Auswertungen exportieren."
+				description={
+					canCreate
+						? "Übersicht der erfassten Belege. Neue Protokolle anlegen und Auswertungen exportieren."
+						: "Übersicht der erfassten Belege und Einnahmen."
+				}
 				actions={
-					<Button asChild size="sm">
-						<Link to="/protokolle/neu">
-							<Plus className="mr-2 h-4 w-4" />
-							Neues Protokoll
-						</Link>
-					</Button>
+					canCreate ? (
+						<Button asChild size="sm">
+							<Link to="/protokolle/neu">
+								<Plus className="mr-2 h-4 w-4" />
+								Neues Protokoll
+							</Link>
+						</Button>
+					) : null
 				}
 			/>
 
@@ -225,13 +237,13 @@ function ProtokolleListPage() {
 					)}
 				</div>
 			) : (
-				<EmptyState />
+				<EmptyState canCreate={canCreate} />
 			)}
 		</div>
 	);
 }
 
-function EmptyState() {
+function EmptyState({ canCreate }: { canCreate: boolean }) {
 	return (
 		<div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-card/40 px-6 py-16 text-center">
 			<div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -241,15 +253,18 @@ function EmptyState() {
 				Noch keine Protokolle
 			</h2>
 			<p className="max-w-sm text-sm text-muted-foreground">
-				Lege das erste Kassenzählprotokoll an, um Kassenbestand und
-				Tageseinnahmen zu erfassen.
+				{canCreate
+					? "Lege das erste Kassenzählprotokoll an, um Kassenbestand und Tageseinnahmen zu erfassen."
+					: "Hier erscheinen die erfassten Kassenzählprotokolle des Vereins."}
 			</p>
-			<Button asChild size="sm" className="mt-2">
-				<Link to="/protokolle/neu">
-					<Plus className="mr-2 h-4 w-4" />
-					Neues Protokoll
-				</Link>
-			</Button>
+			{canCreate ? (
+				<Button asChild size="sm" className="mt-2">
+					<Link to="/protokolle/neu">
+						<Plus className="mr-2 h-4 w-4" />
+						Neues Protokoll
+					</Link>
+				</Button>
+			) : null}
 		</div>
 	);
 }

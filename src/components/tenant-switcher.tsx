@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { roleLabel } from "@/lib/permissions";
 import { addTenant, type SessionUser, selectTenant } from "@/lib/server-fns";
 
 export function TenantSwitcher({ user }: { user: SessionUser }) {
@@ -99,9 +100,7 @@ export function TenantSwitcher({ user }: { user: SessionUser }) {
 							<span className="ml-3 text-xs text-muted-foreground">
 								{tenant.id === user.tenant.id
 									? "Aktuell"
-									: tenant.role === "admin"
-										? "Admin"
-										: "Mitglied"}
+									: roleLabel(tenant.role)}
 							</span>
 						</Button>
 					))}

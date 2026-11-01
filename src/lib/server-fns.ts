@@ -3,6 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequest, setCookie } from "@tanstack/react-start/server";
 import * as v from "valibot";
 import type { Branding } from "@/lib/branding";
+import type { ClubRole, Permission } from "@/lib/permissions";
 import {
 	clearTenantScope,
 	pinTenantScope,
@@ -32,13 +33,14 @@ type TenantChoice = {
 	id: string;
 	slug: string;
 	name: string;
-	role: "admin" | "user";
+	role: ClubRole;
 };
 export type SessionUser = {
 	id: string;
 	email: string;
 	name: string;
 	role: string;
+	permissions?: readonly Permission[];
 	tenant: TenantChoice;
 	tenants: TenantChoice[];
 	canCreateTenant: boolean;

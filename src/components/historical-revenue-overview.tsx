@@ -57,6 +57,7 @@ import { formatDateDe, todayIsoDate } from "@/lib/date";
 import { formatCent, parseGermanAmount } from "@/lib/money";
 import { orpcClient } from "@/lib/orpc";
 import { orpcMessage } from "@/lib/orpc-error";
+import { hasPermission, type Permission } from "@/lib/permissions";
 import type { ProtokollRow } from "@/lib/protokoll-types";
 import {
 	isUmsatzbereich,
@@ -111,11 +112,13 @@ export function HistoricalRevenueOverview({
 	protocols,
 	anlassKatalog,
 	canCreate,
+	permissions,
 }: {
 	initialHistorical: HistoricalRevenue[];
 	protocols: ProtokollRow[];
 	anlassKatalog: AnlassKatalogEntry[];
 	canCreate: boolean;
+	permissions?: readonly Permission[];
 }) {
 	const router = useRouter();
 	const queryClient = useQueryClient();
@@ -579,14 +582,24 @@ export function HistoricalRevenueOverview({
 								group={group}
 								entries={detailsByGroup.get(group.key) ?? []}
 								catalog={anlassKatalog}
-								canManage={canCreate}
+								canManageHistorical={canCreate}
+								canReclassifyProtocols={hasPermission(
+									{ permissions },
+									"protocols.reclassify",
+								)}
+								canManageOccasions={hasPermission(
+									{ permissions },
+									"occasions.manage",
+								)}
 								onCorrectHistorical={setCorrectionId}
 								onSaved={refreshAll}
 							/>
 						))}
 					</div>
 				) : (
-					<EmptyComparison onAdd={() => setShowForm(true)} />
+					<EmptyComparison
+						onAdd={canCreate ? () => setShowForm(true) : undefined}
+					/>
 				)}
 			</section>
 
@@ -654,17 +667,26 @@ function ComparisonCard({
 	group,
 	entries,
 	catalog,
-	canManage,
+	canManageHistorical,
+	canReclassifyProtocols,
+	canManageOccasions,
 	onCorrectHistorical,
 	onSaved,
 }: {
 	group: OccasionComparison;
 	entries: ComparisonDetailEntry[];
 	catalog: AnlassKatalogEntry[];
-	canManage: boolean;
+	canManageHistorical: boolean;
+	canReclassifyProtocols: boolean;
+	canManageOccasions: boolean;
 	onCorrectHistorical: (id: string) => void;
 	onSaved: () => Promise<void>;
 }) {
+	const canManage = canManageHistorical || canReclassifyProtocols;
+	const canMoveEntry = (entry: ComparisonDetailEntry) =>
+		entry.source === "historical"
+			? canManageHistorical
+			: canReclassifyProtocols;
 	const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set());
 	const [selected, setSelected] = useState<Set<string>>(new Set());
 	const [moving, setMoving] = useState<MovableEntry[] | null>(null);
@@ -734,7 +756,9 @@ function ComparisonCard({
 	}
 
 	function moveSelected() {
-		const chosen = entries.filter((entry) => selected.has(entry.id));
+		const chosen = entries.filter(
+			(entry) => selected.has(entry.id) && canMoveEntry(entry),
+		);
 		if (chosen.length === 0) return;
 		setMoving(chosen.map(toMovable));
 	}
@@ -763,7 +787,7 @@ function ComparisonCard({
 							</div>
 						</div>
 						<div className="flex items-center gap-1">
-							{canManage && catalogEntry ? (
+							{canManageOccasions && catalogEntry ? (
 								<Button
 									type="button"
 									variant="ghost"
@@ -953,7 +977,11 @@ function ComparisonCard({
 														setSelected(
 															selected.size === yearEntries.length
 																? new Set()
-																: new Set(yearEntries.map((entry) => entry.id)),
+																: new Set(
+																		yearEntries
+																			.filter(canMoveEntry)
+																			.map((entry) => entry.id),
+																	),
 														)
 													}
 												>
@@ -973,7 +1001,7 @@ function ComparisonCard({
 														// action buttons leave no width for the label on a phone.
 														className="flex flex-col gap-1.5 rounded-lg bg-muted/30 px-2.5 py-2 text-xs sm:grid sm:grid-cols-[auto_1fr_auto_auto] sm:items-center sm:gap-2"
 													>
-														{canManage ? (
+														{canMoveEntry(entry) ? (
 															<input
 																type="checkbox"
 																aria-label={`${entry.label} auswählen`}
@@ -998,7 +1026,7 @@ function ComparisonCard({
 															</span>
 														</span>
 														<Money cent={entry.revenueCent} />
-														{canManage ? (
+														{canMoveEntry(entry) ? (
 															<span className="flex items-center gap-0.5">
 																<Button
 																	type="button"
@@ -1144,7 +1172,7 @@ function MonthSelect({
 	);
 }
 
-function EmptyComparison({ onAdd }: { onAdd: () => void }) {
+function EmptyComparison({ onAdd }: { onAdd?: () => void }) {
 	return (
 		<div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/40 px-6 py-12 text-center">
 			<span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -1152,18 +1180,20 @@ function EmptyComparison({ onAdd }: { onAdd: () => void }) {
 			</span>
 			<h3 className="mt-3 text-sm font-semibold">Noch keine Umsätze</h3>
 			<p className="mt-1 max-w-sm text-xs leading-relaxed text-muted-foreground">
-				Erfasse einen historischen Umsatz oder lege ein Kassenzählprotokoll an.
+				Hier erscheinen die erfassten Umsätze des Vereins.
 			</p>
-			<Button
-				type="button"
-				variant="outline"
-				size="sm"
-				className="mt-4"
-				onClick={onAdd}
-			>
-				<Plus className="mr-2 h-4 w-4" />
-				Historischen Umsatz erfassen
-			</Button>
+			{onAdd && (
+				<Button
+					type="button"
+					variant="outline"
+					size="sm"
+					className="mt-4"
+					onClick={onAdd}
+				>
+					<Plus className="mr-2 h-4 w-4" />
+					Historischen Umsatz erfassen
+				</Button>
+			)}
 		</div>
 	);
 }

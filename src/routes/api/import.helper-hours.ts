@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { createFileRoute } from "@tanstack/react-router";
+import { hasEveryPermission } from "@/lib/permissions";
 import {
 	auditActor,
 	auditRequest,
@@ -41,11 +42,19 @@ export const Route = createFileRoute("/api/import/helper-hours")({
 							{ error: "Nicht angemeldet" },
 							{ status: 401 },
 						);
-					if ((session.user as { role?: string }).role !== "admin")
+					if (
+						!hasEveryPermission(
+							session.user,
+							"imports.manage",
+							"finance.read",
+							"helpers.read",
+						)
+					) {
 						return Response.json(
-							{ error: "Adminrechte erforderlich" },
+							{ error: "Für diese Funktion besteht keine Berechtigung" },
 							{ status: 403 },
 						);
+					}
 					const contentLength = Number(
 						request.headers.get("content-length") ?? 0,
 					);

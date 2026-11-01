@@ -1,15 +1,16 @@
 import { ORPCError } from "@orpc/server";
 import { and, eq, sql } from "drizzle-orm";
+import { hasPermission } from "@/lib/permissions";
 import type { VereinStammdaten } from "@/lib/verein";
 import { type DbOrTx, db, globalDb } from "@/server/db";
-import { user } from "@/server/db/auth-schema";
 import { appSettings } from "@/server/db/schema";
-import { memberships, tenants } from "@/server/db/tenant-schema";
+import { tenants } from "@/server/db/tenant-schema";
 import {
 	type RecordAuditInput,
 	recordAuditEventStrict,
 } from "@/server/services/audit";
 import { requireTenant, SVU_TENANT_ID } from "@/server/tenant-context";
+import { assertTenantPermissionsInTransaction } from "./role-policy";
 
 export type YearFormat = "long" | "short";
 export type Separator = "-" | "/" | "." | "_";
@@ -286,7 +287,7 @@ export async function updateVereinStammdaten(
 ): Promise<VereinStammdaten> {
 	const tenant = requireTenant();
 	const actor = audit.actor;
-	if (actor?.role !== "admin")
+	if (!actor)
 		throw new ORPCError("FORBIDDEN", { message: "Adminrechte erforderlich" });
 	// The club name is both public control-plane metadata and club settings.
 	// Keep the two representations atomic without granting business-role access
@@ -297,26 +298,16 @@ export async function updateVereinStammdaten(
 		const mcpAdmin =
 			actor.id === "mcp:codex" &&
 			tenant.id === SVU_TENANT_ID &&
-			tenant.role === "admin";
+			tenant.role === "admin" &&
+			(tenant.permissions === undefined ||
+				hasPermission(tenant, "settings.manage"));
 		if (!mcpAdmin) {
-			const [member] = await tx
-				.select({ id: user.id })
-				.from(memberships)
-				.innerJoin(user, eq(user.id, memberships.user_id))
-				.where(
-					and(
-						eq(memberships.tenant_id, tenant.id),
-						eq(memberships.user_id, actor.id),
-						eq(memberships.role, "admin"),
-						eq(memberships.banned, false),
-						sql`${user.banned} is not true`,
-					),
-				)
-				.for("update");
-			if (!member)
-				throw new ORPCError("FORBIDDEN", {
-					message: "Für diesen Verein bestehen keine Adminrechte",
-				});
+			await assertTenantPermissionsInTransaction(
+				tx,
+				tenant.id,
+				actor.id,
+				"settings.manage",
+			);
 		}
 		const [registered] = await tx
 			.select({ id: tenants.id })

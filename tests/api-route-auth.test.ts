@@ -163,8 +163,22 @@ describe("API route authorization", () => {
 			expect(response.status).toBe(403);
 		});
 
+		it(`${route.name} refuses a club admin without the required functional permissions`, async () => {
+			getSession.mockResolvedValueOnce({ user: { ...member.user, role: "admin", permissions: [] } });
+			const mod = await route.load();
+			const response: Response = await handlerOf(mod, route.method)({ request: route.request(), params: { id: "00000000-0000-4000-8000-000000000000" } });
+			expect(response.status).toBe(403);
+		});
+
+		it(`${route.name} does not let a broad import or export grant bypass its dataset read permissions`, async () => {
+			getSession.mockResolvedValueOnce({ user: { ...member.user, role: "board", permissions: ["imports.manage", "exports.download", "exports.archive"] } });
+			const mod = await route.load();
+			const response: Response = await handlerOf(mod, route.method)({ request: route.request(), params: { id: "00000000-0000-4000-8000-000000000000" } });
+			expect(response.status).toBe(403);
+		});
+
 		if (route.adminOnly) {
-			it(`${route.name} refuses a non-admin with 403`, async () => {
+			it(`${route.name} refuses a member without management permissions with 403`, async () => {
 				getSession.mockResolvedValueOnce(member);
 				const mod = await route.load();
 				const response: Response = await handlerOf(mod, route.method)({

@@ -15,6 +15,7 @@ import {
 	configuredMcpOrigin,
 	type McpAuthContext,
 	mcpIsConfigured,
+	mcpPermissionCeiling,
 	mcpUnauthorizedResponse,
 	validateMcpRequestBoundary,
 } from "./auth";
@@ -133,6 +134,26 @@ async function serveAuthenticatedRequest(
 	request: Request,
 	auth: McpAuthContext,
 ): Promise<Response> {
+	const { getTenantRolePermissions } = await import(
+		"@/server/services/role-policy"
+	);
+	const tenant = auth.orpc.tenant;
+	if (!tenant) return mcpUnauthorizedResponse();
+	const stored = await getTenantRolePermissions(
+		tenant.id,
+		auth.accessMode === "admin" ? "admin" : "user",
+	);
+	const permissions = mcpPermissionCeiling(auth.accessMode).filter(
+		(permission) => stored.includes(permission),
+	);
+	auth = {
+		...auth,
+		orpc: {
+			...auth.orpc,
+			user: { ...auth.orpc.user, permissions },
+			tenant: { ...tenant, permissions },
+		},
+	};
 	const server = buildMcpServer(auth);
 	const baseUrl = configuredMcpOrigin(request);
 	const transport = new WebStandardStreamableHTTPServerTransport({

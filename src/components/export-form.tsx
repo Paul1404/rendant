@@ -122,7 +122,13 @@ const EXPORTS: ReadonlyArray<{
 	},
 ];
 
-export function ExportForm({ isAdmin = false }: { isAdmin?: boolean }) {
+export function ExportForm({
+	isAdmin = false,
+	canDownload = false,
+}: {
+	isAdmin?: boolean;
+	canDownload?: boolean;
+}) {
 	const [von, setVon] = useState(() => isoFromParts(currentYearBerlin(), 0, 1));
 	const [bis, setBis] = useState(today);
 
@@ -216,33 +222,35 @@ export function ExportForm({ isAdmin = false }: { isAdmin?: boolean }) {
 			</Card>
 
 			<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-				{EXPORTS.filter((ex) => !ex.adminOnly || isAdmin).map((ex) => {
-					const Icon = ex.icon;
-					return (
-						<Card key={ex.id} className="flex flex-col">
-							<CardHeader>
-								<CardTitle className="flex items-center gap-2.5">
-									<span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-										<Icon className="h-[18px] w-[18px]" />
-									</span>
-									{ex.title}
-								</CardTitle>
-								<CardDescription>{ex.description}</CardDescription>
-							</CardHeader>
-							<CardContent className="mt-auto pt-2">
-								<Button
-									type="button"
-									className="w-full"
-									disabled={invalidRange}
-									onClick={() => download(ex.path)}
-								>
-									<Download className="mr-2 h-4 w-4" />
-									{ex.button}
-								</Button>
-							</CardContent>
-						</Card>
-					);
-				})}
+				{EXPORTS.filter((ex) => (ex.adminOnly ? isAdmin : canDownload)).map(
+					(ex) => {
+						const Icon = ex.icon;
+						return (
+							<Card key={ex.id} className="flex flex-col">
+								<CardHeader>
+									<CardTitle className="flex items-center gap-2.5">
+										<span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+											<Icon className="h-[18px] w-[18px]" />
+										</span>
+										{ex.title}
+									</CardTitle>
+									<CardDescription>{ex.description}</CardDescription>
+								</CardHeader>
+								<CardContent className="mt-auto pt-2">
+									<Button
+										type="button"
+										className="w-full"
+										disabled={invalidRange}
+										onClick={() => download(ex.path)}
+									>
+										<Download className="mr-2 h-4 w-4" />
+										{ex.button}
+									</Button>
+								</CardContent>
+							</Card>
+						);
+					},
+				)}
 			</div>
 		</div>
 	);

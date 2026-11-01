@@ -33,7 +33,7 @@ type SumupDaysResult = Awaited<
 // Welche SumUp-Tage mit Kartenumsatz noch in keinem Protokoll stecken. Wird
 // auf Knopfdruck geladen, weil jeder Aufruf SumUp befragt und die Seite
 // sonst bei jedem Öffnen eine Fremd-API bemühen würde.
-export function SumupOpenDays() {
+export function SumupOpenDays({ canCreate = false }: { canCreate?: boolean }) {
 	const heute = todayIsoDate();
 	const [von, setVon] = useState(addIsoCalendarDays(heute, -30));
 	const [bis, setBis] = useState(heute);
@@ -152,11 +152,13 @@ export function SumupOpenDays() {
 									</li>
 								))}
 							</ul>
-							<div className="flex justify-end">
-								<Button asChild variant="outline" size="sm">
-									<Link to="/protokolle/neu">Neues Protokoll erfassen</Link>
-								</Button>
-							</div>
+							{canCreate && (
+								<div className="flex justify-end">
+									<Button asChild variant="outline" size="sm">
+										<Link to="/protokolle/neu">Neues Protokoll erfassen</Link>
+									</Button>
+								</div>
+							)}
 						</div>
 					)
 				) : null}

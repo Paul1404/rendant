@@ -12,15 +12,14 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { authClient } from "@/lib/auth-client";
-import { APP_NAV_ITEMS } from "@/lib/navigation";
+import { visibleNavigation } from "@/lib/navigation";
+import { firstClubPath } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 export function Header() {
 	const pathname = useRouterState({ select: (s) => s.location.pathname });
 	const { user } = useRouteContext({ from: "/protokolle" });
-	const navItems = APP_NAV_ITEMS.filter(
-		(item) => !item.adminOnly || user.role === "admin",
-	);
+	const navItems = visibleNavigation(user);
 	const [pending, startTransition] = useTransition();
 
 	function logout() {
@@ -36,7 +35,7 @@ export function Header() {
 			    the wordmark and the page title share one left edge. */}
 			<div className="mx-auto grid w-full max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-6 2xl:flex 2xl:justify-between 2xl:gap-4">
 				<Link
-					to="/protokolle"
+					to={firstClubPath(user)}
 					aria-label="Rendant Startseite"
 					className="group shrink-0 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-nav-accent/80"
 				>

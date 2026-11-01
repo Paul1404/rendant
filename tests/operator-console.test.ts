@@ -23,6 +23,8 @@ describe("operator console presentation", () => {
 	it("renders club metadata and membership controls without accounting data", () => {
 		const html = renderConsole();
 		expect(html).toContain("Vereine verwalten");
+		expect(html).toContain("Nord Demo verwalten");
+		expect(html).toContain(">Verwalten</button>");
 		expect(html).toContain("Nord Demo");
 		expect(html).toContain("nord.example.invalid");
 		expect(html).toContain("Mitglieder und Rollen");
@@ -98,4 +100,14 @@ describe("in-app club admin invitation", () => {
 		const linkOnly = renderToStaticMarkup(createElement(OperatorInvitationDeliveryNotice, { requested: false, status: "skipped" }));
 		expect(linkOnly).toContain("keine E-Mail versendet");
 	});
+});
+
+
+it("offers all three club roles in ordinary operator invitations", () => {
+	const client = new QueryClient();
+	const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(OperatorInvitePanel, { tenantId: tenant.id, addressConfigured: true, activeInviteIds: [] })));
+	client.clear();
+	expect(html).toContain('<option value="user" selected="">Benutzer</option>');
+	expect(html).toContain('<option value="admin">Admin</option>');
+	expect(html).toContain('<option value="board">Vorstand</option>');
 });

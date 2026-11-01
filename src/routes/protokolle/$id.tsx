@@ -44,6 +44,8 @@ import { formatDateDe, formatDateTimeDe } from "@/lib/date";
 import { DENOMINATIONS } from "@/lib/denominations";
 import { formatCent } from "@/lib/money";
 import { orpc } from "@/lib/orpc";
+import { hasPermission } from "@/lib/permissions";
+import { requireClubPermission } from "@/lib/route-permissions";
 import {
 	formatUstSatz as formatUstSatzLib,
 	groupByUstRate,
@@ -62,6 +64,8 @@ function detailQueryOptions(id: string) {
 }
 
 export const Route = createFileRoute("/protokolle/$id")({
+	beforeLoad: ({ context }) =>
+		requireClubPermission(context.user, "finance.read"),
 	loader: async ({ context, params }) => {
 		try {
 			return await context.queryClient.ensureQueryData(
@@ -105,10 +109,8 @@ function NotFound() {
 
 function ProtokollDetailPage() {
 	const { id } = Route.useParams();
-	// Storno and PDF-Neuerzeugung are admin-only on the server, so the controls
-	// only render for admins rather than failing on click.
+	// Each action follows the same capability as its server mutation.
 	const { user } = useRouteContext({ from: "/protokolle" });
-	const isAdmin = user.role === "admin";
 	const { data } = useSuspenseQuery(detailQueryOptions(id));
 	const { protokoll, ausgaben, umsatzUst, sumupTage } = data;
 	const sumScheine = DENOMINATIONS.filter((d) => d.kind === "schein").reduce(
@@ -168,15 +170,17 @@ function ProtokollDetailPage() {
 								aktiv
 							</span>
 						)}
-						{isAdmin ? (
+						{hasPermission(user, "documents.regenerate") ? (
 							<RegeneratePdfButton protokollId={protokoll.id} />
 						) : null}
-						<Button asChild variant="outline" size="sm">
-							<Link to="/protokolle/neu" search={{ duplicate: protokoll.id }}>
-								<Copy className="mr-2 h-4 w-4" />
-								Wie dieses
-							</Link>
-						</Button>
+						{hasPermission(user, "protocols.create") ? (
+							<Button asChild variant="outline" size="sm">
+								<Link to="/protokolle/neu" search={{ duplicate: protokoll.id }}>
+									<Copy className="mr-2 h-4 w-4" />
+									Wie dieses
+								</Link>
+							</Button>
+						) : null}
 						<Button asChild variant="outline" size="sm">
 							<TenantDownloadLink
 								href={`/api/protokolle/${protokoll.id}/pdf?view=1`}
@@ -215,7 +219,7 @@ function ProtokollDetailPage() {
 								</Button>
 							</>
 						) : null}
-						{!isStorno && isAdmin ? (
+						{!isStorno && hasPermission(user, "protocols.cancel") ? (
 							<StornoDialog protokollId={protokoll.id} />
 						) : null}
 					</div>
@@ -243,20 +247,24 @@ function ProtokollDetailPage() {
 
 			{isStorno && !protokoll.storno_pdf_s3_key ? (
 				<Callout tone="warning" title="Storno-PDF wurde noch nicht erzeugt">
-					Die Stornierung ist gespeichert. Mit dem Aktualisieren-Symbol oben
-					kannst du das fehlende PDF nachholen.
+					Die Stornierung ist gespeichert.{" "}
+					{hasPermission(user, "documents.regenerate")
+						? "Mit dem Aktualisieren-Symbol oben kannst du das fehlende PDF nachholen."
+						: "Eine berechtigte Person kann das fehlende PDF nachholen."}
 				</Callout>
 			) : null}
 
 			{!protokoll.pdf_s3_key ? (
 				<Callout tone="warning" title="PDF wurde noch nicht erzeugt">
 					Die Daten sind gespeichert, aber das PDF konnte beim Anlegen nicht
-					erzeugt werden. Mit dem Aktualisieren-Symbol oben kannst du es jetzt
-					nachholen.
+					erzeugt werden.{" "}
+					{hasPermission(user, "documents.regenerate")
+						? "Mit dem Aktualisieren-Symbol oben kannst du es jetzt nachholen."
+						: "Eine berechtigte Person kann das PDF nachholen."}
 				</Callout>
 			) : null}
 
-			{isAdmin ? (
+			{hasPermission(user, "datev.send") ? (
 				<DatevSendPanel
 					key={protokoll.id}
 					protokollId={protokoll.id}

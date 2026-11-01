@@ -22,6 +22,7 @@ import {
 import type { DatevDeliveryState, DatevDocument } from "@/lib/datev";
 import type { DenominationCounts } from "@/lib/denominations";
 import type { HistoricalProtocolParsedRow } from "@/lib/historical-protocol-import";
+import type { ClubRole } from "@/lib/permissions";
 
 import { tenants } from "./tenant-schema";
 
@@ -1545,7 +1546,7 @@ export const invitations = pgTable(
 		id: uuid("id").primaryKey().defaultRandom(),
 		email: text("email").notNull(),
 		token: text("token").notNull().unique(),
-		role: text("role").notNull().default("user"),
+		role: text("role").$type<ClubRole>().notNull().default("user"),
 		invited_by: text("invited_by"),
 		expires_at: timestamp("expires_at", { withTimezone: true }).notNull(),
 		accepted_at: timestamp("accepted_at", { withTimezone: true }),
@@ -1558,5 +1559,9 @@ export const invitations = pgTable(
 		index("invitations_tenant_idx").on(t.tenant_id),
 		uniqueIndex("invitations_tenant_id_unique").on(t.tenant_id, t.id),
 		index("idx_invitations_email").on(t.email),
+		check(
+			"invitations_role_check",
+			sql`${t.role} IN ('user', 'admin', 'board')`,
+		),
 	],
 ).enableRLS();

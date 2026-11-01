@@ -1,3 +1,4 @@
+import { roleLabel } from "@/lib/permissions";
 // E-Mail notifications. SMTP transport and recipients are configured in-app
 // (Einstellungen > Benachrichtigungen) and stored in each club's settings.
 // The password is held encrypted at rest (see secret-box). Sending is best
@@ -450,7 +451,7 @@ export async function sendInvitationEmail(
 		}
 
 		const verein = await getVereinsname();
-		const role = invite.role === "admin" ? "Administrator" : "Benutzer";
+		const role = roleLabel(invite.role);
 
 		const rows: Array<[string, string]> = [["Rolle", role]];
 		if (invite.invitedBy) rows.push(["Eingeladen von", invite.invitedBy]);
