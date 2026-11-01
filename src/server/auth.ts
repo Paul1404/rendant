@@ -50,6 +50,10 @@ export const auth = betterAuth({
 		cookieCache: { enabled: false },
 	},
 	advanced: {
+		// Each club hostname has its own browser session. Never broaden cookies
+		// to the parent domain or accept client-supplied proxy host overrides.
+		crossSubDomainCookies: { enabled: false },
+		trustedProxyHeaders: false,
 		// Persistence contract: retaining the original prefix keeps existing
 		// sessions valid through the product rename.
 		cookiePrefix: "svufo",

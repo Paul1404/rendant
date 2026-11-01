@@ -4,7 +4,33 @@ import {
 	createStart,
 } from "@tanstack/react-start";
 import { legacyDomainRedirect } from "@/lib/canonical-domain";
-import { withTenantRequest } from "@/server/tenant-context";
+import {
+	resolveHostTenant,
+	TenantAccessError,
+} from "@/server/services/tenants";
+import {
+	TenantSelectionError,
+	tenantRequestHeaders,
+	withTenantRequest,
+} from "@/server/tenant-context";
+
+const tenantHostnameGuard = createMiddleware({ type: "request" }).server(
+	async ({ request, next }) => {
+		try {
+			await resolveHostTenant(tenantRequestHeaders(request));
+		} catch (error) {
+			if (error instanceof TenantAccessError)
+				return Response.json(
+					{ error: "Für diese Vereinsadresse besteht kein Zugriff" },
+					{ status: 403 },
+				);
+			if (error instanceof TenantSelectionError)
+				return Response.json({ error: error.message }, { status: 400 });
+			throw error;
+		}
+		return next();
+	},
+);
 
 const tenantRequestScope = createMiddleware({ type: "request" }).server(
 	({ next }) => withTenantRequest(next),
@@ -39,6 +65,7 @@ export const startInstance = createStart(() => ({
 	requestMiddleware: [
 		canonicalDomain,
 		securityHeaders,
+		tenantHostnameGuard,
 		csrf,
 		tenantRequestScope,
 	],

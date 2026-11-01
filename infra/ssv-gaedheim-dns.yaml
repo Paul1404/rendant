@@ -1,0 +1,40 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: DNS records for the SSV Gaedheim tenant on the existing Rendant service.
+
+Parameters:
+  HostedZoneId:
+    Type: String
+    Description: Existing public Route53 hosted zone ID for pdcd.net, without the /hostedzone/ prefix.
+    AllowedPattern: '^Z[A-Z0-9]+$'
+    ConstraintDescription: Supply the existing pdcd.net public hosted zone ID.
+
+Resources:
+  SsvGaedheimTrafficRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId:
+        Ref: HostedZoneId
+      Name: ssv-gaedheim.rendant.pdcd.net.
+      Type: CNAME
+      TTL: '300'
+      ResourceRecords:
+        - ofdobrz4.up.railway.app.
+
+  SsvGaedheimVerificationRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId:
+        Ref: HostedZoneId
+      Name: _railway-verify.ssv-gaedheim.rendant.pdcd.net.
+      Type: TXT
+      TTL: '300'
+      ResourceRecords:
+        - '"railway-verify=15ab7dc65110ddafd4544a53c1ce3d9dea1fbf5125cd5e0b824747d0889632dd"'
+
+Outputs:
+  TenantUrl:
+    Description: HTTPS entry point for the SSV Gaedheim tenant.
+    Value: https://ssv-gaedheim.rendant.pdcd.net
+  RailwayDnsTarget:
+    Description: Railway routing target assigned to this custom domain.
+    Value: ofdobrz4.up.railway.app

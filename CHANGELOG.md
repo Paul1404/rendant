@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.57.0 - 2026-11-01
+
+- Vereine können Rendant über eine eigene Adresse öffnen. Dort ist der
+  Arbeitsbereich fest dem Verein zugeordnet; eine Auswahl oder ein alter
+  Browserwert kann nicht in einen anderen Verein wechseln.
+- Die Anmeldung zeigt auf Vereinsadressen den Vereinsnamen. Einladungen und
+  Benachrichtigungen verwenden eine ausdrücklich eingerichtete Vereinsadresse.
+
 ## 1.56.0 - 2026-11-01
 
 - Mehrere Vereine können Rendant gemeinsam nutzen. Über die Vereinsauswahl

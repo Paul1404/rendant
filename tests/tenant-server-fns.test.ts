@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resolvedRequestTenant, SVU_TENANT_ID, withTenantRequest } from "@/server/tenant-context";
 
 const nord = "00000000-0000-4000-8000-000000000002";
-const state = vi.hoisted(() => ({ request: new Request("http://localhost"), cookie: vi.fn(), resolve: vi.fn() }));
+const state = vi.hoisted(() => ({ request: new Request("http://localhost"), cookie: vi.fn(), resolve: vi.fn(), host: vi.fn(), list: vi.fn(), platform: vi.fn(), create: vi.fn(), settingsRead: vi.fn() }));
 
 vi.mock("@tanstack/react-start", () => ({
 	// SSR invokes the handler locally. Call-option headers do not replace the
@@ -15,20 +15,27 @@ vi.mock("@tanstack/react-start", () => ({
 vi.mock("@tanstack/react-start/server", () => ({ getRequest: () => state.request, setCookie: state.cookie }));
 vi.mock("@/server/services/tenants", () => ({
 	resolveTenantSession: state.resolve,
-	listUserTenants: async () => [],
-	isPlatformAdmin: async () => false,
-	createTenant: vi.fn(),
+	resolveHostTenant: state.host,
+	listUserTenants: state.list,
+	isPlatformAdmin: state.platform,
+	createTenant: state.create,
 	TenantAccessError: class extends Error {},
 }));
 vi.mock("@/server/services/settings", async () => {
 	const { requireTenant } = await import("@/server/tenant-context");
-	return { getVereinsname: async () => requireTenant().name };
+	return { getVereinsname: async () => { state.settingsRead(); return requireTenant().name; } };
 });
 
-import { fetchBranding, fetchSession } from "@/lib/server-fns";
+import { addTenant, fetchBranding, fetchSession } from "@/lib/server-fns";
 
 beforeEach(() => {
 	state.resolve.mockReset();
+	state.host.mockReset().mockResolvedValue(null);
+	state.list.mockReset().mockResolvedValue([]);
+	state.platform.mockReset().mockResolvedValue(false);
+	state.create.mockReset();
+	state.settingsRead.mockClear();
+	state.cookie.mockClear();
 	state.resolve.mockImplementation(async (headers: Headers) => {
 		const id = headers.get("x-rendant-tenant") ?? SVU_TENANT_ID;
 		return { user: { id: "synthetic-user", name: "Demo", email: "demo@example.test", role: "admin" }, tenant: { id, slug: id === nord ? "nord" : "svu", name: id === nord ? "Nord Demo" : "SVU Demo", role: "admin" } };
@@ -52,5 +59,58 @@ describe("tenant selection during server rendering", () => {
 		state.request = new Request(`http://localhost/protokolle?tenant=${nord}`, { headers: { "x-rendant-tenant": SVU_TENANT_ID } });
 		await expect(fetchSession()).rejects.toThrow("Widersprüchliche Vereinsauswahl");
 		expect(state.resolve).not.toHaveBeenCalled();
+	});
+});
+
+
+describe("hostname-bound tenant presentation", () => {
+	const boundClub = { id: nord, slug: "nord", name: "Nord Demo" };
+	const otherClub = { id: SVU_TENANT_ID, slug: "svu", name: "SVU Demo", role: "admin" };
+
+	it("uses only the public registry name for an anonymous bound-host login", async () => {
+		state.request = new Request("https://nord.rendant.example/login", { headers: { host: "nord.rendant.example" } });
+		state.resolve.mockResolvedValue(null);
+		state.host.mockResolvedValue(boundClub);
+
+		expect(await fetchBranding()).toEqual({ vereinsname: "Nord Demo" });
+		expect(state.host.mock.calls[0]?.[0].get("host")).toBe("nord.rendant.example");
+		expect(state.settingsRead).not.toHaveBeenCalled();
+		expect(state.list).not.toHaveBeenCalled();
+		expect(state.platform).not.toHaveBeenCalled();
+	});
+
+	it("keeps anonymous shared-host branding generic", async () => {
+		state.resolve.mockResolvedValue(null);
+		expect(await fetchBranding()).toEqual({ vereinsname: "Verein" });
+		expect(state.settingsRead).not.toHaveBeenCalled();
+	});
+
+	it("does not expose other clubs or operator creation controls on a bound host", async () => {
+		state.host.mockResolvedValue(boundClub);
+		state.list.mockResolvedValue([otherClub, { ...boundClub, role: "admin" }]);
+		state.platform.mockResolvedValue(true);
+
+		const session = await fetchSession(nord);
+		expect(session).toMatchObject({ tenantHostBound: true, canCreateTenant: false });
+		expect(session?.tenants).toEqual([{ ...boundClub, role: "admin" }]);
+		expect(state.list).not.toHaveBeenCalled();
+		expect(state.platform).not.toHaveBeenCalled();
+	});
+
+	it("retains authorized club choices and operator controls on the shared host", async () => {
+		state.list.mockResolvedValue([otherClub, { ...boundClub, role: "admin" }]);
+		state.platform.mockResolvedValue(true);
+
+		const session = await fetchSession(nord);
+		expect(session).toMatchObject({ tenantHostBound: false, canCreateTenant: true });
+		expect(session?.tenants).toHaveLength(2);
+		expect(state.list).toHaveBeenCalledWith("synthetic-user");
+		expect(state.platform).toHaveBeenCalledWith("synthetic-user");
+	});
+
+	it("rejects club creation from a bound hostname before any mutation", async () => {
+		state.host.mockResolvedValue(boundClub);
+		await expect(addTenant({ name: "Other Club", slug: "other-club" })).rejects.toThrow();
+		expect(state.create).not.toHaveBeenCalled();
 	});
 });
