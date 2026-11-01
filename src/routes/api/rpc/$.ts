@@ -2,11 +2,14 @@ import { RPCHandler } from "@orpc/server/fetch";
 import { createFileRoute } from "@tanstack/react-router";
 import { createORPCContext } from "@/server/orpc/context";
 import { router } from "@/server/orpc/router";
+import { validateRpcRequestBoundary } from "@/server/rpc-request-boundary";
 import { TenantSelectionError } from "@/server/tenant-context";
 
 const handler = new RPCHandler(router);
 
 async function handle({ request }: { request: Request }) {
+	const boundaryError = validateRpcRequestBoundary(request);
+	if (boundaryError) return boundaryError;
 	let context: Awaited<ReturnType<typeof createORPCContext>>;
 	try {
 		context = await createORPCContext(request);

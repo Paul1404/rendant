@@ -228,6 +228,13 @@ export async function createTenant(opts: {
 				"Bitte Vereinsnamen und eine gültige Kennung mit 3 bis 50 Zeichen angeben",
 		});
 	}
+	const baseDomain = process.env.TENANT_BASE_DOMAIN?.trim();
+	if (baseDomain && tenantSlugForHost(`${slug}.${baseDomain}`) !== slug) {
+		throw new ORPCError("CONFLICT", {
+			message:
+				"Diese Vereinskennung ist bereits für eine andere Vereinsadresse reserviert",
+		});
+	}
 	await assertPlatformAdmin(opts.actor.id);
 	return globalDb.transaction(async (tx) => {
 		await assertPlatformAdminInTransaction(tx, opts.actor.id);

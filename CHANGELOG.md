@@ -3,6 +3,18 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.59.1 - 2026-11-01
+
+- Konten ohne Zugriff auf den geöffneten Verein können sich gezielt abmelden
+  und mit einem anderen Konto anmelden, statt auf einer Fehlerseite festzuhängen.
+- Änderungen des Vereinsnamens gelten jetzt zugleich für Anmeldung,
+  Vereinsauswahl und Betreiberübersicht.
+- Bereits anderweitig belegte Vereinsadressen werden beim Anlegen erkannt.
+- Schreibende Schnittstellenanfragen werden auf ihre Herkunft und das erwartete
+  Datenformat geprüft.
+- Die Wiederherstellung einer Sicherung auf einem neuen Server erhält auch die
+  getrennten Vereinszugriffe und wird vollständig zurückgerollt, wenn sie scheitert.
+
 ## 1.59.0 - 2026-11-01
 
 - Die Betreiberverwaltung hat eine eigene Adresse. Dort lassen sich Vereine

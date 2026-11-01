@@ -1,7 +1,10 @@
-import { eq } from "drizzle-orm";
+import { ORPCError } from "@orpc/server";
+import { and, eq, sql } from "drizzle-orm";
 import type { VereinStammdaten } from "@/lib/verein";
-import { type DbOrTx, db } from "@/server/db";
+import { type DbOrTx, db, globalDb } from "@/server/db";
+import { user } from "@/server/db/auth-schema";
 import { appSettings } from "@/server/db/schema";
+import { memberships, tenants } from "@/server/db/tenant-schema";
 import {
 	type RecordAuditInput,
 	recordAuditEventStrict,
@@ -63,11 +66,12 @@ export async function claimSettingsGroup(
 	tx: DbOrTx,
 	group: SettingsGroup,
 	expectedUpdatedAt: string | undefined,
+	tenantId = requireTenant().id,
 ): Promise<Date> {
 	const [current] = await tx
 		.select()
 		.from(appSettings)
-		.where(eq(appSettings.id, 1))
+		.where(and(eq(appSettings.id, 1), eq(appSettings.tenant_id, tenantId)))
 		.limit(1)
 		.for("update");
 	if (!current) {
@@ -280,11 +284,55 @@ export async function updateVereinStammdaten(
 	audit: RecordAuditInput,
 	expectedUpdatedAt?: string,
 ): Promise<VereinStammdaten> {
-	return db.transaction(async (tx) => {
+	const tenant = requireTenant();
+	const actor = audit.actor;
+	if (actor?.role !== "admin")
+		throw new ORPCError("FORBIDDEN", { message: "Adminrechte erforderlich" });
+	// The club name is both public control-plane metadata and club settings.
+	// Keep the two representations atomic without granting business-role access
+	// to the global registry. Every privileged query carries the selected club.
+	return globalDb.transaction(async (tx) => {
+		// The synthetic MCP actor is only issued by the SVU-bound admin token;
+		// human callers must still hold the current club-admin membership.
+		const mcpAdmin =
+			actor.id === "mcp:codex" &&
+			tenant.id === SVU_TENANT_ID &&
+			tenant.role === "admin";
+		if (!mcpAdmin) {
+			const [member] = await tx
+				.select({ id: user.id })
+				.from(memberships)
+				.innerJoin(user, eq(user.id, memberships.user_id))
+				.where(
+					and(
+						eq(memberships.tenant_id, tenant.id),
+						eq(memberships.user_id, actor.id),
+						eq(memberships.role, "admin"),
+						eq(memberships.banned, false),
+						sql`${user.banned} is not true`,
+					),
+				)
+				.for("update");
+			if (!member)
+				throw new ORPCError("FORBIDDEN", {
+					message: "Für diesen Verein bestehen keine Adminrechte",
+				});
+		}
+		const [registered] = await tx
+			.select({ id: tenants.id })
+			.from(tenants)
+			.where(eq(tenants.id, tenant.id))
+			.for("update");
+		if (!registered)
+			throw new ORPCError("NOT_FOUND", { message: "Verein nicht gefunden" });
+		await tx.execute(
+			sql`select set_config('app.tenant_id', ${tenant.id}, true)`,
+		);
 		const stamp = await claimSettingsGroup(
 			tx,
 			"verein_updated_at",
 			expectedUpdatedAt,
+			tenant.id,
 		);
 		const rows = await tx
 			.update(appSettings)
@@ -299,11 +347,15 @@ export async function updateVereinStammdaten(
 				verein_registernummer: patch.registernummer.trim(),
 				updated_at: stamp,
 			})
-			.where(eq(appSettings.id, 1))
+			.where(and(eq(appSettings.id, 1), eq(appSettings.tenant_id, tenant.id)))
 			.returning();
 		if (rows.length === 0) {
 			throw new Error("Einstellungen konnten nicht aktualisiert werden");
 		}
+		await tx
+			.update(tenants)
+			.set({ name: patch.name.trim() })
+			.where(eq(tenants.id, tenant.id));
 		await recordAuditEventStrict(tx, audit);
 		return rowToStammdaten(rows[0]);
 	});

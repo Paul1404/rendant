@@ -247,6 +247,11 @@ update the appropriate canonical documentation in the same change.
 - Before calling a change complete, run `bun run check`, `bunx tsc --noEmit`,
   `bun run test`, and `bun run build`, then exercise the affected runtime flow
   where feasible.
+- Portable database restores must bootstrap the restricted cluster role and
+  reapply the explicit tenant ACL allowlist atomically with the restored data.
+  Keep `scripts/restore-tenant-permissions.sql` aligned with business tables and
+  sequence grants; never use blanket grants over auth/control tables. Rehearse
+  with `scripts/test-postgres-restore.sh` against disposable clusters.
 - `/api/health` includes a cached production PDF render. Preserve the
   production-image readiness assertion when changing React PDF, PDFKit, fonts,
   Nitro bundling, or the Docker runtime.
