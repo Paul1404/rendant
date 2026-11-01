@@ -27,3 +27,11 @@ describe("tenant authentication origin boundaries", () => {
 		}
 	});
 });
+
+
+describe("product domain authentication continuity", () => {
+	it("retains exact old and new origins while using the new shared primary", () => {
+		const aliases = ["https://svu.rendant.app", "https://ssv-gaedheim.rendant.app", "https://rendant.sv-untereuerheim.de", "https://svufo.sv-untereuerheim.de", "https://ssv-gaedheim.rendant.pdcd.net"];
+		expect(resolveTrustedOrigins("https://rendant.app", aliases.join(","), "production")).toEqual(["https://rendant.app", ...aliases]);
+	});
+});

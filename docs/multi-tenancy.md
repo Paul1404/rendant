@@ -130,8 +130,36 @@ Eine Anmeldung auf der bisherigen SVU-Domain meldet nicht automatisch auf einer
 anderen Domain an. Für serverseitige Datenabfragen wird der tatsächliche Host
 zusammen mit Anmeldung und Vereinsauswahl an den internen Aufruf weitergegeben.
 
-Die vorläufige Adresse für SSV Gädheim ist
+Die bisherige vorläufige Adresse für SSV Gädheim ist
 `https://ssv-gaedheim.rendant.pdcd.net`. Die DNS-Vorlage
 `infra/ssv-gaedheim-dns.yaml` legt ausschließlich den CNAME und Railways
 Verifikations-TXT in der bestehenden Route53-Zone an. Die Anwendung muss die
 Hostbindung bereits unterstützen, bevor die DNS-Einträge veröffentlicht werden.
+
+## Wechsel auf die Produktdomain
+
+Die bevorzugten Vereinsadressen sind `sv-untereuerheim.rendant.app` und
+`ssv-gaedheim.rendant.app`. Die bestehende SVU-Kennung bleibt `svu`; die UUID
+und alle Buchungen bleiben unverändert. `TENANT_CANONICAL_HOSTS_JSON` ordnet
+Vereinskennungen den bevorzugten Hostnamen zu. Die bekannten alten Adressen
+bleiben auch bei einem Basisdomainwechsel fest an ihren bisherigen Verein
+gebunden. Weitere einzelne Aliase können über `TENANT_HOST_ALIASES_JSON`
+hinzugefügt werden. Widersprüchliche und doppelt belegte Zuordnungen scheitern.
+
+Die Umstellung erfolgt in zwei Schritten: zuerst neue Anwendung und neue
+Hostzuordnung mit leerem `TENANT_CANONICAL_BASE_DOMAIN` ausliefern. In dieser
+Phase bleiben alte Seiten und Mail-Links nutzbar. Anschließend DNS und TLS für
+jede neue Adresse unabhängig prüfen und erst dann
+`TENANT_CANONICAL_BASE_DOMAIN=rendant.app` setzen. Dieser Wert muss der
+`TENANT_BASE_DOMAIN` entsprechen. Damit werden normale Seitenaufrufe auf die
+bevorzugte Vereinsadresse weitergeleitet; Pfad und Query bleiben erhalten.
+API, Assets, Serverfunktionen und schreibende Anfragen bleiben am bisherigen
+Host funktionsfähig und behalten dessen Vereinsgrenze.
+
+`MCP_ALLOWED_ORIGINS` ist eine eigene genaue Adressliste für den bestehenden
+SVU-Token. Ein Wechsel von `BETTER_AUTH_URL` darf bestehende MCP-Verbindungen
+nicht unterbrechen und darf den Token nicht für SSV freigeben.
+
+`infra/rendant-app-dns.yaml` besitzt ausschließlich die CNAME- und
+Verifikations-TXT-Einträge der beiden neuen Vereinsadressen. Die beim Registrar
+angelegte Zone sowie andere Domains werden nicht durch diese Vorlage ersetzt.

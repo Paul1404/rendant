@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import { resolveTrustedOrigins } from "@/server/auth-origins";
 import type { ORPCContext } from "@/server/orpc/base";
 import { clientIpFromHeaders } from "@/server/orpc/context";
 import { requestIdFromHeaders } from "@/server/request-id";
@@ -7,6 +8,7 @@ import {
 	SVU_TENANT_ID,
 	type TenantContext,
 } from "@/server/tenant-context";
+import { tenantSlugForHost } from "@/server/tenant-hostname";
 
 // "identity" additionally exposes invitation and user-role tools. It is opt-in
 // and off by default: those tools can mint an admin account, so they should
@@ -51,6 +53,8 @@ export function authenticateMcpRequest(
 ): McpAuthContext | null {
 	const expected = configuredToken();
 	if (!expected) return null;
+	const hostTenant = tenantSlugForHost(new URL(request.url).host);
+	if (hostTenant && hostTenant !== "svu") return null;
 	const authorization = request.headers.get("authorization");
 	if (!authorization?.startsWith("Bearer ")) return null;
 	const provided = authorization.slice("Bearer ".length).trim();
@@ -129,48 +133,47 @@ export function mcpUnauthorizedResponse(): Response {
 }
 
 export function validateMcpRequestBoundary(request: Request): Response | null {
-	const configured = configuredOrigin(request);
 	const requested = new URL(request.url);
-	if (requested.host !== configured.host) {
+	const hostTenant = tenantSlugForHost(requested.host);
+	const origins = configuredOrigins(request);
+	if (
+		(hostTenant && hostTenant !== "svu") ||
+		!origins.some((origin) => origin.host === requested.host)
+	)
 		return new Response("invalid host", { status: 403 });
-	}
 	const origin = request.headers.get("origin");
-	if (origin && !allowedOrigins(configured).has(origin)) {
+	if (origin && !origins.some((allowed) => allowed.origin === origin))
 		return new Response("invalid origin", { status: 403 });
-	}
 	return null;
 }
 
 export function configuredMcpOrigin(request: Request): URL {
-	return configuredOrigin(request);
+	const requested = new URL(request.url);
+	const selected = configuredOrigins(request).find(
+		(origin) => origin.host === requested.host,
+	);
+	if (!selected) throw new Error("Die MCP-Adresse ist nicht freigegeben");
+	return selected;
+}
+
+function configuredOrigins(request: Request): URL[] {
+	const explicit = process.env.MCP_ALLOWED_ORIGINS?.trim();
+	if (explicit)
+		return resolveTrustedOrigins(undefined, explicit, "production").map(
+			(origin) => new URL(origin),
+		);
+	const primary = process.env.BETTER_AUTH_URL?.trim();
+	if (primary) return [new URL(primary)];
+	if (process.env.NODE_ENV === "production")
+		throw new Error(
+			"MCP_ALLOWED_ORIGINS oder BETTER_AUTH_URL fehlt für den MCP-Endpunkt",
+		);
+	return [new URL(new URL(request.url).origin)];
 }
 
 function configuredToken(): string | null {
 	const value = process.env.MCP_BEARER_TOKEN?.trim();
 	return value && value.length >= 32 ? value : null;
-}
-
-function configuredOrigin(request: Request): URL {
-	const value = process.env.BETTER_AUTH_URL?.trim();
-	if (value) return new URL(value);
-	if (process.env.NODE_ENV === "production") {
-		throw new Error("BETTER_AUTH_URL fehlt für den MCP-Endpunkt");
-	}
-	return new URL(new URL(request.url).origin);
-}
-
-function allowedOrigins(primary: URL): Set<string> {
-	const origins = new Set([primary.origin]);
-	for (const candidate of (process.env.AUTH_TRUSTED_ORIGINS ?? "").split(",")) {
-		const value = candidate.trim();
-		if (!value) continue;
-		try {
-			origins.add(new URL(value).origin);
-		} catch {
-			// Invalid optional aliases are ignored here and rejected by auth setup.
-		}
-	}
-	return origins;
 }
 
 function secureEqual(left: string, right: string): boolean {

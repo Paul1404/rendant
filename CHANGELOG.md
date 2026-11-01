@@ -3,6 +3,16 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.58.0 - 2026-11-01
+
+- Vereine können Rendant unter der gemeinsamen Produktdomain nutzen. Die
+  bisherigen Adressen führen nach der Umstellung zur passenden neuen
+  Vereinsadresse; bestehende offene Vorgänge und Schnittstellen bleiben nutzbar.
+- Vereinsadressen können einen ausführlichen Namen erhalten, ohne die
+  bestehende Vereinskennung oder Buchungen zu verändern.
+- Einladungen und Benachrichtigungen wechseln erst dann zur neuen Adresse,
+  wenn diese vollständig eingerichtet ist.
+
 ## 1.57.0 - 2026-11-01
 
 - Vereine können Rendant über eine eigene Adresse öffnen. Dort ist der
