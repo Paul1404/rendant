@@ -142,6 +142,12 @@ class RecoveryTests(unittest.TestCase):
         return recovery.backup(self.source, "synthetic-source", "synthetic-source-id",
                                self.destination, "synthetic-backup", self.context)
 
+    def test_self_test_rejects_missing_object_access_denial_before_any_write(self):
+        with patch.object(self.destination, "get_object", side_effect=FakeError("AccessDenied")):
+            with self.assertRaises(FakeError):
+                recovery.self_test(self.destination, "synthetic-backup", self.context)
+        self.assertEqual(self.destination.puts, [])
+
     def test_paginated_backup_hashes_bytes_independently_of_multipart_etag(self):
         result = self.run_backup()
         self.assertEqual(result["objects"], 2)

@@ -90,6 +90,11 @@ Resources:
                 Action: [s3:GetObject, s3:GetObjectVersion, s3:PutObject]
                 Resource:
                   Fn::Sub: '${RecoveryBucket.Arn}/*'
+              - Sid: DistinguishMissingRecoveryObjects
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource:
+                  Fn::GetAtt: [RecoveryBucket, Arn]
               - Sid: NeverDeleteRecoveryObjects
                 Effect: Deny
                 Action: [s3:DeleteObject, s3:DeleteObjectVersion]
@@ -369,6 +374,16 @@ Resources:
               payload = b"Rendant independent recovery synthetic fixture\n" + uuid.uuid4().bytes
               digest = hashlib.sha256(payload).hexdigest()
               key = "self-tests/" + str(uuid.uuid4())
+              # S3 returns AccessDenied rather than NoSuchKey for missing objects unless
+              # this role can list the bucket. First-run manifest detection needs that
+              # distinction, so exercise it with an unguessable synthetic key as well.
+              try:
+                  response = destination.get_object(Bucket=bucket, Key=key)
+              except destination.exceptions.NoSuchKey:
+                  pass
+              else:
+                  response["Body"].close()
+                  raise RecoveryFailure("synthetic_key_exists")
               result = destination.put_object(Bucket=bucket, Key=key, Body=payload,
                                              IfNoneMatch="*", ServerSideEncryption="AES256",
                                              ChecksumSHA256=base64.b64encode(bytes.fromhex(digest)).decode())
