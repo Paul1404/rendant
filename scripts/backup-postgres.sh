@@ -15,8 +15,8 @@ if [[ -z ${DATABASE_URL:-} || $# -ne 1 ]]; then
 	exit 2
 fi
 
-if ! command -v pg_dump >/dev/null 2>&1; then
-	echo "pg_dump is required" >&2
+if ! command -v pg_dump >/dev/null 2>&1 || ! command -v python3 >/dev/null 2>&1; then
+	echo "pg_dump and python3 are required" >&2
 	exit 2
 fi
 
@@ -38,8 +38,8 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-pg_dump \
-	--dbname="$DATABASE_URL" \
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+python3 "$script_dir/postgres-connection.py" DATABASE_URL pg_dump \
 	--format=custom \
 	--no-owner \
 	--no-privileges \

@@ -10,8 +10,9 @@ Die Architektur unterscheidet sich bewusst von Kontor2, das getrennte
 Datenbanken und Anmeldungen pro Subdomain verwendet. Rendant bietet eine
 gemeinsame Anmeldung und eine Vereinsauswahl auf der bisherigen Domain.
 Zusätzlich können registrierte Vereine eine eigene Subdomain erhalten.
-Abrechnung, öffentliche Registrierung, Löschung ganzer Vereine und ein eigener
-Betreiberbereich sind nicht Teil dieses Ausbaus.
+Die Betreiberverwaltung ist von den Vereinsarbeitsbereichen getrennt.
+Abrechnung, öffentliche Registrierung und die Löschung ganzer Vereine sind
+nicht Teil dieses Ausbaus.
 
 ## Mitgliedschaften und neue Vereine
 
@@ -162,7 +163,8 @@ SVU-Token. Ein Wechsel von `BETTER_AUTH_URL` darf bestehende MCP-Verbindungen
 nicht unterbrechen und darf den Token nicht für SSV freigeben.
 
 `infra/rendant-app-dns.yaml` besitzt ausschließlich die CNAME- und
-Verifikations-TXT-Einträge der beiden neuen Vereinsadressen. Die beim Registrar
+Verifikations-TXT-Einträge der beiden neuen Vereinsadressen und der
+Betreiberadresse `admin.rendant.app`. Die beim Registrar
 angelegte Zone sowie andere Domains werden nicht durch diese Vorlage ersetzt.
 
 ## Getrennte Betreiberverwaltung

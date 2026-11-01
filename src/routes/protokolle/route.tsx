@@ -3,7 +3,7 @@ import { CommandPalette } from "@/components/command-palette";
 import { Header } from "@/components/header";
 import { MainWatermark } from "@/components/main-watermark";
 import { VersionChip } from "@/components/version-chip";
-import { fetchSession } from "@/lib/server-fns";
+import { fetchClubEntry } from "@/lib/server-fns";
 import { pinTenantScope } from "@/lib/tenant-client";
 import { useBranding } from "@/routes/__root";
 
@@ -12,7 +12,8 @@ export const Route = createFileRoute("/protokolle")({
 		const selectedTenant = new URLSearchParams(location.searchStr).get(
 			"tenant",
 		);
-		const user = await fetchSession(selectedTenant ?? undefined);
+		const entry = await fetchClubEntry(selectedTenant ?? undefined);
+		const user = entry.user;
 		if (!user) {
 			throw redirect({ to: "/login", search: { from: location.href } });
 		}

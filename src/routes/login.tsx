@@ -1,9 +1,10 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { BrandLockup } from "@/components/brand-lockup";
+import { ClubAccessDenied } from "@/components/club-access-denied";
 import { LoginForm } from "@/components/login-form";
 import { VersionChip } from "@/components/version-chip";
 import { sanitizeAuthRedirect } from "@/lib/redirect";
-import { fetchOperatorSession, fetchSession } from "@/lib/server-fns";
+import { fetchClubEntry, fetchOperatorSession } from "@/lib/server-fns";
 import { useBranding } from "@/routes/__root";
 
 export const Route = createFileRoute("/login")({
@@ -15,11 +16,11 @@ export const Route = createFileRoute("/login")({
 		if (operatorEntry.operatorHost) {
 			if (operatorEntry.user || operatorEntry.forbidden)
 				throw redirect({ to: "/admin" });
-			return { operatorEntry };
+			return { operatorEntry, clubForbidden: false };
 		}
-		const user = await fetchSession();
-		if (user) throw redirect({ to: "/protokolle" });
-		return { operatorEntry };
+		const entry = await fetchClubEntry();
+		if (entry.user) throw redirect({ to: "/protokolle" });
+		return { operatorEntry, clubForbidden: entry.forbidden };
 	},
 	head: () => ({ meta: [{ title: "Anmelden · Rendant" }] }),
 	component: LoginPage,
@@ -27,11 +28,14 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
 	const { from } = Route.useSearch();
-	const { operatorEntry } = Route.useRouteContext();
+	const { operatorEntry, clubForbidden } = Route.useRouteContext();
 	const branding = useBranding();
 	const redirectTo = operatorEntry.operatorHost
 		? "/admin"
 		: sanitizeAuthRedirect(from);
+
+	if (clubForbidden)
+		return <ClubAccessDenied vereinsname={branding.vereinsname} />;
 
 	return (
 		<main

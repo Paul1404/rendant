@@ -8,6 +8,7 @@ import {
 	pinTenantScope,
 	tenantRequestHeaders,
 } from "@/lib/tenant-client";
+import { auth } from "@/server/auth";
 import {
 	isOperatorHost,
 	resolveOperatorSession,
@@ -109,25 +110,60 @@ async function resolveBootstrapSession() {
 	}
 }
 
+async function resolveSessionUser(): Promise<SessionUser | null> {
+	const resolved = await resolveBootstrapSession();
+	if (!resolved) return null;
+	const { user, tenant } = resolved;
+	pinResolvedRequestTenant(tenant.id);
+	const tenantHostBound = Boolean(await resolveHostTenant(requestHeaders()));
+	const [tenants, canCreateTenant] = tenantHostBound
+		? ([[tenant], false] as const)
+		: await Promise.all([listUserTenants(user.id), isPlatformAdmin(user.id)]);
+	return {
+		...user,
+		tenant,
+		tenants: [...tenants],
+		canCreateTenant,
+		tenantHostBound,
+	};
+}
+
 const fetchSessionServer = createServerFn({ method: "GET" }).handler(
-	async (): Promise<SessionUser | null> => {
-		const resolved = await resolveBootstrapSession();
-		if (!resolved) return null;
-		const { user, tenant } = resolved;
-		pinResolvedRequestTenant(tenant.id);
-		const tenantHostBound = Boolean(await resolveHostTenant(requestHeaders()));
-		const [tenants, canCreateTenant] = tenantHostBound
-			? ([[tenant], false] as const)
-			: await Promise.all([listUserTenants(user.id), isPlatformAdmin(user.id)]);
-		return {
-			...user,
-			tenant,
-			tenants: [...tenants],
-			canCreateTenant,
-			tenantHostBound,
-		};
+	resolveSessionUser,
+);
+
+export type ClubEntry = { user: SessionUser | null; forbidden: boolean };
+
+const fetchClubEntryServer = createServerFn({ method: "GET" }).handler(
+	async (): Promise<ClubEntry> => {
+		try {
+			return { user: await resolveSessionUser(), forbidden: false };
+		} catch (error) {
+			if (!(error instanceof TenantAccessError)) throw error;
+			const headers = requestHeaders();
+			// Only a known club host gets a recoverable account denial. Unknown
+			// hosts and the operator realm retain their separate boundaries.
+			if (!(await resolveHostTenant(headers))) throw error;
+			const session = await auth.api.getSession({
+				headers,
+				query: { disableCookieCache: true },
+			});
+			return { user: null, forbidden: Boolean(session?.user) };
+		}
 	},
 );
+
+export async function fetchClubEntry(tenantId?: string): Promise<ClubEntry> {
+	const entry = await fetchClubEntryServer({
+		headers: tenantId
+			? { "x-rendant-tenant": tenantId }
+			: tenantRequestHeaders(),
+	});
+	if (entry.user)
+		pinTenantScope({ tenantId: entry.user.tenant.id, userId: entry.user.id });
+	else clearTenantScope();
+	return entry;
+}
 
 export async function fetchSession(
 	tenantId?: string,
@@ -158,7 +194,16 @@ const fetchBrandingServer = createServerFn({ method: "GET" }).handler(
 			}));
 		} catch (error) {
 			// A revoked selection must not prevent public login or invitation pages.
-			if (error instanceof TenantAccessError) return { vereinsname: "Verein" };
+			if (error instanceof TenantAccessError) {
+				try {
+					const boundTenant = await resolveHostTenant(requestHeaders());
+					return { vereinsname: boundTenant?.name ?? "Verein" };
+				} catch (hostError) {
+					if (hostError instanceof TenantAccessError)
+						return { vereinsname: "Verein" };
+					throw hostError;
+				}
+			}
 			throw error;
 		}
 	},

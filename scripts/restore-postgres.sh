@@ -9,7 +9,7 @@ Usage:
   CONFIRM_EMPTY_DATABASE_RESTORE=YES \
   scripts/restore-postgres.sh /path/to/rendant.dump
 
-The target database must have no tables in the public schema. This script never
+The target database must have no user tables, views or sequences. This script never
 drops or overwrites an existing schema.
 EOF
 }
@@ -27,8 +27,8 @@ if [[ ${CONFIRM_EMPTY_DATABASE_RESTORE:-} != "YES" ]]; then
 	echo "Set CONFIRM_EMPTY_DATABASE_RESTORE=YES after verifying the target" >&2
 	exit 2
 fi
-if ! command -v pg_restore >/dev/null 2>&1 || ! command -v psql >/dev/null 2>&1; then
-	echo "pg_restore and psql are required" >&2
+if ! command -v pg_restore >/dev/null 2>&1 || ! command -v psql >/dev/null 2>&1 || ! command -v python3 >/dev/null 2>&1; then
+	echo "pg_restore, psql and python3 are required" >&2
 	exit 2
 fi
 
@@ -38,11 +38,12 @@ if [[ ! -f $archive || -L $archive ]]; then
 	exit 2
 fi
 
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+
 # Validate the archive before connecting to the restore target.
 pg_restore --list "$archive" >/dev/null
 
-target_database=$(psql \
-	--dbname="$RESTORE_DATABASE_URL" \
+target_database=$(python3 "$script_dir/postgres-connection.py" RESTORE_DATABASE_URL psql \
 	--no-psqlrc \
 	--tuples-only \
 	--no-align \
@@ -53,24 +54,50 @@ if [[ $target_database != "$CONFIRM_RESTORE_DATABASE" ]]; then
 	exit 2
 fi
 
-public_table_count=$(psql \
-	--dbname="$RESTORE_DATABASE_URL" \
+global_access=$(python3 "$script_dir/postgres-connection.py" RESTORE_DATABASE_URL psql \
+	--no-psqlrc --tuples-only --no-align --set=ON_ERROR_STOP=1 \
+	--command="select rolsuper or rolbypassrls from pg_roles where rolname = current_user")
+if [[ $global_access != "t" ]]; then
+	echo "Restore requires the privileged application/migration role with SUPERUSER or BYPASSRLS. No role attributes were changed." >&2
+	exit 2
+fi
+
+user_object_count=$(python3 "$script_dir/postgres-connection.py" RESTORE_DATABASE_URL psql \
 	--no-psqlrc \
 	--tuples-only \
 	--no-align \
 	--set=ON_ERROR_STOP=1 \
-	--command="select count(*) from pg_catalog.pg_tables where schemaname = 'public'")
-if [[ $public_table_count != "0" ]]; then
-	echo "Refusing to restore into a non-empty public schema ($public_table_count tables)." >&2
+	--command="select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace where n.nspname not in ('pg_catalog', 'information_schema') and n.nspname !~ '^pg_toast' and c.relkind in ('r', 'p', 'v', 'm', 'S', 'f')")
+if [[ $user_object_count != "0" ]]; then
+	echo "Refusing to restore into a non-empty database ($user_object_count user objects)." >&2
 	exit 2
 fi
 
+# Materialize SQL privately before connecting the writer. A failed pg_restore
+# must never become an apparently successful, partially committed SQL pipe.
+umask 077
+restore_work=$(mktemp -d "${TMPDIR:-/tmp}/rendant-restore.XXXXXXXX")
+cleanup() {
+	rm -rf -- "$restore_work"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 pg_restore \
-	--dbname="$RESTORE_DATABASE_URL" \
-	--exit-on-error \
-	--single-transaction \
 	--no-owner \
 	--no-privileges \
+	--file="$restore_work/archive.sql" \
 	"$archive"
+
+# Role creation, restored data and explicit tenant ACLs commit together. Source
+# role owners and unrelated cluster privileges never cross the restore boundary.
+python3 "$script_dir/postgres-connection.py" RESTORE_DATABASE_URL psql \
+	--no-psqlrc \
+	--quiet \
+	--set=ON_ERROR_STOP=1 \
+	--single-transaction \
+	--file="$script_dir/restore-tenant-role.sql" \
+	--file="$restore_work/archive.sql" \
+	--file="$script_dir/restore-tenant-permissions.sql"
 
 echo "Restore completed in confirmed empty database '$target_database'"

@@ -40,6 +40,9 @@ jobs:
       - name: Test
         run: bun run test
 
+      - name: Test secret-safe PostgreSQL connection tooling
+        run: python3 scripts/test-postgres-connection.py
+
       - name: Build
         run: bun run build
 
@@ -83,6 +86,11 @@ jobs:
         run: bun run test:integration
         env:
           DATABASE_QUERY_TIMEOUT_MS: 1000
+
+      - name: Rehearse portable database recovery
+        run: |
+          export PATH="$(pg_config --bindir):$PATH"
+          scripts/test-postgres-restore.sh
 
       - name: Build production image
         run: docker build --tag rendant-ci .

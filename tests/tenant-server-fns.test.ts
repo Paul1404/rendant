@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resolvedRequestTenant, SVU_TENANT_ID, withTenantRequest } from "@/server/tenant-context";
 
 const nord = "00000000-0000-4000-8000-000000000002";
-const state = vi.hoisted(() => ({ request: new Request("http://localhost"), cookie: vi.fn(), resolve: vi.fn(), host: vi.fn(), list: vi.fn(), platform: vi.fn(), create: vi.fn(), settingsRead: vi.fn(), operatorHost: vi.fn(), operatorResolve: vi.fn() }));
+const state = vi.hoisted(() => ({ request: new Request("http://localhost"), cookie: vi.fn(), resolve: vi.fn(), host: vi.fn(), list: vi.fn(), platform: vi.fn(), create: vi.fn(), settingsRead: vi.fn(), operatorHost: vi.fn(), operatorResolve: vi.fn(), identity: vi.fn() }));
 
+vi.mock("@/server/auth", () => ({ auth: { api: { getSession: state.identity } } }));
 vi.mock("@tanstack/react-start", () => ({
 	// SSR invokes the handler locally. Call-option headers do not replace the
 	// real page request, matching the behavior that caused the regression.
@@ -31,10 +32,11 @@ vi.mock("@/server/services/settings", async () => {
 	return { getVereinsname: async () => { state.settingsRead(); return requireTenant().name; } };
 });
 
-import { addTenant, fetchBranding, fetchOperatorSession, fetchSession } from "@/lib/server-fns";
+import { addTenant, fetchBranding, fetchClubEntry, fetchOperatorSession, fetchSession } from "@/lib/server-fns";
 
 beforeEach(() => {
 	state.resolve.mockReset();
+	state.identity.mockReset().mockResolvedValue(null);
 	state.operatorHost.mockReset().mockReturnValue(false);
 	state.operatorResolve.mockReset();
 	state.host.mockReset().mockResolvedValue(null);
@@ -152,5 +154,34 @@ describe("operator realm entry", () => {
 	it("does not consult operator authentication on a club hostname", async () => {
 		expect(await fetchOperatorSession()).toEqual({ operatorHost: false, user: null, forbidden: false });
 		expect(state.operatorResolve).not.toHaveBeenCalled();
+	});
+});
+
+
+describe("club access recovery", () => {
+	it("offers recovery when a valid identity has no active membership for the bound club", async () => {
+		const { TenantAccessError } = await import("@/server/services/tenants");
+		state.request = new Request("https://nord.rendant.example/login", { headers: { host: "nord.rendant.example", cookie: "existing-session=synthetic" } });
+		state.resolve.mockRejectedValue(new TenantAccessError());
+		state.host.mockResolvedValue({ id: nord, slug: "nord", name: "Nord Demo" });
+		state.identity.mockResolvedValue({ user: { id: "wrong-account", role: "admin" } });
+		expect(await fetchClubEntry()).toEqual({ user: null, forbidden: true });
+		expect(state.identity).toHaveBeenCalledWith(expect.objectContaining({ query: { disableCookieCache: true } }));
+		expect(state.list).not.toHaveBeenCalled();
+		expect(state.settingsRead).not.toHaveBeenCalled();
+		expect(await fetchBranding()).toEqual({ vereinsname: "Nord Demo" });
+		await expect(fetchSession()).rejects.toThrow();
+	});
+
+	it("keeps anonymous login available", async () => {
+		state.resolve.mockResolvedValue(null);
+		expect(await fetchClubEntry()).toEqual({ user: null, forbidden: false });
+	});
+
+	it("does not turn an unknown or unbound host denial into a club entry", async () => {
+		const { TenantAccessError } = await import("@/server/services/tenants");
+		state.resolve.mockRejectedValue(new TenantAccessError());
+		await expect(fetchClubEntry()).rejects.toThrow();
+		expect(state.identity).not.toHaveBeenCalled();
 	});
 });
