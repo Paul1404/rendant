@@ -3,7 +3,7 @@ import { BrandLockup } from "@/components/brand-lockup";
 import { LoginForm } from "@/components/login-form";
 import { VersionChip } from "@/components/version-chip";
 import { sanitizeAuthRedirect } from "@/lib/redirect";
-import { fetchSession } from "@/lib/server-fns";
+import { fetchOperatorSession, fetchSession } from "@/lib/server-fns";
 import { useBranding } from "@/routes/__root";
 
 export const Route = createFileRoute("/login")({
@@ -11,8 +11,15 @@ export const Route = createFileRoute("/login")({
 		from: typeof search.from === "string" ? search.from : undefined,
 	}),
 	beforeLoad: async () => {
+		const operatorEntry = await fetchOperatorSession();
+		if (operatorEntry.operatorHost) {
+			if (operatorEntry.user || operatorEntry.forbidden)
+				throw redirect({ to: "/admin" });
+			return { operatorEntry };
+		}
 		const user = await fetchSession();
 		if (user) throw redirect({ to: "/protokolle" });
+		return { operatorEntry };
 	},
 	head: () => ({ meta: [{ title: "Anmelden · Rendant" }] }),
 	component: LoginPage,
@@ -20,8 +27,11 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
 	const { from } = Route.useSearch();
+	const { operatorEntry } = Route.useRouteContext();
 	const branding = useBranding();
-	const redirectTo = sanitizeAuthRedirect(from);
+	const redirectTo = operatorEntry.operatorHost
+		? "/admin"
+		: sanitizeAuthRedirect(from);
 
 	return (
 		<main
@@ -33,11 +43,15 @@ function LoginPage() {
 				<div className="flex flex-col items-center text-center">
 					<BrandLockup variant="hero" className="mb-6" />
 					<p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
-						Finanzverwaltung für Vereine
+						{operatorEntry.operatorHost
+							? "Vereinsverwaltung"
+							: "Finanzverwaltung für Vereine"}
 					</p>
 					<h1 className="wordmark mt-1.5 text-3xl text-foreground">Rendant</h1>
 					<p className="mt-2 text-sm text-muted-foreground">
-						läuft für {branding.vereinsname}
+						{operatorEntry.operatorHost
+							? "Anmeldung für Betreiber"
+							: `läuft für ${branding.vereinsname}`}
 					</p>
 				</div>
 

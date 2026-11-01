@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { configuredMcpOrigin, validateMcpRequestBoundary } from "@/server/mcp/auth";
+import { authenticateMcpRequest, configuredMcpOrigin, validateMcpRequestBoundary } from "@/server/mcp/auth";
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -31,5 +31,17 @@ describe("MCP domain transition", () => {
 		const request = new Request("https://svu.rendant.app/api/mcp", { headers: { origin: "https://ssv-gaedheim.rendant.app", "x-forwarded-host": "svu.rendant.app" } });
 		expect(validateMcpRequestBoundary(request)?.status).toBe(403);
 		expect(validateMcpRequestBoundary(new Request("https://evil.example/api/mcp", { headers: { "x-forwarded-host": "svu.rendant.app" } }))?.status).toBe(403);
+	});
+});
+
+
+describe("operator host does not expose financial MCP access", () => {
+	it("rejects an accidentally allowlisted operator host", () => {
+		vi.stubEnv("TENANT_ADMIN_HOST", "admin.rendant.app");
+		vi.stubEnv("TENANT_BASE_DOMAIN", "rendant.app");
+		vi.stubEnv("MCP_ALLOWED_ORIGINS", "https://admin.rendant.app,https://sv-untereuerheim.rendant.app");
+		expect(validateMcpRequestBoundary(new Request("https://admin.rendant.app/api/mcp"))?.status).toBe(403);
+		vi.stubEnv("MCP_BEARER_TOKEN", "a".repeat(64));
+		expect(authenticateMcpRequest(new Request("https://admin.rendant.app/api/mcp", { headers: { authorization: `Bearer ${"a".repeat(64)}` } }))).toBeNull();
 	});
 });

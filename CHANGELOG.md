@@ -3,6 +3,17 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.59.0 - 2026-11-01
+
+- Die Betreiberverwaltung hat eine eigene Adresse. Dort lassen sich Vereine
+  anlegen, benennen und ihre Mitgliedschaften sowie Einladungen verwalten.
+- Die Verwaltung zeigt keine Buchhaltungsdaten und wechselt nicht in den
+  Arbeitsbereich eines Vereins. Vereinsadmins erhalten dadurch keine
+  Betreiberrechte.
+- Neue Vereine beginnen ohne Buchungen und ohne automatisch hinzugefügte
+  Betreiber-Mitgliedschaft. Eine noch nicht eingerichtete Anmeldeadresse wird
+  sichtbar gekennzeichnet.
+
 ## 1.58.0 - 2026-11-01
 
 - Vereine können Rendant unter der gemeinsamen Produktdomain nutzen. Die

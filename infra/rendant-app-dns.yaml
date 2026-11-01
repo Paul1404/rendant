@@ -47,6 +47,26 @@ Resources:
       TTL: '300'
       ResourceRecords:
       - '"railway-verify=6e0c7af4542f6c30f04c75add5f8ab063ae0bc8d768450c1c0769ebf30d298de"'
+  AdminTrafficRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId:
+        Ref: HostedZoneId
+      Name: admin.rendant.app.
+      Type: CNAME
+      TTL: '300'
+      ResourceRecords:
+      - 74edcdz3.up.railway.app.
+  AdminVerificationRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId:
+        Ref: HostedZoneId
+      Name: _railway-verify.admin.rendant.app.
+      Type: TXT
+      TTL: '300'
+      ResourceRecords:
+      - '"railway-verify=1fb13ec74d045bb711d0c22705f73bc0c9c67f497d26a6aeb7956d3ad81d528b"'
 Outputs:
   SvuUrl:
     Description: HTTPS entry point for SVU.
@@ -54,3 +74,6 @@ Outputs:
   SsvGaedheimUrl:
     Description: HTTPS entry point for SSV Gaedheim.
     Value: https://ssv-gaedheim.rendant.app
+  AdminUrl:
+    Description: HTTPS entry point for tenant administration.
+    Value: https://admin.rendant.app

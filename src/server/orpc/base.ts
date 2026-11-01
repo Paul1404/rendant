@@ -6,6 +6,7 @@ import {
 } from "@/lib/validation-message";
 import { logger } from "@/server/logger";
 import { CashRegisterConcurrencyError } from "@/server/services/cash-registers";
+import { resolveOperatorSession } from "@/server/services/operator-auth";
 import { SettingsConcurrencyError } from "@/server/services/settings";
 import { type TenantContext, withTenant } from "@/server/tenant-context";
 
@@ -24,6 +25,7 @@ export type ORPCContext = {
 	tenant?: TenantContext;
 	identity?: AuthUser | null;
 	tenantError?: string;
+	operator?: AuthUser;
 };
 
 const base = os.$context<ORPCContext>();
@@ -126,3 +128,14 @@ const requireAdmin = base
 export const pub = base.use(logging);
 export const authed = pub.use(requireUser);
 export const adminOnly = authed.use(requireAdmin);
+
+const requireOperator = base.middleware(async ({ context, next }) => {
+	// Never authorize from context.user or the historical global account role.
+	// The operator host, uncached identity and live membership are all verified.
+	const resolved = await resolveOperatorSession(context.headers);
+	if (!resolved)
+		throw new ORPCError("UNAUTHORIZED", { message: "Nicht angemeldet" });
+	return next({ context: { ...context, operator: resolved.user } });
+});
+
+export const operatorOnly = pub.use(requireOperator);

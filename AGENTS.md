@@ -49,7 +49,8 @@ update the appropriate canonical documentation in the same change.
   recheck administrative rights. Never use it to bypass business isolation.
 - Roles, bans and notification preferences belong to memberships. Historical
   global bans remain effective; only an SVU admin may explicitly clear one.
-  SVU admins may provision new clubs; other club admins cannot.
+  Only allowlisted operators with active SVU admin membership may provision
+  clubs; tenant admin rights never grant operator access.
 - All API imports, exports and downloads use `withRequestTenant`. Browser tabs
   pin their tenant in RPC/upload headers and download URLs. Switching clubs
   reloads the document; SSR forwards the verified request selection. Do not
@@ -68,6 +69,13 @@ update the appropriate canonical documentation in the same change.
   mail links together. Compatibility API/assets/server functions and writes
   never redirect. Keep independent `MCP_ALLOWED_ORIGINS` for old SVU clients;
   general auth-origin changes must never expose that token to another club.
+- `TENANT_ADMIN_HOST` is a separate operator realm with no default financial
+  tenant context, even for valid users or a pinned selector. Its operator APIs
+  require an uncached session plus `PLATFORM_ADMIN_EMAILS` and current SVU admin
+  membership, rechecked in each mutation transaction. Never expose financial
+  RPC/MCP through this host. Operator actions affect tenant metadata and
+  memberships only, retain last-admin guards, and are audited. New tenants
+  created here do not automatically grant the operator a club membership.
 - New object keys begin with `tenants/<uuid>/`. Only SVU may read the existing
   `protokolle/` and `historical-sources/` paths. Never relocate signed legacy
   documents just to adopt the namespace. The deployment MCP token is SVU-only.

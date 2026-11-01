@@ -1,8 +1,9 @@
+import { ORPCError } from "@orpc/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resolvedRequestTenant, SVU_TENANT_ID, withTenantRequest } from "@/server/tenant-context";
 
 const nord = "00000000-0000-4000-8000-000000000002";
-const state = vi.hoisted(() => ({ request: new Request("http://localhost"), cookie: vi.fn(), resolve: vi.fn(), host: vi.fn(), list: vi.fn(), platform: vi.fn(), create: vi.fn(), settingsRead: vi.fn() }));
+const state = vi.hoisted(() => ({ request: new Request("http://localhost"), cookie: vi.fn(), resolve: vi.fn(), host: vi.fn(), list: vi.fn(), platform: vi.fn(), create: vi.fn(), settingsRead: vi.fn(), operatorHost: vi.fn(), operatorResolve: vi.fn() }));
 
 vi.mock("@tanstack/react-start", () => ({
 	// SSR invokes the handler locally. Call-option headers do not replace the
@@ -13,6 +14,10 @@ vi.mock("@tanstack/react-start", () => ({
 	},
 }));
 vi.mock("@tanstack/react-start/server", () => ({ getRequest: () => state.request, setCookie: state.cookie }));
+vi.mock("@/server/services/operator-auth", () => ({
+	isOperatorHost: state.operatorHost,
+	resolveOperatorSession: state.operatorResolve,
+}));
 vi.mock("@/server/services/tenants", () => ({
 	resolveTenantSession: state.resolve,
 	resolveHostTenant: state.host,
@@ -26,10 +31,12 @@ vi.mock("@/server/services/settings", async () => {
 	return { getVereinsname: async () => { state.settingsRead(); return requireTenant().name; } };
 });
 
-import { addTenant, fetchBranding, fetchSession } from "@/lib/server-fns";
+import { addTenant, fetchBranding, fetchOperatorSession, fetchSession } from "@/lib/server-fns";
 
 beforeEach(() => {
 	state.resolve.mockReset();
+	state.operatorHost.mockReset().mockReturnValue(false);
+	state.operatorResolve.mockReset();
 	state.host.mockReset().mockResolvedValue(null);
 	state.list.mockReset().mockResolvedValue([]);
 	state.platform.mockReset().mockResolvedValue(false);
@@ -112,5 +119,38 @@ describe("hostname-bound tenant presentation", () => {
 		state.host.mockResolvedValue(boundClub);
 		await expect(addTenant({ name: "Other Club", slug: "other-club" })).rejects.toThrow();
 		expect(state.create).not.toHaveBeenCalled();
+	});
+});
+
+
+describe("operator realm entry", () => {
+	it("renders neutral branding without resolving a club or reading its settings", async () => {
+		state.operatorHost.mockReturnValue(true);
+		expect(await fetchBranding()).toEqual({ vereinsname: "Vereinsverwaltung", operatorHost: true });
+		expect(state.resolve).not.toHaveBeenCalled();
+		expect(state.host).not.toHaveBeenCalled();
+		expect(state.settingsRead).not.toHaveBeenCalled();
+	});
+
+	it("keeps operator identity separate from any club membership payload", async () => {
+		const user = { id: "operator", email: "operator@example.invalid", name: "Operator Demo", role: "admin" };
+		state.operatorHost.mockReturnValue(true);
+		state.operatorResolve.mockResolvedValue({ user, session: {} });
+		expect(await fetchOperatorSession()).toEqual({ operatorHost: true, user, forbidden: false });
+		expect(state.resolve).not.toHaveBeenCalled();
+		expect(state.list).not.toHaveBeenCalled();
+	});
+
+	it("distinguishes anonymous access from authenticated access denial", async () => {
+		state.operatorHost.mockReturnValue(true);
+		state.operatorResolve.mockResolvedValueOnce(null);
+		expect(await fetchOperatorSession()).toEqual({ operatorHost: true, user: null, forbidden: false });
+		state.operatorResolve.mockRejectedValueOnce(new ORPCError("FORBIDDEN", { message: "Keine Betreiberberechtigung" }));
+		expect(await fetchOperatorSession()).toEqual({ operatorHost: true, user: null, forbidden: true });
+	});
+
+	it("does not consult operator authentication on a club hostname", async () => {
+		expect(await fetchOperatorSession()).toEqual({ operatorHost: false, user: null, forbidden: false });
+		expect(state.operatorResolve).not.toHaveBeenCalled();
 	});
 });

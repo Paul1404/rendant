@@ -4,6 +4,7 @@ import {
 	createStart,
 } from "@tanstack/react-start";
 import { legacyDomainRedirect } from "@/lib/canonical-domain";
+import { isOperatorHost } from "@/server/operator-host";
 import {
 	resolveHostTenant,
 	TenantAccessError,
@@ -17,7 +18,21 @@ import {
 const tenantHostnameGuard = createMiddleware({ type: "request" }).server(
 	async ({ request, next }) => {
 		try {
-			await resolveHostTenant(tenantRequestHeaders(request));
+			const headers = tenantRequestHeaders(request);
+			if (isOperatorHost(headers)) {
+				const path = new URL(request.url).pathname;
+				if (path === "/protokolle" || path.startsWith("/protokolle/")) {
+					return Response.json(
+						{
+							error:
+								"Auf der Betreiberadresse stehen keine Buchhaltungsdaten zur Verfügung",
+						},
+						{ status: 403 },
+					);
+				}
+			} else {
+				await resolveHostTenant(headers);
+			}
 		} catch (error) {
 			if (error instanceof TenantAccessError)
 				return Response.json(
