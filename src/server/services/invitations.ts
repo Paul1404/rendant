@@ -13,6 +13,7 @@ import {
 	recordAuditEventStrict,
 } from "@/server/services/audit";
 import { requireTenant, withTenant } from "@/server/tenant-context";
+import { resolveHostTenant, TenantAccessError } from "./tenants";
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -150,7 +151,9 @@ export async function revokeInvite(
 // Global lookup is deliberately restricted to the token and valid lifetime.
 export async function getValidInvite(
 	token: string,
+	headers?: Headers,
 ): Promise<(Invite & { existingAccount: boolean; tenantName: string }) | null> {
+	const hostTenant = headers ? await resolveHostTenant(headers) : null;
 	const [row] = await globalDb
 		.select({
 			invite: invitations,
@@ -168,6 +171,8 @@ export async function getValidInvite(
 			),
 		)
 		.limit(1);
+	if (row && hostTenant && row.invite.tenant_id !== hostTenant.id)
+		throw new TenantAccessError();
 	return row
 		? {
 				...rowToInvite(row.invite),
@@ -191,6 +196,7 @@ export async function acceptInvite(opts: {
 	name?: string;
 	password?: string;
 	authenticatedUser?: { id: string; email: string; name: string } | null;
+	headers?: Headers;
 	audit: Omit<RecordAuditInput, "category" | "action" | "actor" | "subject">;
 }): Promise<{
 	userId: string;
@@ -200,7 +206,7 @@ export async function acceptInvite(opts: {
 	inviteId: string;
 	tenantId: string;
 }> {
-	const validInvite = await getValidInvite(opts.token);
+	const validInvite = await getValidInvite(opts.token, opts.headers);
 	if (!validInvite) throw new Error("Einladung ungültig oder abgelaufen");
 	const [tenant] = await globalDb
 		.select()

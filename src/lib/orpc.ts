@@ -33,6 +33,7 @@ const resolveHeaders = createIsomorphicFn()
 			getRequestUrl().searchParams.get("tenant");
 		return {
 			...(cookie ? { cookie } : {}),
+			host: headers.get("host") ?? getRequestUrl().host,
 			...(tenant ? { "x-rendant-tenant": tenant } : {}),
 		};
 	})

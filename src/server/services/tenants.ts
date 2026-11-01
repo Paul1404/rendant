@@ -7,6 +7,10 @@ import { user as userTable } from "@/server/db/auth-schema";
 import { appSettings, helperHourCategories } from "@/server/db/schema";
 import { memberships, tenants } from "@/server/db/tenant-schema";
 import { requireTenant, SVU_TENANT_ID } from "@/server/tenant-context";
+import {
+	TenantHostnameError,
+	tenantSlugForHost,
+} from "@/server/tenant-hostname";
 import { type RecordAuditInput, recordAuditEventStrict } from "./audit";
 
 export { SVU_TENANT_ID } from "@/server/tenant-context";
@@ -85,16 +89,57 @@ export function selectTenant(
 	);
 }
 
+export async function resolveHostTenant(
+	headers: Headers,
+): Promise<{ id: string; slug: string; name: string } | null> {
+	let slug: string | null;
+	try {
+		slug = tenantSlugForHost(headers.get("host"));
+	} catch (error) {
+		if (error instanceof TenantHostnameError) throw new TenantAccessError();
+		throw error;
+	}
+	if (slug === null) return null;
+	const [tenant] = await globalDb
+		.select({ id: tenants.id, slug: tenants.slug, name: tenants.name })
+		.from(tenants)
+		.where(eq(tenants.slug, slug))
+		.limit(1);
+	if (!tenant) throw new TenantAccessError();
+	return tenant;
+}
+
+export function selectTenantForHost(
+	available: TenantMembership[],
+	headers: Headers,
+	hostTenant: { id: string; slug: string } | null,
+): TenantMembership | null {
+	if (!hostTenant) return selectTenant(available, requestedTenant(headers));
+	// Host-bound clubs never follow another club's preference or tab selector.
+	// A stale host-only cookie can be ignored; an explicit selector is a request
+	// contract and must agree, including for users with access to both clubs.
+	const explicit = headers.get(TENANT_HEADER);
+	if (
+		explicit !== null &&
+		explicit !== hostTenant.id &&
+		explicit !== hostTenant.slug
+	)
+		throw new TenantAccessError();
+	return selectTenant(available, hostTenant.id);
+}
+
 export async function resolveTenantSession(headers: Headers) {
+	const hostTenant = await resolveHostTenant(headers);
 	const session = await auth.api.getSession({
 		headers,
 		query: { disableCookieCache: true },
 	});
 	if (!session?.user || (session.user as { banned?: boolean | null }).banned)
 		return null;
-	const tenant = selectTenant(
+	const tenant = selectTenantForHost(
 		await listUserTenants(session.user.id),
-		requestedTenant(headers),
+		headers,
+		hostTenant,
 	);
 	if (!tenant) return null;
 	const user = { ...session.user, role: tenant.role };

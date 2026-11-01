@@ -15,3 +15,15 @@ describe("trusted authentication origins", () => {
 		]);
 	});
 });
+
+describe("tenant authentication origin boundaries", () => {
+	it("allows the exact approved SSV origin without trusting the parent wildcard", () => {
+		expect(resolveTrustedOrigins("https://rendant.sv-untereuerheim.de", "https://ssv-gaedheim.rendant.pdcd.net", "production")).toEqual(["https://rendant.sv-untereuerheim.de", "https://ssv-gaedheim.rendant.pdcd.net"]);
+	});
+
+	it("rejects wildcard, credential-bearing, non-HTTP and path-bearing origins", () => {
+		for (const invalid of ["https://*.rendant.pdcd.net", "https://user:password@ssv-gaedheim.rendant.pdcd.net", "file:///tmp/test", "https://ssv-gaedheim.rendant.pdcd.net/another/path", "https://ssv-gaedheim.rendant.pdcd.net?query=1", "ssv-gaedheim.rendant.pdcd.net"]) {
+			expect(() => resolveTrustedOrigins("https://rendant.sv-untereuerheim.de", invalid, "production")).toThrow();
+		}
+	});
+});

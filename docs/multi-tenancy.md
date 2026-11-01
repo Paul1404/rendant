@@ -8,9 +8,10 @@ sein. Die bisherigen Konten und Daten gehören zum ersten Verein `svu` mit UUID
 
 Die Architektur unterscheidet sich bewusst von Kontor2, das getrennte
 Datenbanken und Anmeldungen pro Subdomain verwendet. Rendant bietet eine
-gemeinsame Anmeldung und eine Vereinsauswahl auf derselben Domain. Eigene
-Subdomains, Abrechnung, öffentliche Registrierung, Löschung ganzer Vereine und
-ein eigener Betreiberbereich sind nicht Teil dieses Ausbaus.
+gemeinsame Anmeldung und eine Vereinsauswahl auf der bisherigen Domain.
+Zusätzlich können registrierte Vereine eine eigene Subdomain erhalten.
+Abrechnung, öffentliche Registrierung, Löschung ganzer Vereine und ein eigener
+Betreiberbereich sind nicht Teil dieses Ausbaus.
 
 ## Mitgliedschaften und neue Vereine
 
@@ -107,3 +108,30 @@ Migrationen ein, befüllt sie mit synthetischen Bestandsdaten und vergleicht nac
 Besitzvermerk. Weitere Tests prüfen zwei Vereine, gleiche lokale Schlüssel,
 fremde IDs, Fremdschlüssel, Pool-Wiederverwendung, Rollen, Einladungen und
 unveränderte Zugangsdaten. CI prüft zusätzlich das tatsächliche Produktionsimage.
+
+## Vereinsadressen
+
+`TENANT_BASE_DOMAIN` erlaubt die feste Zuordnung von
+`<vereinskennung>.<basisdomain>` zu einem registrierten Verein. Nur eine einzelne
+Kennung ist erlaubt; unbekannte oder verschachtelte Kennungen erhalten keinen
+SVU-Arbeitsbereich. Ausschlaggebend ist der tatsächliche HTTP-Host. Weiterleitungs-
+oder frei benannte Zusatzheader dürfen den Verein nicht bestimmen.
+
+Auf einer Vereinsadresse kann auch ein Mitglied mehrerer Vereine keine fremde
+Vereinsauswahl erzwingen. Ein veraltetes Auswahlcookie wird ignoriert,
+widersprüchliche ausdrückliche Angaben und fremde Einladungstoken werden
+abgewiesen. Die Kopfzeile zeigt dort den Verein ohne Wechsel- oder Anlegefunktion.
+Die bisherige gemeinsame Adresse behält die vollständige Vereinsauswahl.
+
+Jede öffentlich eingerichtete Vereinsadresse muss als genaue HTTPS-Origin in
+`AUTH_TRUSTED_ORIGINS` stehen. Platzhalter sind nicht erlaubt. Die Konten bleiben
+gemeinsam, Anmeldungscookies gehören aber ausschließlich zum jeweiligen Host.
+Eine Anmeldung auf der bisherigen SVU-Domain meldet nicht automatisch auf einer
+anderen Domain an. Für serverseitige Datenabfragen wird der tatsächliche Host
+zusammen mit Anmeldung und Vereinsauswahl an den internen Aufruf weitergegeben.
+
+Die vorläufige Adresse für SSV Gädheim ist
+`https://ssv-gaedheim.rendant.pdcd.net`. Die DNS-Vorlage
+`infra/ssv-gaedheim-dns.yaml` legt ausschließlich den CNAME und Railways
+Verifikations-TXT in der bestehenden Route53-Zone an. Die Anwendung muss die
+Hostbindung bereits unterstützen, bevor die DNS-Einträge veröffentlicht werden.

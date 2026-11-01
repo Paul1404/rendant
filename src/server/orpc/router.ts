@@ -191,6 +191,7 @@ import {
 	SumupDayTakenError,
 	stornoProtokoll,
 } from "@/server/services/protokoll";
+import { tenantPublicBaseUrl } from "@/server/services/public-url";
 import { vatSummary } from "@/server/services/reports";
 import {
 	getBelegnummerSettings,
@@ -219,28 +220,6 @@ import {
 import { adminOnly, authed, pub } from "./base";
 
 const idInput = v.object({ id: v.pipe(v.string(), v.minLength(1)) });
-
-function publicBaseUrl(headers: Headers): string | null {
-	const configured = process.env.BETTER_AUTH_URL?.trim();
-	if (configured) {
-		try {
-			const url = new URL(configured);
-			if (url.protocol !== "https:" && url.protocol !== "http:") return null;
-			return url.origin;
-		} catch {
-			return null;
-		}
-	}
-
-	// Secret-bearing invite links must never trust request host headers in
-	// production. The fallback only keeps local development convenient.
-	if (process.env.NODE_ENV === "production") return null;
-
-	const host = headers.get("x-forwarded-host") ?? headers.get("host");
-	if (!host) return null;
-	const proto = headers.get("x-forwarded-proto") ?? "https";
-	return `${proto}://${host}`;
-}
 
 // ---- Protokolle ----------------------------------------------------------
 
@@ -942,7 +921,7 @@ const invites = {
 						request: requestAuditContext(context),
 					},
 				});
-				const baseUrl = publicBaseUrl(context.headers);
+				const baseUrl = tenantPublicBaseUrl(context.tenant, context.headers);
 				const emailStatus = baseUrl
 					? await sendInvitationEmail({
 							to: invite.email,
@@ -972,8 +951,8 @@ const invites = {
 
 	getByToken: pub
 		.input(v.object({ token: v.pipe(v.string(), v.minLength(1)) }))
-		.handler(async ({ input }) => {
-			const invite = await getValidInvite(input.token);
+		.handler(async ({ input, context }) => {
+			const invite = await getValidInvite(input.token, context.headers);
 			if (!invite) return { valid: false as const };
 			return {
 				valid: true as const,
@@ -989,6 +968,7 @@ const invites = {
 			const accepted = await acceptInvite({
 				...input,
 				authenticatedUser: context.identity ?? undefined,
+				headers: context.headers,
 				audit: { request: requestAuditContext(context) },
 			});
 			return { ok: true, tenantId: accepted.tenantId };

@@ -22,6 +22,7 @@ import {
 	paragraph,
 } from "@/server/services/email-template";
 import { listOptedInUserEmails } from "@/server/services/notification-prefs";
+import { tenantPublicBaseUrl } from "@/server/services/public-url";
 import { decryptSecret, encryptSecret } from "@/server/services/secret-box";
 import { getVereinsname } from "@/server/services/settings";
 import { requireTenant } from "@/server/tenant-context";
@@ -342,7 +343,7 @@ export async function sendProtokollNotification(
 
 		const verein = await getVereinsname();
 		const datum = formatGermanDate(proto.anlass_datum);
-		const base = process.env.BETTER_AUTH_URL?.trim().replace(/\/+$/, "");
+		const base = tenantPublicBaseUrl(requireTenant());
 		const link = base
 			? `${base}/protokolle/${proto.id}?tenant=${requireTenant().id}`
 			: null;

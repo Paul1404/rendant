@@ -71,7 +71,27 @@ export function withTenant<T>(
 
 export function tenantRequestHeaders(request: Request): Headers {
 	const headers = new Headers(request.headers);
-	const query = new URL(request.url).searchParams.get("tenant");
+	const url = new URL(request.url);
+	// Request URL is the fallback for synthetic/internal requests without Host.
+	// Never consume x-forwarded-host or a client-supplied tenant-host override.
+	const host = headers.get("host");
+	if (host === null) headers.set("host", url.host);
+	else {
+		let authority: URL;
+		try {
+			if (/[\s,@/\\?#]/.test(host)) throw new TenantSelectionError();
+			authority = new URL(`${url.protocol}//${host}`);
+		} catch {
+			throw new TenantSelectionError();
+		}
+		if (
+			authority.hostname.toLowerCase().replace(/\.$/, "") !==
+				url.hostname.toLowerCase().replace(/\.$/, "") ||
+			authority.port !== url.port
+		)
+			throw new TenantSelectionError();
+	}
+	const query = url.searchParams.get("tenant");
 	const explicit = headers.get("x-rendant-tenant");
 	if (query && explicit && query !== explicit) {
 		throw new TenantSelectionError();

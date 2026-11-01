@@ -54,6 +54,12 @@ update the appropriate canonical documentation in the same change.
   pin their tenant in RPC/upload headers and download URLs. Switching clubs
   reloads the document; SSR forwards the verified request selection. Do not
   let a cookie change redirect an older tab's work into another club.
+- `TENANT_BASE_DOMAIN` binds registered one-level tenant slugs to actual HTTP
+  hosts. Never use forwarded/custom host headers for this authority. Bound hosts
+  reject other tenant selectors/invitations and do not offer club switching.
+  SSR must forward the actual Host to internal RPC. Auth origins are exact
+  allowlisted URLs and cookies stay host-only. Publish DNS only after host
+  binding is deployed. See `infra/ssv-gaedheim-dns.yaml` for the scoped records.
 - New object keys begin with `tenants/<uuid>/`. Only SVU may read the existing
   `protokolle/` and `historical-sources/` paths. Never relocate signed legacy
   documents just to adopt the namespace. The deployment MCP token is SVU-only.

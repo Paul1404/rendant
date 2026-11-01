@@ -54,6 +54,18 @@ export function TenantSwitcher({ user }: { user: SessionUser }) {
 		});
 	}
 
+	if (user.tenantHostBound) {
+		return (
+			<span className="flex max-w-28 items-center gap-1.5 px-2 text-sm text-nav-foreground/90 sm:max-w-40">
+				<Building2 className="h-4 w-4 shrink-0" aria-hidden />
+				<span className="sr-only">Verein: {user.tenant.name}</span>
+				<span aria-hidden className="truncate">
+					{user.tenant.name}
+				</span>
+			</span>
+		);
+	}
+
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger asChild>

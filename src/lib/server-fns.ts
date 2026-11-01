@@ -12,6 +12,7 @@ import {
 	createTenant,
 	isPlatformAdmin,
 	listUserTenants,
+	resolveHostTenant,
 	resolveTenantSession,
 	TenantAccessError,
 } from "@/server/services/tenants";
@@ -35,6 +36,7 @@ export type SessionUser = {
 	tenant: TenantChoice;
 	tenants: TenantChoice[];
 	canCreateTenant: boolean;
+	tenantHostBound: boolean;
 };
 
 function requestHeaders(): Headers {
@@ -75,11 +77,17 @@ const fetchSessionServer = createServerFn({ method: "GET" }).handler(
 		if (!resolved) return null;
 		const { user, tenant } = resolved;
 		pinResolvedRequestTenant(tenant.id);
-		const [tenants, canCreateTenant] = await Promise.all([
-			listUserTenants(user.id),
-			isPlatformAdmin(user.id),
-		]);
-		return { ...user, tenant, tenants, canCreateTenant };
+		const tenantHostBound = Boolean(await resolveHostTenant(requestHeaders()));
+		const [tenants, canCreateTenant] = tenantHostBound
+			? ([[tenant], false] as const)
+			: await Promise.all([listUserTenants(user.id), isPlatformAdmin(user.id)]);
+		return {
+			...user,
+			tenant,
+			tenants: [...tenants],
+			canCreateTenant,
+			tenantHostBound,
+		};
 	},
 );
 
@@ -100,7 +108,10 @@ const fetchBrandingServer = createServerFn({ method: "GET" }).handler(
 	async (): Promise<Branding> => {
 		try {
 			const resolved = await resolveBootstrapSession();
-			if (!resolved) return { vereinsname: "Verein" };
+			if (!resolved) {
+				const boundTenant = await resolveHostTenant(requestHeaders());
+				return { vereinsname: boundTenant?.name ?? "Verein" };
+			}
 			return withTenant(resolved.tenant, async () => ({
 				vereinsname: await getVereinsname(),
 			}));
@@ -166,8 +177,10 @@ const createTenantServer = createServerFn({ method: "POST" })
 		}),
 	)
 	.handler(async ({ data }) => {
-		const resolved = await resolveTenantSession(requestHeaders());
+		const headers = requestHeaders();
+		const resolved = await resolveTenantSession(headers);
 		if (!resolved) throw new Error("Bitte melde dich an.");
+		if (await resolveHostTenant(headers)) throw new TenantAccessError();
 		return createTenant({ ...data, actor: resolved.user });
 	});
 
