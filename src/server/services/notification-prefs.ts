@@ -1,63 +1,72 @@
-// Per-user opt-in for the "new protokoll" notification mail. The preference
-// lives on the user table (notify_protokoll). Recipients of the FYI mail are the
-// union of opted-in user accounts and the free-form address list kept by an
-// admin under Einstellungen.
-
-import { and, eq, isNull, ne, or } from "drizzle-orm";
-import { db } from "@/server/db";
+// Notification preferences belong to club memberships. An account can opt in
+// for one club without receiving accounting mail from another club.
+import { and, eq, sql } from "drizzle-orm";
+import { globalDb } from "@/server/db";
 import { user as userTable } from "@/server/db/auth-schema";
-import {
-	type RecordAuditInput,
-	recordAuditEventStrict,
-} from "@/server/services/audit";
+import { memberships } from "@/server/db/tenant-schema";
+import { requireTenant } from "@/server/tenant-context";
+import { type RecordAuditInput, recordAuditEventStrict } from "./audit";
 
 export async function getUserNotifyPref(userId: string): Promise<boolean> {
-	const rows = await db
-		.select({ notify: userTable.notifyProtokoll })
-		.from(userTable)
-		.where(eq(userTable.id, userId))
+	const [member] = await globalDb
+		.select({ notify: memberships.notify_protokoll })
+		.from(memberships)
+		.where(
+			and(
+				eq(memberships.tenant_id, requireTenant().id),
+				eq(memberships.user_id, userId),
+			),
+		)
 		.limit(1);
-	// Default to on for an unknown row, matching the column default.
-	return rows[0]?.notify ?? true;
+	return member?.notify ?? false;
 }
 
-// Sets the preference for a user. Returns false when no such user exists.
 export async function setUserNotifyPref(
 	userId: string,
 	notify: boolean,
 	audit: RecordAuditInput,
 ): Promise<boolean> {
-	return db.transaction(async (tx) => {
-		const rows = await tx
-			.update(userTable)
-			.set({ notifyProtokoll: notify })
-			.where(eq(userTable.id, userId))
-			.returning({ id: userTable.id, email: userTable.email });
-		if (!rows[0]) return false;
+	const tenant = requireTenant();
+	return globalDb.transaction(async (tx) => {
+		const [member] = await tx
+			.update(memberships)
+			.set({ notify_protokoll: notify, updated_at: new Date() })
+			.where(
+				and(
+					eq(memberships.tenant_id, tenant.id),
+					eq(memberships.user_id, userId),
+				),
+			)
+			.returning({ id: memberships.user_id });
+		if (!member) return false;
+		const [user] = await tx
+			.select({ email: userTable.email })
+			.from(userTable)
+			.where(eq(userTable.id, userId));
+		await tx.execute(
+			sql`select set_config('app.tenant_id', ${tenant.id}, true)`,
+		);
 		await recordAuditEventStrict(tx, {
 			...audit,
-			subject: {
-				type: "user",
-				id: rows[0].id,
-				label: rows[0].email,
-			},
+			subject: { type: "user", id: member.id, label: user?.email },
 			metadata: { ...audit.metadata, notify },
 		});
 		return true;
 	});
 }
 
-// E-mail addresses of every user who is opted in and not banned. Banned is a
-// nullable boolean, so null counts as "not banned".
 export async function listOptedInUserEmails(): Promise<string[]> {
-	const rows = await db
+	const rows = await globalDb
 		.select({ email: userTable.email })
-		.from(userTable)
+		.from(memberships)
+		.innerJoin(userTable, eq(userTable.id, memberships.user_id))
 		.where(
 			and(
-				eq(userTable.notifyProtokoll, true),
-				or(isNull(userTable.banned), ne(userTable.banned, true)),
+				eq(memberships.tenant_id, requireTenant().id),
+				eq(memberships.notify_protokoll, true),
+				eq(memberships.banned, false),
+				sql`${userTable.banned} is not true`,
 			),
 		);
-	return rows.map((r) => r.email);
+	return rows.map((row) => row.email);
 }

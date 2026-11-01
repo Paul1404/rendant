@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { TenantDownloadLink } from "@/components/tenant-download-link";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -65,6 +66,7 @@ import { DENOMINATIONS } from "@/lib/denominations";
 import { formatCent, formatCentPlain, parseGermanAmount } from "@/lib/money";
 import { orpc, orpcClient } from "@/lib/orpc";
 import { orpcMessage } from "@/lib/orpc-error";
+import { tenantFetch } from "@/lib/tenant-client";
 import {
 	UMSATZBEREICHE,
 	type Umsatzbereich,
@@ -146,7 +148,7 @@ export function HistoricalRevenueTable({
 		try {
 			const form = new FormData();
 			for (const file of Array.from(files)) form.append("files", file);
-			const response = await fetch("/api/import/historical-sources", {
+			const response = await tenantFetch("/api/import/historical-sources", {
 				method: "POST",
 				body: form,
 			});
@@ -607,10 +609,12 @@ export function HistoricalRevenueDetailDialog({
 									</div>
 									{detail.source.archive ? (
 										<Button asChild size="sm" variant="outline">
-											<a href={`/api/historical-revenues/${detail.id}/source`}>
+											<TenantDownloadLink
+												href={`/api/historical-revenues/${detail.id}/source`}
+											>
 												<Download className="mr-2 h-4 w-4" />
 												Original herunterladen
-											</a>
+											</TenantDownloadLink>
 										</Button>
 									) : (
 										<Badge variant="outline">

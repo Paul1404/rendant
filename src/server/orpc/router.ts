@@ -1,5 +1,4 @@
 import { ORPCError } from "@orpc/server";
-import { and, desc, eq, sql } from "drizzle-orm";
 import * as v from "valibot";
 import { AUDIT_CATEGORIES } from "@/lib/audit";
 import { todayIsoDate } from "@/lib/date";
@@ -65,11 +64,7 @@ import {
 	UmsatzUstBasisSettingsSchema,
 	VereinSettingsSchema,
 } from "@/lib/schemas";
-import { db } from "@/server/db";
-import {
-	session as sessionTable,
-	user as userTable,
-} from "@/server/db/auth-schema";
+import { globalDb } from "@/server/db";
 import { logger } from "@/server/logger";
 import { getMcpStatus } from "@/server/mcp/auth";
 import {
@@ -83,7 +78,6 @@ import {
 import {
 	listAuditEvents,
 	recordAuditEvent,
-	recordAuditEventStrict,
 	requestAuditContext,
 } from "@/server/services/audit";
 import { previewNextBelegnummer } from "@/server/services/belegnummer";
@@ -217,6 +211,11 @@ import {
 	SumupMismatchError,
 	updateSumupSettings,
 } from "@/server/services/sumup";
+import {
+	listTenantUsers,
+	setTenantUserBanned,
+	setTenantUserRole,
+} from "@/server/services/tenants";
 import { adminOnly, authed, pub } from "./base";
 
 const idInput = v.object({ id: v.pipe(v.string(), v.minLength(1)) });
@@ -976,16 +975,23 @@ const invites = {
 		.handler(async ({ input }) => {
 			const invite = await getValidInvite(input.token);
 			if (!invite) return { valid: false as const };
-			return { valid: true as const, email: invite.email, role: invite.role };
+			return {
+				valid: true as const,
+				email: invite.email,
+				role: invite.role,
+				existingAccount: invite.existingAccount,
+				tenantName: invite.tenantName,
+			};
 		}),
 
 	accept: pub.input(InviteAcceptSchema).handler(async ({ input, context }) => {
 		try {
-			await acceptInvite({
+			const accepted = await acceptInvite({
 				...input,
+				authenticatedUser: context.identity ?? undefined,
 				audit: { request: requestAuditContext(context) },
 			});
-			return { ok: true };
+			return { ok: true, tenantId: accepted.tenantId };
 		} catch (e) {
 			throw new ORPCError("BAD_REQUEST", { message: (e as Error).message });
 		}
@@ -993,22 +999,7 @@ const invites = {
 };
 
 const users = {
-	list: adminOnly.handler(async () => {
-		const rows = await db
-			.select({
-				id: userTable.id,
-				email: userTable.email,
-				name: userTable.name,
-				role: userTable.role,
-				banned: userTable.banned,
-				createdAt: userTable.createdAt,
-				notifyProtokoll: userTable.notifyProtokoll,
-			})
-			.from(userTable)
-			.orderBy(desc(userTable.createdAt));
-		return rows;
-	}),
-
+	list: adminOnly.handler(() => listTenantUsers()),
 	setRole: adminOnly
 		.input(
 			v.object({
@@ -1016,147 +1007,26 @@ const users = {
 				role: v.picklist(["user", "admin"]),
 			}),
 		)
-		.handler(async ({ input, context }) => {
-			if (input.id === context.user.id && input.role !== "admin") {
-				throw new ORPCError("BAD_REQUEST", {
-					message: "Die eigene Admin-Rolle kann nicht entfernt werden",
-				});
-			}
-			const changed = await db.transaction(async (tx) => {
-				await tx.execute(
-					// Keep the established lock key so old and new app revisions share
-					// the same cross-deployment concurrency boundary during rollout.
-					sql`select pg_advisory_xact_lock(hashtext('svufo:user-access-admin'))`,
-				);
-				const [target] = await tx
-					.select({
-						id: userTable.id,
-						email: userTable.email,
-						role: userTable.role,
-						banned: userTable.banned,
-					})
-					.from(userTable)
-					.where(eq(userTable.id, input.id))
-					.limit(1)
-					.for("update");
-				if (!target) return null;
-				if (
-					target.role === "admin" &&
-					input.role !== "admin" &&
-					!target.banned
-				) {
-					const [admins] = await tx
-						.select({ count: sql<number>`count(*)` })
-						.from(userTable)
-						.where(
-							and(
-								eq(userTable.role, "admin"),
-								sql`${userTable.banned} is not true`,
-							),
-						);
-					if (Number(admins?.count ?? 0) <= 1) {
-						throw new ORPCError("CONFLICT", {
-							message: "Der letzte aktive Admin kann nicht herabgestuft werden",
-						});
-					}
-				}
-				await tx
-					.update(userTable)
-					.set({ role: input.role, updatedAt: new Date() })
-					.where(eq(userTable.id, input.id));
-				await tx.delete(sessionTable).where(eq(sessionTable.userId, input.id));
-				const result = { ...target, role: input.role };
-				await recordAuditEventStrict(tx, {
-					category: "users",
-					action: "users.role_changed",
-					actor: context.user,
-					subject: { type: "user", id: result.id, label: result.email },
-					request: requestAuditContext(context),
-					metadata: { role: result.role },
-				});
-				return result;
-			});
-			if (!changed) {
-				throw new ORPCError("NOT_FOUND", { message: "Konto nicht gefunden" });
-			}
-			return { ok: true as const, role: changed.role };
-		}),
-
+		.handler(({ input, context }) =>
+			setTenantUserRole(
+				input.id,
+				input.role,
+				context.user,
+				requestAuditContext(context),
+			),
+		),
 	setBanned: adminOnly
 		.input(
-			v.object({
-				id: v.pipe(v.string(), v.minLength(1)),
-				banned: v.boolean(),
-			}),
+			v.object({ id: v.pipe(v.string(), v.minLength(1)), banned: v.boolean() }),
 		)
-		.handler(async ({ input, context }) => {
-			if (input.id === context.user.id && input.banned) {
-				throw new ORPCError("BAD_REQUEST", {
-					message: "Das eigene Konto kann nicht gesperrt werden",
-				});
-			}
-			const changed = await db.transaction(async (tx) => {
-				await tx.execute(
-					sql`select pg_advisory_xact_lock(hashtext('svufo:user-access-admin'))`,
-				);
-				const [target] = await tx
-					.select({
-						id: userTable.id,
-						email: userTable.email,
-						role: userTable.role,
-						banned: userTable.banned,
-					})
-					.from(userTable)
-					.where(eq(userTable.id, input.id))
-					.limit(1)
-					.for("update");
-				if (!target) return null;
-				if (input.banned && target.role === "admin" && !target.banned) {
-					const [admins] = await tx
-						.select({ count: sql<number>`count(*)` })
-						.from(userTable)
-						.where(
-							and(
-								eq(userTable.role, "admin"),
-								sql`${userTable.banned} is not true`,
-							),
-						);
-					if (Number(admins?.count ?? 0) <= 1) {
-						throw new ORPCError("CONFLICT", {
-							message: "Der letzte aktive Admin kann nicht gesperrt werden",
-						});
-					}
-				}
-				await tx
-					.update(userTable)
-					.set({
-						banned: input.banned,
-						banReason: input.banned ? "Durch Administrator gesperrt" : null,
-						banExpires: null,
-						updatedAt: new Date(),
-					})
-					.where(eq(userTable.id, input.id));
-				if (input.banned) {
-					await tx
-						.delete(sessionTable)
-						.where(eq(sessionTable.userId, input.id));
-				}
-				const result = { ...target, banned: input.banned };
-				await recordAuditEventStrict(tx, {
-					category: "users",
-					action: input.banned ? "users.blocked" : "users.unblocked",
-					actor: context.user,
-					subject: { type: "user", id: result.id, label: result.email },
-					request: requestAuditContext(context),
-					metadata: { role: result.role },
-				});
-				return result;
-			});
-			if (!changed) {
-				throw new ORPCError("NOT_FOUND", { message: "Konto nicht gefunden" });
-			}
-			return { ok: true as const, banned: changed.banned };
-		}),
+		.handler(({ input, context }) =>
+			setTenantUserBanned(
+				input.id,
+				input.banned,
+				context.user,
+				requestAuditContext(context),
+			),
+		),
 
 	// Admin override of another account's notification preference.
 	setNotify: adminOnly
@@ -1697,7 +1567,7 @@ const audit = {
 const health = pub.handler(async () => {
 	const { sql } = await import("drizzle-orm");
 	try {
-		await db.execute(sql`select 1`);
+		await globalDb.execute(sql`select 1`);
 		return { ok: true, db: true };
 	} catch {
 		return { ok: false, db: false };

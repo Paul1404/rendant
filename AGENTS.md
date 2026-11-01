@@ -36,6 +36,31 @@ update the appropriate canonical documentation in the same change.
   Preserve recursive matching, exclusions, archive and streaming XLSX read/write
   coverage when updating these overrides; upstream still requests older versions.
 
+## Tenant isolation
+
+- Rendant uses a shared database with global identities and per-club memberships.
+  SVU owns the legacy data under UUID `00000000-0000-4000-8000-000000000001`.
+- Business services must use `db` inside a verified `withTenant` scope. The pool
+  sets the restricted `rendant_tenant` role and transaction-local tenant ID;
+  forced PostgreSQL RLS and composite foreign keys enforce ownership. Missing
+  context fails closed. `withTenant` also assimilates lazy Drizzle thenables.
+- `globalDb` is reserved for auth, membership control, migration, security events
+  and readiness. Membership helpers must use explicit tenant predicates and
+  recheck administrative rights. Never use it to bypass business isolation.
+- Roles, bans and notification preferences belong to memberships. Historical
+  global bans remain effective; only an SVU admin may explicitly clear one.
+  SVU admins may provision new clubs; other club admins cannot.
+- All API imports, exports and downloads use `withRequestTenant`. Browser tabs
+  pin their tenant in RPC/upload headers and download URLs. Switching clubs
+  reloads the document; SSR forwards the verified request selection. Do not
+  let a cookie change redirect an older tab's work into another club.
+- New object keys begin with `tenants/<uuid>/`. Only SVU may read the existing
+  `protokolle/` and `historical-sources/` paths. Never relocate signed legacy
+  documents just to adopt the namespace. The deployment MCP token is SVU-only.
+- Tenant migrations and cutover recovery are documented in
+  `docs/multi-tenancy.md`. A rollback to a pre-tenant application after migration
+  is unsafe. Preserve a recovery point before the first production cutover.
+
 ## Multi-user correctness
 
 - Assume multiple people and multiple app instances can mutate the same data at

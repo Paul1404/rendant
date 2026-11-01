@@ -4,7 +4,7 @@ import {
 	LOGIN_RATE_MAX,
 	LOGIN_RATE_WINDOW_MS,
 } from "@/lib/constants";
-import { db } from "@/server/db";
+import { globalDb as db } from "@/server/db";
 import { loginAttempts } from "@/server/db/schema";
 import { logger } from "@/server/logger";
 

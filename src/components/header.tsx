@@ -2,6 +2,7 @@ import { Link, useRouteContext, useRouterState } from "@tanstack/react-router";
 import { LogOut } from "lucide-react";
 import { useTransition } from "react";
 import { BrandLockup } from "@/components/brand-lockup";
+import { TenantSwitcher } from "@/components/tenant-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import {
@@ -72,6 +73,7 @@ export function Header() {
 				</nav>
 
 				<div className="flex shrink-0 items-center justify-end gap-1">
+					<TenantSwitcher user={user} />
 					<ThemeToggle variant="nav" />
 
 					<span
@@ -82,6 +84,7 @@ export function Header() {
 						variant="ghost"
 						size="sm"
 						onClick={logout}
+						aria-label="Abmelden"
 						disabled={pending}
 						className="text-nav-foreground/70 hover:bg-white/8 hover:text-nav-foreground focus-visible:border-nav-accent focus-visible:ring-nav-accent/80"
 					>

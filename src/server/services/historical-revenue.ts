@@ -317,7 +317,12 @@ export async function createHistoricalRevenueWithDb(
 			erstellt_von_name: actor.name,
 			erstellt_von_email: actor.email,
 		})
-		.onConflictDoNothing({ target: historicalRevenues.idempotency_key })
+		.onConflictDoNothing({
+			target: [
+				historicalRevenues.tenant_id,
+				historicalRevenues.idempotency_key,
+			],
+		})
 		.returning();
 	if (inserted[0]) return { row: inserted[0], created: true };
 

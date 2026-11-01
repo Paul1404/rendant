@@ -3,6 +3,20 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.56.0 - 2026-11-01
+
+- Mehrere Vereine können Rendant gemeinsam nutzen. Über die Vereinsauswahl
+  wechselst du zwischen deinen Vereinen. Daten, Belegnummern, Einstellungen
+  und Anbindungen bleiben je Verein getrennt.
+- Ein Konto kann zu mehreren Vereinen gehören und dort unterschiedliche
+  Rechte haben. Bestehende Konten nehmen weitere Einladungen mit ihrer
+  bisherigen Anmeldung an.
+- Der bisherige SVU-Bestand bleibt mit seinen Belegen, Dokumenten und Konten
+  erhalten. Neue Vereine beginnen ohne Buchungen und erhalten eigene
+  Einstellungen.
+- Offene Tabs, Downloads und neue Formularentwürfe bleiben dem jeweiligen
+  Verein zugeordnet, auch wenn du in einem anderen Tab den Verein wechselst.
+
 ## 1.55.6 - 2026-10-31
 
 - Die SumUp-Auswahl lädt beim Öffnen automatisch sieben Tage bis zum

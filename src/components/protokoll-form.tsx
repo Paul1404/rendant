@@ -526,7 +526,6 @@ export function ProtokollForm({
 	);
 
 	const { clearDraft } = useFormDraft<FormDraft>(DRAFT_KEY, snapshot, {
-		legacyKeys: ["svufo:draft:protokoll-neu"],
 		dirty: dirty && !pending,
 		enabled: !pending,
 		toastTitle: "Entwurf wiederherstellen?",

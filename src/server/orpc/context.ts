@@ -1,5 +1,10 @@
 import { auth } from "@/server/auth";
 import { requestIdFromHeaders } from "@/server/request-id";
+import {
+	resolveTenantSession,
+	TenantAccessError,
+} from "@/server/services/tenants";
+import { tenantRequestHeaders } from "@/server/tenant-context";
 import type { ORPCContext } from "./base";
 
 // Assumes exactly one trusted proxy hop (Railway's edge). If another proxy is
@@ -28,7 +33,7 @@ export async function createORPCContext(
 	request: Request,
 ): Promise<ORPCContext> {
 	const requestId = requestIdFromHeaders(request.headers);
-	const headers = new Headers(request.headers);
+	const headers = tenantRequestHeaders(request);
 	headers.set("x-request-id", requestId);
 	// Authorization must reflect role changes, bans, and session revocations
 	// immediately. The general cookie cache is useful for page rendering, but an
@@ -37,7 +42,7 @@ export async function createORPCContext(
 		headers,
 		query: { disableCookieCache: true },
 	});
-	const user = session?.user
+	const identity = session?.user
 		? {
 				id: session.user.id,
 				email: session.user.email,
@@ -45,8 +50,21 @@ export async function createORPCContext(
 				role: (session.user as { role?: string }).role ?? "user",
 			}
 		: null;
+	let resolved: Awaited<ReturnType<typeof resolveTenantSession>> = null;
+	let tenantError: string | undefined;
+	if (identity) {
+		try {
+			resolved = await resolveTenantSession(headers);
+		} catch (error) {
+			if (!(error instanceof TenantAccessError)) throw error;
+			tenantError = error.message;
+		}
+	}
 	return {
-		user,
+		user: resolved?.user ?? null,
+		identity,
+		tenant: resolved?.tenant,
+		tenantError,
 		headers,
 		clientIp: clientIpFromHeaders(headers),
 		requestId,

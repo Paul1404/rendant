@@ -128,7 +128,9 @@ export async function createHelperHourCategory(
 				erstellt_von_user_id: actor.id,
 				erstellt_von_name: actor.name,
 			})
-			.onConflictDoNothing({ target: helperHourCategories.code })
+			.onConflictDoNothing({
+				target: [helperHourCategories.tenant_id, helperHourCategories.code],
+			})
 			.returning();
 		if (!row) throw new Error("Es gibt bereits einen Punkt mit diesem Namen");
 		await recordAuditEventStrict(tx, {

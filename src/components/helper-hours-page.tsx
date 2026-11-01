@@ -44,6 +44,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { CatalogPicker } from "@/components/catalog-picker";
+import { TenantDownloadLink } from "@/components/tenant-download-link";
 import { Button } from "@/components/ui/button";
 import { CancelReasonDialog } from "@/components/ui/cancel-reason-dialog";
 import {
@@ -91,6 +92,7 @@ import {
 import { formatPercent, parseGermanAmount } from "@/lib/money";
 import { orpc, orpcClient } from "@/lib/orpc";
 import { orpcMessage } from "@/lib/orpc-error";
+import { tenantFetch } from "@/lib/tenant-client";
 
 type UnresolvedName = {
 	art: "person" | "veranstaltung";
@@ -1702,13 +1704,13 @@ function HelperHoursBudgets({
 						</p>
 					</div>
 					<Button asChild variant="outline">
-						<a
+						<TenantDownloadLink
 							href={`/api/export/helper-hours/xlsx?abteilung=${selected ?? ""}`}
 							download
 						>
 							<Download className="mr-1 h-4 w-4" />
 							Excel-Übersicht
-						</a>
+						</TenantDownloadLink>
 					</Button>
 				</div>
 				{isAdmin ? (
@@ -1926,7 +1928,7 @@ function HelperHourExpenseImport({
 			body.set("mode", mode);
 			if (mode === "apply" && preview)
 				body.set("confirm_digest", preview.digest);
-			const response = await fetch("/api/import/helper-hour-expenses", {
+			const response = await tenantFetch("/api/import/helper-hour-expenses", {
 				method: "POST",
 				body,
 			});
@@ -2111,7 +2113,7 @@ function HelperHoursImport({
 				body.set("corrections", JSON.stringify(Object.values(corrections)));
 				body.set("names", JSON.stringify(Object.values(names)));
 			}
-			const response = await fetch("/api/import/helper-hours", {
+			const response = await tenantFetch("/api/import/helper-hours", {
 				method: "POST",
 				body,
 			});

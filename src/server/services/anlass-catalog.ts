@@ -10,6 +10,7 @@ import {
 	type RecordAuditInput,
 	recordAuditEventStrict,
 } from "@/server/services/audit";
+import { requireTenant } from "@/server/tenant-context";
 
 export type AnlassKatalogInput = {
 	name: string;
@@ -47,7 +48,7 @@ export async function createKatalog(
 		// lets two concurrent creates pick the same ordering value, and nothing in
 		// the schema forbids the duplicate.
 		await tx.execute(
-			sql`select pg_advisory_xact_lock(hashtextextended('anlass_katalog.reihenfolge', 0))`,
+			sql`select pg_advisory_xact_lock(hashtextextended(${`rendant:${requireTenant().id}:anlass_katalog.reihenfolge`}, 0))`,
 		);
 		const maxRow = await tx
 			.select({ max: sql<number | null>`max(${anlassKatalog.reihenfolge})` })

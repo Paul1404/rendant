@@ -4,6 +4,11 @@ import {
 	createStart,
 } from "@tanstack/react-start";
 import { legacyDomainRedirect } from "@/lib/canonical-domain";
+import { withTenantRequest } from "@/server/tenant-context";
+
+const tenantRequestScope = createMiddleware({ type: "request" }).server(
+	({ next }) => withTenantRequest(next),
+);
 
 const canonicalDomain = createMiddleware({ type: "request" }).server(
 	async ({ next, request }) => legacyDomainRedirect(request) ?? next(),
@@ -31,5 +36,10 @@ const securityHeaders = createMiddleware({ type: "request" }).server(
 );
 
 export const startInstance = createStart(() => ({
-	requestMiddleware: [canonicalDomain, securityHeaders, csrf],
+	requestMiddleware: [
+		canonicalDomain,
+		securityHeaders,
+		csrf,
+		tenantRequestScope,
+	],
 }));

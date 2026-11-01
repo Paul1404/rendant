@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { db } from "@/server/db";
+import { globalDb as db } from "@/server/db";
 import {
 	account as accountTable,
 	user as userTable,

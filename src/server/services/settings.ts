@@ -6,6 +6,7 @@ import {
 	type RecordAuditInput,
 	recordAuditEventStrict,
 } from "@/server/services/audit";
+import { requireTenant, SVU_TENANT_ID } from "@/server/tenant-context";
 
 export type YearFormat = "long" | "short";
 export type Separator = "-" | "/" | "." | "_";
@@ -227,19 +228,25 @@ export async function updateHelperHourValueCent(
 	});
 }
 
-// Club name powering the app's "läuft für ..." attribution and the PDF header.
-// DB value wins; an empty value falls back to the VEREINSNAME env var, then a
-// generic default, so an unconfigured deployment still renders sensibly.
+// The deployment-level name predates tenancy and belongs to SVU only. An
+// unconfigured club must never inherit another club's name on its documents.
+export function resolveVereinsname(storedName?: string | null): string {
+	const tenant = requireTenant();
+	return (
+		storedName?.trim() ||
+		(tenant.id === SVU_TENANT_ID ? process.env.VEREINSNAME?.trim() : "") ||
+		"Verein"
+	);
+}
+
 export async function getVereinsname(): Promise<string> {
 	const row = await loadRow();
-	const fromDb = row?.vereinsname?.trim();
-	if (fromDb) return fromDb;
-	return process.env.VEREINSNAME?.trim() || "Verein";
+	return resolveVereinsname(row?.vereinsname);
 }
 
 function rowToStammdaten(row: SettingsRow): VereinStammdaten {
 	return {
-		name: row.vereinsname.trim() || process.env.VEREINSNAME?.trim() || "Verein",
+		name: resolveVereinsname(row.vereinsname),
 		strasse: row.verein_strasse,
 		plz: row.verein_plz,
 		ort: row.verein_ort,
@@ -250,13 +257,13 @@ function rowToStammdaten(row: SettingsRow): VereinStammdaten {
 }
 
 // Full club master data for the PDF footer and the settings form. The name
-// keeps its env/default fallback; the rest are plain stored values (empty
+// keeps the tenant-safe default; the rest are plain stored values (empty
 // until configured) and are left out of the document when blank.
 export async function getVereinStammdaten(): Promise<VereinStammdaten> {
 	const row = await loadRow();
 	if (!row) {
 		return {
-			name: process.env.VEREINSNAME?.trim() || "Verein",
+			name: resolveVereinsname(),
 			strasse: "",
 			plz: "",
 			ort: "",
