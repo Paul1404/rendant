@@ -3,6 +3,19 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.60.0 - 2026-11-01
+
+- Einladungen bieten für bestehende Konten einen Weg zum Zurücksetzen des
+  Passworts. Bereits beigetretene Mitglieder können dies auch über die Anmeldung
+  ihres Vereins anfordern.
+- Neue Passwörter gelten für das gesamte Rendant-Konto. Der Link ist eine Stunde
+  gültig, nur einmal verwendbar und meldet nach dem Speichern alle Geräte ab.
+- Bereits verwendete Einladungen führen zur normalen Anmeldung zurück. Beim
+  Wechsel eines falsch angemeldeten Kontos bleiben Fehler sichtbar und erneut
+  versuchbar.
+- Einladungstexte passen auch zu bestehenden Konten. Einladungs- und
+  Wiederherstellungslinks werden nur verschlüsselt per E-Mail übertragen.
+
 ## 1.59.2 - 2026-11-01
 
 - Beim erneuten Erzeugen bleiben bisherige Belegdateien erhalten, damit ältere

@@ -439,10 +439,13 @@ export async function sendInvitationEmail(
 		if (!row?.smtp_enabled) return "skipped";
 
 		const transportInfo = await loadTransportConfig();
-		if (!transportInfo) {
-			logger.warn("Einladungs-E-Mail übersprungen: SMTP unvollständig", {
-				to: recipient,
-			});
+		if (!transportInfo || transportInfo.cfg.security === "none") {
+			logger.warn(
+				"Einladungs-E-Mail übersprungen: SMTP unvollständig oder unverschlüsselt",
+				{
+					to: recipient,
+				},
+			);
 			return "skipped";
 		}
 
@@ -453,17 +456,17 @@ export async function sendInvitationEmail(
 		if (invite.invitedBy) rows.push(["Eingeladen von", invite.invitedBy]);
 
 		const html = emailShell({
-			preheader: `Einladung zu Rendant für ${verein}. Konto in wenigen Schritten anlegen.`,
+			preheader: `Einladung zu Rendant für ${verein}.`,
 			eyebrow: "Einladung",
 			heading: "Willkommen bei Rendant",
 			blocks: [
 				paragraph(
-					`du wurdest eingeladen, Rendant für <strong>${escapeHtml(verein)}</strong> zu nutzen. Lege dazu in wenigen Schritten dein Konto an.`,
+					`du wurdest eingeladen, Rendant für <strong>${escapeHtml(verein)}</strong> zu nutzen. Nimm die Einladung über den folgenden Link an. Falls du Rendant bereits nutzt, melde dich dort mit deinem bestehenden Konto an.`,
 				),
 				detailsTable(rows),
 				ctaBlock(
 					invite.inviteUrl,
-					"Konto anlegen",
+					"Einladung annehmen",
 					"Der Link ist 7 Tage gültig und kann nur einmal verwendet werden.",
 				),
 			],
@@ -476,7 +479,7 @@ export async function sendInvitationEmail(
 			`Rolle: ${role}`,
 			...(invite.invitedBy ? [`Eingeladen von: ${invite.invitedBy}`] : []),
 			``,
-			`Konto anlegen: ${invite.inviteUrl}`,
+			`Einladung annehmen: ${invite.inviteUrl}`,
 			``,
 			`Der Link ist 7 Tage gültig und kann nur einmal verwendet werden.`,
 		].join("\n");
@@ -491,11 +494,63 @@ export async function sendInvitationEmail(
 		});
 		logger.info("Einladungs-E-Mail gesendet", { to: recipient });
 		return "sent";
-	} catch (err) {
-		logger.error("Einladungs-E-Mail fehlgeschlagen", {
-			to: invite.to,
-			err,
+	} catch {
+		// Invitation URLs are capabilities. Transport errors may echo payloads.
+		logger.error("Einladungs-E-Mail fehlgeschlagen");
+		return "failed";
+	}
+}
+
+// The recovery service supplies the verified club name and trusted callback URL.
+// Disabled or incomplete club SMTP never falls back to another club's sender.
+export async function sendPasswordResetEmail(input: {
+	to: string;
+	resetUrl: string;
+	verein: string;
+}): Promise<InvitationEmailStatus> {
+	try {
+		requireTenant();
+		const recipient = input.to.trim();
+		if (!v.safeParse(EmailItemSchema, recipient).success) return "skipped";
+		const row = await loadRow();
+		if (!row?.smtp_enabled) return "skipped";
+		const transportInfo = await loadTransportConfig();
+		if (!transportInfo || transportInfo.cfg.security === "none")
+			return "skipped";
+
+		const html = emailShell({
+			preheader: `Passwort für dein Rendant-Konto zurücksetzen.`,
+			eyebrow: "Kontozugang",
+			heading: "Passwort zurücksetzen",
+			blocks: [
+				paragraph(
+					`für dein Rendant-Konto wurde über <strong>${escapeHtml(input.verein)}</strong> ein neues Passwort angefordert. Der Link ist eine Stunde gültig. Das neue Passwort gilt für dein Rendant-Konto bei allen Vereinen.`,
+				),
+				ctaBlock(input.resetUrl, "Neues Passwort festlegen"),
+				paragraph(
+					"Wenn du das nicht selbst angefordert hast, ignoriere diese Nachricht. Dein Passwort bleibt dann unverändert.",
+				),
+			],
+			verein: input.verein,
 		});
+		const transport = buildTransport(transportInfo.cfg);
+		await transport.sendMail({
+			from: transportInfo.from,
+			to: recipient,
+			subject: "Rendant Passwort zurücksetzen",
+			text: [
+				`Für dein Rendant-Konto wurde über ${input.verein} ein neues Passwort angefordert. Der Link ist eine Stunde gültig. Das neue Passwort gilt für dein Rendant-Konto bei allen Vereinen.`,
+				"",
+				`Neues Passwort festlegen: ${input.resetUrl}`,
+				"",
+				"Wenn du das nicht selbst angefordert hast, ignoriere diese Nachricht. Dein Passwort bleibt dann unverändert.",
+			].join("\n"),
+			html,
+		});
+		return "sent";
+	} catch {
+		// Recovery URLs contain capabilities. Never log transport payloads here.
+		logger.warn("E-Mail zum Zurücksetzen des Passworts fehlgeschlagen");
 		return "failed";
 	}
 }

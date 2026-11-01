@@ -51,6 +51,19 @@ update the appropriate canonical documentation in the same change.
   global bans remain effective; only an SVU admin may explicitly clear one.
   Only allowlisted operators with active SVU admin membership may provision
   clubs; tenant admin rights never grant operator access.
+- Password recovery uses Better Auth's native one-use, one-hour tokens and
+  revokes all sessions of the global identity. Delivery requires a server-only
+  verified scope for an active membership or valid pending invitation on the
+  actual bound club host, plus that club's encrypted SMTP. Native unscoped auth
+  requests never send mail. Keep uniform public responses and the durable
+  per-identity cooldown; recovery must not grant memberships or clear bans.
+  Login, invitation and auth API responses stay private/no-store, no-referrer
+  and excluded from indexing. Capability URLs never belong in transport logs.
+  Native auth rate limits use Railway's documented `X-Real-IP` header only;
+  keep host/protocol proxy trust disabled and preserve the restrictive fallback
+  when a client address is missing. Forwarded host or address chains must not
+  choose a different rate-limit bucket.
+  The operator's onboarding handoff is documented in `docs/admin-onboarding.md`.
 - All API imports, exports and downloads use `withRequestTenant`. Browser tabs
   pin their tenant in RPC/upload headers and download URLs. Switching clubs
   reloads the document; SSR forwards the verified request selection. Do not

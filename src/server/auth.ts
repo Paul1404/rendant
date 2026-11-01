@@ -5,6 +5,7 @@ import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { resolveTrustedOrigins } from "./auth-origins";
 import { globalDb as db } from "./db";
 import * as authSchema from "./db/auth-schema";
+import { deliverScopedPasswordReset } from "./password-reset-delivery";
 
 // User identities are global; club access and roles live in memberships.
 // Open sign-up stays disabled: club administrators invite their members.
@@ -28,6 +29,9 @@ export const auth = betterAuth({
 		disableSignUp: true,
 		minPasswordLength: 8,
 		maxPasswordLength: 256,
+		resetPasswordTokenExpiresIn: 3600,
+		revokeSessionsOnPasswordReset: true,
+		sendResetPassword: deliverScopedPasswordReset,
 	},
 	user: {
 		// Extra column on the user table. Declared here too so the better-auth CLI
@@ -54,6 +58,10 @@ export const auth = betterAuth({
 		// to the parent domain or accept client-supplied proxy host overrides.
 		crossSubDomainCookies: { enabled: false },
 		trustedProxyHeaders: false,
+		// All public app hosts terminate at Railway's edge, which supplies the
+		// client address in X-Real-IP. Forwarded chains may contain client input;
+		// they must neither choose a bucket nor collapse callers into one fallback.
+		ipAddress: { ipAddressHeaders: ["x-real-ip"] },
 		// Persistence contract: retaining the original prefix keeps existing
 		// sessions valid through the product rename.
 		cookiePrefix: "svufo",
