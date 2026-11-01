@@ -60,6 +60,14 @@ update the appropriate canonical documentation in the same change.
   SSR must forward the actual Host to internal RPC. Auth origins are exact
   allowlisted URLs and cookies stay host-only. Publish DNS only after host
   binding is deployed. See `infra/ssv-gaedheim-dns.yaml` for the scoped records.
+- Product-domain cutovers retain immutable legacy host bindings. Configure
+  preferred vanity hosts with `TENANT_CANONICAL_HOSTS_JSON`; never rename a
+  tenant or rewrite records merely to change its address. Additional exact
+  aliases use `TENANT_HOST_ALIASES_JSON`. Enable `TENANT_CANONICAL_BASE_DOMAIN`
+  only after DNS/TLS validation; it activates browser redirects and canonical
+  mail links together. Compatibility API/assets/server functions and writes
+  never redirect. Keep independent `MCP_ALLOWED_ORIGINS` for old SVU clients;
+  general auth-origin changes must never expose that token to another club.
 - New object keys begin with `tenants/<uuid>/`. Only SVU may read the existing
   `protokolle/` and `historical-sources/` paths. Never relocate signed legacy
   documents just to adopt the namespace. The deployment MCP token is SVU-only.

@@ -105,7 +105,10 @@ describe("registered tenant hostname authorization", () => {
 			await resolveHostTenant(
 				new Headers({ host: "rendant.sv-untereuerheim.de" }),
 			),
-		).toBeNull();
+		).toMatchObject({
+			id: "00000000-0000-4000-8000-000000000001",
+			slug: "svu",
+		});
 	});
 
 	it("pins host membership and role despite another club's cookie", async () => {

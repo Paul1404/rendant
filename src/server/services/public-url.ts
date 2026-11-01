@@ -1,3 +1,7 @@
+import {
+	LEGACY_TENANT_HOST_ALIASES,
+	tenantCanonicalHost,
+} from "@/lib/tenant-host-aliases";
 import { resolveTrustedOrigins } from "@/server/auth-origins";
 import { tenantSlugForHost } from "@/server/tenant-hostname";
 
@@ -56,18 +60,46 @@ export function tenantPublicBaseUrl(
 	headers?: Headers,
 ): string | null {
 	const origins = configuredOrigins();
-	const baseDomain = process.env.TENANT_BASE_DOMAIN?.trim()
-		.toLowerCase()
-		.replace(/\.$/, "");
-	if (baseDomain) {
-		const candidate = `https://${tenant.slug}.${baseDomain}`;
-		// Registration alone does not prove an alias is deployed. Only an exact
-		// administrator-approved origin may replace the existing public address.
+	const baseDomain = process.env.TENANT_BASE_DOMAIN;
+	const hostname = tenantCanonicalHost(
+		tenant.slug,
+		baseDomain,
+		process.env.TENANT_CANONICAL_HOSTS_JSON,
+	);
+	const normalizeDomain = (domain: string | undefined) =>
+		domain?.trim().toLowerCase().replace(/\.$/, "");
+	const canonicalActive =
+		Boolean(baseDomain?.trim()) &&
+		normalizeDomain(process.env.TENANT_CANONICAL_BASE_DOMAIN) ===
+			normalizeDomain(baseDomain);
+	if (hostname && canonicalActive) {
+		const candidate = `https://${hostname}`;
+		// Origin approval and the cutover gate are separate: DNS and TLS must be
+		// ready before new links leave the working legacy addresses.
 		if (
 			origins.includes(candidate) &&
-			tenantSlugForHost(new URL(candidate).host, baseDomain) === tenant.slug
+			tenantSlugForHost(hostname) === tenant.slug
 		)
 			return candidate;
 	}
-	return primaryOrigin() ?? (headers ? publicBaseUrl(headers) : null);
+	if (headers) {
+		const actual = trustedRequestOrigin(headers, origins);
+		if (actual && tenantSlugForHost(new URL(actual).host) === tenant.slug)
+			return actual;
+	}
+	const legacy = origins.find(
+		(origin) =>
+			LEGACY_TENANT_HOST_ALIASES[new URL(origin).hostname] === tenant.slug,
+	);
+	if (legacy) return legacy;
+	const primary = primaryOrigin();
+	if (primary) {
+		const boundSlug = tenantSlugForHost(new URL(primary).host);
+		return boundSlug === null || boundSlug === tenant.slug ? primary : null;
+	}
+	if (headers && process.env.NODE_ENV !== "production") {
+		const local = publicBaseUrl(headers);
+		if (local && tenantSlugForHost(new URL(local).host) === null) return local;
+	}
+	return null;
 }

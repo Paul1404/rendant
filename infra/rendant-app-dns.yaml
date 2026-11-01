@@ -1,0 +1,56 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Club routing and Railway ownership verification for Rendant.
+Parameters:
+  HostedZoneId:
+    Type: String
+    Description: Existing public Route53 hosted zone ID for rendant.app, without the /hostedzone/ prefix.
+    AllowedPattern: ^Z[A-Z0-9]+$
+    ConstraintDescription: Supply the existing rendant.app public hosted zone ID.
+Resources:
+  SvuTrafficRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId:
+        Ref: HostedZoneId
+      Name: sv-untereuerheim.rendant.app.
+      Type: CNAME
+      TTL: '300'
+      ResourceRecords:
+      - cnmbc05q.up.railway.app.
+  SvuVerificationRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId:
+        Ref: HostedZoneId
+      Name: _railway-verify.sv-untereuerheim.rendant.app.
+      Type: TXT
+      TTL: '300'
+      ResourceRecords:
+      - '"railway-verify=5ab40592e9141cf61ba93a1407180e42502708fe378a6bd7402d039ef63052dc"'
+  SsvGaedheimTrafficRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId:
+        Ref: HostedZoneId
+      Name: ssv-gaedheim.rendant.app.
+      Type: CNAME
+      TTL: '300'
+      ResourceRecords:
+      - y47crv17.up.railway.app.
+  SsvGaedheimVerificationRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId:
+        Ref: HostedZoneId
+      Name: _railway-verify.ssv-gaedheim.rendant.app.
+      Type: TXT
+      TTL: '300'
+      ResourceRecords:
+      - '"railway-verify=6e0c7af4542f6c30f04c75add5f8ab063ae0bc8d768450c1c0769ebf30d298de"'
+Outputs:
+  SvuUrl:
+    Description: HTTPS entry point for SVU.
+    Value: https://sv-untereuerheim.rendant.app
+  SsvGaedheimUrl:
+    Description: HTTPS entry point for SSV Gaedheim.
+    Value: https://ssv-gaedheim.rendant.app
