@@ -975,6 +975,7 @@ export const OperatorInviteSchema = v.object({
 	...OperatorTenantTargetSchema.entries,
 	email: v.pipe(v.string(), v.trim(), v.email(), v.maxLength(254)),
 	role: v.picklist(["user", "admin"]),
+	sendEmail: v.optional(v.boolean(), false),
 });
 export const OperatorInviteRevokeSchema = v.object({
 	...OperatorTenantTargetSchema.entries,

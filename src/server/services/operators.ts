@@ -4,8 +4,10 @@ import { globalDb } from "@/server/db";
 import { user as userTable } from "@/server/db/auth-schema";
 import { appSettings, invitations } from "@/server/db/schema";
 import { memberships, tenants } from "@/server/db/tenant-schema";
+import { withTenant } from "@/server/tenant-context";
 import { tenantSlugForHost } from "@/server/tenant-hostname";
 import { type RecordAuditInput, recordAuditEventStrict } from "./audit";
+import { sendInvitationEmail } from "./email";
 import { createInviteInTransaction } from "./invitations";
 import { tenantPublicBaseUrl } from "./public-url";
 import {
@@ -167,11 +169,16 @@ export async function listOperatorInvites(tenantId: string, actor: Actor) {
 }
 
 export async function inviteOperatorMember(
-	input: { tenantId: string; email: string; role: "user" | "admin" },
+	input: {
+		tenantId: string;
+		email: string;
+		role: "user" | "admin";
+		sendEmail?: boolean;
+	},
 	actor: Actor,
 	request?: RequestAudit,
 ) {
-	return globalDb.transaction(async (tx) => {
+	const created = await globalDb.transaction(async (tx) => {
 		await assertPlatformAdminInTransaction(tx, actor.id);
 		const tenant = await targetTenant(tx, input.tenantId);
 		const baseUrl = tenantPublicBaseUrl(tenant);
@@ -185,10 +192,37 @@ export async function inviteOperatorMember(
 			email: input.email,
 			role: input.role,
 			invitedBy: actor.email,
-			audit: { actor, request, metadata: { operator: true } },
+			audit: {
+				actor,
+				request,
+				metadata: { operator: true, emailRequested: input.sendEmail === true },
+			},
 		});
-		return { ...invite, inviteUrl: `${baseUrl}/invite/${invite.token}` };
+		return {
+			tenant,
+			invite: { ...invite, inviteUrl: `${baseUrl}/invite/${invite.token}` },
+		};
 	});
+	// The authorized invitation commits before any external delivery. A repeat
+	// creation hits the existing active-invite conflict before reaching SMTP.
+	// This narrow scope reads the invited club's transport internally; it never
+	// gives the operator membership, financial access or SMTP settings in a response.
+	const emailStatus =
+		input.sendEmail === true
+			? await withTenant(created.tenant, () =>
+					sendInvitationEmail({
+						to: created.invite.email,
+						inviteUrl: created.invite.inviteUrl,
+						role: created.invite.role,
+						invitedBy: created.invite.invited_by,
+					}),
+				)
+			: ("skipped" as const);
+	return {
+		...created.invite,
+		sendEmail: input.sendEmail === true,
+		email_status: emailStatus,
+	};
 }
 
 export async function revokeOperatorInvite(
