@@ -28,6 +28,17 @@ Den Wert weder in Shell-Argumente, Protokolle, CloudFormation noch in Git
 übernehmen. Die Funktion liest nur diesen Parameter und akzeptiert ausschließlich
 HTTPS-Endpunkte. Der S3-kompatible Quellzugriff verwendet Path-Style-Adressen.
 
+`scripts/provision-object-backup-source.py` übernimmt diese Einrichtung nach
+ausdrücklicher Freigabe aus der Laufzeitumgebung des App-Dienstes. Benötigt werden
+Python mit Boto3 und ein lokal angemeldetes AWS-Profil für das Zielkonto. Über
+`railway run --no-local` mit ausdrücklicher Projekt-, Umgebungs- und Dienstkennung
+aufrufen und dem Skript nur `--profile <Profil>` und `--account <Kontonummer>`
+übergeben. Das Skript ignoriert den von Railway gesetzten S3-Endpunkt für seine
+AWS-Verwaltungszugriffe, prüft das Zielkonto und schreibt ausschließlich den
+SecureString-Parameter. Es gibt nur dessen Namen und Version aus. Diesen Schritt
+bei einer genehmigten Rotation der Quellzugangsdaten wiederholen; den Zeitplan
+erst nach erfolgreicher Sicherung und Wiederherstellungsprüfung weiterverwenden.
+
 Die Parameterberechtigung umfasst `ssm:GetParameter` für genau diesen Namen.
 Eine gegebenenfalls benötigte KMS-Entschlüsselung ist auf SSM und den
 Verschlüsselungskontext genau dieses Parameters begrenzt. Es werden weder

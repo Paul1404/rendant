@@ -39,6 +39,7 @@ def main():
         # being mistaken for AWS control-plane credentials.
         session = boto3.Session(profile_name=args.profile, region_name=args.region)
         config = Config(connect_timeout=10, read_timeout=30,
+                        ignore_configured_endpoint_urls=True,
                         retries={"mode": "standard", "total_max_attempts": 3})
         if session.client("sts", config=config).get_caller_identity()["Account"] != args.account:
             raise ValueError("Unexpected destination account")
