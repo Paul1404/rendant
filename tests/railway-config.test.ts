@@ -41,9 +41,11 @@ describe("Railway application configuration boundary", () => {
 				startCommand: "bun --smol .output/server/index.mjs",
 				healthcheckPath: "/api/health",
 				healthcheckTimeout: 60,
-				restartPolicyType: "ON_FAILURE",
 				restartPolicyMaxRetries: 3,
 			},
 		});
+		// ON_FAILURE is the effective platform default. An explicit field
+		// differs from Railway's canonical omission forever.
+		expect(app).not.toHaveProperty("deploy.restartPolicyType");
 	});
 });

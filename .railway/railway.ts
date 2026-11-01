@@ -21,7 +21,8 @@ export default defineRailway(() => {
 		healthcheckTimeout: 60,
 		replicas: { "europe-west4-drams3a": 1 },
 		deploy: {
-			restartPolicyType: "ON_FAILURE",
+			// Railway omits its ON_FAILURE default from stored IaC config.
+			// Keeping it explicit produces false drift; release readback checks it.
 			restartPolicyMaxRetries: 3,
 			drainingSeconds: 0,
 			overlapSeconds: 0,

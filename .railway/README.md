@@ -71,6 +71,30 @@ Bei zwischenzeitlichen Änderungen neu planen. Keine destruktive Freigabe
 hinzufügen, um einen unerwarteten Plan zu erzwingen. Die temporäre Plandatei
 nach der Prüfung entfernen und niemals ins Repository übernehmen.
 
+## Neustartvorgabe und Standardwerte
+
+Railways wirksamer Standardmodus ist `ON_FAILURE`. Die gespeicherte
+IaC-Konfiguration lässt diesen Standardwert weg; ein ausdrückliches
+`restartPolicyType: "ON_FAILURE"` erzeugt deshalb immer wieder eine scheinbare
+Änderung von `null` auf `ON_FAILURE`, auch nach erfolgreicher Anwendung.
+`railway.ts` lässt ausschließlich diesen Standardwert aus und setzt die
+maximale Zahl der Neustarts weiterhin ausdrücklich auf drei.
+
+Die wirksame Einstellung bei der Freigabe direkt zurücklesen:
+
+```bash
+railway api 'query {
+  serviceInstance(
+    environmentId: "40872242-b86f-4648-9b4e-d09edbbbd07e",
+    serviceId: "779599f2-77fa-4169-a916-11114df73109"
+  ) { restartPolicyType restartPolicyMaxRetries }
+}' --compact
+```
+
+Erwartet werden `ON_FAILURE` und `3`. Diese Antwort bestätigt den wirksamen
+Modus unabhängig vom normalisierten IaC-Plan. Die Vorschau muss danach ohne
+Änderungen bleiben. [Railway-Standardmodus](https://docs.railway.com/deployments/restart-policy).
+
 ## Weitere Änderungen
 
 Nur die beabsichtigten App-Einstellungen ändern und vor jeder Anwendung erneut
