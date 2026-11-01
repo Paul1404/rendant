@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, ExternalLink, Loader2, LogOut, Plus } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { BrandLockup } from "@/components/brand-lockup";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -118,6 +118,9 @@ export function OperatorConsole({
 	selectedTenantId?: string;
 	onSelect: (id: string) => void;
 }) {
+	const [adminInviteTenantId, setAdminInviteTenantId] = useState<string | null>(
+		null,
+	);
 	const list = useQuery(orpc.operators.list.queryOptions());
 	const selected =
 		list.data?.find((tenant) => tenant.id === selectedTenantId) ??
@@ -136,7 +139,12 @@ export function OperatorConsole({
 							Vereine, Zugänge und Einladungen. Angemeldet als {user.name}.
 						</p>
 					</div>
-					<CreateClub onCreated={onSelect} />
+					<CreateClub
+						onCreated={(id) => {
+							setAdminInviteTenantId(id);
+							onSelect(id);
+						}}
+					/>
 				</div>
 				{list.isPending ? (
 					<p role="status" className="flex items-center gap-2 text-sm">
@@ -211,6 +219,8 @@ export function OperatorConsole({
 								key={selected.id}
 								tenant={selected}
 								currentUserId={user.id}
+								adminInviteRequested={adminInviteTenantId === selected.id}
+								onAdminInviteHandled={() => setAdminInviteTenantId(null)}
 							/>
 						) : (
 							<p className="text-sm text-muted-foreground">
@@ -252,14 +262,19 @@ function CreateClub({ onCreated }: { onCreated: (id: string) => void }) {
 			toast.error(orpcMessage(error, "Verein konnte nicht angelegt werden.")),
 	});
 	return (
-		<Dialog open={open} onOpenChange={setOpen}>
+		<Dialog
+			open={open}
+			onOpenChange={(next) => {
+				if (!create.isPending) setOpen(next);
+			}}
+		>
 			<DialogTrigger asChild>
 				<Button>
 					<Plus className="mr-1.5 h-4 w-4" />
 					Verein anlegen
 				</Button>
 			</DialogTrigger>
-			<DialogContent>
+			<DialogContent showCloseButton={!create.isPending}>
 				<DialogHeader>
 					<DialogTitle>Verein anlegen</DialogTitle>
 					<DialogDescription>
@@ -329,9 +344,13 @@ function CreateClub({ onCreated }: { onCreated: (id: string) => void }) {
 function ClubDetails({
 	tenant,
 	currentUserId,
+	adminInviteRequested,
+	onAdminInviteHandled,
 }: {
 	tenant: TenantSummary;
 	currentUserId: string;
+	adminInviteRequested: boolean;
+	onAdminInviteHandled: () => void;
 }) {
 	const queryClient = useQueryClient();
 	const members = useQuery(
@@ -341,6 +360,16 @@ function ClubDetails({
 		orpc.operators.invites.queryOptions({ input: { tenantId: tenant.id } }),
 	);
 	const [name, setName] = useState(tenant.name);
+	const [adminInviteOpen, setAdminInviteOpen] = useState(adminInviteRequested);
+	const [adminInvitePending, setAdminInvitePending] = useState(false);
+	const activeInvites = (invites.data ?? []).filter(
+		(invite) =>
+			!invite.accepted_at && new Date(invite.expires_at).getTime() > Date.now(),
+	);
+	const activeInviteIds = activeInvites.map((invite) => invite.id);
+	const pendingAdminCount = activeInvites.filter(
+		(invite) => invite.role === "admin",
+	).length;
 	const rename = useMutation({
 		mutationFn: () =>
 			orpcClient.operators.rename({ tenantId: tenant.id, name: name.trim() }),
@@ -367,6 +396,78 @@ function ClubDetails({
 					</p>
 				</div>
 			</div>
+			<Dialog
+				open={adminInviteOpen}
+				onOpenChange={(open) => {
+					if (adminInvitePending && !open) return;
+					setAdminInviteOpen(open);
+					if (!open) onAdminInviteHandled();
+				}}
+			>
+				<div className="flex flex-wrap items-center gap-3">
+					<DialogTrigger asChild>
+						<Button variant={tenant.adminCount === 0 ? "default" : "outline"}>
+							{tenant.adminCount === 0
+								? "Ersten Admin einladen"
+								: "Vereinsadmin einladen"}
+						</Button>
+					</DialogTrigger>
+					{tenant.adminCount === 0 && (
+						<p className="text-sm text-muted-foreground">
+							Für diesen Verein ist noch kein aktiver Admin eingerichtet.
+						</p>
+					)}
+					{pendingAdminCount > 0 && (
+						<p className="text-sm text-muted-foreground">
+							{pendingAdminCount === 1
+								? "Eine Admin-Einladung ist noch offen."
+								: `${pendingAdminCount} Admin-Einladungen sind noch offen.`}
+						</p>
+					)}
+				</div>
+				<DialogContent
+					showCloseButton={!adminInvitePending}
+					onEscapeKeyDown={(event) => {
+						if (adminInvitePending) event.preventDefault();
+					}}
+					onInteractOutside={(event) => {
+						if (adminInvitePending) event.preventDefault();
+					}}
+				>
+					<DialogHeader>
+						<DialogTitle>
+							{tenant.adminCount === 0
+								? "Ersten Admin einladen"
+								: "Vereinsadmin einladen"}
+						</DialogTitle>
+						<DialogDescription>
+							Adminzugang für {tenant.name}. Die Person gibt ihren Namen beim
+							Annehmen selbst an und legt ihr Passwort fest. Ein bestehendes
+							Konto bleibt erhalten.
+						</DialogDescription>
+					</DialogHeader>
+					<OperatorInvitePanel
+						tenantId={tenant.id}
+						addressConfigured={Boolean(tenant.url)}
+						activeInviteIds={activeInviteIds}
+						adminOnly
+						inDialog
+						onPendingChange={setAdminInvitePending}
+					/>
+					<DialogFooter>
+						<Button
+							variant="outline"
+							disabled={adminInvitePending}
+							onClick={() => {
+								setAdminInviteOpen(false);
+								onAdminInviteHandled();
+							}}
+						>
+							Schließen
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 			<form
 				className="flex max-w-xl flex-wrap items-end gap-3"
 				onSubmit={(event) => {
@@ -420,16 +521,10 @@ function ClubDetails({
 					/>
 				)}
 			</div>
-			<InvitePanel
+			<OperatorInvitePanel
 				tenantId={tenant.id}
 				addressConfigured={Boolean(tenant.url)}
-				activeInviteIds={(invites.data ?? [])
-					.filter(
-						(invite) =>
-							!invite.accepted_at &&
-							new Date(invite.expires_at).getTime() > Date.now(),
-					)
-					.map((invite) => invite.id)}
+				activeInviteIds={activeInviteIds}
 			/>
 			{invites.isPending ? (
 				<p role="status" className="text-sm">
@@ -580,38 +675,94 @@ function MemberList({
 	);
 }
 
-function InvitePanel({
+export function OperatorInvitationDeliveryNotice({
+	requested,
+	status,
+}: {
+	requested: boolean;
+	status: "sent" | "skipped" | "failed";
+}) {
+	const message = !requested
+		? "Der Link ist erstellt. Es wurde keine E-Mail versendet."
+		: status === "sent"
+			? "Der E-Mail-Server hat die Einladung angenommen. Das bestätigt noch keinen Eingang im Postfach. Bitte bei der eingeladenen Person nachfragen."
+			: status === "failed"
+				? "Der E-Mail-Versand ist nicht bestätigt. Es wird nicht automatisch erneut gesendet. Den Einladungslink kannst du selbst weitergeben."
+				: "Für diesen Verein ist kein E-Mail-Versand eingerichtet. Den Einladungslink kannst du selbst weitergeben.";
+	return (
+		<p role="status" className="text-sm text-muted-foreground">
+			{message}
+		</p>
+	);
+}
+
+export function OperatorInvitePanel({
 	tenantId,
 	addressConfigured,
 	activeInviteIds,
+	adminOnly = false,
+	inDialog = false,
+	onPendingChange,
 }: {
 	tenantId: string;
 	addressConfigured: boolean;
 	activeInviteIds: string[];
+	adminOnly?: boolean;
+	inDialog?: boolean;
+	onPendingChange?: (pending: boolean) => void;
 }) {
+	const submitPending = useRef(false);
 	const queryClient = useQueryClient();
 	const [email, setEmail] = useState("");
 	const [role, setRole] = useState<"user" | "admin">("user");
+	const [sendEmail, setSendEmail] = useState(false);
 	const [createdInvite, setCreatedInvite] = useState<{
 		id: string;
 		url: string | null;
+		emailStatus: "sent" | "skipped" | "failed";
+		emailRequested: boolean;
 	} | null>(null);
-	const link =
+	const activeCreatedInvite =
 		createdInvite && activeInviteIds.includes(createdInvite.id)
-			? createdInvite.url
+			? createdInvite
 			: null;
+	const link = activeCreatedInvite?.url;
+	const emailId = adminOnly
+		? "operator-admin-invite-email"
+		: "operator-invite-email";
+	const roleId = adminOnly
+		? "operator-admin-invite-role"
+		: "operator-invite-role";
+	const linkId = adminOnly
+		? "operator-admin-invite-link"
+		: "operator-new-invite-link";
 	const create = useMutation({
+		onMutate: () => onPendingChange?.(true),
+		onSettled: () => {
+			submitPending.current = false;
+			onPendingChange?.(false);
+		},
 		mutationFn: () =>
-			orpcClient.operators.invite({ tenantId, email: email.trim(), role }),
+			orpcClient.operators.invite({
+				tenantId,
+				email: email.trim(),
+				role: adminOnly ? "admin" : role,
+				sendEmail,
+			}),
 		onSuccess: async (invite) => {
 			await queryClient.invalidateQueries();
 			setEmail("");
-			setCreatedInvite({ id: invite.id, url: invite.inviteUrl });
-			toast.success(
-				invite.inviteUrl
-					? "Einladung erstellt. Es wurde keine E-Mail versendet."
-					: "Einladung erstellt. Die Vereinsadresse muss noch eingerichtet werden.",
-			);
+			setCreatedInvite({
+				id: invite.id,
+				url: invite.inviteUrl,
+				emailStatus: invite.email_status,
+				emailRequested: invite.sendEmail,
+			});
+			if (invite.sendEmail && invite.email_status === "failed")
+				toast.warning("Einladung erstellt. Versand nicht bestätigt.");
+			else if (invite.sendEmail && invite.email_status === "sent")
+				toast.success("Einladung vom E-Mail-Server angenommen.");
+			else toast.success("Einladungslink erstellt.");
 		},
 		onError: (error) =>
 			toast.error(
@@ -619,12 +770,16 @@ function InvitePanel({
 			),
 	});
 	return (
-		<div className="space-y-3 border-t pt-5">
-			<h3 className="font-heading text-lg">Person einladen</h3>
-			<p className="text-sm text-muted-foreground">
-				Erstellt einen persönlichen Link. Eine E-Mail wird hier nicht
-				automatisch versendet.
-			</p>
+		<div className={inDialog ? "space-y-3" : "space-y-3 border-t pt-5"}>
+			{!inDialog && (
+				<>
+					<h3 className="font-heading text-lg">Person einladen</h3>
+					<p className="text-sm text-muted-foreground">
+						E-Mail-Adresse hier angeben. Die Person gibt ihren Namen beim
+						Annehmen selbst an. Ein bestehendes Konto bleibt erhalten.
+					</p>
+				</>
+			)}
 			{!addressConfigured && (
 				<p className="text-sm text-muted-foreground">
 					Für Einladungen zuerst eine Vereinsadresse konfigurieren.
@@ -634,13 +789,15 @@ function InvitePanel({
 				className="flex flex-wrap items-end gap-3"
 				onSubmit={(event) => {
 					event.preventDefault();
+					if (create.isPending || submitPending.current) return;
+					submitPending.current = true;
 					create.mutate();
 				}}
 			>
 				<div className="min-w-48 flex-1 space-y-1.5">
-					<Label htmlFor="operator-invite-email">E-Mail</Label>
+					<Label htmlFor={emailId}>E-Mail</Label>
 					<Input
-						id="operator-invite-email"
+						id={emailId}
 						type="email"
 						value={email}
 						onChange={(event) => setEmail(event.target.value)}
@@ -649,32 +806,73 @@ function InvitePanel({
 					/>
 				</div>
 				<div className="space-y-1.5">
-					<Label htmlFor="operator-invite-role">Rolle</Label>
-					<select
-						id="operator-invite-role"
-						className={selectClass}
-						value={role}
-						onChange={(event) =>
-							setRole(event.target.value === "admin" ? "admin" : "user")
-						}
-						disabled={create.isPending || !addressConfigured}
-					>
-						<option value="user">Benutzer</option>
-						<option value="admin">Admin</option>
-					</select>
+					<Label htmlFor={adminOnly ? undefined : roleId}>Rolle</Label>
+					{adminOnly ? (
+						<p className="flex h-9 items-center text-sm font-medium">Admin</p>
+					) : (
+						<select
+							id={roleId}
+							className={selectClass}
+							value={role}
+							onChange={(event) =>
+								setRole(event.target.value === "admin" ? "admin" : "user")
+							}
+							disabled={create.isPending || !addressConfigured}
+						>
+							<option value="user">Benutzer</option>
+							<option value="admin">Admin</option>
+						</select>
+					)}
 				</div>
+				<label className="flex w-full items-center gap-2 text-sm">
+					<input
+						type="checkbox"
+						checked={sendEmail}
+						onChange={(event) => setSendEmail(event.target.checked)}
+						disabled={create.isPending || !addressConfigured}
+						className="h-4 w-4 accent-primary"
+					/>
+					Einladung per E-Mail senden
+				</label>
+				<p className="w-full text-xs text-muted-foreground">
+					Ohne Auswahl wird nur ein Link erstellt. Ein Versand verwendet den
+					eingerichteten E-Mail-Zugang des Vereins.
+				</p>
 				<Button
 					type="submit"
 					disabled={create.isPending || !addressConfigured || !email.trim()}
 				>
-					Einladungslink erstellen
+					{create.isPending ? (
+						<>
+							<Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden />
+							{sendEmail
+								? "Einladung wird erstellt und versendet…"
+								: "Einladungslink wird erstellt…"}
+						</>
+					) : sendEmail ? (
+						adminOnly ? (
+							"Admin einladen und E-Mail senden"
+						) : (
+							"Einladen und E-Mail senden"
+						)
+					) : adminOnly ? (
+						"Admin-Einladungslink erstellen"
+					) : (
+						"Einladungslink erstellen"
+					)}
 				</Button>
 			</form>
+			{activeCreatedInvite && (
+				<OperatorInvitationDeliveryNotice
+					requested={activeCreatedInvite.emailRequested}
+					status={activeCreatedInvite.emailStatus}
+				/>
+			)}
 			{link && (
 				<div className="space-y-2">
-					<Label htmlFor="operator-new-invite-link">Neuer Einladungslink</Label>
+					<Label htmlFor={linkId}>Neuer Einladungslink</Label>
 					<Input
-						id="operator-new-invite-link"
+						id={linkId}
 						value={link}
 						readOnly
 						onFocus={(event) => event.currentTarget.select()}

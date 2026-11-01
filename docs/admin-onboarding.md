@@ -2,12 +2,26 @@
 
 ## Einladung vorbereiten
 
-Der Betreiber öffnet `admin.rendant.app`, wählt den richtigen Verein und erstellt
-unter dessen Einladungen einen Link für die E-Mail-Adresse der zuständigen
-Person mit der Rolle **Administrator**. Hier wird keine E-Mail versendet. Den
-persönlichen Link vertraulich an genau diese Person weitergeben. Er bleibt
-sieben Tage gültig und kann einmal angenommen werden. Eine nicht mehr benötigte
-Einladung widerrufen.
+Der Betreiber öffnet `admin.rendant.app`, wählt den richtigen Verein und startet
+**Vereinsadmin einladen**, bei einem Verein ohne Admin **Ersten Admin einladen**.
+Die E-Mail-Adresse der zuständigen Person wird direkt in diesem Schritt erfasst.
+Die Rolle ist dort auf **Administrator** festgelegt. Name und Passwort gibt die
+eingeladene Person später selbst ein; diese Angaben müssen nicht außerhalb der
+Anwendung eingesammelt werden. Nach dem Anlegen eines Vereins führt der Ablauf
+zur ersten Admin-Einladung.
+
+Mit **Einladung per E-Mail senden** lässt sich der Versand beim Erstellen
+ausdrücklich auswählen. Die Nachricht verwendet ausschließlich das eingerichtete,
+verschlüsselte Postfach des gewählten Vereins. Die Anzeige bestätigt die Annahme
+durch den Mailserver, nicht den Eingang im Postfach der Person. Ist Versand nicht
+gewählt, nicht eingerichtet oder fehlgeschlagen, den persönlichen Link vertraulich
+an genau diese Person weitergeben. Er bleibt sieben Tage gültig und kann einmal
+angenommen werden. Eine nicht mehr benötigte Einladung widerrufen.
+
+Eine ausstehende Admin-Einladung wird angezeigt. Bei einem Verbindungsabbruch
+nicht automatisch eine zweite Einladung erstellen oder mehrfach versenden. Nach
+dem Neuladen ist der ursprüngliche Versandstatus möglicherweise nicht bekannt.
+Zuerst den Bestand der Einladungen prüfen. Den Link nicht öffentlich teilen.
 
 Ein Vereinsadmin kann weitere Personen unter **Einstellungen**, **Benutzer**
 einladen. Dort wird bei eingerichtetem verschlüsseltem Mailversand auch eine

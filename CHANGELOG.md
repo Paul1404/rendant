@@ -3,6 +3,17 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.61.0 - 2026-11-01
+
+- Die Vereinsverwaltung bietet einen eigenen Schritt zum Einladen eines
+  Vereinsadmins. Die E-Mail-Adresse wird dort erfasst; Name und Passwort legt
+  die eingeladene Person selbst fest.
+- Bei neuen Vereinen ist die erste Admin-Einladung hervorgehoben. Bereits
+  ausstehende Admin-Einladungen bleiben sichtbar.
+- Betreiber können beim Erstellen einer Einladung ausdrücklich den Versand
+  über das Postfach des gewählten Vereins wählen. Der persönliche Link bleibt
+  auch bei fehlgeschlagenem oder nicht eingerichtetem Versand verfügbar.
+
 ## 1.60.0 - 2026-11-01
 
 - Einladungen bieten für bestehende Konten einen Weg zum Zurücksetzen des

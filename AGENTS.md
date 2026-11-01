@@ -86,8 +86,12 @@ update the appropriate canonical documentation in the same change.
   tenant context, even for valid users or a pinned selector. Its operator APIs
   require an uncached session plus `PLATFORM_ADMIN_EMAILS` and current SVU admin
   membership, rechecked in each mutation transaction. Never expose financial
-  RPC/MCP through this host. Operator actions affect tenant metadata and
-  memberships only, retain last-admin guards, and are audited. New tenants
+  RPC/MCP through this host. Operator actions manage tenant metadata,
+  memberships and invitations, retain last-admin guards, and are audited.
+  Explicit invitation delivery may enter the verified destination scope only
+  to use its encrypted SMTP internally. Never expose its transport secrets,
+  financial data or automatic memberships; preserve the copy link on failure
+  and never automatically resend an ambiguous delivery. New tenants
   created here do not automatically grant the operator a club membership.
 - New object keys begin with `tenants/<uuid>/`. Only SVU may read the existing
   `protokolle/` and `historical-sources/` paths. Never relocate signed legacy
