@@ -3,6 +3,17 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.59.2 - 2026-11-01
+
+- Beim erneuten Erzeugen bleiben bisherige Belegdateien erhalten, damit ältere
+  Sicherungen weiterhin auf die damaligen Dokumente zugreifen können.
+- Original und Stornobeleg werden gemeinsam aktualisiert. Gleichzeitige
+  Änderungen überschreiben keine inzwischen neu erzeugten Dokumente.
+- Eine getrennte Dokumentensicherung und eine isolierte Wiederherstellungsprüfung
+  ergänzen die Datenbanksicherung.
+- Die Bereitstellung erhält ihre Start-, Aktualisierungs- und Gesundheitsprüfungen
+  auch nach der angekündigten Umstellung des Hosting-Anbieters.
+
 ## 1.59.1 - 2026-11-01
 
 - Konten ohne Zugriff auf den geöffneten Verein können sich gezielt abmelden

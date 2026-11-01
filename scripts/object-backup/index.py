@@ -1,0 +1,311 @@
+"""Independent object recovery. Logs and responses contain counters only."""
+
+import base64
+import datetime as dt
+import hashlib
+import io
+import json
+import os
+import re
+import tempfile
+import uuid
+from urllib.parse import urlsplit
+
+CHUNK = 1024 * 1024
+MAX_OBJECT_BYTES = 256 * 1024 * 1024
+MAX_OBJECTS = 10000
+MAX_MANIFEST_BYTES = 32 * 1024 * 1024
+PARAMETER = "/rendant/backup/source"
+NAMESPACE = "Rendant/ObjectRecovery"
+_CLIENTS = None
+
+
+class RecoveryFailure(RuntimeError):
+    """Safe failure text never contains provider responses or object names."""
+
+
+def utcnow():
+    return dt.datetime.now(dt.timezone.utc)
+
+
+def guard(context, minimum=30000):
+    if context and context.get_remaining_time_in_millis() < minimum:
+        raise RecoveryFailure("time_budget")
+
+
+def version(response):
+    value = response.get("VersionId")
+    if not value or value == "null":
+        raise RecoveryFailure("destination_versioning_required")
+    return value
+
+
+def read_json(client, bucket, key, version_id=None):
+    kwargs = {"Bucket": bucket, "Key": key}
+    if version_id:
+        kwargs["VersionId"] = version_id
+    response = client.get_object(**kwargs)
+    with response["Body"] as body:
+        raw = body.read(MAX_MANIFEST_BYTES + 1)
+    if len(raw) > MAX_MANIFEST_BYTES:
+        raise RecoveryFailure("manifest_limit")
+    return json.loads(raw)
+
+
+def put_json(client, bucket, key, document, immutable=True):
+    raw = json.dumps(document, separators=(",", ":"), sort_keys=True).encode()
+    if len(raw) > MAX_MANIFEST_BYTES:
+        raise RecoveryFailure("manifest_limit")
+    args = {"Bucket": bucket, "Key": key, "Body": raw,
+            "ContentType": "application/json", "ServerSideEncryption": "AES256",
+            "ChecksumSHA256": base64.b64encode(hashlib.sha256(raw).digest()).decode()}
+    if immutable:
+        args["IfNoneMatch"] = "*"
+    return version(client.put_object(**args))
+
+
+def signature(row):
+    modified = row.get("LastModified")
+    if not isinstance(modified, dt.datetime) or not row.get("ETag"):
+        raise RecoveryFailure("source_version_missing")
+    return {"etag": row["ETag"], "bytes": row.get("Size", row.get("ContentLength")),
+            "modified": modified.astimezone(dt.timezone.utc).isoformat()}
+
+
+def inventory(source, bucket, context):
+    objects = {}
+    for page in source.get_paginator("list_objects_v2").paginate(Bucket=bucket):
+        guard(context)
+        for row in page.get("Contents", []):
+            size = row["Size"]
+            if size < 0 or size > MAX_OBJECT_BYTES or len(objects) >= MAX_OBJECTS:
+                raise RecoveryFailure("source_limit")
+            objects[row["Key"]] = signature(row)
+    return objects
+
+
+def stream_hash(body, context, output=None):
+    digest, count = hashlib.sha256(), 0
+    while True:
+        guard(context)
+        chunk = body.read(CHUNK)
+        if not chunk:
+            break
+        count += len(chunk)
+        if count > MAX_OBJECT_BYTES:
+            raise RecoveryFailure("object_limit")
+        digest.update(chunk)
+        if output:
+            output.write(chunk)
+    return digest.hexdigest(), count
+
+
+def check_object(destination, bucket, entry, context, output=None):
+    response = destination.get_object(Bucket=bucket, Key=entry["blob"],
+                                      VersionId=entry["version_id"])
+    with response["Body"] as body:
+        digest, size = stream_hash(body, context, output)
+    if digest != entry["sha256"] or size != entry["bytes"]:
+        raise RecoveryFailure("destination_checksum")
+
+
+def load_manifest(destination, bucket, key=None, version_id=None):
+    if key is None:
+        try:
+            pointer = read_json(destination, bucket, "catalog/latest.json")
+        except destination.exceptions.NoSuchKey:
+            return None
+        key, version_id = pointer["manifest_key"], pointer["manifest_version_id"]
+    if not re.fullmatch(r"runs/[0-9a-f-]{36}\.json", key or "") or not version_id:
+        raise RecoveryFailure("manifest_reference")
+    manifest = read_json(destination, bucket, key, version_id)
+    if manifest.get("status") != "complete" or not isinstance(manifest.get("objects"), list):
+        raise RecoveryFailure("manifest_incomplete")
+    if len(manifest["objects"]) > MAX_OBJECTS:
+        raise RecoveryFailure("manifest_limit")
+    return manifest
+
+
+def copy_object(source, source_bucket, destination, bucket, key, expected, context):
+    guard(context, 180000)
+    response = source.get_object(Bucket=source_bucket, Key=key, IfMatch=expected["etag"])
+    with response["Body"] as body, tempfile.TemporaryFile() as file:
+        if signature(response) != expected:
+            raise RecoveryFailure("source_changed")
+        digest, size = stream_hash(body, context, file)
+        if size != expected["bytes"]:
+            raise RecoveryFailure("source_length")
+        blob = "blobs/sha256/" + digest
+        # Content addressing is independent of ETags, including multipart ETags.
+        file.seek(0)
+        guard(context, 120000)
+        try:
+            result = destination.put_object(
+                Bucket=bucket, Key=blob, Body=file, IfNoneMatch="*",
+                ContentType=response.get("ContentType", "application/octet-stream"),
+                ServerSideEncryption="AES256",
+                ChecksumSHA256=base64.b64encode(bytes.fromhex(digest)).decode(),
+            )
+            blob_version = version(result)
+        except destination.exceptions.ClientError as error:
+            if error.response.get("Error", {}).get("Code") != "PreconditionFailed":
+                raise
+            # A previous complete or interrupted run already stored these bytes.
+            blob_version = version(destination.head_object(Bucket=bucket, Key=blob))
+        entry = {"key": key, "blob": blob, "version_id": blob_version,
+                 "sha256": digest, "bytes": size, "signature": expected,
+                 "content_type": response.get("ContentType", "application/octet-stream")}
+        check_object(destination, bucket, entry, context)
+        return entry
+
+
+def backup(source, source_bucket, source_id, destination, bucket, context):
+    run_id, started = str(uuid.uuid4()), utcnow().isoformat()
+    entries, copied, skipped = [], 0, 0
+    try:
+        old = load_manifest(destination, bucket)
+        previous = {e["key"]: e for e in old["objects"]} if old and old.get("source_id") == source_id else {}
+        objects = inventory(source, source_bucket, context)
+        for key, current in objects.items():
+            guard(context, 180000)
+            entry = previous.get(key)
+            if entry and entry["signature"] == current:
+                check_object(destination, bucket, entry, context)
+                skipped += 1
+            else:
+                entry = copy_object(source, source_bucket, destination, bucket, key, current, context)
+                copied += 1
+            entries.append(entry)
+        if inventory(source, source_bucket, context) != objects:
+            raise RecoveryFailure("source_changed")
+        manifest = {"status": "complete", "started_at": started,
+                    "completed_at": utcnow().isoformat(), "source_id": source_id,
+                    "objects": entries}
+        manifest_key = "runs/" + run_id + ".json"
+        manifest_version = put_json(destination, bucket, manifest_key, manifest)
+        # This versioned pointer is the only mutable object. Failure before it
+        # commits leaves the previous independently restorable run authoritative.
+        put_json(destination, bucket, "catalog/latest.json",
+                 {"manifest_key": manifest_key, "manifest_version_id": manifest_version}, False)
+        return {"complete": True, "objects": len(entries), "copied": copied,
+                "skipped": skipped, "bytes": sum(e["bytes"] for e in entries)}
+    except Exception:
+        try:
+            put_json(destination, bucket, "runs/" + run_id + ".json",
+                     {"status": "failed", "started_at": started, "objects": entries})
+        except Exception:
+            pass
+        raise
+
+
+def verify(destination, bucket, context, key=None, version_id=None):
+    manifest = load_manifest(destination, bucket, key, version_id)
+    if manifest is None:
+        raise RecoveryFailure("no_completed_backup")
+    restored, total = [], 0
+    prefix = "restore/" + str(uuid.uuid4()) + "/"
+    for index, entry in enumerate(manifest["objects"]):
+        guard(context, 180000)
+        with tempfile.TemporaryFile() as file:
+            check_object(destination, bucket, entry, context, file)
+            file.seek(0)
+            guard(context, 120000)
+            response = destination.put_object(
+                Bucket=bucket, Key=prefix + "objects/" + str(index), Body=file,
+                IfNoneMatch="*", ServerSideEncryption="AES256",
+                ContentType=entry["content_type"],
+                ChecksumSHA256=base64.b64encode(bytes.fromhex(entry["sha256"])).decode(),
+            )
+            restored_entry = {**entry, "blob": prefix + "objects/" + str(index),
+                              "version_id": version(response)}
+            check_object(destination, bucket, restored_entry, context)
+            restored.append(restored_entry)
+            total += entry["bytes"]
+    # Protected mapping retains the original source keys without putting any
+    # accounting identifiers into logs, invocation responses or scratch keys.
+    put_json(destination, bucket, prefix + "manifest.json",
+             {"status": "verified", "completed_at": utcnow().isoformat(), "objects": restored})
+    return {"complete": True, "restored": True, "objects": len(restored), "bytes": total}
+
+
+def self_test(destination, bucket, context):
+    payload = b"Rendant independent recovery synthetic fixture\n" + uuid.uuid4().bytes
+    digest = hashlib.sha256(payload).hexdigest()
+    key = "self-tests/" + str(uuid.uuid4())
+    result = destination.put_object(Bucket=bucket, Key=key, Body=payload,
+                                   IfNoneMatch="*", ServerSideEncryption="AES256",
+                                   ChecksumSHA256=base64.b64encode(bytes.fromhex(digest)).decode())
+    check_object(destination, bucket, {"blob": key, "version_id": version(result),
+                                      "sha256": digest, "bytes": len(payload)}, context)
+    return {"complete": True, "verified": True, "objects": 1, "bytes": len(payload)}
+
+
+def clients():
+    global _CLIENTS
+    if _CLIENTS is None:
+        import boto3
+        from botocore.config import Config
+        config = Config(retries={"mode": "standard", "total_max_attempts": 3},
+                        connect_timeout=5, read_timeout=20,
+                        request_checksum_calculation="when_required",
+                        response_checksum_validation="when_required")
+        _CLIENTS = (boto3.client("ssm", config=config),
+                    boto3.client("s3", config=config),
+                    boto3.client("cloudwatch", config=config), config)
+    return _CLIENTS
+
+
+def source_client(ssm, config):
+    import boto3
+    from botocore.config import Config
+    response = ssm.get_parameter(Name=PARAMETER, WithDecryption=True)
+    if response["Parameter"]["Type"] != "SecureString":
+        raise RecoveryFailure("secure_parameter_required")
+    source = json.loads(response["Parameter"]["Value"])
+    required = {"endpoint", "region", "bucket", "access_key_id", "secret_access_key"}
+    if set(source) != required or any(not isinstance(v, str) or not v for v in source.values()):
+        raise RecoveryFailure("source_configuration")
+    endpoint = urlsplit(source["endpoint"])
+    if endpoint.scheme != "https" or not endpoint.hostname or endpoint.username or endpoint.password or endpoint.query or endpoint.fragment:
+        raise RecoveryFailure("source_endpoint")
+    client = boto3.client("s3", endpoint_url=source["endpoint"], region_name=source["region"],
+                          aws_access_key_id=source["access_key_id"],
+                          aws_secret_access_key=source["secret_access_key"],
+                          config=config.merge(Config(s3={"addressing_style": "path"})))
+    source_id = hashlib.sha256((source["endpoint"] + "\0" + source["bucket"]).encode()).hexdigest()
+    return client, source["bucket"], source_id
+
+
+def handler(event, context):
+    try:
+        if not isinstance(event, dict) or set(event) - {"action", "manifest_key", "manifest_version_id"}:
+            raise RecoveryFailure("event")
+        action = event.get("action", "backup")
+        ssm, destination, metrics, config = clients()
+        bucket = os.environ["BACKUP_BUCKET"]
+        if action == "backup":
+            source, source_bucket, source_id = source_client(ssm, config)
+            result = backup(source, source_bucket, source_id, destination, bucket, context)
+        elif action == "verify":
+            key, key_version = event.get("manifest_key"), event.get("manifest_version_id")
+            if bool(key) != bool(key_version):
+                raise RecoveryFailure("manifest_reference")
+            result = verify(destination, bucket, context, key, key_version)
+        elif action == "self_test":
+            result = self_test(destination, bucket, context)
+        elif action == "status":
+            manifest = load_manifest(destination, bucket)
+            age = max(0, (utcnow() - dt.datetime.fromisoformat(manifest["completed_at"])).total_seconds() / 3600) if manifest else 9999
+            metrics.put_metric_data(Namespace=NAMESPACE, MetricData=[{
+                "MetricName": "BackupAgeHours", "Value": age, "Unit": "None",
+                "Dimensions": [{"Name": "FunctionName", "Value": os.environ["AWS_LAMBDA_FUNCTION_NAME"]}]}])
+            result = {"complete": manifest is not None, "age_hours": age}
+        else:
+            raise RecoveryFailure("action")
+        print(json.dumps(result, sort_keys=True))
+        return result
+    except Exception:
+        # SDK exceptions can contain secret-bearing URLs and private object
+        # names. The Lambda error metric/DLQ must see failure, without that text.
+        print('{"complete":false}')
+        raise RuntimeError("Object recovery failed; check recovery alarms and the protected run manifests.") from None

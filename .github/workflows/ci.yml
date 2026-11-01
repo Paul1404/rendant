@@ -43,6 +43,11 @@ jobs:
       - name: Test secret-safe PostgreSQL connection tooling
         run: python3 scripts/test-postgres-connection.py
 
+      - name: Test independent object recovery
+        run: |
+          python3 scripts/object-backup/sync-template.py --check
+          python3 -B -m unittest discover -s scripts/object-backup -p 'test_*.py' -v
+
       - name: Build
         run: bun run build
 

@@ -589,10 +589,14 @@ export async function createProtokoll(
 		});
 		const key = pdfKey(created.belegnummer, "");
 		await uploadPdf(key, buffer);
-		await db
+		const published = await db
 			.update(protokolle)
 			.set({ pdf_s3_key: key, pdf_sha256: hash })
-			.where(eq(protokolle.id, created.id));
+			.where(and(eq(protokolle.id, created.id), isNull(protokolle.pdf_s3_key)))
+			.returning({ id: protokolle.id });
+		if (published.length === 0) {
+			await deleteUnpublishedPdfBestEffort(key, created.id, "original");
+		}
 	} catch (pdfErr) {
 		logger.error("PDF-Erzeugung fehlgeschlagen", {
 			belegnummer: created.belegnummer,
@@ -712,10 +716,20 @@ export async function stornoProtokoll(
 		});
 		const key = pdfKey(detail.protokoll.belegnummer, "_STORNO");
 		await uploadPdf(key, buffer);
-		await db
+		const published = await db
 			.update(protokolle)
 			.set({ storno_pdf_s3_key: key, storno_pdf_sha256: hash })
-			.where(and(eq(protokolle.id, id), eq(protokolle.storniert_am, stornoAm)));
+			.where(
+				and(
+					eq(protokolle.id, id),
+					eq(protokolle.storniert_am, stornoAm),
+					isNull(protokolle.storno_pdf_s3_key),
+				),
+			)
+			.returning({ id: protokolle.id });
+		if (published.length === 0) {
+			await deleteUnpublishedPdfBestEffort(key, id, "cancellation");
+		}
 	} catch (pdfErr) {
 		logger.error("Storno-PDF-Erzeugung fehlgeschlagen", {
 			belegnummer: detail.protokoll.belegnummer,
@@ -724,22 +738,7 @@ export async function stornoProtokoll(
 	}
 }
 
-export async function deleteAllPdfsForProtokoll(
-	protokoll: ProtokollRow,
-): Promise<void> {
-	if (protokoll.pdf_s3_key) {
-		await deletePdfBestEffort(protokoll.pdf_s3_key, protokoll.id, "original");
-	}
-	if (protokoll.storno_pdf_s3_key) {
-		await deletePdfBestEffort(
-			protokoll.storno_pdf_s3_key,
-			protokoll.id,
-			"cancellation",
-		);
-	}
-}
-
-async function deletePdfBestEffort(
+async function deleteUnpublishedPdfBestEffort(
 	key: string,
 	protokollId: string,
 	documentType: "original" | "cancellation",
@@ -747,7 +746,7 @@ async function deletePdfBestEffort(
 	try {
 		await deletePdf(key);
 	} catch (err) {
-		logger.warn("Obsolete PDF cleanup failed", {
+		logger.warn("Unpublished PDF cleanup failed", {
 			event: "storage.pdf_cleanup.failed",
 			protokollId,
 			documentType,
@@ -764,32 +763,45 @@ export async function regenerateProtokollPdf(id: string): Promise<void> {
 
 	const main = await renderProtokollPdf(baseData);
 	const mainKey = pdfKey(protokoll.belegnummer, "");
-	await uploadPdf(mainKey, main.buffer);
-
 	let stornoKey: string | null = null;
 	let stornoHash: string | null = null;
-	if (protokoll.storniert_am) {
-		const storno = await renderProtokollPdf({
-			...baseData,
-			storno: {
-				am: protokoll.storniert_am,
-				grund: protokoll.storno_grund ?? "",
-			},
-		});
-		stornoKey = pdfKey(protokoll.belegnummer, "_STORNO");
-		stornoHash = storno.hash;
-		await uploadPdf(stornoKey, storno.buffer);
+	try {
+		await uploadPdf(mainKey, main.buffer);
+		if (protokoll.storniert_am) {
+			const storno = await renderProtokollPdf({
+				...baseData,
+				storno: {
+					am: protokoll.storniert_am,
+					grund: protokoll.storno_grund ?? "",
+				},
+			});
+			stornoKey = pdfKey(protokoll.belegnummer, "_STORNO");
+			stornoHash = storno.hash;
+			await uploadPdf(stornoKey, storno.buffer);
+		}
+	} catch (error) {
+		// Publication has not started. Only this attempt's fresh, unique objects
+		// can be removed, even when an upload failed after reaching storage.
+		await deleteUnpublishedPdfBestEffort(mainKey, id, "original");
+		if (stornoKey)
+			await deleteUnpublishedPdfBestEffort(stornoKey, id, "cancellation");
+		throw error;
 	}
 
-	// Conditional on the key this regeneration started from, matching how the
-	// storno branch below already guards itself. Two concurrent regenerations
-	// otherwise both claim the row, and the loser's uploaded object is left in S3
-	// with nothing referencing it.
-	const mainRows = await db
+	// Publish the pair atomically, provided neither document nor cancellation
+	// state changed while rendering. A concurrent cancellation or initial PDF
+	// publication must not be overwritten with an older snapshot.
+	const published = await db
 		.update(protokolle)
 		.set({
 			pdf_s3_key: mainKey,
 			pdf_sha256: main.hash,
+			...(stornoKey
+				? {
+						storno_pdf_s3_key: stornoKey,
+						storno_pdf_sha256: stornoHash,
+					}
+				: {}),
 		})
 		.where(
 			and(
@@ -797,54 +809,27 @@ export async function regenerateProtokollPdf(id: string): Promise<void> {
 				protokoll.pdf_s3_key === null
 					? isNull(protokolle.pdf_s3_key)
 					: eq(protokolle.pdf_s3_key, protokoll.pdf_s3_key),
+				protokoll.storno_pdf_s3_key === null
+					? isNull(protokolle.storno_pdf_s3_key)
+					: eq(protokolle.storno_pdf_s3_key, protokoll.storno_pdf_s3_key),
+				protokoll.storniert_am === null
+					? isNull(protokolle.storniert_am)
+					: eq(protokolle.storniert_am, protokoll.storniert_am),
 			),
 		)
 		.returning({ id: protokolle.id });
-	if (mainRows.length === 0) {
-		// Someone else regenerated first; drop the object this call uploaded rather
-		// than orphaning it.
-		await deletePdfBestEffort(mainKey, id, "original");
+	// Never clean up after an ambiguous database error: publication may have
+	// committed. A successful zero-row result alone proves these keys unpublished.
+	if (published.length === 0) {
+		await deleteUnpublishedPdfBestEffort(mainKey, id, "original");
+		if (stornoKey)
+			await deleteUnpublishedPdfBestEffort(stornoKey, id, "cancellation");
 		throw new Error(
-			"Das PDF wurde zwischenzeitlich neu erzeugt. Bitte die Seite neu laden.",
+			"Das Protokoll wurde zwischenzeitlich geändert. Bitte die Seite neu laden.",
 		);
 	}
-
-	let stornoUpdated = false;
-	if (stornoKey && stornoHash && protokoll.storniert_am) {
-		const rows = await db
-			.update(protokolle)
-			.set({
-				storno_pdf_s3_key: stornoKey,
-				storno_pdf_sha256: stornoHash,
-			})
-			.where(
-				and(
-					eq(protokolle.id, id),
-					eq(protokolle.storniert_am, protokoll.storniert_am),
-				),
-			)
-			.returning({ id: protokolle.id });
-		stornoUpdated = rows.length > 0;
-	}
-
-	if (protokoll.pdf_s3_key && protokoll.pdf_s3_key !== mainKey) {
-		await deletePdfBestEffort(protokoll.pdf_s3_key, protokoll.id, "original");
-	}
-	if (
-		stornoUpdated &&
-		stornoKey &&
-		protokoll.storno_pdf_s3_key &&
-		protokoll.storno_pdf_s3_key !== stornoKey
-	) {
-		await deletePdfBestEffort(
-			protokoll.storno_pdf_s3_key,
-			protokoll.id,
-			"cancellation",
-		);
-	} else if (stornoKey && !stornoUpdated) {
-		// The storno row moved on under us; the object just uploaded is unreferenced.
-		await deletePdfBestEffort(stornoKey, protokoll.id, "cancellation");
-	}
+	// Previously published objects remain immutable recovery evidence. Older
+	// database backups can still reference either original or cancellation PDF.
 }
 
 /**
