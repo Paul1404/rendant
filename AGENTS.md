@@ -98,6 +98,12 @@ update the appropriate canonical documentation in the same change.
 - External side effects such as S3 uploads and email must not allow a retry to
   create duplicate accounting records. Prefer recoverable partial states and
   explicit regeneration.
+- Never delete a previously published original or cancellation PDF during
+  regeneration: older database recovery points still reference those objects.
+  Publish a regenerated pair atomically against both prior keys and cancellation
+  state. Only clean fresh, provably unpublished uploads; an ambiguous database
+  failure must retain them. Protocol hashes describe accounting data, while
+  DATEV delivery and source archive hashes describe stored file bytes.
 - DATEV Upload Mail sends stored PDFs only, through admin-only UI actions. The
   configurable recipient is restricted to `uploadmail.datev.de`; use the
   explicitly approved sender and existing encrypted SMTP transport. A durable
@@ -221,6 +227,10 @@ update the appropriate canonical documentation in the same change.
   for successful GitHub workflows before deploying. Prove a change on a PR
   before merging, and land related work as one commit rather than several,
   since each merge is its own production deploy.
+- `.railway/railway.ts` owns only the application through its named partial.
+  Variables and data resources remain unmanaged. GitHub code deployment does
+  not apply this file: review and apply a pinned CLI plan separately. Preserve
+  the migration/start/readiness contract and follow `.railway/README.md`.
 - `preDeployCommand` applies Drizzle migrations against the production database
   in a separate container before the new app starts. A non-zero exit aborts the
   deployment and the previous release keeps serving, so a migration that must
@@ -252,6 +262,12 @@ update the appropriate canonical documentation in the same change.
   Keep `scripts/restore-tenant-permissions.sql` aligned with business tables and
   sequence grants; never use blanket grants over auth/control tables. Rehearse
   with `scripts/test-postgres-restore.sh` against disposable clusters.
+- The independent object recovery worker is defined in
+  `infra/rendant-object-backup.yaml`. Keep its inline function synchronized with
+  the tested source through `scripts/object-backup/sync-template.py --check`.
+  Source credentials belong only in the encrypted runtime reference; never in
+  templates, commands, logs or invocation responses. Verification restores into
+  its isolated recovery prefix and never writes to production storage.
 - `/api/health` includes a cached production PDF render. Preserve the
   production-image readiness assertion when changing React PDF, PDFKit, fonts,
   Nitro bundling, or the Docker runtime.

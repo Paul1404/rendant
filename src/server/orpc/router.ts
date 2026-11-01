@@ -383,8 +383,8 @@ const protokolle = {
 			}
 		}),
 
-	// Admin-only: regenerating deletes the previously archived PDF from S3, so it
-	// destroys the stored evidence for a protokoll.
+	// Regeneration remains admin-only and retains previously published documents
+	// so historical database recovery points still reference available evidence.
 	regeneratePdf: adminOnly
 		.input(idInput)
 		.handler(async ({ input, context }) => {

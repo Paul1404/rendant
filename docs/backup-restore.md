@@ -89,14 +89,36 @@ Danach mindestens prüfen:
 4. Download mehrerer vorhandener PDF-Objekte
 5. `bun run db:migrate:prod` gegen die wiederhergestellte Testdatenbank
 
-## Externe Railway-Konfiguration
+## Getrennte Dokumentensicherung
 
-Dieses Repository kann keine sichere externe Sicherung einschalten, weil Ziel,
-Aufbewahrung und Zugangsdaten Betreiberentscheidungen sind. In Railway müssen
-weiterhin Datenbank-Backups oder ein externer Zeitplan eingerichtet, deren
-Aufbewahrung festgelegt und Restore-Berechtigungen begrenzt werden. Der
-S3-kompatible Bucket braucht separat Versionierung oder Replikation, weil ein
-PostgreSQL-Dump keine PDF-Dateien enthält.
+Ein PostgreSQL-Backup enthält keine gespeicherten Dateien. Alte Originale und
+Stornobelege bleiben deshalb auch nach einer erneuten PDF-Erzeugung im
+Quell-Bucket erhalten. Nur neue, nachweislich nie veröffentlichte Dateien einer
+gescheiterten oder unterlegenen Erzeugung werden entfernt. Ein unklarer
+Datenbankfehler rechtfertigt keine Dateilöschung.
+
+Der unabhängige Sicherungsdienst unter `infra/rendant-object-backup.yaml`
+kopiert die Objekte in einen privaten, verschlüsselten und versionierten
+AWS-Bucket. Er verändert weder Quelldateien noch Buchungen. Vollständige
+Manifeste verbinden die ursprünglichen Schlüssel mit den gesicherten
+Dateiversionen und Prüfsummen. Die Sicherungsrolle darf keine Version löschen;
+es gibt keine automatische Ablaufregel für Sicherungen. Die Infrastruktur
+behält die Buckets auch beim Entfernen oder Ersetzen des Stacks.
+
+Ein zusätzlicher Lauf stellt die Dateien ausschließlich in einen getrennten
+Prüfbereich wieder her und prüft die gelesenen Bytes erneut. Er überschreibt
+keine produktiven Dateien. Betrieb, Einrichtung, Fehleranzeige und begrenzte
+Zugangsdaten stehen in [Dokumentensicherung](object-backup.md). Eine erfolgreiche
+Prüfung dieses Dateibestands ersetzt keinen Test der passenden Datenbank.
+
+## Datenbank und Dokumente gemeinsam prüfen
+
+Railway-Datenbank-Backups bleiben zusätzlich erforderlich. Vor einer echten
+Wiederherstellung einen aktuellen vollständigen Dokumentenlauf auswählen,
+der die im Datenbankstand referenzierten Schlüssel enthält. Ältere Dokumente
+werden absichtlich aufbewahrt; eine frühere Löschung vor Einführung dieser
+Regel kann die Sicherung nicht rückgängig machen. Zugangsdaten zur Entschlüsselung
+von Anwendungseinstellungen müssen ebenfalls gesichert verfügbar sein.
 
 Mindestens vierteljährlich eine Wiederherstellung in eine isolierte Datenbank
 testen. Ein erfolgreicher `pg_dump` allein beweist keine Wiederherstellbarkeit.
