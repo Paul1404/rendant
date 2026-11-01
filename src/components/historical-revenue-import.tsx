@@ -10,6 +10,7 @@ import {
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { HistoricalProtocolFolderImport } from "@/components/historical-protocol-folder-import";
+import { TenantDownloadLink } from "@/components/tenant-download-link";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -23,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Money } from "@/components/ui/money";
 import { StepList } from "@/components/ui/step-list";
+import { tenantFetch } from "@/lib/tenant-client";
 
 type ImportPreview = {
 	valid: boolean;
@@ -75,7 +77,7 @@ export function HistoricalRevenueImport() {
 			if (mode === "apply" && preview) {
 				data.set("confirm_digest", preview.digest);
 			}
-			const response = await fetch("/api/import/revenue", {
+			const response = await tenantFetch("/api/import/revenue", {
 				method: "POST",
 				body: data,
 			});
@@ -158,10 +160,10 @@ export function HistoricalRevenueImport() {
 					/>
 
 					<Button variant="outline" className="w-full sm:w-auto" asChild>
-						<a href="/api/import/revenue/template">
+						<TenantDownloadLink href="/api/import/revenue/template">
 							<Download className="mr-2 h-4 w-4" />
 							Leere Excel-Vorlage herunterladen
-						</a>
+						</TenantDownloadLink>
 					</Button>
 
 					<div className="space-y-2">

@@ -1,5 +1,5 @@
 // E-Mail notifications. SMTP transport and recipients are configured in-app
-// (Einstellungen > Benachrichtigungen) and stored on the app_settings singleton.
+// (Einstellungen > Benachrichtigungen) and stored in each club's settings.
 // The password is held encrypted at rest (see secret-box). Sending is best
 // effort: a failure is logged and never breaks the action that triggered it.
 
@@ -24,6 +24,7 @@ import {
 import { listOptedInUserEmails } from "@/server/services/notification-prefs";
 import { decryptSecret, encryptSecret } from "@/server/services/secret-box";
 import { getVereinsname } from "@/server/services/settings";
+import { requireTenant } from "@/server/tenant-context";
 
 export type EmailSecurity = "starttls" | "ssl" | "none";
 
@@ -342,7 +343,9 @@ export async function sendProtokollNotification(
 		const verein = await getVereinsname();
 		const datum = formatGermanDate(proto.anlass_datum);
 		const base = process.env.BETTER_AUTH_URL?.trim().replace(/\/+$/, "");
-		const link = base ? `${base}/protokolle/${proto.id}` : null;
+		const link = base
+			? `${base}/protokolle/${proto.id}?tenant=${requireTenant().id}`
+			: null;
 
 		const rows: Array<[string, string]> = [
 			["Belegnummer", proto.belegnummer],

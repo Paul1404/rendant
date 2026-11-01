@@ -2,11 +2,19 @@ import { RPCHandler } from "@orpc/server/fetch";
 import { createFileRoute } from "@tanstack/react-router";
 import { createORPCContext } from "@/server/orpc/context";
 import { router } from "@/server/orpc/router";
+import { TenantSelectionError } from "@/server/tenant-context";
 
 const handler = new RPCHandler(router);
 
 async function handle({ request }: { request: Request }) {
-	const context = await createORPCContext(request);
+	let context: Awaited<ReturnType<typeof createORPCContext>>;
+	try {
+		context = await createORPCContext(request);
+	} catch (error) {
+		if (error instanceof TenantSelectionError)
+			return Response.json({ error: error.message }, { status: 400 });
+		throw error;
+	}
 	const { response } = await handler.handle(request, {
 		prefix: "/api/rpc",
 		context,

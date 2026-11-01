@@ -1,6 +1,6 @@
 {
   "name": "rendant",
-  "version": "1.55.6",
+  "version": "1.56.0",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -26,7 +26,7 @@
     "build": "vite build",
     "start": "bun --smol .output/server/index.mjs",
     "generate-routes": "tsr generate",
-    "test": "vitest run",
+    "test": "bun --bun vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "format": "biome format --write",
     "lint": "biome lint",

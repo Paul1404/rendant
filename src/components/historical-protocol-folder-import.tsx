@@ -69,6 +69,7 @@ import type {
 	HistoricalProtocolReviewPhaseSummary,
 } from "@/lib/historical-protocol-import";
 import { orpcClient } from "@/lib/orpc";
+import { tenantFetch } from "@/lib/tenant-client";
 import {
 	UMSATZBEREICHE,
 	type Umsatzbereich,
@@ -233,7 +234,7 @@ export function HistoricalProtocolFolderImport() {
 		if (files.length === 0) return;
 		setLoading("analyze");
 		try {
-			const response = await fetch("/api/import/historical-protocols", {
+			const response = await tenantFetch("/api/import/historical-protocols", {
 				method: "POST",
 				body: folderFormData(files),
 			});

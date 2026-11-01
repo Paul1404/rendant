@@ -3,11 +3,11 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { resolveTrustedOrigins } from "./auth-origins";
-import { db } from "./db";
+import { globalDb as db } from "./db";
 import * as authSchema from "./db/auth-schema";
 
-// Single-tenant internal tool. There are real user accounts (better-auth),
-// but open sign-up is disabled: the seeded admin invites everyone else.
+// User identities are global; club access and roles live in memberships.
+// Open sign-up stays disabled: club administrators invite their members.
 // `tanstackStartCookies()` MUST stay the last plugin so Set-Cookie headers are
 // written correctly in TanStack Start.
 

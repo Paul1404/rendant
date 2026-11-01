@@ -1,3 +1,5 @@
+import { tenantStorageKey } from "@/lib/tenant-client";
+
 export const LOCAL_PREF_KEYS = {
 	lastRegisterId: "rendant:lastRegisterId",
 	lastGezaehltVon: "rendant:lastGezaehltVon",
@@ -6,12 +8,6 @@ export const LOCAL_PREF_KEYS = {
 
 export type LocalPrefKey =
 	(typeof LOCAL_PREF_KEYS)[keyof typeof LOCAL_PREF_KEYS];
-
-const LEGACY_LOCAL_PREF_KEYS: Partial<Record<LocalPrefKey, string>> = {
-	"rendant:lastRegisterId": "svufo:lastRegisterId",
-	"rendant:lastGezaehltVon": "svufo:lastGezaehltVon",
-	"rendant:lastGeprueftVon": "svufo:lastGeprueftVon",
-};
 
 function storage(): Storage | null {
 	if (typeof window === "undefined") return null;
@@ -26,16 +22,8 @@ export function getLocalPref(key: LocalPrefKey): string | null {
 	const s = storage();
 	if (!s) return null;
 	try {
-		const current = s.getItem(key);
-		if (current != null) return current;
-		const legacyKey = LEGACY_LOCAL_PREF_KEYS[key];
-		if (!legacyKey) return null;
-		const legacy = s.getItem(legacyKey);
-		if (legacy != null) {
-			s.setItem(key, legacy);
-			s.removeItem(legacyKey);
-		}
-		return legacy;
+		const scopedKey = tenantStorageKey(key);
+		return scopedKey ? s.getItem(scopedKey) : null;
 	} catch {
 		return null;
 	}
@@ -45,7 +33,8 @@ export function setLocalPref(key: LocalPrefKey, value: string): void {
 	const s = storage();
 	if (!s) return;
 	try {
-		s.setItem(key, value);
+		const scopedKey = tenantStorageKey(key);
+		if (scopedKey) s.setItem(scopedKey, value);
 	} catch {
 		// Quota / private mode — silently ignore.
 	}
@@ -55,7 +44,8 @@ export function clearLocalPref(key: LocalPrefKey): void {
 	const s = storage();
 	if (!s) return;
 	try {
-		s.removeItem(key);
+		const scopedKey = tenantStorageKey(key);
+		if (scopedKey) s.removeItem(scopedKey);
 	} catch {
 		// ignore
 	}

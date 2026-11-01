@@ -420,7 +420,12 @@ export async function createHelperHourExpense(
 				erstellt_von_user_id: actor.id,
 				erstellt_von_name: actor.name,
 			})
-			.onConflictDoNothing({ target: helperHourExpenses.idempotency_key })
+			.onConflictDoNothing({
+				target: [
+					helperHourExpenses.tenant_id,
+					helperHourExpenses.idempotency_key,
+				],
+			})
 			.returning();
 		if (!row) {
 			const [existing] = await tx
@@ -613,7 +618,9 @@ export async function createHelperHour(
 				erstellt_von_user_id: actor.id,
 				erstellt_von_name: actor.name,
 			})
-			.onConflictDoNothing({ target: helperHours.idempotency_key })
+			.onConflictDoNothing({
+				target: [helperHours.tenant_id, helperHours.idempotency_key],
+			})
 			.returning();
 		if (!row) {
 			const [existing] = await tx
@@ -770,6 +777,7 @@ export async function importHelperHours(
 				})
 				.onConflictDoNothing({
 					target: [
+						helperHours.tenant_id,
 						helperHours.quelle_sha256,
 						helperHours.quelle_blatt,
 						helperHours.quelle_zeile,
@@ -885,7 +893,12 @@ export async function importHelperHourExpenses(
 					erstellt_von_user_id: actor.id,
 					erstellt_von_name: actor.name,
 				})
-				.onConflictDoNothing({ target: helperHourExpenses.idempotency_key })
+				.onConflictDoNothing({
+					target: [
+						helperHourExpenses.tenant_id,
+						helperHourExpenses.idempotency_key,
+					],
+				})
 				.returning({ id: helperHourExpenses.id });
 			created += inserted.length;
 		}

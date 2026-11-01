@@ -4,11 +4,15 @@ import { Header } from "@/components/header";
 import { MainWatermark } from "@/components/main-watermark";
 import { VersionChip } from "@/components/version-chip";
 import { fetchSession } from "@/lib/server-fns";
+import { pinTenantScope } from "@/lib/tenant-client";
 import { useBranding } from "@/routes/__root";
 
 export const Route = createFileRoute("/protokolle")({
 	beforeLoad: async ({ location }) => {
-		const user = await fetchSession();
+		const selectedTenant = new URLSearchParams(location.searchStr).get(
+			"tenant",
+		);
+		const user = await fetchSession(selectedTenant ?? undefined);
 		if (!user) {
 			throw redirect({ to: "/login", search: { from: location.href } });
 		}
@@ -18,6 +22,8 @@ export const Route = createFileRoute("/protokolle")({
 });
 
 function ProtokolleLayout() {
+	const { user } = Route.useRouteContext();
+	pinTenantScope({ tenantId: user.tenant.id, userId: user.id });
 	const branding = useBranding();
 	return (
 		<>

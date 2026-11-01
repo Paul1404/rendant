@@ -7,6 +7,7 @@ import {
 	historicalRevenues,
 	protokolle,
 } from "@/server/db/schema";
+import { SVU_TENANT_ID, withTenant } from "@/server/tenant-context";
 
 // One-off, reviewed backfill for the Anlass catalog (plans/007). Seeds the
 // catalog + aliases from the observed data, then assigns anlass_katalog_id to
@@ -202,8 +203,10 @@ async function main() {
 	await pool.end();
 }
 
-main().catch((err) => {
-	console.error("Backfill fehlgeschlagen:", err);
-	process.exitCode = 1;
-	pool.end().finally(() => process.exit(1));
-});
+withTenant({ id: SVU_TENANT_ID, slug: "svu", name: "SVU" }, main).catch(
+	(err) => {
+		console.error("Backfill fehlgeschlagen:", err);
+		process.exitCode = 1;
+		pool.end().finally(() => process.exit(1));
+	},
+);

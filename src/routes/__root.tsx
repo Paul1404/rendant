@@ -58,8 +58,10 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 			{ rel: "manifest", href: `/manifest.webmanifest${v}` },
 		],
 	}),
-	loader: async (): Promise<{ branding: Branding }> => ({
-		branding: await fetchBranding(),
+	loader: async ({ location }): Promise<{ branding: Branding }> => ({
+		branding: await fetchBranding(
+			new URLSearchParams(location.searchStr).get("tenant") ?? undefined,
+		),
 	}),
 	notFoundComponent: () => <NotFoundView />,
 	errorComponent: ({ error, reset }) => (

@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { withTenant, SVU_TENANT_ID } from "@/server/tenant-context";
 import { createHash, randomUUID } from "node:crypto";
 import ExcelJS from "exceljs";
 import { emptyCounts } from "@/lib/denominations";
@@ -188,7 +189,7 @@ async function main() {
 	);
 }
 
-main()
+withTenant({ id: SVU_TENANT_ID, slug: "svu", name: "SVU Sandbox" }, main)
 	.finally(() => pool.end())
 	.catch((error) => {
 		console.error(error);

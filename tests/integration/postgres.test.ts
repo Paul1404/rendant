@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, gte, lte, sql } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, aroundAll, beforeAll, describe, expect, it } from "vitest";
 import { emptyCounts } from "@/lib/denominations";
 import { db, pool } from "@/server/db";
+import { withTenant } from "@/server/tenant-context";
 import {
 	anlassKatalog,
 	auditEvents,
@@ -45,6 +46,12 @@ const actor = {
 	name: "Integration Test",
 	role: "admin",
 };
+aroundAll((runSuite) =>
+	withTenant(
+		{ id: "00000000-0000-4000-8000-000000000001", slug: "svu", name: "SVU" },
+		runSuite,
+	),
+);
 const audit = { request: { id: randomUUID(), ip: "127.0.0.1" } };
 const settingsAudit = {
 	category: "settings" as const,
@@ -62,7 +69,9 @@ beforeAll(async () => {
 		"select current_database() as database",
 	);
 	if (!result.rows[0]?.database.endsWith("_test")) {
-		throw new Error("Integration tests refuse to use a database without _test suffix");
+		throw new Error(
+			"Integration tests refuse to use a database without _test suffix",
+		);
 	}
 });
 
@@ -130,9 +139,9 @@ describe("PostgreSQL production paths", () => {
 				cancelHistoricalRevenue(rows[0].id, "Integrationstest", actor, audit),
 				cancelHistoricalRevenue(rows[0].id, "Integrationstest", actor, audit),
 			]);
-			expect(cancellation.filter((result) => result.status === "fulfilled")).toHaveLength(
-				1,
-			);
+			expect(
+				cancellation.filter((result) => result.status === "fulfilled"),
+			).toHaveLength(1);
 			const rejected = cancellation.find(
 				(result) => result.status === "rejected",
 			);
@@ -297,7 +306,11 @@ describe("PostgreSQL production paths", () => {
 			],
 		};
 
-		const draft = await createHistoricalProtocolImportDraft(preview, actor, audit);
+		const draft = await createHistoricalProtocolImportDraft(
+			preview,
+			actor,
+			audit,
+		);
 		try {
 			const analysis = await analyzeHistoricalProtocolImportDraft({
 				id: draft.id,
@@ -342,9 +355,9 @@ describe("PostgreSQL production paths", () => {
 					audit,
 				),
 			]);
-			expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(
-				1,
-			);
+			expect(
+				results.filter((result) => result.status === "fulfilled"),
+			).toHaveLength(1);
 			const rejected = results.find((result) => result.status === "rejected");
 			if (rejected?.status === "rejected") {
 				expect(rejected.reason).toBeInstanceOf(
@@ -449,7 +462,11 @@ describe("optimistic concurrency on shared settings", () => {
 
 	it("accepts a save based on the current stamp", async () => {
 		const current = await getSettingsStamp("helferstunde_wert_updated_at");
-		await updateHelperHourValueCent(800, { ...audit, ...settingsAudit }, current);
+		await updateHelperHourValueCent(
+			800,
+			{ ...audit, ...settingsAudit },
+			current,
+		);
 		expect(await getHelperHourValueCent()).toBe(800);
 	});
 
@@ -457,7 +474,11 @@ describe("optimistic concurrency on shared settings", () => {
 		// The row is a singleton shared by five forms. Saving the hourly value must
 		// not make a pending Belegnummer save conflict.
 		const belegnummerStamp = await getSettingsStamp("belegnummer_updated_at");
-		await updateHelperHourValueCent(900, { ...audit, ...settingsAudit }, undefined);
+		await updateHelperHourValueCent(
+			900,
+			{ ...audit, ...settingsAudit },
+			undefined,
+		);
 		await expect(
 			updateBelegnummerSettings(
 				{
@@ -542,7 +563,11 @@ describe("VAT summary aggregation", () => {
 					{ betrag_cent: 5_000, ust_basis_punkte: 700 },
 				],
 				ausgaben: [
-					{ bezeichnung: "Einkauf", betrag_cent: 2_000, ust_basis_punkte: 1900 },
+					{
+						bezeichnung: "Einkauf",
+						betrag_cent: 2_000,
+						ust_basis_punkte: 1900,
+					},
 				],
 			}),
 			actor,

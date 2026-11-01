@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "./schema";
+import { tenantPool } from "./tenant-pool";
 
 // Server-only Drizzle client backed by a node-postgres Pool. Never import this
 // from a component or any client bundle: all DB access goes through oRPC
@@ -41,7 +42,10 @@ if (process.env.NODE_ENV !== "production") {
 	globalThis.__rendantPool = pool;
 }
 
-export const db = drizzle(pool, { schema });
+// Privileged access is reserved for authentication, membership resolution,
+// readiness and migrations. Business services must use the scoped `db`.
+export const globalDb = drizzle(pool, { schema });
+export const db = drizzle(tenantPool(pool), { schema });
 export { pool, schema };
 
 export type Database = typeof db;

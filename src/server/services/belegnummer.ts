@@ -114,7 +114,7 @@ export async function nextBelegnummerInTx(
 			updated_at: new Date(),
 		})
 		.onConflictDoUpdate({
-			target: belegnummerSequences.year,
+			target: [belegnummerSequences.tenant_id, belegnummerSequences.year],
 			set: {
 				next_sequence: sql`${belegnummerSequences.next_sequence} + 1`,
 				updated_at: new Date(),

@@ -35,6 +35,12 @@ Jahresumsatz. Namen, Belege und Beträge sind Beispieldaten, keine Vereinsdaten.
 | Audit-Log | Filterbare Ereignisspur aller relevanten Vorgänge | Nur Admins |
 | Einstellungen | Eigene Benachrichtigungen sowie zentrale Verwaltung | Persönliche Einstellung für alle, Verwaltung nur für Admins |
 
+Ein Konto kann mehreren Vereinen angehören. Die Vereinsauswahl im Kopfbereich
+wechselt den Arbeitsbereich; Rollen, Buchungen, Dokumente und Einstellungen
+gehören jeweils zu einem Verein. Die Betreiber legen neue Vereine an,
+Vereinsadmins laden ihre Mitglieder ein. Technische Grenzen und der Ablauf der
+Bestandsmigration stehen in [docs/multi-tenancy.md](docs/multi-tenancy.md).
+
 ## Funktionsumfang
 
 ### Kassenzählprotokolle

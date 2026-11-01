@@ -23,6 +23,7 @@ import {
 	currentYearBerlin,
 	todayIsoDate,
 } from "@/lib/date";
+import { tenantApiUrl } from "@/lib/tenant-client";
 import { cn } from "@/lib/utils";
 
 function isoFromParts(year: number, monthIndex: number, day: number) {
@@ -141,7 +142,7 @@ export function ExportForm({ isAdmin = false }: { isAdmin?: boolean }) {
 	function download(path: string) {
 		if (invalidRange) return;
 		const url = `${path}?von=${encodeURIComponent(von)}&bis=${encodeURIComponent(bis)}`;
-		window.location.href = url;
+		window.location.href = tenantApiUrl(url);
 	}
 
 	return (

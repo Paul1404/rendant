@@ -1,10 +1,27 @@
 import { describe, expect, it, vi } from "vitest";
+import { TenantAccessError } from "@/server/services/tenants";
 
-// Every gate in src/routes/api is hand-rolled - there is no shared middleware
-// enforcing them - so this asserts each route actually refuses an anonymous
-// caller, and that the admin-only ones also refuse a signed-in non-admin.
-const getSession = vi.fn();
-vi.mock("@/server/auth", () => ({ auth: { api: { getSession: () => getSession() } } }));
+// Every business route must pass through tenant authorization before it parses
+// uploads or reads records. Keep exercising the real request wrapper here, with
+// membership resolution mocked independently from business services.
+const getSession = vi.hoisted(() => vi.fn());
+vi.mock("@/server/services/tenants", () => {
+	class TenantAccessError extends Error {
+		readonly status = 403;
+		constructor() { super("Für diesen Verein besteht keine Zugriffsberechtigung"); }
+	}
+	return {
+		TenantAccessError,
+		resolveTenantSession: async () => {
+			const session = await getSession();
+			return session ? {
+				session,
+				user: session.user,
+				tenant: { id: "00000000-0000-4000-8000-000000000001", slug: "svu", name: "SVU", role: session.user.role },
+			} : null;
+		},
+	};
+});
 
 type Method = "GET" | "POST";
 
@@ -105,6 +122,15 @@ const ROUTES: Array<{
 	},
 ];
 
+for (const [name, load, method, adminOnly] of [
+	["import.helper-hour-expenses", () => import("@/routes/api/import.helper-hour-expenses"), "POST", true],
+	["protokoll.pdf", () => import("@/routes/api/protokolle/$id/pdf"), "GET", false],
+	["protokoll.storno-pdf", () => import("@/routes/api/protokolle/$id/storno-pdf"), "GET", false],
+	["historical-revenue.source", () => import("@/routes/api/historical-revenues/$id/source"), "GET", false],
+] as const) {
+	ROUTES.push({ name, load, method, adminOnly, request: () => new Request(`http://t/api/${name}`, { method }) });
+}
+
 // biome-ignore lint/suspicious/noExplicitAny: reaching into the generated route
 function handlerOf(mod: any, method: Method) {
 	return mod.Route.options.server.handlers[method];
@@ -125,6 +151,16 @@ describe("API route authorization", () => {
 				params: { id: "00000000-0000-4000-8000-000000000000" },
 			});
 			expect(response.status).toBe(401);
+		});
+
+		it(`${route.name} refuses an inaccessible tenant before processing records`, async () => {
+			getSession.mockRejectedValueOnce(new TenantAccessError());
+			const mod = await route.load();
+			const response: Response = await handlerOf(mod, route.method)({
+				request: route.request(),
+				params: { id: "00000000-0000-4000-8000-000000000000" },
+			});
+			expect(response.status).toBe(403);
 		});
 
 		if (route.adminOnly) {

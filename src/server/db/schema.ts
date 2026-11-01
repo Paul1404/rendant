@@ -5,9 +5,13 @@ import {
 	boolean,
 	check,
 	date,
+	foreignKey,
 	index,
 	integer,
 	jsonb,
+	type PgTableExtraConfigValue,
+	pgPolicy,
+	pgRole,
 	pgTable,
 	primaryKey,
 	text,
@@ -19,6 +23,34 @@ import type { DatevDeliveryState, DatevDocument } from "@/lib/datev";
 import type { DenominationCounts } from "@/lib/denominations";
 import type { HistoricalProtocolParsedRow } from "@/lib/historical-protocol-import";
 
+import { tenants } from "./tenant-schema";
+
+export {
+	authSecurityEvents,
+	memberships,
+	tenantMemberships,
+	tenants,
+} from "./tenant-schema";
+
+const tenantRole = pgRole("rendant_tenant").existing();
+
+function tenantPolicy() {
+	const condition = sql`tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid`;
+	return pgPolicy("tenant_isolation", {
+		for: "all",
+		to: tenantRole,
+		using: condition,
+		withCheck: condition,
+	});
+}
+
+function tenantId() {
+	return uuid("tenant_id")
+		.notNull()
+		.default(sql`nullif(current_setting('app.tenant_id', true), '')::uuid`)
+		.references(() => tenants.id, { onDelete: "restrict" });
+}
+
 export type HistoricalRevenueVatSplit = {
 	ust_basis_punkte: number;
 	betrag_cent: number;
@@ -29,7 +61,8 @@ export type HistoricalRevenueVatSplit = {
 export const historicalSourceArchives = pgTable(
 	"historical_source_archives",
 	{
-		sha256: text("sha256").primaryKey(),
+		tenant_id: tenantId(),
+		sha256: text("sha256").notNull(),
 		object_key: text("object_key").notNull().unique(),
 		original_filename: text("original_filename").notNull(),
 		content_type: text("content_type").notNull(),
@@ -41,6 +74,8 @@ export const historicalSourceArchives = pgTable(
 		archived_by_name: text("archived_by_name").notNull(),
 	},
 	(t) => [
+		tenantPolicy(),
+		primaryKey({ columns: [t.tenant_id, t.sha256] }),
 		check(
 			"historical_source_archives_sha256_check",
 			sql`${t.sha256} ~ '^[0-9a-f]{64}$'`,
@@ -54,7 +89,7 @@ export const historicalSourceArchives = pgTable(
 			sql`length(trim(${t.original_filename})) BETWEEN 1 AND 255`,
 		),
 	],
-);
+).enableRLS();
 
 // Money is always stored as integer cents. Conversion happens only at the
 // form input and at display time.
@@ -62,12 +97,13 @@ export const historicalSourceArchives = pgTable(
 export const protokolle = pgTable(
 	"protokolle",
 	{
+		tenant_id: tenantId(),
 		id: uuid("id").primaryKey().defaultRandom(),
 		// Nullable only for rows created before idempotency was introduced. Every
 		// new write supplies both values and the unique key protects replays.
-		idempotency_key: uuid("idempotency_key").unique(),
+		idempotency_key: uuid("idempotency_key"),
 		idempotency_payload_sha256: text("idempotency_payload_sha256"),
-		belegnummer: text("belegnummer").notNull().unique(),
+		belegnummer: text("belegnummer").notNull(),
 		erstellt_von_user_id: text("erstellt_von_user_id"),
 		erstellt_von_name: text("erstellt_von_name"),
 		erstellt_am: timestamp("erstellt_am", { withTimezone: true })
@@ -126,6 +162,19 @@ export const protokolle = pgTable(
 		storno_pdf_sha256: text("storno_pdf_sha256"),
 	},
 	(t) => [
+		tenantPolicy(),
+		uniqueIndex("protokolle_idempotency_key_unique").on(
+			t.tenant_id,
+			t.idempotency_key,
+		),
+		uniqueIndex("protokolle_belegnummer_unique").on(t.tenant_id, t.belegnummer),
+		index("protokolle_tenant_idx").on(t.tenant_id),
+		uniqueIndex("protokolle_tenant_id_unique").on(t.tenant_id, t.id),
+		foreignKey({
+			name: "protokolle_anlass_katalog_id_tenant_fk",
+			columns: [t.tenant_id, t.anlass_katalog_id],
+			foreignColumns: [anlassKatalog.tenant_id, anlassKatalog.id],
+		}).onDelete("no action"),
 		index("idx_protokolle_erstellt_am").on(t.erstellt_am),
 		index("idx_protokolle_storniert_am").on(t.storniert_am),
 		index("idx_protokolle_anlass_datum").on(t.anlass_datum),
@@ -150,13 +199,14 @@ export const protokolle = pgTable(
 			sql`${t.umsatzbereich} IS NULL OR ${t.umsatzbereich} IN ('wirtschaftsbetrieb', 'veranstaltungen', 'eintrittsgelder', 'verkauf_spielfeld', 'seniorennachmittag', 'sonstiges')`,
 		),
 	],
-);
+).enableRLS();
 
 // One durable delivery claim per document. Ambiguous SMTP outcomes need an
 // audited manual decision before another attempt is allowed.
 export const datevDeliveries = pgTable(
 	"datev_deliveries",
 	{
+		tenant_id: tenantId(),
 		protokoll_id: uuid("protokoll_id")
 			.notNull()
 			.references(() => protokolle.id, { onDelete: "restrict" }),
@@ -176,6 +226,13 @@ export const datevDeliveries = pgTable(
 		message_id: text("message_id"),
 	},
 	(t) => [
+		tenantPolicy(),
+		index("datev_deliveries_tenant_idx").on(t.tenant_id),
+		foreignKey({
+			name: "datev_deliveries_protokoll_id_tenant_fk",
+			columns: [t.tenant_id, t.protokoll_id],
+			foreignColumns: [protokolle.tenant_id, protokolle.id],
+		}).onDelete("restrict"),
 		primaryKey({ columns: [t.protokoll_id, t.document] }),
 		check("datev_document_check", sql`${t.document} IN ('original', 'storno')`),
 		check(
@@ -191,7 +248,7 @@ export const datevDeliveries = pgTable(
 			sql`(${t.state} = 'sent') = (${t.sent_at} IS NOT NULL)`,
 		),
 	],
-);
+).enableRLS();
 
 /**
  * SumUp-Tage, die ein Protokoll als Kartenumsatz übernommen hat. Ein Tag kann
@@ -205,6 +262,7 @@ export const datevDeliveries = pgTable(
 export const protokollSumupTage = pgTable(
 	"protokoll_sumup_tage",
 	{
+		tenant_id: tenantId(),
 		id: uuid("id").primaryKey().defaultRandom(),
 		protokoll_id: uuid("protokoll_id")
 			.notNull()
@@ -233,20 +291,29 @@ export const protokollSumupTage = pgTable(
 		freigegeben_am: timestamp("freigegeben_am", { withTimezone: true }),
 	},
 	(t) => [
+		tenantPolicy(),
+		index("protokoll_sumup_tage_tenant_idx").on(t.tenant_id),
+		uniqueIndex("protokoll_sumup_tage_tenant_id_unique").on(t.tenant_id, t.id),
+		foreignKey({
+			name: "protokoll_sumup_tage_protokoll_id_tenant_fk",
+			columns: [t.tenant_id, t.protokoll_id],
+			foreignColumns: [protokolle.tenant_id, protokolle.id],
+		}).onDelete("cascade"),
 		index("idx_protokoll_sumup_tage_protokoll_id").on(t.protokoll_id),
 		uniqueIndex("protokoll_sumup_tage_datum_aktiv_idx")
-			.on(t.datum)
+			.on(t.tenant_id, t.datum)
 			.where(sql`${t.freigegeben_am} IS NULL`),
 		check(
 			"protokoll_sumup_tage_cent_check",
 			sql`${t.anzahl} >= 0 AND ${t.brutto_cent} >= 0 AND ${t.erstattet_cent} >= 0 AND ${t.kartenzahlung_cent} >= 0`,
 		),
 	],
-);
+).enableRLS();
 
 export const ausgaben = pgTable(
 	"ausgaben",
 	{
+		tenant_id: tenantId(),
 		id: uuid("id").primaryKey().defaultRandom(),
 		protokoll_id: uuid("protokoll_id")
 			.notNull()
@@ -259,6 +326,14 @@ export const ausgaben = pgTable(
 		reihenfolge: integer("reihenfolge").notNull().default(0),
 	},
 	(t) => [
+		tenantPolicy(),
+		index("ausgaben_tenant_idx").on(t.tenant_id),
+		uniqueIndex("ausgaben_tenant_id_unique").on(t.tenant_id, t.id),
+		foreignKey({
+			name: "ausgaben_protokoll_id_tenant_fk",
+			columns: [t.tenant_id, t.protokoll_id],
+			foreignColumns: [protokolle.tenant_id, protokolle.id],
+		}).onDelete("cascade"),
 		index("idx_ausgaben_protokoll_id").on(t.protokoll_id),
 		check("ausgaben_betrag_cent_check", sql`${t.betrag_cent} >= 0`),
 		check(
@@ -266,11 +341,12 @@ export const ausgaben = pgTable(
 			sql`${t.ust_basis_punkte} >= 0 AND ${t.ust_basis_punkte} <= 10000`,
 		),
 	],
-);
+).enableRLS();
 
 export const protokollUmsatzUst = pgTable(
 	"protokoll_umsatz_ust",
 	{
+		tenant_id: tenantId(),
 		id: uuid("id").primaryKey().defaultRandom(),
 		protokoll_id: uuid("protokoll_id")
 			.notNull()
@@ -280,6 +356,14 @@ export const protokollUmsatzUst = pgTable(
 		reihenfolge: integer("reihenfolge").notNull().default(0),
 	},
 	(t) => [
+		tenantPolicy(),
+		index("protokoll_umsatz_ust_tenant_idx").on(t.tenant_id),
+		uniqueIndex("protokoll_umsatz_ust_tenant_id_unique").on(t.tenant_id, t.id),
+		foreignKey({
+			name: "protokoll_umsatz_ust_protokoll_id_tenant_fk",
+			columns: [t.tenant_id, t.protokoll_id],
+			foreignColumns: [protokolle.tenant_id, protokolle.id],
+		}).onDelete("cascade"),
 		index("idx_protokoll_umsatz_ust_protokoll_id").on(t.protokoll_id),
 		check(
 			"protokoll_umsatz_ust_basis_punkte_check",
@@ -287,13 +371,14 @@ export const protokollUmsatzUst = pgTable(
 		),
 		check("protokoll_umsatz_ust_betrag_cent_check", sql`${t.betrag_cent} >= 0`),
 	],
-);
+).enableRLS();
 
 export const cashRegisters = pgTable(
 	"cash_registers",
 	{
+		tenant_id: tenantId(),
 		id: uuid("id").primaryKey().defaultRandom(),
-		kassennummer: text("kassennummer").notNull().unique(),
+		kassennummer: text("kassennummer").notNull(),
 		kassenbezeichnung: text("kassenbezeichnung").notNull(),
 		wechselgeld_cent: integer("wechselgeld_cent").notNull().default(16000),
 		reihenfolge: integer("reihenfolge").notNull().default(0),
@@ -305,13 +390,20 @@ export const cashRegisters = pgTable(
 			.defaultNow(),
 	},
 	(t) => [
+		tenantPolicy(),
+		uniqueIndex("cash_registers_kassennummer_unique").on(
+			t.tenant_id,
+			t.kassennummer,
+		),
+		index("cash_registers_tenant_idx").on(t.tenant_id),
+		uniqueIndex("cash_registers_tenant_id_unique").on(t.tenant_id, t.id),
 		index("idx_cash_registers_order").on(t.reihenfolge, t.kassennummer),
 		check(
 			"cash_registers_wechselgeld_cent_check",
 			sql`${t.wechselgeld_cent} >= 0`,
 		),
 	],
-);
+).enableRLS();
 
 // Anlass catalog: the club's real recurring/one-off events, managed once by an
 // admin (mirrors cash_registers). The catalog id is the stable grouping key for
@@ -320,8 +412,9 @@ export const cashRegisters = pgTable(
 export const anlassKatalog = pgTable(
 	"anlass_katalog",
 	{
+		tenant_id: tenantId(),
 		id: uuid("id").primaryKey().defaultRandom(),
-		name: text("name").notNull().unique(),
+		name: text("name").notNull(),
 		// 'wiederkehrend' rolls up per season; 'einmalig' compares year-to-year.
 		typ: text("typ").notNull().default("wiederkehrend"),
 		aktiv: boolean("aktiv").notNull().default(true),
@@ -334,6 +427,10 @@ export const anlassKatalog = pgTable(
 			.defaultNow(),
 	},
 	(t) => [
+		tenantPolicy(),
+		uniqueIndex("anlass_katalog_name_unique").on(t.tenant_id, t.name),
+		index("anlass_katalog_tenant_idx").on(t.tenant_id),
+		uniqueIndex("anlass_katalog_tenant_id_unique").on(t.tenant_id, t.id),
 		index("idx_anlass_katalog_order").on(t.reihenfolge, t.name),
 		check(
 			"anlass_katalog_typ_check",
@@ -344,15 +441,16 @@ export const anlassKatalog = pgTable(
 			sql`length(trim(${t.name})) BETWEEN 1 AND 120`,
 		),
 	],
-);
+).enableRLS();
 
 // Normalized old spellings mapped to a catalog entry. Used to backfill existing
 // protokolle and to suggest a match when a stray free-text anlass appears.
 export const anlassAliase = pgTable(
 	"anlass_aliase",
 	{
+		tenant_id: tenantId(),
 		id: uuid("id").primaryKey().defaultRandom(),
-		alias_norm: text("alias_norm").notNull().unique(),
+		alias_norm: text("alias_norm").notNull(),
 		anlass_katalog_id: uuid("anlass_katalog_id")
 			.notNull()
 			.references(() => anlassKatalog.id, { onDelete: "cascade" }),
@@ -360,13 +458,28 @@ export const anlassAliase = pgTable(
 			.notNull()
 			.defaultNow(),
 	},
-	(t) => [index("idx_anlass_aliase_katalog").on(t.anlass_katalog_id)],
-);
+	(t) => [
+		tenantPolicy(),
+		uniqueIndex("anlass_aliase_alias_norm_unique").on(
+			t.tenant_id,
+			t.alias_norm,
+		),
+		index("anlass_aliase_tenant_idx").on(t.tenant_id),
+		uniqueIndex("anlass_aliase_tenant_id_unique").on(t.tenant_id, t.id),
+		foreignKey({
+			name: "anlass_aliase_anlass_katalog_id_tenant_fk",
+			columns: [t.tenant_id, t.anlass_katalog_id],
+			foreignColumns: [anlassKatalog.tenant_id, anlassKatalog.id],
+		}).onDelete("cascade"),
+		index("idx_anlass_aliase_katalog").on(t.anlass_katalog_id),
+	],
+).enableRLS();
 
 export const appSettings = pgTable(
 	"app_settings",
 	{
-		id: integer("id").primaryKey().default(1),
+		tenant_id: tenantId(),
+		id: integer("id").notNull().default(1),
 		belegnummer_min_digits: integer("belegnummer_min_digits")
 			.notNull()
 			.default(2),
@@ -456,6 +569,8 @@ export const appSettings = pgTable(
 			.defaultNow(),
 	},
 	(t) => [
+		tenantPolicy(),
+		primaryKey({ columns: [t.tenant_id, t.id] }),
 		check("app_settings_singleton_check", sql`${t.id} = 1`),
 		check(
 			"app_settings_min_digits_check",
@@ -486,7 +601,7 @@ export const appSettings = pgTable(
 			sql`${t.smtp_port} BETWEEN 1 AND 65535`,
 		),
 	],
-);
+).enableRLS();
 
 /**
  * Helper-hour categories are data, not code: the club can add, rename and
@@ -497,8 +612,9 @@ export const appSettings = pgTable(
 export const helperHourCategories = pgTable(
 	"helper_hour_categories",
 	{
+		tenant_id: tenantId(),
 		id: uuid("id").primaryKey().defaultRandom(),
-		code: text("code").notNull().unique(),
+		code: text("code").notNull(),
 		label: text("label").notNull(),
 		art: text("art").notNull().default("abteilung"),
 		sortierung: integer("sortierung").notNull().default(0),
@@ -514,7 +630,15 @@ export const helperHourCategories = pgTable(
 			.defaultNow(),
 	},
 	(t) => [
+		tenantPolicy(),
+		uniqueIndex("helper_hour_categories_code_unique").on(t.tenant_id, t.code),
+		index("helper_hour_categories_tenant_idx").on(t.tenant_id),
+		uniqueIndex("helper_hour_categories_tenant_id_unique").on(
+			t.tenant_id,
+			t.id,
+		),
 		uniqueIndex("helper_hour_categories_label_unique").on(
+			t.tenant_id,
 			sql`lower(trim(${t.label}))`,
 		),
 		index("idx_helper_hour_categories_sort").on(t.sortierung, t.label),
@@ -531,7 +655,7 @@ export const helperHourCategories = pgTable(
 			sql`${t.art} IN ('verein', 'abteilung')`,
 		),
 	],
-);
+).enableRLS();
 
 /**
  * "When the list writes X, mean Y." Applied on every import, so a spelling the
@@ -547,6 +671,7 @@ export const helperHourCategories = pgTable(
 export const helperHourPersons = pgTable(
 	"helper_hour_persons",
 	{
+		tenant_id: tenantId(),
 		id: uuid("id").primaryKey().defaultRandom(),
 		nachname: text("nachname").notNull(),
 		vorname: text("vorname").notNull(),
@@ -558,7 +683,11 @@ export const helperHourPersons = pgTable(
 			.defaultNow(),
 	},
 	(t) => [
+		tenantPolicy(),
+		index("helper_hour_persons_tenant_idx").on(t.tenant_id),
+		uniqueIndex("helper_hour_persons_tenant_id_unique").on(t.tenant_id, t.id),
 		uniqueIndex("helper_hour_persons_name_unique").on(
+			t.tenant_id,
 			sql`lower(trim(${t.nachname}))`,
 			sql`lower(trim(${t.vorname}))`,
 		),
@@ -568,12 +697,13 @@ export const helperHourPersons = pgTable(
 			sql`length(trim(${t.nachname})) BETWEEN 1 AND 120 AND length(trim(${t.vorname})) BETWEEN 1 AND 120`,
 		),
 	],
-);
+).enableRLS();
 
 /** The occasions helpers work at, for the same reason as the person catalogue. */
 export const helperHourEvents = pgTable(
 	"helper_hour_events",
 	{
+		tenant_id: tenantId(),
 		id: uuid("id").primaryKey().defaultRandom(),
 		name: text("name").notNull(),
 		aktiv: boolean("aktiv").notNull().default(true),
@@ -584,7 +714,11 @@ export const helperHourEvents = pgTable(
 			.defaultNow(),
 	},
 	(t) => [
+		tenantPolicy(),
+		index("helper_hour_events_tenant_idx").on(t.tenant_id),
+		uniqueIndex("helper_hour_events_tenant_id_unique").on(t.tenant_id, t.id),
 		uniqueIndex("helper_hour_events_name_unique").on(
+			t.tenant_id,
 			sql`lower(trim(${t.name}))`,
 		),
 		check(
@@ -592,7 +726,7 @@ export const helperHourEvents = pgTable(
 			sql`length(trim(${t.name})) BETWEEN 1 AND 160`,
 		),
 	],
-);
+).enableRLS();
 
 /**
  * How a spelling in the spreadsheet maps onto a catalogue entry. The list stays
@@ -603,6 +737,7 @@ export const helperHourEvents = pgTable(
 export const helperHourAliases = pgTable(
 	"helper_hour_aliases",
 	{
+		tenant_id: tenantId(),
 		id: uuid("id").primaryKey().defaultRandom(),
 		art: text("art").notNull(),
 		schreibweise: text("schreibweise").notNull(),
@@ -620,7 +755,21 @@ export const helperHourAliases = pgTable(
 			.defaultNow(),
 	},
 	(t) => [
+		tenantPolicy(),
+		index("helper_hour_aliases_tenant_idx").on(t.tenant_id),
+		uniqueIndex("helper_hour_aliases_tenant_id_unique").on(t.tenant_id, t.id),
+		foreignKey({
+			name: "helper_hour_aliases_person_id_tenant_fk",
+			columns: [t.tenant_id, t.person_id],
+			foreignColumns: [helperHourPersons.tenant_id, helperHourPersons.id],
+		}).onDelete("cascade"),
+		foreignKey({
+			name: "helper_hour_aliases_veranstaltung_id_tenant_fk",
+			columns: [t.tenant_id, t.veranstaltung_id],
+			foreignColumns: [helperHourEvents.tenant_id, helperHourEvents.id],
+		}).onDelete("cascade"),
 		uniqueIndex("helper_hour_aliases_unique").on(
+			t.tenant_id,
 			t.art,
 			sql`lower(trim(${t.schreibweise}))`,
 		),
@@ -638,7 +787,7 @@ export const helperHourAliases = pgTable(
 			sql`(${t.art} = 'person' AND ${t.person_id} IS NOT NULL AND ${t.veranstaltung_id} IS NULL) OR (${t.art} = 'veranstaltung' AND ${t.veranstaltung_id} IS NOT NULL AND ${t.person_id} IS NULL)`,
 		),
 	],
-);
+).enableRLS();
 
 /**
  * "A row whose Sonstiges column says X books its hours on point Y." Lets a
@@ -649,6 +798,7 @@ export const helperHourAliases = pgTable(
 export const helperHourNoteRules = pgTable(
 	"helper_hour_note_rules",
 	{
+		tenant_id: tenantId(),
 		id: uuid("id").primaryKey().defaultRandom(),
 		vermerk: text("vermerk").notNull(),
 		kategorie_id: uuid("kategorie_id")
@@ -662,7 +812,19 @@ export const helperHourNoteRules = pgTable(
 			.defaultNow(),
 	},
 	(t) => [
+		tenantPolicy(),
+		index("helper_hour_note_rules_tenant_idx").on(t.tenant_id),
+		uniqueIndex("helper_hour_note_rules_tenant_id_unique").on(
+			t.tenant_id,
+			t.id,
+		),
+		foreignKey({
+			name: "helper_hour_note_rules_kategorie_id_tenant_fk",
+			columns: [t.tenant_id, t.kategorie_id],
+			foreignColumns: [helperHourCategories.tenant_id, helperHourCategories.id],
+		}).onDelete("restrict"),
 		uniqueIndex("helper_hour_note_rules_vermerk_unique").on(
+			t.tenant_id,
 			sql`lower(trim(${t.vermerk}))`,
 		),
 		check(
@@ -670,13 +832,14 @@ export const helperHourNoteRules = pgTable(
 			sql`length(trim(${t.vermerk})) BETWEEN 1 AND 40`,
 		),
 	],
-);
+).enableRLS();
 
 export const helperHours = pgTable(
 	"helper_hours",
 	{
+		tenant_id: tenantId(),
 		id: uuid("id").primaryKey().defaultRandom(),
-		idempotency_key: uuid("idempotency_key").notNull().unique(),
+		idempotency_key: uuid("idempotency_key").notNull(),
 		datum: date("datum", { mode: "string" }).notNull(),
 		// Abbildung des Katalogeintrags, damit Suche, Sortierung und Export ohne
 		// Join auskommen. Geschrieben wird sie ausschliesslich aus dem Katalog.
@@ -721,7 +884,25 @@ export const helperHours = pgTable(
 			.defaultNow(),
 	},
 	(t) => [
+		tenantPolicy(),
+		uniqueIndex("helper_hours_idempotency_key_unique").on(
+			t.tenant_id,
+			t.idempotency_key,
+		),
+		index("helper_hours_tenant_idx").on(t.tenant_id),
+		uniqueIndex("helper_hours_tenant_id_unique").on(t.tenant_id, t.id),
+		foreignKey({
+			name: "helper_hours_person_id_tenant_fk",
+			columns: [t.tenant_id, t.person_id],
+			foreignColumns: [helperHourPersons.tenant_id, helperHourPersons.id],
+		}).onDelete("restrict"),
+		foreignKey({
+			name: "helper_hours_veranstaltung_id_tenant_fk",
+			columns: [t.tenant_id, t.veranstaltung_id],
+			foreignColumns: [helperHourEvents.tenant_id, helperHourEvents.id],
+		}).onDelete("restrict"),
 		uniqueIndex("helper_hours_source_row_unique").on(
+			t.tenant_id,
 			t.quelle_sha256,
 			t.quelle_blatt,
 			t.quelle_zeile,
@@ -741,7 +922,7 @@ export const helperHours = pgTable(
 		),
 		check("helper_hours_minutes_check", sql`${t.gemeldete_summe_minuten} > 0`),
 	],
-);
+).enableRLS();
 
 /**
  * One row per category an entry contributes minutes to. Replaces the former
@@ -751,6 +932,7 @@ export const helperHours = pgTable(
 export const helperHourAllocations = pgTable(
 	"helper_hour_allocations",
 	{
+		tenant_id: tenantId(),
 		helper_hour_id: uuid("helper_hour_id")
 			.notNull()
 			.references(() => helperHours.id, { onDelete: "cascade" }),
@@ -760,11 +942,23 @@ export const helperHourAllocations = pgTable(
 		minuten: integer("minuten").notNull(),
 	},
 	(t) => [
+		tenantPolicy(),
+		index("helper_hour_allocations_tenant_idx").on(t.tenant_id),
+		foreignKey({
+			name: "helper_hour_allocations_helper_hour_id_tenant_fk",
+			columns: [t.tenant_id, t.helper_hour_id],
+			foreignColumns: [helperHours.tenant_id, helperHours.id],
+		}).onDelete("cascade"),
+		foreignKey({
+			name: "helper_hour_allocations_kategorie_id_tenant_fk",
+			columns: [t.tenant_id, t.kategorie_id],
+			foreignColumns: [helperHourCategories.tenant_id, helperHourCategories.id],
+		}).onDelete("restrict"),
 		primaryKey({ columns: [t.helper_hour_id, t.kategorie_id] }),
 		index("idx_helper_hour_allocations_category").on(t.kategorie_id),
 		check("helper_hour_allocations_minutes_check", sql`${t.minuten} > 0`),
 	],
-);
+).enableRLS();
 
 /**
  * Department purchases. Booked in euro, but presented as the hours they
@@ -774,8 +968,9 @@ export const helperHourAllocations = pgTable(
 export const helperHourExpenses = pgTable(
 	"helper_hour_expenses",
 	{
+		tenant_id: tenantId(),
 		id: uuid("id").primaryKey().defaultRandom(),
-		idempotency_key: uuid("idempotency_key").notNull().unique(),
+		idempotency_key: uuid("idempotency_key").notNull(),
 		kategorie_id: uuid("kategorie_id")
 			.notNull()
 			.references(() => helperHourCategories.id, { onDelete: "restrict" }),
@@ -799,7 +994,20 @@ export const helperHourExpenses = pgTable(
 			.defaultNow(),
 	},
 	(t) => [
+		tenantPolicy(),
+		uniqueIndex("helper_hour_expenses_idempotency_key_unique").on(
+			t.tenant_id,
+			t.idempotency_key,
+		),
+		index("helper_hour_expenses_tenant_idx").on(t.tenant_id),
+		uniqueIndex("helper_hour_expenses_tenant_id_unique").on(t.tenant_id, t.id),
+		foreignKey({
+			name: "helper_hour_expenses_kategorie_id_tenant_fk",
+			columns: [t.tenant_id, t.kategorie_id],
+			foreignColumns: [helperHourCategories.tenant_id, helperHourCategories.id],
+		}).onDelete("restrict"),
 		uniqueIndex("helper_hour_expenses_source_row_unique").on(
+			t.tenant_id,
 			t.quelle_sha256,
 			t.quelle_blatt,
 			t.quelle_zeile,
@@ -819,7 +1027,7 @@ export const helperHourExpenses = pgTable(
 			sql`(${t.storniert_am} IS NULL AND ${t.storno_grund} IS NULL AND ${t.storniert_von_user_id} IS NULL AND ${t.storniert_von_name} IS NULL) OR (${t.storniert_am} IS NOT NULL AND length(trim(${t.storno_grund})) >= 5 AND ${t.storniert_von_user_id} IS NOT NULL AND ${t.storniert_von_name} IS NOT NULL)`,
 		),
 	],
-);
+).enableRLS();
 
 export const loginAttempts = pgTable(
 	"login_attempts",
@@ -840,6 +1048,7 @@ export const loginAttempts = pgTable(
 export const auditEvents = pgTable(
 	"audit_events",
 	{
+		tenant_id: tenantId(),
 		id: bigserial("id", { mode: "number" }).primaryKey(),
 		event_at: timestamp("event_at", { withTimezone: true })
 			.notNull()
@@ -863,13 +1072,16 @@ export const auditEvents = pgTable(
 			.default({}),
 	},
 	(t) => [
+		tenantPolicy(),
+		index("audit_events_tenant_idx").on(t.tenant_id),
+		uniqueIndex("audit_events_tenant_id_unique").on(t.tenant_id, t.id),
 		index("idx_audit_events_event_at").on(t.event_at),
 		index("idx_audit_events_category_event_at").on(t.category, t.event_at),
 		index("idx_audit_events_action_event_at").on(t.action, t.event_at),
 		index("idx_audit_events_actor_user_id").on(t.actor_user_id),
 		index("idx_audit_events_subject").on(t.subject_type, t.subject_id),
 	],
-);
+).enableRLS();
 
 // Imported revenue figures that predate the cash-counting workflow. Entries
 // are immutable accounting records: corrections happen through cancellation
@@ -877,8 +1089,9 @@ export const auditEvents = pgTable(
 export const historicalRevenues = pgTable(
 	"historical_revenues",
 	{
+		tenant_id: tenantId(),
 		id: uuid("id").primaryKey().defaultRandom(),
-		idempotency_key: uuid("idempotency_key").notNull().unique(),
+		idempotency_key: uuid("idempotency_key").notNull(),
 		anlass_datum: date("anlass_datum", { mode: "string" }).notNull(),
 		anlass: text("anlass").notNull(),
 		vergleichsgruppe: text("vergleichsgruppe").notNull(),
@@ -928,12 +1141,29 @@ export const historicalRevenues = pgTable(
 		storniert_von_email: text("storniert_von_email"),
 		storno_grund: text("storno_grund"),
 	},
-	(t) => [
+	(t): PgTableExtraConfigValue[] => [
+		tenantPolicy(),
+		uniqueIndex("historical_revenues_idempotency_key_unique").on(
+			t.tenant_id,
+			t.idempotency_key,
+		),
+		index("historical_revenues_tenant_idx").on(t.tenant_id),
+		uniqueIndex("historical_revenues_tenant_id_unique").on(t.tenant_id, t.id),
+		foreignKey({
+			name: "historical_revenues_anlass_katalog_id_tenant_fk",
+			columns: [t.tenant_id, t.anlass_katalog_id],
+			foreignColumns: [anlassKatalog.tenant_id, anlassKatalog.id],
+		}).onDelete("no action"),
+		foreignKey({
+			name: "historical_revenues_korrigiert_von_id_tenant_fk",
+			columns: [t.tenant_id, t.korrigiert_von_id],
+			foreignColumns: [historicalRevenues.tenant_id, historicalRevenues.id],
+		}).onDelete("restrict"),
 		uniqueIndex("historical_revenues_quelle_sha256_unique")
-			.on(t.quelle_sha256)
+			.on(t.tenant_id, t.quelle_sha256)
 			.where(sql`${t.quelle_sha256} IS NOT NULL`),
 		uniqueIndex("historical_revenues_korrigiert_von_unique")
-			.on(t.korrigiert_von_id)
+			.on(t.tenant_id, t.korrigiert_von_id)
 			.where(sql`${t.korrigiert_von_id} IS NOT NULL`),
 		index("idx_historical_revenues_anlass_datum").on(t.anlass_datum),
 		index("idx_historical_revenues_anlass_katalog_id").on(t.anlass_katalog_id),
@@ -988,7 +1218,7 @@ export const historicalRevenues = pgTable(
 			sql`(${t.storniert_am} IS NULL AND ${t.storniert_von_user_id} IS NULL AND ${t.storniert_von_name} IS NULL AND ${t.storniert_von_email} IS NULL AND ${t.storno_grund} IS NULL) OR (${t.storniert_am} IS NOT NULL AND ${t.storniert_von_user_id} IS NOT NULL AND ${t.storniert_von_name} IS NOT NULL AND ${t.storniert_von_email} IS NOT NULL AND length(trim(${t.storno_grund})) BETWEEN 5 AND 500)`,
 		),
 	],
-);
+).enableRLS();
 
 // A protocol-folder analysis becomes a durable workspace before any accounting
 // rows are written. The immutable parser result stays in `detected_row`; users
@@ -996,8 +1226,9 @@ export const historicalRevenues = pgTable(
 export const historicalProtocolImportDrafts = pgTable(
 	"historical_protocol_import_drafts",
 	{
+		tenant_id: tenantId(),
 		id: uuid("id").primaryKey().defaultRandom(),
-		digest: text("digest").notNull().unique(),
+		digest: text("digest").notNull(),
 		folder_name: text("folder_name").notNull(),
 		status: text("status").notNull().default("editing"),
 		revision: integer("revision").notNull().default(1),
@@ -1022,6 +1253,16 @@ export const historicalProtocolImportDrafts = pgTable(
 		archived_by_name: text("archived_by_name"),
 	},
 	(t) => [
+		tenantPolicy(),
+		uniqueIndex("historical_protocol_import_drafts_digest_unique").on(
+			t.tenant_id,
+			t.digest,
+		),
+		index("historical_protocol_import_drafts_tenant_idx").on(t.tenant_id),
+		uniqueIndex("historical_protocol_import_drafts_tenant_id_unique").on(
+			t.tenant_id,
+			t.id,
+		),
 		index("idx_historical_protocol_import_drafts_status_updated").on(
 			t.status,
 			t.updated_at,
@@ -1039,11 +1280,12 @@ export const historicalProtocolImportDrafts = pgTable(
 			sql`${t.files} >= 1 AND ${t.spreadsheet_files} >= 0 AND ${t.spreadsheet_files} <= ${t.files}`,
 		),
 	],
-);
+).enableRLS();
 
 export const historicalProtocolImportItems = pgTable(
 	"historical_protocol_import_items",
 	{
+		tenant_id: tenantId(),
 		id: uuid("id").primaryKey().defaultRandom(),
 		draft_id: uuid("draft_id")
 			.notNull()
@@ -1074,7 +1316,22 @@ export const historicalProtocolImportItems = pgTable(
 			.defaultNow(),
 	},
 	(t) => [
+		tenantPolicy(),
+		index("historical_protocol_import_items_tenant_idx").on(t.tenant_id),
+		uniqueIndex("historical_protocol_import_items_tenant_id_unique").on(
+			t.tenant_id,
+			t.id,
+		),
+		foreignKey({
+			name: "historical_protocol_import_items_draft_id_tenant_fk",
+			columns: [t.tenant_id, t.draft_id],
+			foreignColumns: [
+				historicalProtocolImportDrafts.tenant_id,
+				historicalProtocolImportDrafts.id,
+			],
+		}).onDelete("cascade"),
 		uniqueIndex("historical_protocol_import_items_draft_file_unique").on(
+			t.tenant_id,
 			t.draft_id,
 			t.file_index,
 		),
@@ -1111,11 +1368,12 @@ export const historicalProtocolImportItems = pgTable(
 			sql`${t.correction_note} IS NULL OR length(${t.correction_note}) <= 1000`,
 		),
 	],
-);
+).enableRLS();
 
 export const historicalProtocolImportReviewPhases = pgTable(
 	"historical_protocol_import_review_phases",
 	{
+		tenant_id: tenantId(),
 		id: uuid("id").primaryKey().defaultRandom(),
 		draft_id: uuid("draft_id")
 			.notNull()
@@ -1140,7 +1398,24 @@ export const historicalProtocolImportReviewPhases = pgTable(
 		completed_at: timestamp("completed_at", { withTimezone: true }),
 	},
 	(t) => [
+		tenantPolicy(),
+		index("historical_protocol_import_review_phases_tenant_idx").on(
+			t.tenant_id,
+		),
+		uniqueIndex("historical_protocol_import_review_phases_tenant_id_unique").on(
+			t.tenant_id,
+			t.id,
+		),
+		foreignKey({
+			name: "historical_protocol_import_review_phases_draft_id_tenant_fk",
+			columns: [t.tenant_id, t.draft_id],
+			foreignColumns: [
+				historicalProtocolImportDrafts.tenant_id,
+				historicalProtocolImportDrafts.id,
+			],
+		}).onDelete("cascade"),
 		uniqueIndex("historical_protocol_import_review_phases_name_unique").on(
+			t.tenant_id,
 			t.draft_id,
 			t.name,
 		),
@@ -1165,11 +1440,12 @@ export const historicalProtocolImportReviewPhases = pgTable(
 			sql`${t.revision} >= 1`,
 		),
 	],
-);
+).enableRLS();
 
 export const historicalProtocolImportReviewItems = pgTable(
 	"historical_protocol_import_review_items",
 	{
+		tenant_id: tenantId(),
 		id: uuid("id").primaryKey().defaultRandom(),
 		phase_id: uuid("phase_id")
 			.notNull()
@@ -1191,7 +1467,30 @@ export const historicalProtocolImportReviewItems = pgTable(
 			.defaultNow(),
 	},
 	(t) => [
+		tenantPolicy(),
+		index("historical_protocol_import_review_items_tenant_idx").on(t.tenant_id),
+		uniqueIndex("historical_protocol_import_review_items_tenant_id_unique").on(
+			t.tenant_id,
+			t.id,
+		),
+		foreignKey({
+			name: "historical_protocol_import_review_items_phase_id_tenant_fk",
+			columns: [t.tenant_id, t.phase_id],
+			foreignColumns: [
+				historicalProtocolImportReviewPhases.tenant_id,
+				historicalProtocolImportReviewPhases.id,
+			],
+		}).onDelete("cascade"),
+		foreignKey({
+			name: "historical_protocol_import_review_items_item_id_tenant_fk",
+			columns: [t.tenant_id, t.item_id],
+			foreignColumns: [
+				historicalProtocolImportItems.tenant_id,
+				historicalProtocolImportItems.id,
+			],
+		}).onDelete("cascade"),
 		uniqueIndex("historical_protocol_import_review_items_unique").on(
+			t.tenant_id,
 			t.phase_id,
 			t.item_id,
 		),
@@ -1213,25 +1512,28 @@ export const historicalProtocolImportReviewItems = pgTable(
 			sql`${t.revision} >= 1`,
 		),
 	],
-);
+).enableRLS();
 
 export const belegnummerSequences = pgTable(
 	"belegnummer_sequences",
 	{
-		year: integer("year").primaryKey(),
+		tenant_id: tenantId(),
+		year: integer("year").notNull(),
 		next_sequence: integer("next_sequence").notNull().default(1),
 		updated_at: timestamp("updated_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),
 	},
 	(t) => [
+		tenantPolicy(),
+		primaryKey({ columns: [t.tenant_id, t.year] }),
 		check("belegnummer_sequences_year_check", sql`${t.year} >= 2000`),
 		check(
 			"belegnummer_sequences_next_sequence_check",
 			sql`${t.next_sequence} >= 1`,
 		),
 	],
-);
+).enableRLS();
 
 // Invitations: the seeded admin invites further users. Open sign-up is
 // disabled in better-auth, so an account can only be created by accepting a
@@ -1239,6 +1541,7 @@ export const belegnummerSequences = pgTable(
 export const invitations = pgTable(
 	"invitations",
 	{
+		tenant_id: tenantId(),
 		id: uuid("id").primaryKey().defaultRandom(),
 		email: text("email").notNull(),
 		token: text("token").notNull().unique(),
@@ -1250,5 +1553,10 @@ export const invitations = pgTable(
 			.notNull()
 			.defaultNow(),
 	},
-	(t) => [index("idx_invitations_email").on(t.email)],
-);
+	(t) => [
+		tenantPolicy(),
+		index("invitations_tenant_idx").on(t.tenant_id),
+		uniqueIndex("invitations_tenant_id_unique").on(t.tenant_id, t.id),
+		index("idx_invitations_email").on(t.email),
+	],
+).enableRLS();

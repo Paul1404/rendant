@@ -611,8 +611,10 @@ export type InviteCreateInput = v.InferOutput<typeof InviteCreateSchema>;
 
 export const InviteAcceptSchema = v.object({
 	token: v.pipe(v.string(), v.minLength(1)),
-	name: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120)),
-	password: v.pipe(v.string(), v.minLength(8), v.maxLength(256)),
+	name: v.optional(
+		v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120)),
+	),
+	password: v.optional(v.pipe(v.string(), v.minLength(8), v.maxLength(256))),
 });
 export type InviteAcceptInput = v.InferOutput<typeof InviteAcceptSchema>;
 

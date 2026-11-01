@@ -12,6 +12,7 @@ import {
 	recordAuditEvent,
 } from "@/server/services/audit";
 import { downloadObject, uploadObject } from "@/server/services/s3";
+import { requireTenant } from "@/server/tenant-context";
 
 export const HISTORICAL_SOURCE_PREFIX = "historical-sources";
 
@@ -51,7 +52,7 @@ export function historicalSourceObjectKey(
 	sha: string,
 	filename: string,
 ): string {
-	return `${HISTORICAL_SOURCE_PREFIX}/${sha}/original${extension(filename)}`;
+	return `tenants/${requireTenant().id}/${HISTORICAL_SOURCE_PREFIX}/${sha}/original${extension(filename)}`;
 }
 
 export function historicalSourceContentType(filename: string): string {
@@ -94,7 +95,12 @@ export async function archiveHistoricalSource(
 			archived_by_user_id: actor.id,
 			archived_by_name: actor.name,
 		})
-		.onConflictDoNothing({ target: historicalSourceArchives.sha256 })
+		.onConflictDoNothing({
+			target: [
+				historicalSourceArchives.tenant_id,
+				historicalSourceArchives.sha256,
+			],
+		})
 		.returning({ sha256: historicalSourceArchives.sha256 });
 	return { created: Boolean(created), sha256: actualSha256 };
 }

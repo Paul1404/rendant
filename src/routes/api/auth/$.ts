@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { auth } from "@/server/auth";
 import { clientIpFromHeaders } from "@/server/orpc/context";
-import { recordAuditEvent } from "@/server/services/audit";
+import { recordAuthSecurityEvent as recordAuditEvent } from "@/server/services/audit";
 import {
 	isLoginRateLimited,
 	recordLoginAttempt,

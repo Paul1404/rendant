@@ -1,30 +1,176 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequestHeaders } from "@tanstack/react-start/server";
+import { getRequest, setCookie } from "@tanstack/react-start/server";
+import * as v from "valibot";
 import type { Branding } from "@/lib/branding";
-import { auth } from "@/server/auth";
+import {
+	clearTenantScope,
+	pinTenantScope,
+	tenantRequestHeaders,
+} from "@/lib/tenant-client";
 import { getVereinsname } from "@/server/services/settings";
+import {
+	createTenant,
+	isPlatformAdmin,
+	listUserTenants,
+	resolveTenantSession,
+	TenantAccessError,
+} from "@/server/services/tenants";
+import {
+	tenantRequestHeaders as headersForTenantRequest,
+	pinResolvedRequestTenant,
+	withTenant,
+} from "@/server/tenant-context";
 
+type TenantChoice = {
+	id: string;
+	slug: string;
+	name: string;
+	role: "admin" | "user";
+};
 export type SessionUser = {
 	id: string;
 	email: string;
 	name: string;
 	role: string;
+	tenant: TenantChoice;
+	tenants: TenantChoice[];
+	canCreateTenant: boolean;
 };
 
-export const fetchSession = createServerFn({ method: "GET" }).handler(
+function requestHeaders(): Headers {
+	// During SSR, server functions execute locally and their call-option headers
+	// are not a new HTTP request. Resolve an explicit page URL here as well.
+	return headersForTenantRequest(getRequest());
+}
+
+async function resolveBootstrapSession() {
+	const headers = requestHeaders();
+	try {
+		return await resolveTenantSession(headers);
+	} catch (error) {
+		// Only a stale preference may recover. Explicit requests must be denied.
+		if (
+			!(error instanceof TenantAccessError) ||
+			headers.has("x-rendant-tenant")
+		)
+			throw error;
+		const cookies = (headers.get("cookie") ?? "")
+			.split(";")
+			.filter((part) => !part.trim().startsWith("rendant-tenant="));
+		headers.set("cookie", cookies.join(";"));
+		setCookie("rendant-tenant", "", {
+			path: "/",
+			httpOnly: true,
+			sameSite: "lax",
+			secure: process.env.NODE_ENV === "production",
+			maxAge: 0,
+		});
+		return resolveTenantSession(headers);
+	}
+}
+
+const fetchSessionServer = createServerFn({ method: "GET" }).handler(
 	async (): Promise<SessionUser | null> => {
-		const headers = new Headers(getRequestHeaders() as HeadersInit);
-		const session = await auth.api.getSession({ headers });
-		if (!session?.user) return null;
-		return {
-			id: session.user.id,
-			email: session.user.email,
-			name: session.user.name,
-			role: (session.user as { role?: string }).role ?? "user",
-		};
+		const resolved = await resolveBootstrapSession();
+		if (!resolved) return null;
+		const { user, tenant } = resolved;
+		pinResolvedRequestTenant(tenant.id);
+		const [tenants, canCreateTenant] = await Promise.all([
+			listUserTenants(user.id),
+			isPlatformAdmin(user.id),
+		]);
+		return { ...user, tenant, tenants, canCreateTenant };
 	},
 );
 
-export const fetchBranding = createServerFn({ method: "GET" }).handler(
-	async (): Promise<Branding> => ({ vereinsname: await getVereinsname() }),
+export async function fetchSession(
+	tenantId?: string,
+): Promise<SessionUser | null> {
+	const user = await fetchSessionServer({
+		headers: tenantId
+			? { "x-rendant-tenant": tenantId }
+			: tenantRequestHeaders(),
+	});
+	if (user) pinTenantScope({ tenantId: user.tenant.id, userId: user.id });
+	else clearTenantScope();
+	return user;
+}
+
+const fetchBrandingServer = createServerFn({ method: "GET" }).handler(
+	async (): Promise<Branding> => {
+		try {
+			const resolved = await resolveBootstrapSession();
+			if (!resolved) return { vereinsname: "Verein" };
+			return withTenant(resolved.tenant, async () => ({
+				vereinsname: await getVereinsname(),
+			}));
+		} catch (error) {
+			// A revoked selection must not prevent public login or invitation pages.
+			if (error instanceof TenantAccessError) return { vereinsname: "Verein" };
+			throw error;
+		}
+	},
 );
+
+export async function fetchBranding(tenantId?: string): Promise<Branding> {
+	return fetchBrandingServer({
+		headers: tenantId
+			? { "x-rendant-tenant": tenantId }
+			: tenantRequestHeaders(),
+	});
+}
+
+const selectTenantServer = createServerFn({ method: "POST" })
+	.validator(v.object({ tenantId: v.pipe(v.string(), v.uuid()) }))
+	.handler(async ({ data }) => {
+		const headers = requestHeaders();
+		headers.set("x-rendant-tenant", data.tenantId);
+		const resolved = await resolveTenantSession(headers);
+		if (!resolved) throw new Error("Bitte melde dich an.");
+		setCookie("rendant-tenant", resolved.tenant.id, {
+			httpOnly: true,
+			secure: process.env.NODE_ENV === "production",
+			sameSite: "lax",
+			path: "/",
+			maxAge: 60 * 60 * 24 * 365,
+		});
+		return { id: resolved.tenant.id };
+	});
+
+export async function selectTenant(tenantId: string): Promise<void> {
+	await selectTenantServer({
+		data: { tenantId },
+		headers: tenantRequestHeaders(),
+	});
+}
+
+const createTenantServer = createServerFn({ method: "POST" })
+	.validator(
+		v.object({
+			name: v.pipe(
+				v.string(),
+				v.trim(),
+				v.minLength(2, "Bitte gib den Vereinsnamen an."),
+				v.maxLength(120),
+			),
+			slug: v.pipe(
+				v.string(),
+				v.trim(),
+				v.regex(
+					/^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+					"Verwende Kleinbuchstaben, Zahlen und Bindestriche.",
+				),
+				v.minLength(3),
+				v.maxLength(50),
+			),
+		}),
+	)
+	.handler(async ({ data }) => {
+		const resolved = await resolveTenantSession(requestHeaders());
+		if (!resolved) throw new Error("Bitte melde dich an.");
+		return createTenant({ ...data, actor: resolved.user });
+	});
+
+export async function addTenant(data: { name: string; slug: string }) {
+	return createTenantServer({ data, headers: tenantRequestHeaders() });
+}

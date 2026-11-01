@@ -5,8 +5,9 @@ import {
 	sanitizeAuditMetadata,
 } from "@/lib/audit";
 import type { DbOrTx } from "@/server/db";
-import { db } from "@/server/db";
+import { db, globalDb } from "@/server/db";
 import { auditEvents } from "@/server/db/schema";
+import { authSecurityEvents } from "@/server/db/tenant-schema";
 import { logger } from "@/server/logger";
 import { ilikeContains } from "@/server/services/search-pattern";
 
@@ -79,7 +80,11 @@ export async function recordAuditEventStrict(
 	database: DbOrTx,
 	input: RecordAuditInput,
 ): Promise<void> {
-	await database.insert(auditEvents).values({
+	await database.insert(auditEvents).values(auditValues(input));
+}
+
+function auditValues(input: RecordAuditInput) {
+	return {
 		category: input.category,
 		action: input.action,
 		success: input.success ?? true,
@@ -94,7 +99,22 @@ export async function recordAuditEventStrict(
 		ip_address: input.request?.ip?.slice(0, 100) ?? null,
 		user_agent: input.request?.userAgent?.slice(0, 500) ?? null,
 		metadata: sanitizeAuditMetadata(input.metadata),
-	});
+	};
+}
+
+// A failed sign-in has no verified club ownership. These events are visible
+// only through the operator database, never through a club's audit list.
+export async function recordAuthSecurityEvent(
+	input: RecordAuditInput,
+): Promise<void> {
+	try {
+		await globalDb.insert(authSecurityEvents).values(auditValues(input));
+	} catch (err) {
+		logger.error("Anmeldeereignis konnte nicht gespeichert werden", {
+			action: input.action,
+			err,
+		});
+	}
 }
 
 export async function recordAuditEvent(input: RecordAuditInput): Promise<void> {

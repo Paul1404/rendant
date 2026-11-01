@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
 import { orpcClient } from "@/lib/orpc";
 import { orpcMessage } from "@/lib/orpc-error";
+import { selectTenant } from "@/lib/server-fns";
 import { useBranding } from "@/routes/__root";
 
 export const Route = createFileRoute("/invite/$token")({
@@ -26,6 +27,7 @@ function InvitePage() {
 	const [name, setName] = useState("");
 	const [password, setPassword] = useState("");
 	const [pending, start] = useTransition();
+	const { data: session, isPending: sessionPending } = authClient.useSession();
 
 	if (!invite.valid) {
 		return (
@@ -44,94 +46,148 @@ function InvitePage() {
 		);
 	}
 
+	const inviteEmail = invite.email;
+	const existingAccount = invite.existingAccount;
+	const matchingSession =
+		session?.user.email.toLowerCase() === inviteEmail.toLowerCase();
+	const wrongSession = Boolean(session && !matchingSession);
+
 	function submit(e: React.FormEvent) {
 		e.preventDefault();
-		if (!name.trim() || password.length < 8) return;
+		if (wrongSession) return;
+		if (!existingAccount && (!name.trim() || password.length < 8)) return;
+		if (existingAccount && !matchingSession && !password) return;
 		start(async () => {
 			try {
-				await orpcClient.invites.accept({ token, name: name.trim(), password });
+				if (existingAccount && !matchingSession) {
+					const { error } = await authClient.signIn.email({
+						email: inviteEmail,
+						password,
+					});
+					if (error)
+						throw new Error(orpcMessage(error, "Anmeldung fehlgeschlagen"));
+				}
+				const accepted = await orpcClient.invites.accept({
+					token,
+					...(existingAccount ? {} : { name: name.trim(), password }),
+				});
+				if (!existingAccount) {
+					const { error } = await authClient.signIn.email({
+						email: inviteEmail,
+						password,
+					});
+					if (error) {
+						toast.info(
+							orpcMessage(error, "Konto angelegt. Bitte melde dich an."),
+						);
+						window.location.assign("/login");
+						return;
+					}
+				}
+				await selectTenant(accepted.tenantId);
+				window.location.assign("/protokolle");
 			} catch (err) {
-				toast.error(orpcMessage(err, "Konto konnte nicht angelegt werden"));
-				return;
-			}
-			const { error } = await authClient.signIn.email({
-				email: invite.valid ? invite.email : "",
-				password,
-			});
-			if (error) {
-				// The account exists, so this is not a failure - but it is not the
-				// success the user asked for either, and dropping them on a login form
-				// with a success toast leaves them guessing why.
-				toast.info(
-					orpcMessage(
-						error,
-						"Konto angelegt. Die automatische Anmeldung hat nicht geklappt, bitte melde dich an.",
-					),
+				toast.error(
+					orpcMessage(err, "Einladung konnte nicht angenommen werden"),
 				);
-				window.location.assign("/login");
-				return;
 			}
-			window.location.assign("/protokolle");
 		});
 	}
 
 	return (
-		<Shell vereinsname={branding.vereinsname}>
+		<Shell vereinsname={invite.tenantName}>
 			<Card>
 				<CardContent className="space-y-4">
 					<h2 className="text-lg font-semibold text-foreground">
-						Konto anlegen
+						{existingAccount ? "Einladung annehmen" : "Konto anlegen"}
 					</h2>
 					<p className="text-sm text-muted-foreground">
-						Konto anlegen für{" "}
+						Einladung für{" "}
 						<span className="font-medium text-foreground">{invite.email}</span>
 					</p>
-					<form className="space-y-4" onSubmit={submit}>
-						<div className="space-y-2">
-							<Label htmlFor="name">Name</Label>
-							<Input
-								id="name"
-								autoComplete="name"
-								value={name}
-								onChange={(e) => setName(e.target.value)}
-								required
-								className="h-10"
-							/>
-						</div>
-						<div className="space-y-2">
-							<Label htmlFor="password">Passwort</Label>
-							<Input
-								id="password"
-								type="password"
-								autoComplete="new-password"
-								value={password}
-								onChange={(e) => setPassword(e.target.value)}
-								required
-								minLength={8}
-								aria-describedby="password-help"
-								className="h-10"
-							/>
-							<p
-								id="password-help"
-								className="text-[11px] text-muted-foreground"
-							>
-								Mindestens 8 Zeichen.
+					{wrongSession ? (
+						<div className="space-y-3">
+							<p className="text-sm">
+								Du bist mit einem anderen Konto angemeldet. Melde dich mit{" "}
+								{invite.email} an.
 							</p>
+							<Button
+								onClick={async () => {
+									await authClient.signOut();
+									window.location.reload();
+								}}
+							>
+								Konto wechseln
+							</Button>
 						</div>
-						<Button
-							type="submit"
-							size="lg"
-							className="h-10 w-full"
-							disabled={pending || !name.trim() || password.length < 8}
-						>
-							{pending ? (
-								<Loader2 aria-hidden className="mr-2 h-4 w-4 animate-spin" />
-							) : (
-								<UserPlus aria-hidden className="mr-2 h-4 w-4" />
+					) : (
+						<form className="space-y-4" onSubmit={submit}>
+							{!existingAccount && (
+								<div className="space-y-2">
+									<Label htmlFor="name">Name</Label>
+									<Input
+										id="name"
+										autoComplete="name"
+										value={name}
+										onChange={(e) => setName(e.target.value)}
+										required
+										className="h-10"
+									/>
+								</div>
 							)}
-							{pending ? "Konto wird angelegt…" : "Konto anlegen"}
-						</Button>
-					</form>
+							{!matchingSession && (
+								<div className="space-y-2">
+									<Label htmlFor="password">
+										{existingAccount ? "Dein bisheriges Passwort" : "Passwort"}
+									</Label>
+									<Input
+										id="password"
+										type="password"
+										autoComplete={
+											existingAccount ? "current-password" : "new-password"
+										}
+										value={password}
+										onChange={(e) => setPassword(e.target.value)}
+										required
+										minLength={existingAccount ? undefined : 8}
+										aria-describedby="password-help"
+										className="h-10"
+									/>
+									<p
+										id="password-help"
+										className="text-[11px] text-muted-foreground"
+									>
+										{existingAccount
+											? "Dein bestehendes Konto erhält Zugang zu diesem Verein."
+											: "Mindestens 8 Zeichen."}
+									</p>
+								</div>
+							)}
+							<Button
+								type="submit"
+								size="lg"
+								className="h-10 w-full"
+								disabled={
+									pending ||
+									sessionPending ||
+									(existingAccount
+										? !matchingSession && !password
+										: !name.trim() || password.length < 8)
+								}
+							>
+								{pending ? (
+									<Loader2 aria-hidden className="mr-2 h-4 w-4 animate-spin" />
+								) : (
+									<UserPlus aria-hidden className="mr-2 h-4 w-4" />
+								)}
+								{pending
+									? "Wird übernommen…"
+									: existingAccount
+										? "Einladung annehmen"
+										: "Konto anlegen"}
+							</Button>
+						</form>
+					)}
 				</CardContent>
 			</Card>
 		</Shell>

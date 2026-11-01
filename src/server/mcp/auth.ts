@@ -2,6 +2,11 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import type { ORPCContext } from "@/server/orpc/base";
 import { clientIpFromHeaders } from "@/server/orpc/context";
 import { requestIdFromHeaders } from "@/server/request-id";
+import {
+	currentTenant,
+	SVU_TENANT_ID,
+	type TenantContext,
+} from "@/server/tenant-context";
 
 // "identity" additionally exposes invitation and user-role tools. It is opt-in
 // and off by default: those tools can mint an admin account, so they should
@@ -31,7 +36,9 @@ export function mcpIsConfigured(): boolean {
 
 export function getMcpStatus(): McpStatus {
 	return {
-		configured: mcpIsConfigured(),
+		configured:
+			mcpIsConfigured() &&
+			(!currentTenant() || currentTenant()?.id === SVU_TENANT_ID),
 		accessMode: configuredAccessMode(),
 		endpoint: "/api/mcp",
 		actor: configuredActor(),
@@ -48,11 +55,30 @@ export function authenticateMcpRequest(
 	if (!authorization?.startsWith("Bearer ")) return null;
 	const provided = authorization.slice("Bearer ".length).trim();
 	if (!secureEqual(provided, expected)) return null;
+	// The existing deployment token belongs exclusively to SVU. A caller cannot
+	// turn an operational token into access to a newly created club.
+	const selectors = [
+		request.headers.get("x-rendant-tenant"),
+		new URL(request.url).searchParams.get("tenant"),
+	];
+	if (
+		selectors.some(
+			(selected) =>
+				selected && selected !== SVU_TENANT_ID && selected !== "svu",
+		)
+	)
+		return null;
 
 	const accessMode = configuredAccessMode();
 	const actor = configuredActor();
 	const headers = new Headers(request.headers);
 	const requestId = requestIdFromHeaders(headers);
+	const tenant: TenantContext = {
+		id: SVU_TENANT_ID,
+		slug: "svu",
+		name: "SVU",
+		role: accessMode === "readonly" ? "user" : "admin",
+	};
 	headers.set("x-request-id", requestId);
 	return {
 		accessMode,
@@ -61,6 +87,7 @@ export function authenticateMcpRequest(
 			.digest("hex")
 			.slice(0, 24),
 		orpc: {
+			tenant,
 			user: {
 				id: "mcp:codex",
 				email: actor.email,

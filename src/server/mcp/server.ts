@@ -8,6 +8,7 @@ import { ORPCError } from "@orpc/server";
 import * as v from "valibot";
 import { logger } from "@/server/logger";
 import { clientIpFromHeaders } from "@/server/orpc/context";
+import { withTenant } from "@/server/tenant-context";
 import packageJson from "../../../package.json";
 import {
 	authenticateMcpRequest,
@@ -107,7 +108,10 @@ export function buildMcpServer(auth: McpAuthContext): Server {
 				return errorResult(`INVALID_INPUT: ${summarizeIssues(parsed.issues)}`);
 			}
 			try {
-				const value = await tool.execute(auth.orpc, parsed.output);
+				if (!auth.orpc.tenant) return errorResult("Vereinskontext fehlt");
+				const value = await withTenant(auth.orpc.tenant, () =>
+					tool.execute(auth.orpc, parsed.output),
+				);
 				return {
 					content: [
 						{ type: "text", text: JSON.stringify(value ?? null, null, 2) },

@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { auth } from "@/server/auth";
 import { auditActor, auditRequest } from "@/server/services/audit";
 import {
 	buildHistoricalProtocolPreview,
@@ -16,6 +15,7 @@ import {
 	historicalSourceContentType,
 	recordHistoricalSourceArchiveAudit,
 } from "@/server/services/historical-source-archive";
+import { withRequestTenant } from "@/server/tenant-context";
 
 function safeRelativePath(value: unknown): value is string {
 	if (typeof value !== "string" || value.length < 1 || value.length > 1_000) {
@@ -57,146 +57,154 @@ async function parseUploadedFiles(files: HistoricalProtocolUploadFile[]) {
 export const Route = createFileRoute("/api/import/historical-protocols")({
 	server: {
 		handlers: {
-			POST: async ({ request }) => {
-				const session = await auth.api.getSession({ headers: request.headers });
-				if (!session) {
-					return Response.json({ error: "Nicht angemeldet" }, { status: 401 });
-				}
-				if ((session.user as { role?: string }).role !== "admin") {
-					return Response.json(
-						{ error: "Adminrechte erforderlich" },
-						{ status: 403 },
-					);
-				}
-
-				// Reject before buffering: formData() reads the whole body into memory,
-				// and every file is then held at once for hashing.
-				const contentLength = Number(
-					request.headers.get("content-length") ?? 0,
-				);
-				if (
-					Number.isFinite(contentLength) &&
-					contentLength > HISTORICAL_PROTOCOL_MAX_TOTAL_BYTES + 1_000_000
-				) {
-					return Response.json(
-						{ error: "Der Ordner darf höchstens 40 MB groß sein." },
-						{ status: 413 },
-					);
-				}
-
-				let formData: FormData;
-				try {
-					formData = await request.formData();
-				} catch {
-					return Response.json(
-						{ error: "Die Upload-Daten sind ungültig." },
-						{ status: 400 },
-					);
-				}
-				const mode = formData.get("mode");
-				if (mode !== "preview") {
-					return Response.json({ error: "Ungültiger Modus." }, { status: 400 });
-				}
-				const uploaded = formData.getAll("files");
-				let metadata: unknown;
-				try {
-					metadata = JSON.parse(String(formData.get("file_metadata") ?? "[]"));
-				} catch {
-					metadata = null;
-				}
-				if (
-					!Array.isArray(metadata) ||
-					uploaded.length === 0 ||
-					uploaded.length !== metadata.length ||
-					uploaded.length > HISTORICAL_PROTOCOL_MAX_FILES ||
-					!uploaded.every((entry) => entry instanceof File) ||
-					!metadata.every(safeFileMetadata)
-				) {
-					return Response.json(
-						{
-							error: `Bitte einen gültigen Ordner mit höchstens ${HISTORICAL_PROTOCOL_MAX_FILES} Dateien auswählen.`,
-						},
-						{ status: 400 },
-					);
-				}
-				const totalBytes = uploaded.reduce(
-					(sum, entry) => sum + (entry instanceof File ? entry.size : 0),
-					0,
-				);
-				if (totalBytes > HISTORICAL_PROTOCOL_MAX_TOTAL_BYTES) {
-					return Response.json(
-						{ error: "Der Ordner darf höchstens 40 MB groß sein." },
-						{ status: 413 },
-					);
-				}
-
-				const files: HistoricalProtocolUploadFile[] = await Promise.all(
-					uploaded.map(async (entry, index) => ({
-						index,
-						path: metadata[index].path.replaceAll("\\", "/"),
-						modifiedAt: metadata[index].modifiedAt,
-						bytes: new Uint8Array(await (entry as File).arrayBuffer()),
-					})),
-				);
-				const digest = historicalProtocolManifestDigest(files);
-				const rows = await parseUploadedFiles(files);
-				const preview = await enrichHistoricalProtocolPreview(
-					buildHistoricalProtocolPreview(files, rows, digest),
-				);
-				const actor = auditActor(session.user);
-				const archiveCandidates = preview.rows.flatMap((row) => {
-					const file = files[row.fileIndex];
-					return row.source && file
-						? [{ file, sha256: row.source.sha256 }]
-						: [];
-				});
-				let archiveCreated = 0;
-				let archiveExisting = 0;
-				let archiveIndex = 0;
-				async function archiveWorker() {
-					while (archiveIndex < archiveCandidates.length) {
-						const index = archiveIndex;
-						archiveIndex += 1;
-						const candidate = archiveCandidates[index];
-						const result = await archiveHistoricalSource(
-							{
-								bytes: candidate.file.bytes,
-								expectedSha256: candidate.sha256,
-								originalFilename: candidate.file.path,
-								contentType: historicalSourceContentType(candidate.file.path),
-							},
-							actor,
+			POST: async ({ request }) =>
+				withRequestTenant(request, async ({ session }) => {
+					if (!session) {
+						return Response.json(
+							{ error: "Nicht angemeldet" },
+							{ status: 401 },
 						);
-						if (result.created) archiveCreated += 1;
-						else archiveExisting += 1;
 					}
-				}
-				await Promise.all(
-					Array.from(
-						{ length: Math.min(6, archiveCandidates.length) },
-						archiveWorker,
-					),
-				);
-				if (archiveCandidates.length > 0) {
-					await recordHistoricalSourceArchiveAudit(
+					if ((session.user as { role?: string }).role !== "admin") {
+						return Response.json(
+							{ error: "Adminrechte erforderlich" },
+							{ status: 403 },
+						);
+					}
+
+					// Reject before buffering: formData() reads the whole body into memory,
+					// and every file is then held at once for hashing.
+					const contentLength = Number(
+						request.headers.get("content-length") ?? 0,
+					);
+					if (
+						Number.isFinite(contentLength) &&
+						contentLength > HISTORICAL_PROTOCOL_MAX_TOTAL_BYTES + 1_000_000
+					) {
+						return Response.json(
+							{ error: "Der Ordner darf höchstens 40 MB groß sein." },
+							{ status: 413 },
+						);
+					}
+
+					let formData: FormData;
+					try {
+						formData = await request.formData();
+					} catch {
+						return Response.json(
+							{ error: "Die Upload-Daten sind ungültig." },
+							{ status: 400 },
+						);
+					}
+					const mode = formData.get("mode");
+					if (mode !== "preview") {
+						return Response.json(
+							{ error: "Ungültiger Modus." },
+							{ status: 400 },
+						);
+					}
+					const uploaded = formData.getAll("files");
+					let metadata: unknown;
+					try {
+						metadata = JSON.parse(
+							String(formData.get("file_metadata") ?? "[]"),
+						);
+					} catch {
+						metadata = null;
+					}
+					if (
+						!Array.isArray(metadata) ||
+						uploaded.length === 0 ||
+						uploaded.length !== metadata.length ||
+						uploaded.length > HISTORICAL_PROTOCOL_MAX_FILES ||
+						!uploaded.every((entry) => entry instanceof File) ||
+						!metadata.every(safeFileMetadata)
+					) {
+						return Response.json(
+							{
+								error: `Bitte einen gültigen Ordner mit höchstens ${HISTORICAL_PROTOCOL_MAX_FILES} Dateien auswählen.`,
+							},
+							{ status: 400 },
+						);
+					}
+					const totalBytes = uploaded.reduce(
+						(sum, entry) => sum + (entry instanceof File ? entry.size : 0),
+						0,
+					);
+					if (totalBytes > HISTORICAL_PROTOCOL_MAX_TOTAL_BYTES) {
+						return Response.json(
+							{ error: "Der Ordner darf höchstens 40 MB groß sein." },
+							{ status: 413 },
+						);
+					}
+
+					const files: HistoricalProtocolUploadFile[] = await Promise.all(
+						uploaded.map(async (entry, index) => ({
+							index,
+							path: metadata[index].path.replaceAll("\\", "/"),
+							modifiedAt: metadata[index].modifiedAt,
+							bytes: new Uint8Array(await (entry as File).arrayBuffer()),
+						})),
+					);
+					const digest = historicalProtocolManifestDigest(files);
+					const rows = await parseUploadedFiles(files);
+					const preview = await enrichHistoricalProtocolPreview(
+						buildHistoricalProtocolPreview(files, rows, digest),
+					);
+					const actor = auditActor(session.user);
+					const archiveCandidates = preview.rows.flatMap((row) => {
+						const file = files[row.fileIndex];
+						return row.source && file
+							? [{ file, sha256: row.source.sha256 }]
+							: [];
+					});
+					let archiveCreated = 0;
+					let archiveExisting = 0;
+					let archiveIndex = 0;
+					async function archiveWorker() {
+						while (archiveIndex < archiveCandidates.length) {
+							const index = archiveIndex;
+							archiveIndex += 1;
+							const candidate = archiveCandidates[index];
+							const result = await archiveHistoricalSource(
+								{
+									bytes: candidate.file.bytes,
+									expectedSha256: candidate.sha256,
+									originalFilename: candidate.file.path,
+									contentType: historicalSourceContentType(candidate.file.path),
+								},
+								actor,
+							);
+							if (result.created) archiveCreated += 1;
+							else archiveExisting += 1;
+						}
+					}
+					await Promise.all(
+						Array.from(
+							{ length: Math.min(6, archiveCandidates.length) },
+							archiveWorker,
+						),
+					);
+					if (archiveCandidates.length > 0) {
+						await recordHistoricalSourceArchiveAudit(
+							actor,
+							{ request: auditRequest(request) },
+							{
+								dateien: archiveCandidates.length,
+								neu: archiveCreated,
+								bereits_archiviert: archiveExisting,
+								quelle: "Ordneranalyse",
+							},
+						);
+					}
+
+					const draft = await createHistoricalProtocolImportDraft(
+						preview,
 						actor,
 						{ request: auditRequest(request) },
-						{
-							dateien: archiveCandidates.length,
-							neu: archiveCreated,
-							bereits_archiviert: archiveExisting,
-							quelle: "Ordneranalyse",
-						},
 					);
-				}
-
-				const draft = await createHistoricalProtocolImportDraft(
-					preview,
-					actor,
-					{ request: auditRequest(request) },
-				);
-				return Response.json(draft);
-			},
+					return Response.json(draft);
+				}),
 		},
 	},
 });

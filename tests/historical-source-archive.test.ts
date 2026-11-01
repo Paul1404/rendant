@@ -1,4 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/server/tenant-context", () => ({
+	SVU_TENANT_ID: "00000000-0000-4000-8000-000000000001",
+	requireTenant: () => ({ id: "00000000-0000-4000-8000-000000000002" }),
+}));
 import {
 	historicalSourceContentType,
 	historicalSourceObjectKey,
@@ -8,7 +13,7 @@ describe("historical source archive", () => {
 	it("uses a deterministic content-addressed object key", () => {
 		const sha = "a".repeat(64);
 		expect(historicalSourceObjectKey(sha, "Zählprotokoll 42.XLSX")).toBe(
-			`historical-sources/${sha}/original.xlsx`,
+			`tenants/00000000-0000-4000-8000-000000000002/historical-sources/${sha}/original.xlsx`,
 		);
 	});
 

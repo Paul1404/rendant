@@ -3,6 +3,7 @@
 import { useBlocker } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { tenantStorageKey } from "@/lib/tenant-client";
 
 function storage(): Storage | null {
 	if (typeof window === "undefined") return null;
@@ -17,7 +18,9 @@ function readDraft<T>(key: string): T | null {
 	const s = storage();
 	if (!s) return null;
 	try {
-		const raw = s.getItem(key);
+		const scopedKey = tenantStorageKey(key);
+		if (!scopedKey) return null;
+		const raw = s.getItem(scopedKey);
 		if (!raw) return null;
 		return JSON.parse(raw) as T;
 	} catch {
@@ -29,7 +32,8 @@ function writeDraft<T>(key: string, value: T): void {
 	const s = storage();
 	if (!s) return;
 	try {
-		s.setItem(key, JSON.stringify(value));
+		const scopedKey = tenantStorageKey(key);
+		if (scopedKey) s.setItem(scopedKey, JSON.stringify(value));
 	} catch {
 		// ignore quota / serialization errors
 	}
@@ -39,7 +43,8 @@ function removeDraft(key: string): void {
 	const s = storage();
 	if (!s) return;
 	try {
-		s.removeItem(key);
+		const scopedKey = tenantStorageKey(key);
+		if (scopedKey) s.removeItem(scopedKey);
 	} catch {
 		// ignore
 	}
@@ -56,8 +61,6 @@ export type UseFormDraftOptions<T> = {
 	toastTitle?: string;
 	/** Optional description for the restore toast. */
 	toastDescription?: string;
-	/** Previous storage keys that should be migrated once when found. */
-	legacyKeys?: string[];
 };
 
 export type UseFormDraftReturn = {
@@ -70,7 +73,9 @@ const DEBOUNCE_MS = 500;
 /**
  * Persists a form snapshot to localStorage, shows a restore toast on mount
  * if one exists, and wires up a beforeunload warning while the form is
- * dirty. Degrades silently when localStorage is unavailable.
+ * dirty. Keys include both club and user. Unattributed legacy drafts remain
+ * untouched because restoring them could disclose another person's data.
+ * Degrades silently when localStorage is unavailable.
  */
 export function useFormDraft<T>(
 	key: string,
@@ -121,17 +126,7 @@ export function useFormDraft<T>(
 		if (restoredRef.current) return;
 		restoredRef.current = true;
 		if (!enabled) return;
-		let existing = readDraft<T>(key);
-		if (existing == null) {
-			for (const legacyKey of opts.legacyKeys ?? []) {
-				existing = readDraft<T>(legacyKey);
-				if (existing != null) {
-					writeDraft(key, existing);
-					removeDraft(legacyKey);
-					break;
-				}
-			}
-		}
+		const existing = readDraft<T>(key);
 		if (existing == null) return;
 		toast(opts.toastTitle ?? "Entwurf wiederherstellen?", {
 			description:

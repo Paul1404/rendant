@@ -7,6 +7,7 @@ import {
 import { logger } from "@/server/logger";
 import { CashRegisterConcurrencyError } from "@/server/services/cash-registers";
 import { SettingsConcurrencyError } from "@/server/services/settings";
+import { type TenantContext, withTenant } from "@/server/tenant-context";
 
 export type AuthUser = {
 	id: string;
@@ -20,6 +21,9 @@ export type ORPCContext = {
 	headers: Headers;
 	clientIp: string;
 	requestId: string;
+	tenant?: TenantContext;
+	identity?: AuthUser | null;
+	tenantError?: string;
 };
 
 const base = os.$context<ORPCContext>();
@@ -86,24 +90,39 @@ const logging = base.middleware(async ({ context, next, path }) => {
 });
 
 const requireUser = base.middleware(async ({ context, next }) => {
+	if (context.tenantError) {
+		throw new ORPCError("FORBIDDEN", { message: context.tenantError });
+	}
 	if (!context.user) {
 		throw new ORPCError("UNAUTHORIZED", { message: "Nicht angemeldet" });
 	}
-	return next({ context: { ...context, user: context.user } });
-});
-
-const requireAdmin = base.middleware(async ({ context, next }) => {
-	if (!context.user) {
-		throw new ORPCError("UNAUTHORIZED", { message: "Nicht angemeldet" });
-	}
-	if (context.user.role !== "admin") {
+	if (!context.tenant) {
 		throw new ORPCError("FORBIDDEN", {
-			message: "Adminrechte erforderlich",
+			message: "Keine Vereinsmitgliedschaft vorhanden",
 		});
 	}
-	return next({ context: { ...context, user: context.user } });
+	const { user, tenant } = context;
+	return withTenant(tenant, () =>
+		next({
+			context: { ...context, user, tenant },
+		}),
+	);
 });
+
+const requireAdmin = base
+	.$context<ORPCContext & { user: AuthUser; tenant: TenantContext }>()
+	.middleware(async ({ context, next }) => {
+		if (!context.user) {
+			throw new ORPCError("UNAUTHORIZED", { message: "Nicht angemeldet" });
+		}
+		if (context.user.role !== "admin") {
+			throw new ORPCError("FORBIDDEN", {
+				message: "Adminrechte erforderlich",
+			});
+		}
+		return next({ context });
+	});
 
 export const pub = base.use(logging);
 export const authed = pub.use(requireUser);
-export const adminOnly = pub.use(requireAdmin);
+export const adminOnly = authed.use(requireAdmin);

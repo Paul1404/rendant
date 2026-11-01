@@ -23,6 +23,7 @@ import { DatevSendPanel } from "@/components/datev-send-panel";
 import { RegeneratePdfButton } from "@/components/regenerate-pdf-button";
 import { DetailSkeleton } from "@/components/skeletons";
 import { StornoDialog } from "@/components/storno-dialog";
+import { TenantDownloadLink } from "@/components/tenant-download-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
@@ -177,38 +178,40 @@ function ProtokollDetailPage() {
 							</Link>
 						</Button>
 						<Button asChild variant="outline" size="sm">
-							<a
+							<TenantDownloadLink
 								href={`/api/protokolle/${protokoll.id}/pdf?view=1`}
 								target="_blank"
 								rel="noopener noreferrer"
 							>
 								<Eye className="mr-2 h-4 w-4" />
 								Ansehen
-							</a>
+							</TenantDownloadLink>
 						</Button>
 						<Button asChild variant="outline" size="sm">
-							<a href={`/api/protokolle/${protokoll.id}/pdf`}>
+							<TenantDownloadLink href={`/api/protokolle/${protokoll.id}/pdf`}>
 								<Download className="mr-2 h-4 w-4" />
 								PDF
-							</a>
+							</TenantDownloadLink>
 						</Button>
 						{isStorno && protokoll.storno_pdf_s3_key ? (
 							<>
 								<Button asChild variant="outline" size="sm">
-									<a
+									<TenantDownloadLink
 										href={`/api/protokolle/${protokoll.id}/storno-pdf?view=1`}
 										target="_blank"
 										rel="noopener noreferrer"
 									>
 										<Eye className="mr-2 h-4 w-4" />
 										Storno ansehen
-									</a>
+									</TenantDownloadLink>
 								</Button>
 								<Button asChild variant="outline" size="sm">
-									<a href={`/api/protokolle/${protokoll.id}/storno-pdf`}>
+									<TenantDownloadLink
+										href={`/api/protokolle/${protokoll.id}/storno-pdf`}
+									>
 										<Download className="mr-2 h-4 w-4" />
 										Storno-PDF
-									</a>
+									</TenantDownloadLink>
 								</Button>
 							</>
 						) : null}

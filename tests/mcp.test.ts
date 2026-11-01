@@ -1,8 +1,10 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vitest";
-import { getMcpStatus, type McpAuthContext } from "@/server/mcp/auth";
+import { authenticateMcpRequest, getMcpStatus, type McpAuthContext } from "@/server/mcp/auth";
 import { buildMcpServer, handleMcpRequest } from "@/server/mcp/server";
+
+import { SVU_TENANT_ID, withTenant } from "@/server/tenant-context";
 
 const previous = {
 	url: process.env.BETTER_AUTH_URL,
@@ -17,6 +19,15 @@ afterEach(() => {
 });
 
 describe("Rendant MCP", () => {
+ it("binds the deployment token exclusively to SVU despite tenant selectors", () => {
+  process.env.MCP_BEARER_TOKEN = "a".repeat(64);
+  const headers = {authorization: `Bearer ${process.env.MCP_BEARER_TOKEN}`};
+  expect(authenticateMcpRequest(new Request("http://localhost/api/mcp", {headers}))?.orpc.tenant?.id).toBe(SVU_TENANT_ID);
+  expect(authenticateMcpRequest(new Request("http://localhost/api/mcp?tenant=other", {headers:{...headers,"x-rendant-tenant":"svu"}}))).toBeNull();
+  expect(authenticateMcpRequest(new Request("http://localhost/api/mcp", {headers:{...headers,"x-rendant-tenant":"other"}}))).toBeNull();
+  expect(withTenant({id:"00000000-0000-4000-8000-000000000002",slug:"other",name:"Other"}, () => getMcpStatus().configured)).toBe(false);
+ });
+
 	it("rejects requests without a bearer token", async () => {
 		process.env.BETTER_AUTH_URL = "http://localhost:3000";
 		process.env.MCP_BEARER_TOKEN = "a".repeat(64);

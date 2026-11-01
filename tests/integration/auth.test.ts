@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { eq, inArray, isNull } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { auth } from "@/server/auth";
-import { db, pool } from "@/server/db";
+import { globalDb as db, pool } from "@/server/db";
 import { account, user } from "@/server/db/auth-schema";
 import { ensureCredentialUser } from "@/server/services/auth-accounts";
 import { collectAuthReadiness } from "@/server/services/health";
@@ -52,13 +52,30 @@ async function signIn(email: string, inputPassword = password) {
 
 describe("authentication after production migrations", () => {
 	it("rejects an incompatible physical constraint and recovers after repair", async () => {
-		// This suite only runs against an isolated *_test database before any
-		// accounts are provisioned. Restore the migration's verdict even on failure.
+		// Other integration suites may already have provisioned accounts. Preserve
+		// their exact nullable metadata while simulating the historical constraint.
+		const nullableAccounts = await db
+			.select({ id: account.id })
+			.from(account)
+			.where(isNull(account.issuer));
+		const nullableIds = nullableAccounts.map((row) => row.id);
+		if (nullableIds.length) {
+			await db
+				.update(account)
+				.set({ issuer: "synthetic:constraint-probe" })
+				.where(inArray(account.id, nullableIds));
+		}
 		await pool.query("ALTER TABLE account ALTER COLUMN issuer SET NOT NULL");
 		try {
 			expect(await collectAuthReadiness()).toBe(false);
 		} finally {
 			await pool.query("ALTER TABLE account ALTER COLUMN issuer DROP NOT NULL");
+			if (nullableIds.length) {
+				await db
+					.update(account)
+					.set({ issuer: null })
+					.where(inArray(account.id, nullableIds));
+			}
 		}
 		expect(await collectAuthReadiness()).toBe(true);
 	});

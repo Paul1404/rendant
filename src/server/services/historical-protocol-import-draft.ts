@@ -538,7 +538,10 @@ export async function createHistoricalProtocolImportDraft(
 				created_by_email: actor.email,
 			})
 			.onConflictDoNothing({
-				target: historicalProtocolImportDrafts.digest,
+				target: [
+					historicalProtocolImportDrafts.tenant_id,
+					historicalProtocolImportDrafts.digest,
+				],
 			})
 			.returning({ id: historicalProtocolImportDrafts.id });
 		if (!created) {

@@ -2,6 +2,7 @@ import { randomUUID, createHash } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import {
 	afterAll,
+	aroundAll,
 	beforeAll,
 	beforeEach,
 	describe,
@@ -9,7 +10,8 @@ import {
 	it,
 	vi,
 } from "vitest";
-import { db, pool } from "@/server/db";
+import { db, globalDb, pool } from "@/server/db";
+import { withTenant } from "@/server/tenant-context";
 import {
 	appSettings,
 	auditEvents,
@@ -48,6 +50,12 @@ const deps = {
 	prepareMail: vi.fn(async (_sender: string) => send),
 };
 const ids: string[] = [];
+aroundAll((runSuite) =>
+	withTenant(
+		{ id: "00000000-0000-4000-8000-000000000001", slug: "svu", name: "SVU" },
+		runSuite,
+	),
+);
 let isolatedDatabaseVerified = false;
 
 beforeAll(async () => {
@@ -126,10 +134,10 @@ async function fixture() {
 describe("DATEV PostgreSQL delivery state", () => {
 	it("keeps an accepted email blocked when persisting the completion fails", async () => {
 		const input = await fixture();
-		await db.execute(
+		await globalDb.execute(
 			sql`create function datev_test_fail_completion() returns trigger language plpgsql as $$ begin raise exception 'synthetic completion failure'; end; $$`,
 		);
-		await db.execute(
+		await globalDb.execute(
 			sql.raw(
 				`create trigger datev_test_fail_completion before update on datev_deliveries for each row when (new.state = 'sent' and new.protokoll_id = '${input.id}'::uuid) execute function datev_test_fail_completion()`,
 			),
@@ -144,10 +152,10 @@ describe("DATEV PostgreSQL delivery state", () => {
 			await sendDatevProtocol(input, audit, deps);
 			expect(send).toHaveBeenCalledOnce();
 		} finally {
-			await db.execute(
+			await globalDb.execute(
 				sql`drop trigger datev_test_fail_completion on datev_deliveries`,
 			);
-			await db.execute(sql`drop function datev_test_fail_completion()`);
+			await globalDb.execute(sql`drop function datev_test_fail_completion()`);
 		}
 	});
 	it("allows only one concurrent manual decision for the reviewed revision", async () => {

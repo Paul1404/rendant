@@ -38,6 +38,7 @@ import {
 	resolveSumupDaysForProtokoll,
 	type SumupDay,
 } from "@/server/services/sumup";
+import { requireTenant } from "@/server/tenant-context";
 
 type DbProtokoll = typeof protokolle.$inferSelect;
 type AuditActor = {
@@ -94,7 +95,7 @@ function rowToProtokoll(row: DbProtokoll): ProtokollRow {
 }
 
 function pdfKey(belegnummer: string, suffix: "" | "_STORNO"): string {
-	return `${S3_PREFIX}/${belegnummer}${suffix}_${formatFilenameStamp(new Date())}_${crypto.randomUUID()}.pdf`;
+	return `tenants/${requireTenant().id}/${S3_PREFIX}/${belegnummer}${suffix}_${formatFilenameStamp(new Date())}_${crypto.randomUUID()}.pdf`;
 }
 
 // Only the columns rowToProtokoll actually maps. `select()` pulled all 46,
@@ -386,7 +387,7 @@ export async function createProtokoll(
 		try {
 			created = await db.transaction(async (tx) => {
 				await tx.execute(
-					sql`select pg_advisory_xact_lock(hashtextextended(${input.idempotency_key}, 0))`,
+					sql`select pg_advisory_xact_lock(hashtextextended(${`rendant:${requireTenant().id}:protokoll:${input.idempotency_key}`}, 0))`,
 				);
 				const [replayed] = await tx
 					.select({
