@@ -517,6 +517,7 @@ export type EmailSecurity = v.InferOutput<typeof EmailSecuritySchema>;
 // Host and recipients may be empty while the feature is disabled, so structural
 // validation stays loose and the server checks completeness before sending.
 export const EmailSettingsSchema = v.object({
+	expected_updated_at: expectedUpdatedAt,
 	enabled: v.boolean(),
 	host: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(255)), ""),
 	port: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(65535)),
@@ -529,6 +530,37 @@ export const EmailSettingsSchema = v.object({
 	recipients: v.optional(v.pipe(v.string(), v.maxLength(4000)), ""),
 });
 export type EmailSettingsInput = v.InferOutput<typeof EmailSettingsSchema>;
+
+export const McpSettingsSchema = v.object({
+	enabled: v.boolean(),
+	accessMode: v.picklist(["readonly", "admin", "identity"]),
+	actor_name: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120)),
+	actor_email: v.pipe(
+		v.string(),
+		v.trim(),
+		v.toLowerCase(),
+		v.email(),
+		v.maxLength(255),
+	),
+	token: v.optional(
+		v.union([
+			v.literal(""),
+			v.pipe(
+				v.string(),
+				v.trim(),
+				v.minLength(32, "Der MCP-Schlüssel muss mindestens 32 Zeichen haben"),
+				v.maxLength(4096),
+				v.regex(
+					/^[A-Za-z0-9._~+/-]+=*$/,
+					"Bitte einen gültigen MCP-Schlüssel ohne Leerzeichen eingeben",
+				),
+			),
+		]),
+		"",
+	),
+	clear_token: v.optional(v.boolean(), false),
+	expected_updated_at: v.pipe(v.string(), v.isoTimestamp()),
+});
 
 // SumUp-Anbindung. Der API-Key ist write-only: leer lässt den gespeicherten
 // Key stehen, clear_api_key entfernt ihn samt Händlerzuordnung.

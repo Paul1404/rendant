@@ -3,6 +3,20 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.63.0 - 2026-11-02
+
+- E-Mail, MCP, SumUp und DATEV lassen sich unter admin.rendant.app für den
+  ausgewählten Verein einrichten. Zugangsdaten bleiben verborgen; leere
+  Geheimnisfelder behalten den gespeicherten Wert.
+- MCP hat je Verein einen eigenen Schlüssel und Zugriffsmodus. Der bestehende
+  SVU-Zugang bleibt bis zu einer ausdrücklichen Änderung erhalten.
+- Verbindungstests starten nur auf Knopfdruck. Der zentrale SumUp-Test prüft die
+  Anbindung ohne Umsätze anzuzeigen; DATEV-Einrichtung versendet keine Belege.
+- Gleichzeitige Änderungen werden erkannt. Ungespeicherte Entwürfe lassen sich
+  ausdrücklich verwerfen und mit dem aktuellen Stand neu laden.
+- Geschäftsarchive enthalten keine gespeicherten Zugangsdaten oder
+  Schlüsselprüfwerte.
+
 ## 1.62.2 - 2026-11-02
 
 - Vorstand sieht standardmäßig keine technische Einrichtung für E-Mail, MCP,

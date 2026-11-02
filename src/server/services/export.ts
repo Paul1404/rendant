@@ -70,7 +70,10 @@ type ProtokollArchiveRow = typeof protokolle.$inferSelect & {
 
 export type SafeAppSettings = Omit<
 	typeof appSettings.$inferSelect,
-	"smtp_password_enc"
+	| "smtp_password_enc"
+	| "sumup_api_key_enc"
+	| "mcp_token_enc"
+	| "mcp_token_sha256"
 >;
 
 export type BusinessArchiveCollections = {
@@ -98,7 +101,13 @@ export type BusinessArchive = {
 export function sanitizeAppSettingsForArchive(
 	settings: typeof appSettings.$inferSelect,
 ): SafeAppSettings {
-	const { smtp_password_enc: _excluded, ...safe } = settings;
+	const {
+		smtp_password_enc: _smtp,
+		sumup_api_key_enc: _sumup,
+		mcp_token_enc: _mcp,
+		mcp_token_sha256: _mcpDigest,
+		...safe
+	} = settings;
 	return safe;
 }
 
@@ -126,6 +135,7 @@ export function buildBusinessArchive(
 			"Anmeldedaten, Sitzungen und Einladungs-Tokens",
 			"Audit-Log",
 			"verschluesseltes SMTP-Passwort",
+			"verschluesselte SumUp- und MCP-Zugangsdaten sowie Token-Pruefwerte",
 			"PDF-Dateiinhalte im Objektspeicher",
 		],
 	};

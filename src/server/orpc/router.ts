@@ -205,6 +205,7 @@ import {
 	getSettingsStamp,
 	getUmsatzUstBasisDefault,
 	getVereinStammdaten,
+	SettingsConcurrencyError,
 	updateBelegnummerSettings,
 	updateHelperHourValueCent,
 	updateUmsatzUstBasisDefault,
@@ -589,6 +590,7 @@ const settings = {
 				const result = await updateEmailSettings(
 					{
 						enabled: input.enabled,
+						expected_updated_at: input.expected_updated_at,
 						host: input.host,
 						port: input.port,
 						security: input.security,
@@ -618,7 +620,11 @@ const settings = {
 				);
 				return result;
 			} catch (e) {
-				logger.error("email settings update failed", { error: e });
+				if (e instanceof SettingsConcurrencyError || e instanceof ORPCError)
+					throw e;
+				logger.error("email settings update failed", {
+					event: "integration.email.configure_failed",
+				});
 				throw new ORPCError("BAD_REQUEST", {
 					message:
 						"Die E-Mail-Einstellungen konnten nicht gespeichert werden. Bitte Eingaben prüfen und erneut versuchen.",

@@ -56,14 +56,20 @@ describe("business archive", () => {
 		expect(exclusions).toContain("PDF-Dateiinhalte");
 	});
 
-	it("removes the encrypted SMTP password from exported settings", () => {
+	it("removes all integration secrets and token digests from exported settings", () => {
 		const settings = sanitizeAppSettingsForArchive({
 			id: 1,
 			smtp_password_enc: "encrypted-secret",
+			sumup_api_key_enc: "encrypted-sumup",
+			mcp_token_enc: "encrypted-mcp",
+			mcp_token_sha256: "synthetic-digest",
 			vereinsname: "SV Test",
 		} as never);
 
 		expect(settings).toMatchObject({ id: 1, vereinsname: "SV Test" });
 		expect(settings).not.toHaveProperty("smtp_password_enc");
+		expect(settings).not.toHaveProperty("sumup_api_key_enc");
+		expect(settings).not.toHaveProperty("mcp_token_enc");
+		expect(settings).not.toHaveProperty("mcp_token_sha256");
 	});
 });

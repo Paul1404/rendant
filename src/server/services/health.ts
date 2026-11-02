@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { globalDb as db, db as tenantDb } from "@/server/db";
 import { account, session, user } from "@/server/db/auth-schema";
+import { appSettings } from "@/server/db/schema";
 import {
 	authSecurityEvents,
 	memberships,
@@ -81,6 +82,14 @@ export async function collectAuthReadiness(): Promise<boolean> {
 				// tables too: a missed migration can leave the model and PostgreSQL at
 				// different revisions even when the adapter's verdict is clean.
 				await Promise.all([
+					db
+						.select({
+							enabled: appSettings.mcp_enabled,
+							hash: appSettings.mcp_token_sha256,
+							stamp: appSettings.mcp_updated_at,
+						})
+						.from(appSettings)
+						.limit(0),
 					db.select().from(user).limit(0),
 					db.select().from(session).limit(0),
 					db.select().from(account).limit(0),

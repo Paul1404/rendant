@@ -568,10 +568,40 @@ export const appSettings = pgTable(
 		sumup_updated_at: timestamp("sumup_updated_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),
+		// Explicit tenant configuration supersedes the SVU-only deployment token.
+		// Both the secret and its digest remain server-only; the digest enforces
+		// uniqueness without comparing or exposing another club's credentials.
+		mcp_override: boolean("mcp_override").notNull().default(false),
+		mcp_enabled: boolean("mcp_enabled").notNull().default(false),
+		mcp_access_mode: text("mcp_access_mode").notNull().default("readonly"),
+		mcp_token_enc: text("mcp_token_enc").notNull().default(""),
+		mcp_token_sha256: text("mcp_token_sha256").notNull().default(""),
+		mcp_actor_name: text("mcp_actor_name").notNull().default("Rendant MCP"),
+		mcp_actor_email: text("mcp_actor_email")
+			.notNull()
+			.default("mcp@rendant.local"),
+		mcp_updated_at: timestamp("mcp_updated_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
 	},
 	(t) => [
 		tenantPolicy(),
 		primaryKey({ columns: [t.tenant_id, t.id] }),
+		uniqueIndex("app_settings_mcp_token_sha256_unique")
+			.on(t.mcp_token_sha256)
+			.where(sql`${t.mcp_token_sha256} <> ''`),
+		check(
+			"app_settings_mcp_mode_check",
+			sql`${t.mcp_access_mode} IN ('readonly', 'admin', 'identity')`,
+		),
+		check(
+			"app_settings_mcp_token_hash_check",
+			sql`${t.mcp_token_sha256} = '' OR ${t.mcp_token_sha256} ~ '^[a-f0-9]{64}$'`,
+		),
+		check(
+			"app_settings_mcp_token_pair_check",
+			sql`(${t.mcp_token_enc} = '') = (${t.mcp_token_sha256} = '')`,
+		),
 		check("app_settings_singleton_check", sql`${t.id} = 1`),
 		check(
 			"app_settings_min_digits_check",

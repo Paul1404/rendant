@@ -1,6 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/server/services/role-policy", async () => {
 	const { DEFAULT_ROLE_PERMISSIONS } = await import("@/lib/permissions");
 	return { getTenantRolePermissions: async (_tenant: string, role: "user" | "admin") => DEFAULT_ROLE_PERMISSIONS[role] };
@@ -10,6 +10,10 @@ import { buildMcpServer, handleMcpRequest } from "@/server/mcp/server";
 
 import { SVU_TENANT_ID, withTenant } from "@/server/tenant-context";
 
+vi.mock("@/server/services/mcp-settings", async () => import("./mcp-fixture"));
+import { installMcpRegistryFixture } from "./mcp-fixture";
+beforeEach(installMcpRegistryFixture);
+
 const previous = {
 	url: process.env.BETTER_AUTH_URL,
 	token: process.env.MCP_BEARER_TOKEN,
@@ -17,19 +21,20 @@ const previous = {
 };
 
 afterEach(() => {
+ vi.restoreAllMocks();
 	restore("BETTER_AUTH_URL", previous.url);
 	restore("MCP_BEARER_TOKEN", previous.token);
 	restore("MCP_ACCESS_MODE", previous.mode);
 });
 
 describe("Rendant MCP", () => {
- it("binds the deployment token exclusively to SVU despite tenant selectors", () => {
+ it("binds the deployment token exclusively to SVU despite tenant selectors", async () => {
   process.env.MCP_BEARER_TOKEN = "a".repeat(64);
   const headers = {authorization: `Bearer ${process.env.MCP_BEARER_TOKEN}`};
-  expect(authenticateMcpRequest(new Request("http://localhost/api/mcp", {headers}))?.orpc.tenant?.id).toBe(SVU_TENANT_ID);
-  expect(authenticateMcpRequest(new Request("http://localhost/api/mcp?tenant=other", {headers:{...headers,"x-rendant-tenant":"svu"}}))).toBeNull();
-  expect(authenticateMcpRequest(new Request("http://localhost/api/mcp", {headers:{...headers,"x-rendant-tenant":"other"}}))).toBeNull();
-  expect(withTenant({id:"00000000-0000-4000-8000-000000000002",slug:"other",name:"Other"}, () => getMcpStatus().configured)).toBe(false);
+  expect((await authenticateMcpRequest(new Request("http://localhost:3000/api/mcp", {headers})))?.orpc.tenant?.id).toBe(SVU_TENANT_ID);
+  expect(await authenticateMcpRequest(new Request("http://localhost:3000/api/mcp?tenant=other", {headers:{...headers,"x-rendant-tenant":"svu"}}))).toBeNull();
+  expect(await authenticateMcpRequest(new Request("http://localhost:3000/api/mcp", {headers:{...headers,"x-rendant-tenant":"other"}}))).toBeNull();
+  expect((await withTenant({id:"00000000-0000-4000-8000-000000000002",slug:"other",name:"Other"}, getMcpStatus)).configured).toBe(false);
  });
 
 	it("rejects requests without a bearer token", async () => {
@@ -60,10 +65,10 @@ describe("Rendant MCP", () => {
 		expect(response.status).toBe(405);
 	});
 
-	it("exposes a secret-free status for the admin settings page", () => {
+	it("exposes a secret-free status for the admin settings page", async () => {
 		process.env.MCP_BEARER_TOKEN = "a".repeat(64);
 		process.env.MCP_ACCESS_MODE = "admin";
-		const status = getMcpStatus();
+		const status = await withTenant({ id: SVU_TENANT_ID, slug: "svu", name: "SVU" }, getMcpStatus);
 
 		expect(status).toMatchObject({
 			configured: true,
@@ -94,6 +99,20 @@ describe("Rendant MCP", () => {
 		const body = await response.json();
 		expect(body.result.serverInfo.name).toBe("rendant");
 		expect(body.result.serverInfo.version).toMatch(/^\d+\.\d+\.\d+$/);
+	});
+
+	it("keeps explicitly approved SVU legacy cross-alias origins working through the actual SDK transport", async () => {
+		const previousOrigins = process.env.MCP_ALLOWED_ORIGINS;
+		try {
+			process.env.BETTER_AUTH_URL = "http://localhost:3000";
+			process.env.MCP_BEARER_TOKEN = "a".repeat(64);
+			process.env.MCP_ALLOWED_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000";
+			const request = mcpRequest("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "legacy-test", version: "1" } }, 1, "a".repeat(64));
+			request.headers.set("origin", "http://127.0.0.1:3000");
+			const response = await handleMcpRequest(request);
+			expect(response.status).toBe(200);
+			expect((await response.json()).result.serverInfo.name).toBe("rendant");
+		} finally { restore("MCP_ALLOWED_ORIGINS", previousOrigins); }
 	});
 
 	it("exposes broad reads but no mutations in readonly mode", async () => {

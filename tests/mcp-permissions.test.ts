@@ -4,12 +4,15 @@ const state = vi.hoisted(() => ({ stored: [] as Permission[], load: vi.fn() }));
 vi.mock("@/server/services/role-policy", () => ({ getTenantRolePermissions: state.load }));
 import { authenticateMcpRequest, mcpPermissionCeiling } from "@/server/mcp/auth";
 import { handleMcpRequest } from "@/server/mcp/server";
+vi.mock("@/server/services/mcp-settings", async () => import("./mcp-fixture"));
+import { installMcpRegistryFixture } from "./mcp-fixture";
 import { SVU_TENANT_ID } from "@/server/tenant-context";
 
 function request(name: string) {
 	return new Request("http://localhost:3000/api/mcp", { method: "POST", headers: { host: "localhost:3000", authorization: `Bearer ${"a".repeat(64)}`, accept: "application/json, text/event-stream", "content-type": "application/json", "mcp-protocol-version": "2025-06-18" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: {} } }) });
 }
 beforeEach(() => {
+ installMcpRegistryFixture();
 	vi.stubEnv("BETTER_AUTH_URL", "http://localhost:3000");
 	vi.stubEnv("MCP_BEARER_TOKEN", "a".repeat(64));
 	vi.stubEnv("MCP_ACCESS_MODE", "readonly");
@@ -21,12 +24,12 @@ beforeEach(() => {
 	state.load.mockImplementation(async () => state.stored);
 	state.stored = [];
 });
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
 describe("MCP capability ceilings and live tenant policy", () => {
-	it("never grants write capabilities to readonly even if the user role policy later does", () => {
+	it("never grants write capabilities to readonly even if the user role policy later does", async () => {
 		expect(mcpPermissionCeiling("readonly")).toEqual(["finance.read", "helpers.read", "exports.download"]);
-		const resolved = authenticateMcpRequest(request("list_protocols"));
+		const resolved = await authenticateMcpRequest(request("list_protocols"));
 		expect(resolved?.orpc.user.permissions).not.toContain("protocols.create");
 		expect(resolved?.orpc.tenant?.permissions).not.toContain("users.manage");
 	});

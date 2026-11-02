@@ -12,9 +12,9 @@ import { withTenant } from "@/server/tenant-context";
 import packageJson from "../../../package.json";
 import {
 	authenticateMcpRequest,
+	configuredMcpAllowedOrigins,
 	configuredMcpOrigin,
 	type McpAuthContext,
-	mcpIsConfigured,
 	mcpPermissionCeiling,
 	mcpUnauthorizedResponse,
 	validateMcpRequestBoundary,
@@ -43,22 +43,13 @@ export async function handleMcpRequest(request: Request): Promise<Response> {
 		// reconnect loop. 405 is the answer the spec provides for that, and the
 		// reference client treats it as final instead of retrying.
 		if (request.method !== "POST") return mcpMethodNotAllowedResponse();
-		if (!mcpIsConfigured()) {
-			return Response.json(
-				{
-					jsonrpc: "2.0",
-					error: { code: -32000, message: "MCP is not configured" },
-					id: null,
-				},
-				{ status: 503 },
-			);
-		}
+
 		// Shared with the login limiter rather than reimplemented, so both agree on
 		// which hop is trusted.
 		const ip = clientIpFromHeaders(request.headers);
 		const ipRetry = enforceMcpIpRateLimit(ip);
 		if (ipRetry) return mcpRateLimitedResponse(ipRetry);
-		const auth = authenticateMcpRequest(request);
+		const auth = await authenticateMcpRequest(request);
 		if (!auth) return mcpUnauthorizedResponse();
 		const tokenRetry = enforceMcpTokenRateLimit(auth.tokenFingerprint);
 		if (tokenRetry) return mcpRateLimitedResponse(tokenRetry);
@@ -160,7 +151,7 @@ async function serveAuthenticatedRequest(
 		sessionIdGenerator: undefined,
 		enableJsonResponse: true,
 		allowedHosts: [baseUrl.host],
-		allowedOrigins: [baseUrl.origin],
+		allowedOrigins: configuredMcpAllowedOrigins(request),
 		enableDnsRebindingProtection: true,
 	});
 	try {

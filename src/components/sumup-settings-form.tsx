@@ -28,12 +28,21 @@ export type SumupSettingsView = {
 	updated_at: string | undefined;
 };
 
+export type SumupSettingsClient = {
+	update: (
+		input: Parameters<typeof orpcClient.settings.updateSumup>[0],
+	) => Promise<SumupSettingsView>;
+	test: () => Promise<string>;
+};
+
 export function SumupSettingsForm({
 	initial,
 	canTest = false,
+	client,
 }: {
 	initial: SumupSettingsView;
 	canTest?: boolean;
+	client?: SumupSettingsClient;
 }) {
 	const router = useRouter();
 	const [pending, start] = useTransition();
@@ -57,7 +66,7 @@ export function SumupSettingsForm({
 	function save() {
 		start(async () => {
 			try {
-				const data = await orpcClient.settings.updateSumup({
+				const data = await (client?.update ?? orpcClient.settings.updateSumup)({
 					enabled: clearKey ? false : enabled,
 					api_key: clearKey ? "" : apiKey.trim(),
 					clear_api_key: clearKey,
@@ -82,10 +91,14 @@ export function SumupSettingsForm({
 	function test() {
 		startTest(async () => {
 			try {
-				const res = await orpcClient.settings.testSumup();
-				toast.success(
-					`Verbindung steht. Heute ${res.anzahl} Kartenzahlungen, ${formatCent(res.kartenzahlung_cent)}.`,
-				);
+				if (client) {
+					toast.success(await client.test());
+				} else {
+					const res = await orpcClient.settings.testSumup();
+					toast.success(
+						`Verbindung steht. Heute ${res.anzahl} Kartenzahlungen, ${formatCent(res.kartenzahlung_cent)}.`,
+					);
+				}
 			} catch (e) {
 				toast.error(orpcMessage(e, "Verbindungstest fehlgeschlagen"));
 			}

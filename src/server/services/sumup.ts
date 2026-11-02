@@ -13,7 +13,7 @@ import {
 	berlinDayRangeUtc,
 	todayIsoDate,
 } from "@/lib/date";
-import { db } from "@/server/db";
+import { db, type TransactionRunner } from "@/server/db";
 import {
 	appSettings,
 	protokolle,
@@ -120,6 +120,7 @@ export async function updateSumupSettings(
 	patch: SumupSettingsPatch,
 	audit: RecordAuditInput,
 	expectedUpdatedAt?: string,
+	transaction: TransactionRunner = (work) => db.transaction(work),
 ): Promise<SumupSettings> {
 	let merchant: SumupMerchant | null = null;
 	const newKey = patch.clear_api_key ? "" : (patch.api_key ?? "").trim();
@@ -127,7 +128,7 @@ export async function updateSumupSettings(
 		merchant = await verifySumupApiKey(newKey);
 	}
 
-	return db.transaction(async (tx) => {
+	return transaction(async (tx) => {
 		const stamp = await claimSettingsGroup(
 			tx,
 			"sumup_updated_at",
@@ -184,8 +185,10 @@ async function sumupGet(init: SumupRequestInit): Promise<unknown> {
 			},
 			signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
 		});
-	} catch (e) {
-		logger.warn("SumUp nicht erreichbar", { error: e });
+	} catch {
+		logger.warn("SumUp nicht erreichbar", {
+			event: "integration.sumup.unreachable",
+		});
 		throw new SumupError(
 			"UPSTREAM",
 			"SumUp ist gerade nicht erreichbar. Bitte später erneut versuchen.",
@@ -626,4 +629,22 @@ export async function resolveSumupDaysForProtokoll(
 		);
 	}
 	return days;
+}
+
+// Technical verification only: never retrieves card transactions or revenue.
+export async function testSumupConnection() {
+	const row = await loadRow();
+	if (!row?.sumup_api_key_enc)
+		throw new SumupError(
+			"UNAUTHORIZED",
+			"Bitte zuerst einen SumUp-API-Key hinterlegen.",
+		);
+	const merchant = await verifySumupApiKey(
+		decryptSecret(row.sumup_api_key_enc),
+	);
+	return {
+		ok: true as const,
+		merchant_code: merchant.code,
+		merchant_name: merchant.name,
+	};
 }

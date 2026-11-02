@@ -57,7 +57,8 @@ export type SettingsGroup =
 	| "verein_updated_at"
 	| "email_updated_at"
 	| "datev_updated_at"
-	| "sumup_updated_at";
+	| "sumup_updated_at"
+	| "mcp_updated_at";
 
 type SettingsRow = typeof appSettings.$inferSelect;
 
@@ -86,7 +87,7 @@ export async function claimSettingsGroup(
 	) {
 		throw new SettingsConcurrencyError();
 	}
-	return new Date();
+	return new Date(Math.max(Date.now(), current[group].getTime() + 1));
 }
 
 function rowToSettings(row: SettingsRow): BelegnummerSettings {
@@ -293,14 +294,17 @@ export async function updateVereinStammdaten(
 	// Keep the two representations atomic without granting business-role access
 	// to the global registry. Every privileged query carries the selected club.
 	return globalDb.transaction(async (tx) => {
-		// The synthetic MCP actor is only issued by the SVU-bound admin token;
-		// human callers must still hold the current club-admin membership.
-		const mcpAdmin =
+		// MCP identities are issued only by verified tenant-bound transports. Human
+		// callers still require their live membership and permission in this TX.
+		const scopedMcp =
+			actor.id === `mcp:${tenant.id}` &&
+			hasPermission(tenant, "settings.manage");
+		const legacyMcp =
 			actor.id === "mcp:codex" &&
 			tenant.id === SVU_TENANT_ID &&
-			tenant.role === "admin" &&
 			(tenant.permissions === undefined ||
 				hasPermission(tenant, "settings.manage"));
+		const mcpAdmin = tenant.role === "admin" && (scopedMcp || legacyMcp);
 		if (!mcpAdmin) {
 			await assertTenantPermissionsInTransaction(
 				tx,

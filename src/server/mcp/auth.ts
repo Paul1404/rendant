@@ -1,20 +1,29 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { DEFAULT_ROLE_PERMISSIONS, type Permission } from "@/lib/permissions";
 import { resolveTrustedOrigins } from "@/server/auth-origins";
+import { globalDb } from "@/server/db";
+import { tenants } from "@/server/db/tenant-schema";
 import { isOperatorHost } from "@/server/operator-host";
 import type { ORPCContext } from "@/server/orpc/base";
 import { clientIpFromHeaders } from "@/server/orpc/context";
 import { requestIdFromHeaders } from "@/server/request-id";
 import {
+	getMcpCredentialForAuthentication,
+	getMcpSettings,
+} from "@/server/services/mcp-settings";
+import {
 	currentTenant,
 	SVU_TENANT_ID,
 	type TenantContext,
+	tenantRequestHeaders,
+	withTenant,
 } from "@/server/tenant-context";
 import { tenantSlugForHost } from "@/server/tenant-hostname";
 
-// "identity" additionally exposes invitation and user-role tools. It is opt-in
-// and off by default: those tools can mint an admin account, so they should
-// require a human session rather than a long-lived static token.
+// "identity" is the compatibility token mode bounded by ordinary user rights.
+// Audit labels do not identify an interactive account. Role administration is
+// unavailable to every MCP mode and stays in the operator console.
 export type McpAccessMode = "readonly" | "admin" | "identity";
 
 export function mcpPermissionCeiling(mode: McpAccessMode): Permission[] {
@@ -40,37 +49,49 @@ export type McpStatus = {
 	auditedMutations: true;
 };
 
-export function mcpIsConfigured(): boolean {
-	return configuredToken() !== null;
+export async function mcpIsConfigured(): Promise<boolean> {
+	return (await getMcpStatus()).configured;
 }
 
-export function getMcpStatus(): McpStatus {
-	return {
-		configured:
-			mcpIsConfigured() &&
-			(!currentTenant() || currentTenant()?.id === SVU_TENANT_ID),
-		accessMode: configuredAccessMode(),
-		endpoint: "/api/mcp",
-		actor: configuredActor(),
-		auditedMutations: true,
-	};
+export async function getMcpStatus() {
+	if (!currentTenant())
+		return {
+			configured: false,
+			enabled: false,
+			accessMode: "readonly" as const,
+			endpoint: "/api/mcp",
+			actor: { name: "Rendant MCP", email: "mcp@rendant.local" },
+			has_token: false,
+			source: "disabled" as const,
+			auditedMutations: true as const,
+		};
+	return { ...(await getMcpSettings()), auditedMutations: true as const };
 }
 
-export function authenticateMcpRequest(
+export async function authenticateMcpRequest(
 	request: Request,
-): McpAuthContext | null {
-	if (isOperatorHost(new Headers({ host: new URL(request.url).host })))
-		return null;
-	const expected = configuredToken();
-	if (!expected) return null;
-	const hostTenant = tenantSlugForHost(new URL(request.url).host);
-	if (hostTenant && hostTenant !== "svu") return null;
+): Promise<McpAuthContext | null> {
+	if (validateMcpRequestBoundary(request)) return null;
 	const authorization = request.headers.get("authorization");
 	if (!authorization?.startsWith("Bearer ")) return null;
-	const provided = authorization.slice("Bearer ".length).trim();
-	if (!secureEqual(provided, expected)) return null;
-	// The existing deployment token belongs exclusively to SVU. A caller cannot
-	// turn an operational token into access to a newly created club.
+	const hostTenant = tenantSlugForHost(new URL(request.url).host);
+	// A neutral old endpoint remains exclusively an SVU compatibility address,
+	// including after its operator explicitly saves a tenant configuration.
+	if (
+		!hostTenant &&
+		!legacyOrigins(request).some(
+			(origin) => origin.host === new URL(request.url).host,
+		)
+	)
+		return null;
+	const [resolved] = await globalDb
+		.select({ id: tenants.id, slug: tenants.slug, name: tenants.name })
+		.from(tenants)
+		.where(
+			hostTenant ? eq(tenants.slug, hostTenant) : eq(tenants.id, SVU_TENANT_ID),
+		)
+		.limit(1);
+	if (!resolved) return null;
 	const selectors = [
 		request.headers.get("x-rendant-tenant"),
 		new URL(request.url).searchParams.get("tenant"),
@@ -78,36 +99,59 @@ export function authenticateMcpRequest(
 	if (
 		selectors.some(
 			(selected) =>
-				selected && selected !== SVU_TENANT_ID && selected !== "svu",
+				selected && selected !== resolved.id && selected !== resolved.slug,
 		)
 	)
 		return null;
-
-	const accessMode = configuredAccessMode();
+	const configuration = await withTenant(
+		resolved,
+		getMcpCredentialForAuthentication,
+	);
+	if (!configuration.enabled || !configuration.token) return null;
+	// The deployment credential never crosses its original host allowlist or
+	// tenant boundary. Other clubs require their own explicit stored credential.
+	if (
+		configuration.source === "legacy" &&
+		(resolved.id !== SVU_TENANT_ID ||
+			!legacyOrigins(request).some(
+				(origin) => origin.host === new URL(request.url).host,
+			))
+	)
+		return null;
+	if (resolved.id !== SVU_TENANT_ID && configuration.source !== "tenant")
+		return null;
+	if (
+		!secureEqual(
+			authorization.slice("Bearer ".length).trim(),
+			configuration.token,
+		)
+	)
+		return null;
+	const accessMode = configuration.accessMode;
 	const permissions = mcpPermissionCeiling(accessMode);
-	const actor = configuredActor();
-	const headers = new Headers(request.headers);
+	const headers = tenantRequestHeaders(request);
 	const requestId = requestIdFromHeaders(headers);
+	headers.set("x-request-id", requestId);
 	const tenant: TenantContext = {
-		id: SVU_TENANT_ID,
-		slug: "svu",
-		name: "SVU",
+		...resolved,
 		role: accessMode === "admin" ? "admin" : "user",
 		permissions,
 	};
-	headers.set("x-request-id", requestId);
 	return {
 		accessMode,
 		tokenFingerprint: createHash("sha256")
-			.update(expected)
+			.update(configuration.token)
 			.digest("hex")
 			.slice(0, 24),
 		orpc: {
 			tenant,
 			user: {
-				id: "mcp:codex",
-				email: actor.email,
-				name: actor.name,
+				id:
+					configuration.source === "legacy"
+						? "mcp:codex"
+						: `mcp:${resolved.id}`,
+				email: configuration.actor.email,
+				name: configuration.actor.name,
 				role: accessMode === "admin" ? "admin" : "user",
 				permissions,
 			},
@@ -115,19 +159,6 @@ export function authenticateMcpRequest(
 			clientIp: clientIpFromHeaders(headers),
 			requestId,
 		},
-	};
-}
-
-function configuredAccessMode(): McpAccessMode {
-	const mode = process.env.MCP_ACCESS_MODE;
-	if (mode === "identity") return "identity";
-	return mode === "admin" ? "admin" : "readonly";
-}
-
-function configuredActor(): McpStatus["actor"] {
-	return {
-		email: process.env.MCP_ACTOR_EMAIL?.trim() || "codex@rendant.local",
-		name: process.env.MCP_ACTOR_NAME?.trim() || "Codex MCP",
 	};
 }
 
@@ -147,19 +178,20 @@ export function mcpUnauthorizedResponse(): Response {
 
 export function validateMcpRequestBoundary(request: Request): Response | null {
 	const requested = new URL(request.url);
-	if (isOperatorHost(new Headers({ host: requested.host })))
+	try {
+		const headers = tenantRequestHeaders(request);
+		if (isOperatorHost(headers))
+			return new Response("invalid host", { status: 403 });
+		const origins = configuredOrigins(request);
+		if (!origins.some((origin) => origin.host === requested.host))
+			return new Response("invalid host", { status: 403 });
+		const origin = headers.get("origin");
+		if (origin && !configuredMcpAllowedOrigins(request).includes(origin))
+			return new Response("invalid origin", { status: 403 });
+		return null;
+	} catch {
 		return new Response("invalid host", { status: 403 });
-	const hostTenant = tenantSlugForHost(requested.host);
-	const origins = configuredOrigins(request);
-	if (
-		(hostTenant && hostTenant !== "svu") ||
-		!origins.some((origin) => origin.host === requested.host)
-	)
-		return new Response("invalid host", { status: 403 });
-	const origin = request.headers.get("origin");
-	if (origin && !origins.some((allowed) => allowed.origin === origin))
-		return new Response("invalid origin", { status: 403 });
-	return null;
+	}
 }
 
 export function configuredMcpOrigin(request: Request): URL {
@@ -171,7 +203,47 @@ export function configuredMcpOrigin(request: Request): URL {
 	return selected;
 }
 
+export function configuredMcpAllowedOrigins(request: Request): string[] {
+	const requested = new URL(request.url);
+	const own = configuredOrigins(request)
+		.filter((origin) => origin.host === requested.host)
+		.map((origin) => origin.origin);
+	const owner = tenantSlugForHost(requested.host);
+	if (
+		(owner === "svu" || owner === null) &&
+		process.env.MCP_ALLOWED_ORIGINS?.trim()
+	) {
+		const legacy = legacyOrigins(request);
+		if (legacy.some((origin) => origin.host === requested.host)) {
+			for (const origin of legacy) {
+				const bound = tenantSlugForHost(origin.host);
+				if (
+					(bound === "svu" || bound === null) &&
+					!isOperatorHost(new Headers({ host: origin.host }))
+				)
+					own.push(origin.origin);
+			}
+		}
+	}
+	return [...new Set(own)];
+}
+
 function configuredOrigins(request: Request): URL[] {
+	const hostTenant = tenantSlugForHost(new URL(request.url).host);
+	const approved = resolveTrustedOrigins(
+		process.env.BETTER_AUTH_URL,
+		process.env.AUTH_TRUSTED_ORIGINS,
+	).map((origin) => new URL(origin));
+	// Application-origin additions can enable a new club's own stored token,
+	// but never authorize the old deployment token on that club's host.
+	if (hostTenant)
+		return hostTenant === "svu"
+			? [...legacyOrigins(request), ...approved]
+			: approved;
+	return legacyOrigins(request);
+}
+
+function legacyOrigins(request: Request): URL[] {
 	const explicit = process.env.MCP_ALLOWED_ORIGINS?.trim();
 	if (explicit)
 		return resolveTrustedOrigins(undefined, explicit, "production").map(
@@ -179,16 +251,8 @@ function configuredOrigins(request: Request): URL[] {
 		);
 	const primary = process.env.BETTER_AUTH_URL?.trim();
 	if (primary) return [new URL(primary)];
-	if (process.env.NODE_ENV === "production")
-		throw new Error(
-			"MCP_ALLOWED_ORIGINS oder BETTER_AUTH_URL fehlt für den MCP-Endpunkt",
-		);
+	if (process.env.NODE_ENV === "production") return [];
 	return [new URL(new URL(request.url).origin)];
-}
-
-function configuredToken(): string | null {
-	const value = process.env.MCP_BEARER_TOKEN?.trim();
-	return value && value.length >= 32 ? value : null;
 }
 
 function secureEqual(left: string, right: string): boolean {
