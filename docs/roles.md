@@ -10,10 +10,13 @@ separat abgesichert und wird durch Vereinsrechte nicht freigeschaltet.
 - **Benutzer** behält die bisherigen Rechte: Buchhaltung und Helferstunden
   ansehen, Kassenzählprotokolle buchen, Helferstunden erfassen und Listen
   exportieren. Verwaltungsaktionen sind zunächst ausgeschaltet.
-- **Vorstand** kann den eigenen Verein vollständig verwalten. Dazu gehören
-  Buchhaltung, Helferstunden, Einstellungen, Integrationen und die Verwaltung
-  von Benutzern innerhalb der vergebenen Rechte. Die Rollenverwaltung bleibt
-  ausschließlich in der Betreiberoberfläche.
+- **Vorstand** erhält die fachliche Vereinsverwaltung: Buchhaltung,
+  Helferstunden, Vereinsdaten und Benutzerverwaltung innerhalb der vergebenen
+  Rechte. Technische Einrichtung für E-Mail, MCP, SumUp und DATEV sowie
+  DATEV-Versand sind standardmäßig ausgeschaltet. Betreiber können diese Rechte
+  in einem gespeicherten Rollenprofil gezielt freigeben. Bereits gespeicherte
+  Profile werden durch eine Änderung der Voreinstellung nicht überschrieben.
+  Die Rollenverwaltung bleibt ausschließlich in der Betreiberoberfläche.
 - **Admin** ist der geschützte technische Verwaltungszugang. Seine
   Benutzerverwaltung lässt sich nicht abschalten. Rollen und ihre Rechte
   verwaltet ausschließlich der Betreiber in der zentralen Verwaltung.

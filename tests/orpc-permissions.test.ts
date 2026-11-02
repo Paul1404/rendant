@@ -1,6 +1,6 @@
 import { call, type AnyProcedure } from "@orpc/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { PERMISSION_KEYS } from "@/lib/permissions";
+import { DEFAULT_ROLE_PERMISSIONS, normalizeRolePolicy, PERMISSION_KEYS } from "@/lib/permissions";
 import { permitted, permittedAny, type ORPCContext } from "@/server/orpc/base";
 import { router } from "@/server/orpc/router";
 
@@ -10,6 +10,18 @@ function context(permissions: NonNullable<NonNullable<ORPCContext["user"]>["perm
 afterEach(() => vi.unstubAllEnvs());
 
 describe("functional RPC permission middleware", () => {
+ it("denies technical configuration and DATEV access for default Board, while honoring explicit operator overrides",async()=>{
+  const subject=context([...DEFAULT_ROLE_PERMISSIONS.board]);
+  for(const procedure of [router.settings.getEmail,router.settings.getMcp,router.settings.getSumup,router.settings.getDatev,router.settings.testSumup])
+   await expect(call(procedure as AnyProcedure,undefined,{context:subject})).rejects.toMatchObject({code:"FORBIDDEN"});
+  await expect(call(router.protokolle.datevStatus,{id:"00000000-0000-4000-8000-000000000002"},{context:subject})).rejects.toMatchObject({code:"FORBIDDEN"});
+  const configured={board:[...DEFAULT_ROLE_PERMISSIONS.board,"integrations.manage","datev.send"]};
+  const before=JSON.stringify(configured);
+  const grants=normalizeRolePolicy(configured).board;
+  expect(JSON.stringify(configured)).toBe(before);
+  expect(await call(permitted("integrations.manage").handler(()=>true),undefined,{context:context(grants)})).toBe(true);
+  expect(await call(permitted("datev.send","finance.read").handler(()=>true),undefined,{context:context(grants)})).toBe(true);
+ });
 	it("uses explicitly granted capabilities rather than the global or club role label", async () => {
 		const procedure = permitted("users.manage").handler(() => ({ ok: true }));
 		for (const role of ["user", "board", "admin"]) {

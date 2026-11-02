@@ -140,7 +140,10 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePolicy = {
 		"helpers.write",
 	],
 	admin: [...PERMISSION_KEYS],
-	board: [...PERMISSION_KEYS],
+	board: PERMISSION_KEYS.filter(
+		(permission) =>
+			permission !== "integrations.manage" && permission !== "datev.send",
+	),
 };
 export function isClubRole(role: unknown): role is ClubRole {
 	return CLUB_ROLES.includes(role as ClubRole);

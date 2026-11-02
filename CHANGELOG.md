@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.62.2 - 2026-11-02
+
+- Vorstand sieht standardmäßig keine technische Einrichtung für E-Mail, MCP,
+  SumUp oder DATEV mehr. Auch DATEV-Versand ist zunächst ausgeschaltet.
+- Die fachliche Vereinsverwaltung bleibt verfügbar. Betreiber können zusätzliche
+  Rechte gezielt freigeben; bereits ausdrücklich gespeicherte Rollenprofile
+  bleiben maßgeblich.
+
 ## 1.62.1 - 2026-11-02
 
 - Rollen und Berechtigungen werden ausschließlich unter admin.rendant.app für

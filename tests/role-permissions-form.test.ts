@@ -30,14 +30,17 @@ describe("role permissions editing", () => {
 		expect(updated).toContain("users.manage");
 	});
 
-	it("renders full default board rights and protects only required admin controls", () => {
+	it("renders business defaults for board and keeps technical grants unchecked", () => {
 		const client = new QueryClient();
 		const policy = { version: 1, roles: DEFAULT_ROLE_PERMISSIONS, permissions: PERMISSION_CATALOG, grantablePermissions: PERMISSION_KEYS, locked: { user: [], board: [], admin: PROTECTED_ADMIN_PERMISSIONS } };
 		const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(RolePolicyEditor, { policy, tenantId: "00000000-0000-4000-8000-000000000002" })));
 		client.clear();
 		const boardInputs = html.match(/<input[^>]+aria-label="Vorstand:[^>]+>/g) ?? [];
 		expect(boardInputs).toHaveLength(PERMISSION_CATALOG.length);
-		expect(boardInputs.every((input) => input.includes('checked=""') && !input.includes('disabled=""'))).toBe(true);
+		expect(boardInputs.every((input) => !input.includes('disabled=""'))).toBe(true);
+        expect(boardInputs.filter((input) => input.includes('checked=""'))).toHaveLength(DEFAULT_ROLE_PERMISSIONS.board.length);
+        expect(boardInputs.find(input=>input.includes('E-Mail und Integrationen konfigurieren'))).not.toContain('checked=""');
+        expect(boardInputs.find(input=>input.includes('Belege an DATEV'))).not.toContain('checked=""');
 		const lockedAdminInputs = (html.match(/<input[^>]+aria-label="Admin:[^>]+>/g) ?? []).filter((input) => input.includes('disabled=""'));
 		expect(lockedAdminInputs).toHaveLength(PROTECTED_ADMIN_PERMISSIONS.length);
 		expect(html).toContain("Berechtigungen speichern");

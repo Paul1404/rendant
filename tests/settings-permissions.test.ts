@@ -1,3 +1,4 @@
+import { DEFAULT_ROLE_PERMISSIONS } from "@/lib/permissions";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -15,6 +16,12 @@ import { Route } from "@/routes/protokolle/einstellungen";
 async function load(permissions:string[]){state.calls=[];const loader=Route.options.loader as (options:unknown)=>Promise<unknown>;const data=await loader({context:{user:{id:"demo",role:"board",permissions}}});return data;}
 afterEach(()=>vi.restoreAllMocks());
 describe("settings capability datasets",()=>{
+ it("does not fetch technical settings for the default Board but retains business management",async()=>{
+  const data=await load(DEFAULT_ROLE_PERMISSIONS.board) as Record<string,unknown>;
+  for(const field of ["email","mcp","sumup","datev"]) expect(data[field]).toBeNull();
+  for(const method of ["settings.getEmail","settings.getMcp","settings.getSumup","settings.getDatev"]) expect(state.calls).not.toContain(method);
+  expect(data.bookkeeping).not.toBeNull();expect(data.registers).toEqual([]);expect(data.admin).not.toBeNull();
+ });
  it("loads only the own notification preference when all optional rights are removed",async()=>{const data=await load([]);expect(state.calls).toEqual(["profile.getNotify"]);vi.spyOn(Route,"useLoaderData").mockReturnValue(data as never);vi.spyOn(Route,"useRouteContext").mockReturnValue({user:{permissions:[]}} as never);const html=renderToStaticMarkup(createElement(Route.options.component as ()=>React.ReactNode));expect(html).toContain("own-notifications");expect(html).not.toContain("SMTP-Zugang");expect(html).not.toContain("Vereinsstammdaten");});
  it("loads club defaults independently of integrations and financial read grants",async()=>{await load(["settings.manage"]);expect(state.calls).toEqual(expect.arrayContaining(["settings.getBelegnummer","settings.getUmsatzUstBasis","settings.getVerein","settings.getHelperHourValue","profile.getNotify"]));expect(state.calls).not.toContain("settings.getEmail");expect(state.calls).not.toContain("users.list");expect(state.calls).not.toContain("registers.list");});
  it("loads member management without unrelated financial or integration settings",async()=>{await load(["users.manage"]);expect(state.calls).toEqual(expect.arrayContaining(["users.list","invites.list","profile.getNotify"]));expect(state.calls).toHaveLength(3);});

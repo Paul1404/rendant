@@ -160,7 +160,7 @@ afterAll(async () => {
 });
 
 describe("central operator role administration", () => {
-	it("preserves legacy User grants and Board business access without a club role-management capability", async () => {
+	it("preserves legacy User grants and Board business access without technical defaults", async () => {
 		const { club, board } = await fixture();
 		expect(PERMISSION_KEYS).toHaveLength(19);
 		expect(PERMISSION_KEYS).not.toContain("roles.manage");
@@ -168,7 +168,7 @@ describe("central operator role administration", () => {
 			legacyUserGrants,
 		);
 		expect(await getTenantRolePermissions(club.id, "board")).toEqual(
-			PERMISSION_KEYS,
+			DEFAULT_ROLE_PERMISSIONS.board,
 		);
 		await expect(
 			globalDb.transaction((tx) =>
@@ -176,7 +176,7 @@ describe("central operator role administration", () => {
 					tx,
 					club.id,
 					board.id,
-					"integrations.manage",
+					"settings.manage",
 					"finance.read",
 				),
 			),
@@ -421,7 +421,7 @@ describe("central operator role administration", () => {
 		const legacy = {
 			...cloneDefaults(),
 			admin: [...DEFAULT_ROLE_PERMISSIONS.admin, "roles.manage"],
-			board: [...DEFAULT_ROLE_PERMISSIONS.board, "roles.manage"],
+			board: [...PERMISSION_KEYS, "roles.manage"],
 		};
 		await globalDb.execute(
 			sql`update tenants set role_permissions=${JSON.stringify(legacy)}::jsonb,role_permissions_version=11 where id=${club.id}::uuid`,
@@ -430,6 +430,8 @@ describe("central operator role administration", () => {
 		expect(policy.version).toBe(11);
 		expect(policy.roles.admin).not.toContain("roles.manage");
 		expect(policy.roles.board).not.toContain("roles.manage");
+		expect(policy.roles.board).toContain("integrations.manage");
+		expect(policy.roles.board).toContain("datev.send");
 		const [stored] = await globalDb
 			.select({
 				roles: tenants.role_permissions,
