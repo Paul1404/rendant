@@ -187,8 +187,9 @@ export function RolePolicyEditor({
 		>
 			<p className="max-w-3xl text-sm text-muted-foreground">
 				Die Rechte gelten für alle Personen mit dieser Rolle in diesem Verein.
-				Vorstand hat zunächst alle hier aufgeführten Rechte im eigenen Verein.
-				Die Rolle Admin bleibt zusätzlich geschützt. Du kannst die Rechte hier
+				Vorstand erhält zunächst die fachliche Vereinsverwaltung. Technische
+				Integrationen und DATEV-Versand müssen gesondert freigegeben werden. Die
+				Rolle Admin bleibt zusätzlich geschützt. Du kannst die Rechte hier
 				anpassen.
 			</p>
 			<p className="max-w-3xl text-sm text-muted-foreground">

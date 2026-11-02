@@ -52,7 +52,9 @@ update the appropriate canonical documentation in the same change.
   Only allowlisted operators with active SVU admin membership may provision
   clubs; tenant admin rights never grant operator access.
 - Club RBAC has `user`, `admin` and `board`. Per-club policy/version live on
-  `tenants`; defaults preserve User grants and give Board full club capabilities.
+  `tenants`; defaults preserve User grants and give Board business management,
+  excluding integration setup and DATEV submission. Explicit saved role overrides
+  remain authoritative; never rewrite them merely to change a default.
   Resolve capabilities from the current membership and policy on each request,
   never global identity roles or client claims. Enforce them on RPC, API imports,
   downloads and MCP; UI visibility alone is insufficient. See `docs/roles.md`.
