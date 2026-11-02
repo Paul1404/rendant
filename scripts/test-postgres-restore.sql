@@ -7,7 +7,8 @@ BEGIN
     RAISE EXCEPTION 'Rows, counter or already-applied migration journal changed';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM tenants WHERE id = '00000000-0000-4000-8000-000000000001'
-      AND role_permissions_version = 7 AND role_permissions->'board' = '["helpers.read"]'::jsonb)
+      AND role_permissions_version = 7 AND role_permissions->'board' = '["helpers.read"]'::jsonb
+      AND role_permissions->'admin' = '["users.manage","roles.manage"]'::jsonb)
       OR NOT EXISTS (SELECT 1 FROM tenant_memberships WHERE user_id = 'restore-test-user' AND role = 'board') THEN
     RAISE EXCEPTION 'Custom role permissions, revision or Board membership changed during restore';
   END IF;

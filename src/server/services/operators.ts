@@ -11,6 +11,9 @@ import { type RecordAuditInput, recordAuditEventStrict } from "./audit";
 import { sendInvitationEmail } from "./email";
 import { createInviteInTransaction } from "./invitations";
 import { tenantPublicBaseUrl } from "./public-url";
+
+export { getOperatorRolePolicy, updateOperatorRolePolicy } from "./role-policy";
+
 import {
 	assertPlatformAdmin,
 	assertPlatformAdminInTransaction,

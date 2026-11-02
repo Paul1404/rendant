@@ -16,22 +16,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
 import { formatDateDe } from "@/lib/date";
 import { orpcClient } from "@/lib/orpc";
 import { orpcMessage } from "@/lib/orpc-error";
-import {
-	CLUB_ROLES,
-	type ClubRole,
-	isClubRole,
-	roleLabel,
-} from "@/lib/permissions";
+import { roleLabel } from "@/lib/permissions";
 
 type UserRow = {
 	id: string;
@@ -56,29 +44,20 @@ export function UserManagement({
 	users,
 	invites,
 	currentUserId,
-	canManageRoles = false,
-	canAssignAdmin = false,
+	canManageAdminAccess = false,
 }: {
 	users: UserRow[];
 	invites: InviteRow[];
 	currentUserId: string;
-	canManageRoles?: boolean;
-	canAssignAdmin?: boolean;
+	canManageAdminAccess?: boolean;
 }) {
 	const router = useRouter();
 	const [pending, start] = useTransition();
-	const [pendingRole, setPendingRole] = useState<{
-		user: UserRow;
-		nextRole: ClubRole;
-	} | null>(null);
 	const [pendingBlock, setPendingBlock] = useState<UserRow | null>(null);
 	const [email, setEmail] = useState("");
-	const [role, setRole] = useState<ClubRole>("user");
 	const [lastLink, setLastLink] = useState<string | null>(null);
 	const [copied, setCopied] = useState(false);
 
-	const inviteRole =
-		!canManageRoles || (role === "admin" && !canAssignAdmin) ? "user" : role;
 	const pendingInvites = invites.filter((i) => !i.accepted_at);
 
 	async function writeClipboard(text: string): Promise<boolean> {
@@ -100,7 +79,7 @@ export function UserManagement({
 			try {
 				const invite = await orpcClient.invites.create({
 					email: email.trim(),
-					role: inviteRole,
+					role: "user",
 				});
 				const link = `${window.location.origin}/invite/${invite.token}`;
 				setLastLink(link);
@@ -159,36 +138,8 @@ export function UserManagement({
 		});
 	}
 
-	// Both of these start from a select or a toggle rather than a button, so the
-	// dialog is controlled and the pending action is held until it is confirmed.
-	function changeRole(user: UserRow, nextRole: ClubRole) {
-		if (
-			!canManageRoles ||
-			(!canAssignAdmin && (user.role === "admin" || nextRole === "admin"))
-		)
-			return;
-		if (user.role !== nextRole) setPendingRole({ user, nextRole });
-	}
-
-	function applyRole(user: UserRow, nextRole: ClubRole) {
-		if (
-			!canManageRoles ||
-			(!canAssignAdmin && (user.role === "admin" || nextRole === "admin"))
-		)
-			return;
-		start(async () => {
-			try {
-				await orpcClient.users.setRole({ id: user.id, role: nextRole });
-				toast.success(`Rolle auf ${roleLabel(nextRole)} geändert`);
-				await router.invalidate();
-			} catch (err) {
-				toast.error(orpcMessage(err, "Rolle konnte nicht geändert werden"));
-			}
-		});
-	}
-
 	function changeBlocked(user: UserRow) {
-		if (!canAssignAdmin && user.role === "admin") return;
+		if (!canManageAdminAccess && user.role === "admin") return;
 		if (!user.banned) {
 			setPendingBlock(user);
 			return;
@@ -197,7 +148,7 @@ export function UserManagement({
 	}
 
 	function applyBlocked(user: UserRow) {
-		if (!canAssignAdmin && user.role === "admin") return;
+		if (!canManageAdminAccess && user.role === "admin") return;
 		const nextBlocked = !user.banned;
 		start(async () => {
 			try {
@@ -228,43 +179,27 @@ export function UserManagement({
 		}
 	}
 
-	const roleDialog = (
-		<>
-			<ConfirmDialog
-				open={pendingRole !== null}
-				onOpenChange={(open) => {
-					if (!open) setPendingRole(null);
-				}}
-				title="Rolle ändern?"
-				description={`${pendingRole?.user.name ?? ""}: Rolle auf ${roleLabel(pendingRole?.nextRole ?? "user")} ändern. Die neuen Rechte gelten sofort für diesen Verein.`}
-				confirmLabel="Ändern"
-				pending={pending}
-				onConfirm={() => {
-					if (pendingRole) applyRole(pendingRole.user, pendingRole.nextRole);
-					setPendingRole(null);
-				}}
-			/>
-			<ConfirmDialog
-				open={pendingBlock !== null}
-				onOpenChange={(open) => {
-					if (!open) setPendingBlock(null);
-				}}
-				title="Konto sperren"
-				description={`${pendingBlock?.name ?? ""} wirklich sperren? Die Person wird sofort abgemeldet und kann sich nicht mehr anmelden.`}
-				confirmLabel="Sperren"
-				destructive
-				pending={pending}
-				onConfirm={() => {
-					if (pendingBlock) applyBlocked(pendingBlock);
-					setPendingBlock(null);
-				}}
-			/>
-		</>
+	const blockDialog = (
+		<ConfirmDialog
+			open={pendingBlock !== null}
+			onOpenChange={(open) => {
+				if (!open) setPendingBlock(null);
+			}}
+			title="Vereinszugang sperren?"
+			description={`${pendingBlock?.name ?? ""} verliert sofort den Zugriff auf diesen Verein. Das Konto bleibt für andere Vereine erhalten.`}
+			confirmLabel="Sperren"
+			destructive
+			pending={pending}
+			onConfirm={() => {
+				if (pendingBlock) applyBlocked(pendingBlock);
+				setPendingBlock(null);
+			}}
+		/>
 	);
 
 	return (
 		<div className="space-y-6">
-			{roleDialog}
+			{blockDialog}
 			<Card>
 				<CardHeader className="pb-3">
 					<CardTitle className="flex items-center gap-2 text-base">
@@ -273,17 +208,16 @@ export function UserManagement({
 					</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-4">
-					{canManageRoles && !canAssignAdmin && (
-						<p className="text-sm text-muted-foreground">
-							Du kannst Benutzer und Vorstand verwalten. Die Rolle Admin wird
-							nur von Admin verwaltet.
-						</p>
-					)}
+					<p className="text-sm text-muted-foreground">
+						Neue Personen werden als Benutzer eingeladen. Rollen und
+						Berechtigungen werden ausschließlich in der Betreiberverwaltung
+						geändert.
+					</p>
 					<form
 						onSubmit={createInvite}
 						className="grid grid-cols-1 gap-3 sm:grid-cols-12"
 					>
-						<div className="space-y-1.5 sm:col-span-6">
+						<div className="space-y-1.5 sm:col-span-9">
 							<Label htmlFor="invite-email">E-Mail</Label>
 							<Input
 								id="invite-email"
@@ -294,35 +228,7 @@ export function UserManagement({
 								required
 							/>
 						</div>
-						<div className="space-y-1.5 sm:col-span-3">
-							<Label htmlFor="invite-role">Rolle</Label>
-							<Select
-								value={inviteRole}
-								disabled={!canManageRoles || pending}
-								onValueChange={(value) => {
-									if (
-										isClubRole(value) &&
-										(value !== "admin" || canAssignAdmin)
-									)
-										setRole(value);
-								}}
-							>
-								<SelectTrigger id="invite-role" className="w-full">
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									{CLUB_ROLES.map((role) => (
-										<SelectItem
-											key={role}
-											value={role}
-											disabled={role === "admin" && !canAssignAdmin}
-										>
-											{roleLabel(role)}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
+
 						<div className="flex items-end sm:col-span-3">
 							<Button type="submit" disabled={pending} className="w-full">
 								{pending ? (
@@ -443,37 +349,10 @@ export function UserManagement({
 										/>
 										E-Mail bei neuem Protokoll
 									</label>
-									<Select
-										value={isClubRole(u.role) ? u.role : "user"}
-										onValueChange={(value) =>
-											isClubRole(value) && changeRole(u, value)
-										}
-										disabled={
-											pending ||
-											!canManageRoles ||
-											(!canAssignAdmin && u.role === "admin") ||
-											isSelf ||
-											Boolean(u.banned)
-										}
-									>
-										<SelectTrigger
-											className="h-8 w-28 text-xs"
-											aria-label={`Rolle von ${u.name}`}
-										>
-											<SelectValue />
-										</SelectTrigger>
-										<SelectContent>
-											{CLUB_ROLES.map((role) => (
-												<SelectItem
-													key={role}
-													value={role}
-													disabled={role === "admin" && !canAssignAdmin}
-												>
-													{roleLabel(role)}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
+									<span className="text-sm text-muted-foreground">
+										<span className="sr-only">Rolle: </span>
+										{roleLabel(u.role ?? "user")}
+									</span>
 									<Button
 										type="button"
 										variant="outline"
@@ -481,7 +360,7 @@ export function UserManagement({
 										disabled={
 											pending ||
 											isSelf ||
-											(!canAssignAdmin && u.role === "admin")
+											(!canManageAdminAccess && u.role === "admin")
 										}
 										onClick={() => changeBlocked(u)}
 										aria-label={`${u.name} ${u.banned ? "entsperren" : "sperren"}`}

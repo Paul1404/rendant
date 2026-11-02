@@ -24,7 +24,6 @@ import {
 import { McpSettingsPanel } from "@/components/mcp-settings-panel";
 import { NotificationPrefForm } from "@/components/notification-pref-form";
 import { PageHeader } from "@/components/page-header";
-import { RolePermissionsForm } from "@/components/role-permissions-form";
 import { SettingsSkeleton } from "@/components/skeletons";
 import { SumupSettingsForm } from "@/components/sumup-settings-form";
 import { SectionHeading } from "@/components/ui/section";
@@ -147,9 +146,6 @@ function EinstellungenPage() {
 				{datev && <SettingsLink href="#datev">DATEV</SettingsLink>}
 				{mcp && (
 					<SettingsLink href="#mcp">MCP &amp; Automatisierung</SettingsLink>
-				)}
-				{hasPermission(user, "roles.manage") && (
-					<SettingsLink href="#rollen">Rollen und Rechte</SettingsLink>
 				)}
 				{admin && <SettingsLink href="#benutzer">Benutzer</SettingsLink>}
 				<SettingsLink href="#benachrichtigungen">
@@ -304,19 +300,6 @@ function EinstellungenPage() {
 					<McpSettingsPanel status={mcp} />
 				</section>
 			)}
-			{hasPermission(user, "roles.manage") && (
-				<section
-					id="rollen"
-					className="mx-auto max-w-6xl scroll-mt-28 space-y-4"
-				>
-					<SectionHeading
-						icon={Users}
-						title="Rollen und Berechtigungen"
-						description="Rechte von Benutzer, Admin und Vorstand für diesen Verein anpassen."
-					/>
-					<RolePermissionsForm />
-				</section>
-			)}
 			{admin && (
 				<section
 					id="benutzer"
@@ -328,8 +311,7 @@ function EinstellungenPage() {
 						description="Lade weitere Personen ein und verwalte die Zugänge zu diesem Verein."
 					/>
 					<UserManagement
-						canManageRoles={hasPermission(user, "roles.manage")}
-						canAssignAdmin={user.role === "admin"}
+						canManageAdminAccess={user.role === "admin"}
 						users={admin.users}
 						invites={admin.invites}
 						currentUserId={currentUserId}

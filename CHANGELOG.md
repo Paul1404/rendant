@@ -3,6 +3,16 @@
 Alle nennenswerten Änderungen an diesem Projekt. Neueste zuerst. Die Version
 hier entspricht `package.json` und der Versionsmarke in der App.
 
+## 1.62.1 - 2026-11-02
+
+- Rollen und Berechtigungen werden ausschließlich unter admin.rendant.app für
+  den ausgewählten Verein verwaltet. Die Matrix ist aus den Vereinsansichten
+  entfernt.
+- In der Vereinsansicht sind Rollen nur noch sichtbar. Rollenänderungen und
+  Einladungen als Admin oder Vorstand sind dort auch über direkte Aufrufe gesperrt.
+- Bestehende Rollenzuweisungen, fachliche Rechte und Buchungsdaten bleiben
+  erhalten. Vereinseinladungen legen weiterhin normale Benutzer an.
+
 ## 1.62.0 - 2026-11-01
 
 - Jeder Verein hat in der Betreiberübersicht einen deutlich sichtbaren

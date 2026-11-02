@@ -315,6 +315,8 @@ export async function changeTenantMember(opts: {
 	operatorTenant?: { id: string; slug: string; name: string };
 }) {
 	const tenant = opts.operatorTenant ?? requireTenant();
+	if (!opts.operatorTenant && opts.role !== undefined)
+		throw new TenantAccessError();
 	if (opts.id === opts.actor.id && (opts.role !== undefined || opts.banned))
 		throw new ORPCError("BAD_REQUEST", {
 			message:
@@ -331,7 +333,7 @@ export async function changeTenantMember(opts: {
 				tx,
 				tenant.id,
 				opts.actor.id,
-				opts.role !== undefined ? "roles.manage" : "users.manage",
+				"users.manage",
 			);
 		}
 
@@ -359,7 +361,7 @@ export async function changeTenantMember(opts: {
 				tx,
 				tenant.id,
 				opts.actor.id,
-				opts.role !== undefined ? "roles.manage" : "users.manage",
+				"users.manage",
 			);
 			if (target.role === "admin" && actualRole !== "admin")
 				throw new TenantAccessError();

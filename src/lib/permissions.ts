@@ -118,12 +118,6 @@ export const PERMISSION_CATALOG = [
 		requires: [],
 	},
 	{
-		key: "roles.manage",
-		label: "Rollen zuweisen und Berechtigungen ändern",
-		group: "Zugriffe",
-		requires: ["users.manage"],
-	},
-	{
 		key: "audit.read",
 		label: "Änderungsprotokoll ansehen",
 		group: "Daten",
@@ -136,10 +130,7 @@ export const PERMISSION_KEYS = PERMISSION_CATALOG.map((entry) => entry.key) as [
 	...Permission[],
 ];
 export type RolePolicy = Record<ClubRole, Permission[]>;
-export const PROTECTED_ADMIN_PERMISSIONS: Permission[] = [
-	"users.manage",
-	"roles.manage",
-];
+export const PROTECTED_ADMIN_PERMISSIONS: Permission[] = ["users.manage"];
 export const DEFAULT_ROLE_PERMISSIONS: RolePolicy = {
 	user: [
 		"finance.read",

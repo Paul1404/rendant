@@ -4,6 +4,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { OperatorConsole, OperatorDenied, OperatorInvitePanel, OperatorInvitationDeliveryNotice } from "@/components/operator-console";
 import { orpc } from "@/lib/orpc";
+import { DEFAULT_ROLE_PERMISSIONS, PERMISSION_CATALOG, PERMISSION_KEYS, PROTECTED_ADMIN_PERMISSIONS } from "@/lib/permissions";
+
+vi.mock("@tanstack/react-router", async (importOriginal) => ({ ...await importOriginal<typeof import("@tanstack/react-router")>(), useRouter: () => ({ invalidate: vi.fn() }) }));
 
 const user = { id: "operator-demo", email: "operator@example.invalid", name: "Operator Demo", role: "admin" as const };
 const tenant = { id: "00000000-0000-4000-8000-000000000002", slug: "nord", name: "Nord Demo", url: "https://nord.example.invalid", memberCount: 1, adminCount: 1, createdAt: new Date("2026-01-01") };
@@ -14,6 +17,7 @@ function renderConsole(url: string | null = tenant.url, adminCount = tenant.admi
 	client.setQueryData(orpc.operators.list.queryOptions().queryKey, [club]);
 	client.setQueryData(orpc.operators.members.queryOptions({ input: { tenantId: club.id } }).queryKey, { tenant: club, members: [{ ...user, banned: false, globalBanned: false, notifyProtokoll: true, createdAt: new Date("2026-01-01") }] });
 	client.setQueryData(orpc.operators.invites.queryOptions({ input: { tenantId: club.id } }).queryKey, []);
+	client.setQueryData(orpc.operators.rolePolicy.queryOptions({ input: { tenantId: club.id } }).queryKey, { version: 1, roles: DEFAULT_ROLE_PERMISSIONS, permissions: PERMISSION_CATALOG, grantablePermissions: PERMISSION_KEYS, locked: { user: [], board: [], admin: PROTECTED_ADMIN_PERMISSIONS } });
 	const result = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(OperatorConsole, { user, onSelect: vi.fn() })));
 	client.clear();
 	return result;
@@ -28,9 +32,11 @@ describe("operator console presentation", () => {
 		expect(html).toContain("Nord Demo");
 		expect(html).toContain("nord.example.invalid");
 		expect(html).toContain("Mitglieder und Rollen");
+		expect(html).toContain("Rollen und Berechtigungen");
+		expect(html).toContain("Berechtigungen speichern");
 		expect(html).toContain("Einladungslink erstellen");
 		expect(html).toContain("Vereinsadmin einladen");
-		expect(html).not.toContain("Kassenzählprotokolle");
+		expect(html).not.toContain('href="/protokolle');
 		expect(html).not.toContain("Tageseinnahmen");
 		expect(html).not.toContain("Belegnummer");
 		expect(html).not.toContain("EUR");

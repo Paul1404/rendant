@@ -3,6 +3,7 @@ import { Building2, ExternalLink, Loader2, LogOut, Plus } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { BrandLockup } from "@/components/brand-lockup";
+import { RolePermissionsForm } from "@/components/role-permissions-form";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -527,6 +528,15 @@ function ClubDetails({
 				Belege bleiben unverändert. Anschrift und Registerdaten werden im
 				jeweiligen Verein gepflegt.
 			</p>
+			<section
+				className="space-y-4"
+				aria-labelledby="operator-role-policy-heading"
+			>
+				<h3 id="operator-role-policy-heading" className="font-heading text-lg">
+					Rollen und Berechtigungen
+				</h3>
+				<RolePermissionsForm key={tenant.id} tenantId={tenant.id} />
+			</section>
 			<div className="space-y-3">
 				<h3 className="font-heading text-lg">Mitglieder und Rollen</h3>
 				{members.isPending ? (

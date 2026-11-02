@@ -14,7 +14,6 @@ import {
 import { globalDb } from "@/server/db";
 import { user } from "@/server/db/auth-schema";
 import { memberships, tenants } from "@/server/db/tenant-schema";
-import { requireTenant } from "@/server/tenant-context";
 import { type RecordAuditInput, recordAuditEventStrict } from "./audit";
 import type { GlobalTransaction } from "./tenants";
 
@@ -45,22 +44,18 @@ export async function getRolePolicy(tenantId: string, connection = globalDb) {
 		},
 	};
 }
-export async function getRolePolicyForCurrentTenant() {
-	const tenant = requireTenant();
-	const policy = await getRolePolicy(tenant.id);
+export async function getRolePolicyForCurrentTenant(): Promise<never> {
+	denied();
+}
+export async function getOperatorRolePolicy(
+	tenantId: string,
+	actor: NonNullable<RecordAuditInput["actor"]>,
+) {
+	const { assertPlatformAdmin } = await import("./tenants");
+	await assertPlatformAdmin(actor.id);
 	return {
-		...policy,
-		locked: {
-			...policy.locked,
-			admin:
-				tenant.role === "admin"
-					? PROTECTED_ADMIN_PERMISSIONS
-					: [...PERMISSION_KEYS],
-		},
-		grantablePermissions:
-			tenant.role === "admin"
-				? [...PERMISSION_KEYS]
-				: [...(tenant.permissions ?? [])],
+		...(await getRolePolicy(tenantId)),
+		grantablePermissions: [...PERMISSION_KEYS],
 	};
 }
 export async function getTenantRolePermissions(
@@ -122,24 +117,27 @@ export async function assertActiveRoleManager(
 		);
 	if (
 		!active.some(
-			({ role }) =>
-				isClubRole(role) &&
-				policy[role].includes("roles.manage") &&
-				policy[role].includes("users.manage"),
+			({ role }) => isClubRole(role) && policy[role].includes("users.manage"),
 		)
 	) {
 		throw new ORPCError("CONFLICT", {
-			message:
-				"Mindestens eine aktive Person muss Benutzer und Rollen verwalten können",
+			message: "Mindestens eine aktive Person muss Benutzer verwalten können",
 		});
 	}
 }
 export async function updateRolePolicy(
-	input: { version: number; roles: RolePolicy },
+	_input: { version: number; roles: RolePolicy },
+	_actor: NonNullable<RecordAuditInput["actor"]>,
+	_request?: RecordAuditInput["request"],
+): Promise<never> {
+	denied();
+}
+export async function updateOperatorRolePolicy(
+	input: { tenantId: string; version: number; roles: RolePolicy },
 	actor: NonNullable<RecordAuditInput["actor"]>,
 	request?: RecordAuditInput["request"],
 ) {
-	const tenant = requireTenant();
+	const tenantId = input.tenantId;
 	for (const role of CLUB_ROLES) {
 		const values = input.roles[role];
 		if (
@@ -165,64 +163,46 @@ export async function updateRolePolicy(
 		PROTECTED_ADMIN_PERMISSIONS.some((key) => !input.roles.admin.includes(key))
 	) {
 		throw new ORPCError("BAD_REQUEST", {
-			message:
-				"Admins behalten die Benutzer- und Rollenverwaltung als geschützten Zugang",
+			message: "Admins behalten die Benutzerverwaltung als geschützten Zugang",
 		});
 	}
 	const policy = normalizeRolePolicy(input.roles);
 	await globalDb.transaction(async (tx) => {
 		await tx.execute(
-			sql`select pg_advisory_xact_lock(hashtextextended(${`rendant:tenant-admin:${tenant.id}`}, 0))`,
+			sql`select pg_advisory_xact_lock(hashtextextended(${`rendant:tenant-admin:${tenantId}`}, 0))`,
 		);
-		const actorRole = await assertTenantPermissionsInTransaction(
-			tx,
-			tenant.id,
-			actor.id,
-			"roles.manage",
-		);
+		const { assertPlatformAdminInTransaction } = await import("./tenants");
+		await assertPlatformAdminInTransaction(tx, actor.id);
 		const [current] = await tx
 			.select()
 			.from(tenants)
-			.where(eq(tenants.id, tenant.id))
+			.where(eq(tenants.id, tenantId))
 			.for("update");
+		if (!current)
+			throw new ORPCError("NOT_FOUND", { message: "Verein nicht gefunden" });
 		if (current.role_permissions_version !== input.version) {
 			throw new ORPCError("CONFLICT", {
 				message:
 					"Die Rollen wurden inzwischen geändert. Bitte neu laden und erneut prüfen.",
 			});
 		}
-		const previous = normalizeRolePolicy(current.role_permissions);
-		if (actorRole !== "admin") {
-			if (JSON.stringify(policy.admin) !== JSON.stringify(previous.admin))
-				denied();
-			for (const role of CLUB_ROLES) {
-				if (
-					policy[role].some(
-						(key) =>
-							!previous[role].includes(key) &&
-							!previous[actorRole].includes(key),
-					)
-				)
-					denied();
-			}
-		}
-		await assertActiveRoleManager(tx, tenant.id, policy);
+
 		await tx
 			.update(tenants)
 			.set({
 				role_permissions: policy,
 				role_permissions_version: current.role_permissions_version + 1,
 			})
-			.where(eq(tenants.id, tenant.id));
+			.where(eq(tenants.id, tenantId));
 		await tx.execute(
-			sql`select set_config('app.tenant_id', ${tenant.id}, true)`,
+			sql`select set_config('app.tenant_id', ${tenantId}, true)`,
 		);
 		await recordAuditEventStrict(tx, {
 			category: "users",
 			action: "users.role_permissions_updated",
 			actor,
 			request,
-			subject: { type: "tenant", id: tenant.id, label: tenant.name },
+			subject: { type: "tenant", id: tenantId, label: current.name },
 			metadata: {
 				previous: normalizeRolePolicy(current.role_permissions),
 				current: policy,
@@ -230,7 +210,7 @@ export async function updateRolePolicy(
 			},
 		});
 	});
-	return getRolePolicyForCurrentTenant();
+	return getOperatorRolePolicy(tenantId, actor);
 }
 
 export async function assertCanDelegateRoleInTransaction(
@@ -238,21 +218,20 @@ export async function assertCanDelegateRoleInTransaction(
 	tenantId: string,
 	userId: string,
 	targetRole: ClubRole,
-	requiredPermission: "roles.manage" | "users.manage" = "roles.manage",
+	_requiredPermission: "users.manage" = "users.manage",
 ) {
-	const actorRole = await assertTenantPermissionsInTransaction(
+	if (targetRole !== "user") denied();
+	const role = await assertTenantPermissionsInTransaction(
 		tx,
 		tenantId,
 		userId,
-		requiredPermission,
+		"users.manage",
 	);
-	if (actorRole === "admin") return;
-	if (targetRole === "admin") denied();
+	if (role === "admin") return;
 	const [row] = await tx
 		.select({ policy: tenants.role_permissions })
 		.from(tenants)
 		.where(eq(tenants.id, tenantId));
 	const policy = normalizeRolePolicy(row?.policy);
-	if (policy[targetRole].some((key) => !policy[actorRole].includes(key)))
-		denied();
+	if (policy.user.some((key) => !policy[role].includes(key))) denied();
 }

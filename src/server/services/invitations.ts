@@ -79,6 +79,7 @@ export type CreateInviteOptions = {
 export async function createInvite(
 	opts: CreateInviteOptions,
 ): Promise<InviteWithLink> {
+	if (opts.role !== "user") throw new TenantAccessError();
 	const tenant = requireTenant();
 	return globalDb.transaction(async (tx) => {
 		await tx.execute(
@@ -90,7 +91,6 @@ export async function createInvite(
 			tenant.id,
 			opts.audit.actor.id,
 			"users.manage",
-			...(opts.role === "user" ? [] : ["roles.manage" as const]),
 		);
 		await assertCanDelegateRoleInTransaction(
 			tx,

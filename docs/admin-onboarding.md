@@ -24,10 +24,12 @@ dem Neuladen ist der ursprüngliche Versandstatus möglicherweise nicht bekannt.
 Zuerst den Bestand der Einladungen prüfen. Den Link nicht öffentlich teilen.
 
 Ein Vereinsadmin kann weitere Personen unter **Einstellungen**, **Benutzer**
-einladen. Dort wird bei eingerichtetem verschlüsseltem Mailversand auch eine
-Einladungs-E-Mail verschickt. Bei übersprungenem oder fehlgeschlagenem Versand
-bleibt der Link zum persönlichen Weitergeben verfügbar. Die Anzeige über den
-Versandstatus beachten; eine erstellte Einladung bestätigt keinen E-Mail-Eingang.
+als normale Benutzer einladen. Bei diesen Vereinseinladungen wird mit
+konfiguriertem verschlüsseltem Mailversand auch die Einladungs-E-Mail verschickt.
+Admin und Vorstand werden ausschließlich in der Betreiberverwaltung vergeben.
+Bei übersprungenem oder fehlgeschlagenem Versand bleibt der Link zum
+persönlichen Weitergeben verfügbar. Die Anzeige über den Versandstatus beachten;
+eine erstellte Einladung bestätigt keinen E-Mail-Eingang.
 
 Einladungen immer mit der eigenen Vereinsadresse erzeugen. Für SSV Gädheim ist
 das `https://ssv-gaedheim.rendant.app`. Keine fremden Vereinsdaten kopieren,

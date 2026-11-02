@@ -7,11 +7,14 @@ const names = (mode: Parameters<typeof toolsForMode>[0]) =>
 const IDENTITY_TOOLS = [
 	"create_invite",
 	"revoke_invite",
-	"set_user_role",
 	"set_user_blocked",
 ];
 
 describe("toolsForMode", () => {
+	it("never exposes role assignments, including through identity mode", () => {
+		for (const mode of ["readonly", "admin", "identity"] as const)
+			expect(names(mode).has("set_user_role")).toBe(false);
+	});
 	it("exposes only reads in readonly mode", () => {
 		for (const tool of toolsForMode("readonly")) {
 			expect(tool.minMode).toBe("readonly");
