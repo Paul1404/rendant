@@ -12,21 +12,27 @@ separat abgesichert und wird durch Vereinsrechte nicht freigeschaltet.
   exportieren. Verwaltungsaktionen sind zunächst ausgeschaltet.
 - **Vorstand** kann den eigenen Verein vollständig verwalten. Dazu gehören
   Buchhaltung, Helferstunden, Einstellungen, Integrationen und die Verwaltung
-  der Rollen Benutzer und Vorstand.
-- **Admin** ist der geschützte technische Verwaltungszugang. Seine Benutzer-
-  und Rollenverwaltung lässt sich nicht abschalten. Nur ein Admin oder der
-  Betreiber darf die Admin-Rolle zuweisen, Admin-Mitgliedschaften ändern oder
-  die Berechtigungen dieser technischen Rolle bearbeiten.
+  von Benutzern innerhalb der vergebenen Rechte. Die Rollenverwaltung bleibt
+  ausschließlich in der Betreiberoberfläche.
+- **Admin** ist der geschützte technische Verwaltungszugang. Seine
+  Benutzerverwaltung lässt sich nicht abschalten. Rollen und ihre Rechte
+  verwaltet ausschließlich der Betreiber in der zentralen Verwaltung.
 
 Bestehende Mitgliedschaften bleiben unverändert. Die neue Rolle wird niemandem
-automatisch zugewiesen. Rollen lassen sich bei Einladungen wählen oder später
-unter **Einstellungen**, **Benutzer & Einladungen** ändern. Selbständerungen der
+automatisch zugewiesen. Rollen werden ausschließlich in der Betreiberverwaltung
+auf `admin.rendant.app`
+gewählt und geändert: Verein auswählen, **Verwalten**, dann die Person oder
+Einladung bearbeiten. In der Vereinsansicht ist die Rolle nur lesbar. Eine dort
+erstellte Einladung legt immer einen Benutzer an. Selbständerungen der
 eigenen Rolle und das Sperren des eigenen Kontos sind gesperrt.
 
 ## Rechte anpassen
 
-Unter **Einstellungen**, **Rollen und Berechtigungen** zeigt die Matrix die drei
-Rollen nebeneinander. Die einzelnen Rechte sind nach Buchhaltung, Helferstunden,
+Unter `admin.rendant.app`, **Verwalten**, **Rollen und Berechtigungen** zeigt die
+Matrix die drei Rollen für den ausgewählten Verein nebeneinander. Nur ein
+freigeschalteter Betreiber kann sie lesen oder ändern. Auch eine Vereinsrolle
+mit allen fachlichen Rechten erhält dadurch keinen Zugriff auf die zentrale
+Rollenverwaltung. Die einzelnen Rechte sind nach Buchhaltung, Helferstunden,
 Daten, Vereinsverwaltung und Zugriffen gegliedert. Änderungen gelten für alle
 Personen mit der gewählten Rolle im aktuell geöffneten Verein.
 
@@ -42,17 +48,23 @@ gespeicherte Belege und Buchungsdaten ändern sich dadurch nicht.
 
 ## Schutz vor Aussperrung und Selbsterhöhung
 
-Der letzte aktive Admin darf nicht herabgestuft oder gesperrt werden. Außerdem
-muss mindestens eine aktive Person Benutzer und Rollen verwalten können.
-Ein Vorstand mit eingeschränkten Rechten darf nur solche Rechte weitergeben,
-die er selbst aktuell besitzt. Das gilt auch beim Zuweisen einer Rolle oder
-beim Einladen anderer Personen. Der geschützte technische Admin-Zugang kann
-nicht als Umweg zum Wiederherstellen entzogener Rechte genutzt werden.
+Der letzte aktive Admin darf nicht herabgestuft oder gesperrt werden.
+Vereinsrollen dürfen weder sich selbst noch andere Konten in eine höhere Rolle
+versetzen. Auch eine Einladung aus der Vereinsansicht kann keine Verwaltungsrolle
+vergeben. Alte direkte Rollen-Endpunkte und entsprechende MCP-Aktionen bleiben
+gesperrt. Die zentrale Verwaltung prüft den Betreiberzugang unabhängig von den
+fachlichen Rechten des ausgewählten Vereins und prüft ihn bei Änderungen erneut
+in der Transaktion.
 
-Admins können ihre fachlichen Rechte verändern und über den geschützten
-Verwaltungszugang wiederherstellen. Vorstand und Benutzer können sich keine
-zusätzlichen Rechte verschaffen, indem sie eine andere Person oder ein zweites
-Konto einladen. Änderungen der Rollen und ihrer Berechtigungen werden protokolliert.
+Auch die Vereinsrolle Admin kann zentrale fachliche Einschränkungen nicht
+umgehen. Gewöhnliche Einladungen und Entsperrungen dürfen keinen weitergehenden
+Zugang vergeben, als die handelnde Person selbst besitzt. Darüber hinausgehende
+Freigaben erfolgen ausschließlich durch den Betreiber.
+
+Bisher gespeicherte Berechtigungen bleiben erhalten. Der frühere Schlüssel
+`roles.manage` wird nur noch als Altdatum erhalten und verleiht keine Befugnis.
+Er ist kein vergebbares Vereinsrecht mehr. Gespeicherte Rollen und ihre Versionen
+werden bei dieser Korrektur nicht umgeschrieben.
 
 ## Wirkung
 

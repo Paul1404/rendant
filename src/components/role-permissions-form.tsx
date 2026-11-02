@@ -29,9 +29,9 @@ type CatalogEntry = {
 	group: string;
 	requires: readonly Permission[];
 };
-type PolicyResponse = Awaited<ReturnType<typeof orpcClient.roles.get>> & {
-	grantablePermissions?: readonly Permission[];
-};
+type PolicyResponse = Awaited<
+	ReturnType<typeof orpcClient.operators.rolePolicy>
+>;
 type FormValues = { version: number; roles: RolePolicy };
 
 /** Apply the visible checkbox action together with its required read scopes. */
@@ -89,8 +89,10 @@ function formValues(policy: PolicyResponse): FormValues {
 	};
 }
 
-export function RolePermissionsForm() {
-	const policy = useQuery(orpc.roles.get.queryOptions());
+export function RolePermissionsForm({ tenantId }: { tenantId: string }) {
+	const policy = useQuery(
+		orpc.operators.rolePolicy.queryOptions({ input: { tenantId } }),
+	);
 	if (policy.isPending)
 		return (
 			<p role="status" className="text-sm text-muted-foreground">
@@ -115,10 +117,18 @@ export function RolePermissionsForm() {
 				</Button>
 			</div>
 		);
-	return <RolePolicyEditor policy={policy.data} />;
+	return (
+		<RolePolicyEditor key={tenantId} tenantId={tenantId} policy={policy.data} />
+	);
 }
 
-export function RolePolicyEditor({ policy }: { policy: PolicyResponse }) {
+export function RolePolicyEditor({
+	policy,
+	tenantId,
+}: {
+	policy: PolicyResponse;
+	tenantId: string;
+}) {
 	const queryClient = useQueryClient();
 	const router = useRouter();
 	// This is the form's initial revision, not another live server-state cache.
@@ -126,7 +136,8 @@ export function RolePolicyEditor({ policy }: { policy: PolicyResponse }) {
 	const initialValues = useRef(formValues(policy));
 	const [announcement, setAnnouncement] = useState("");
 	const update = useMutation({
-		mutationFn: (value: FormValues) => orpcClient.roles.update(value),
+		mutationFn: (value: FormValues) =>
+			orpcClient.operators.updateRolePolicy({ tenantId, ...value }),
 	});
 	const form = useForm({
 		defaultValues: initialValues.current,
@@ -134,7 +145,11 @@ export function RolePolicyEditor({ policy }: { policy: PolicyResponse }) {
 			try {
 				const saved = await update.mutateAsync(value);
 				resetDraft(saved);
-				queryClient.setQueryData(orpc.roles.get.queryOptions().queryKey, saved);
+				queryClient.setQueryData(
+					orpc.operators.rolePolicy.queryOptions({ input: { tenantId } })
+						.queryKey,
+					saved,
+				);
 				await queryClient.invalidateQueries();
 				await router.invalidate();
 				setAnnouncement("");
@@ -148,7 +163,9 @@ export function RolePolicyEditor({ policy }: { policy: PolicyResponse }) {
 				);
 				if (error instanceof ORPCError && error.code === "CONFLICT")
 					await queryClient.invalidateQueries({
-						queryKey: orpc.roles.get.queryOptions().queryKey,
+						queryKey: orpc.operators.rolePolicy.queryOptions({
+							input: { tenantId },
+						}).queryKey,
 					});
 			}
 		},
@@ -160,9 +177,6 @@ export function RolePolicyEditor({ policy }: { policy: PolicyResponse }) {
 		form.reset(initialValues.current);
 	}
 	const groups = [...new Set(policy.permissions.map((entry) => entry.group))];
-	const grantable = policy.grantablePermissions ?? [];
-	const adminPolicyLocked =
-		policy.locked.admin.length === policy.permissions.length;
 	return (
 		<form
 			className="space-y-4"
@@ -181,20 +195,9 @@ export function RolePolicyEditor({ policy }: { policy: PolicyResponse }) {
 				Schreibrechte aktivieren die nötigen Leserechte mit. Wenn du ein
 				Leserecht entfernst, werden davon abhängige Rechte ebenfalls entfernt.
 			</p>
-			<p className="max-w-3xl text-sm text-muted-foreground">
-				{adminPolicyLocked
-					? "Du kannst nur Rechte aktivieren, die du selbst besitzt. Bereits vergebene Rechte darfst du entfernen."
-					: "Mit der Rolle Admin kannst du alle Vereinsrechte vergeben. Die geschützten Verwaltungsrechte bleiben erhalten."}
-			</p>
-			{adminPolicyLocked && (
-				<p className="text-sm text-muted-foreground">
-					Die Rechte der Rolle Admin können nur Personen mit der Rolle Admin
-					ändern.
-				</p>
-			)}
 			<p id="role-policy-lock-note" className="text-xs text-muted-foreground">
-				Die Benutzer- und Rollenverwaltung bleibt für Admin geschützt, damit
-				sich der Verein nicht aussperrt.
+				Die Benutzerverwaltung bleibt für Admin geschützt, damit sich der Verein
+				nicht aussperrt.
 			</p>
 			<form.Subscribe selector={(state) => state.values.version}>
 				{(version) =>
@@ -271,10 +274,6 @@ export function RolePolicyEditor({ policy }: { policy: PolicyResponse }) {
 																		const locked = policy.locked[role].includes(
 																			permission.key,
 																		);
-																		const outsideCeiling =
-																			!field.state.value.includes(
-																				permission.key,
-																			) && !grantable.includes(permission.key);
 																		return (
 																			<input
 																				type="checkbox"
@@ -282,7 +281,7 @@ export function RolePolicyEditor({ policy }: { policy: PolicyResponse }) {
 																				checked={field.state.value.includes(
 																					permission.key,
 																				)}
-																				disabled={locked || outsideCeiling}
+																				disabled={locked}
 																				aria-label={`${roleLabel(role)}: ${permission.label}`}
 																				aria-describedby={
 																					locked
@@ -292,9 +291,7 @@ export function RolePolicyEditor({ policy }: { policy: PolicyResponse }) {
 																				title={
 																					locked
 																						? "Die Rolle Admin ist geschützt."
-																						: outsideCeiling
-																							? "Dieses Recht besitzt du selbst nicht und kannst es nicht vergeben."
-																							: undefined
+																						: undefined
 																				}
 																				onChange={(event) => {
 																					const next =
@@ -304,19 +301,6 @@ export function RolePolicyEditor({ policy }: { policy: PolicyResponse }) {
 																							event.target.checked,
 																							policy.permissions,
 																						);
-																					if (
-																						next.some(
-																							(key) =>
-																								!field.state.value.includes(
-																									key,
-																								) && !grantable.includes(key),
-																						)
-																					) {
-																						setAnnouncement(
-																							"Du kannst nur Rechte vergeben, die du selbst besitzt. Die erforderlichen Leserechte sind nicht vollständig freigegeben.",
-																						);
-																						return;
-																					}
 																					const additions = next.filter(
 																						(key) =>
 																							!field.state.value.includes(

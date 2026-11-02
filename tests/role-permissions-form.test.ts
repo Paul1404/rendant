@@ -2,7 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { changePermissionSelection, RolePolicyEditor } from "@/components/role-permissions-form";
+import { changePermissionSelection, RolePermissionsForm, RolePolicyEditor } from "@/components/role-permissions-form";
+import { orpc } from "@/lib/orpc";
 import { DEFAULT_ROLE_PERMISSIONS, PERMISSION_CATALOG, PERMISSION_KEYS, PROTECTED_ADMIN_PERMISSIONS } from "@/lib/permissions";
 
 vi.mock("@tanstack/react-router", async (importOriginal) => ({
@@ -26,13 +27,13 @@ describe("role permissions editing", () => {
 		expect(updated).not.toContain("exports.archive");
 		expect(updated).toContain("helpers.read");
 		expect(updated).toContain("helpers.write");
-		expect(updated).toContain("roles.manage");
+		expect(updated).toContain("users.manage");
 	});
 
 	it("renders full default board rights and protects only required admin controls", () => {
 		const client = new QueryClient();
 		const policy = { version: 1, roles: DEFAULT_ROLE_PERMISSIONS, permissions: PERMISSION_CATALOG, grantablePermissions: PERMISSION_KEYS, locked: { user: [], board: [], admin: PROTECTED_ADMIN_PERMISSIONS } };
-		const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(RolePolicyEditor, { policy })));
+		const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(RolePolicyEditor, { policy, tenantId: "00000000-0000-4000-8000-000000000002" })));
 		client.clear();
 		const boardInputs = html.match(/<input[^>]+aria-label="Vorstand:[^>]+>/g) ?? [];
 		expect(boardInputs).toHaveLength(PERMISSION_CATALOG.length);
@@ -45,19 +46,17 @@ describe("role permissions editing", () => {
 });
 
 
-it("locks protected Admin policy and prevents enabling rights outside the actor's ceiling", () => {
+it("loads each selected club policy through its tenant-scoped operator query", () => {
 	const client = new QueryClient();
-	const policy = { version: 1, roles: DEFAULT_ROLE_PERMISSIONS, permissions: PERMISSION_CATALOG, grantablePermissions: PERMISSION_KEYS.filter((key) => key === "finance.read"), locked: { user: [], board: [], admin: [...PERMISSION_KEYS] } };
-	const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(RolePolicyEditor, { policy })));
+	const firstId = "00000000-0000-4000-8000-000000000002";
+	const otherId = "00000000-0000-4000-8000-000000000003";
+	const base = { version: 1, roles: DEFAULT_ROLE_PERMISSIONS, permissions: PERMISSION_CATALOG, grantablePermissions: PERMISSION_KEYS, locked: { user: [], board: [], admin: PROTECTED_ADMIN_PERMISSIONS } };
+	client.setQueryData(orpc.operators.rolePolicy.queryOptions({ input: { tenantId: firstId } }).queryKey, { ...base, roles: { ...base.roles, user: base.roles.user.filter((key) => key !== "protocols.create") } });
+	client.setQueryData(orpc.operators.rolePolicy.queryOptions({ input: { tenantId: otherId } }).queryKey, base);
+	const firstHtml = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(RolePermissionsForm, { tenantId: firstId })));
+	const otherHtml = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(RolePermissionsForm, { tenantId: otherId })));
 	client.clear();
-	const adminInputs = html.match(/<input[^>]+aria-label="Admin:[^>]+>/g) ?? [];
-	expect(adminInputs).toHaveLength(PERMISSION_CATALOG.length);
-	expect(adminInputs.every((input) => input.includes('disabled=""'))).toBe(true);
-	const userCancel = (html.match(/<input[^>]+>/g) ?? []).find((input) => input.includes('aria-label="Benutzer: Kassenzählprotokolle stornieren"'));
-	expect(userCancel).toContain('disabled=""');
-	const currentUserCreate = (html.match(/<input[^>]+>/g) ?? []).find((input) => input.includes('aria-label="Benutzer: Kassenzählprotokolle buchen"'));
-	expect(currentUserCreate).toContain('checked=""');
-	expect(currentUserCreate).not.toContain('disabled=""');
-	expect(html).toContain("nur Personen mit der Rolle Admin ändern");
-	expect(html).toContain("nur Rechte aktivieren, die du selbst besitzt");
+	const bookingInput = (html: string) => (html.match(/<input[^>]+>/g) ?? []).find((input) => input.includes('aria-label="Benutzer: Kassenzählprotokolle buchen"'));
+	expect(bookingInput(firstHtml)).not.toContain('checked=""');
+	expect(bookingInput(otherHtml)).toContain('checked=""');
 });

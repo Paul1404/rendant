@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { createORPCClient } from "@orpc/client";
+import { RPCLink } from "@orpc/client/fetch";
+import type { RouterClient } from "@orpc/server";
+import { RPCHandler } from "@orpc/server/fetch";
+import { and, eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
 	DEFAULT_ROLE_PERMISSIONS,
@@ -10,25 +14,34 @@ import {
 import { auth } from "@/server/auth";
 import { db, globalDb, pool } from "@/server/db";
 import { user } from "@/server/db/auth-schema";
-import { appSettings, invitations } from "@/server/db/schema";
+import { appSettings, auditEvents, invitations } from "@/server/db/schema";
 import { memberships, tenants } from "@/server/db/tenant-schema";
+import { createORPCContext } from "@/server/orpc/context";
+import { type AppRouter, router } from "@/server/orpc/router";
 import { ensureCredentialUser } from "@/server/services/auth-accounts";
-import { acceptInvite, createInvite } from "@/server/services/invitations";
+import { createInvite } from "@/server/services/invitations";
+import {
+	setOperatorMemberBanned,
+	setOperatorMemberRole,
+} from "@/server/services/operators";
 import {
 	assertTenantPermissionsInTransaction,
+	getOperatorRolePolicy,
 	getRolePolicy,
+	getRolePolicyForCurrentTenant,
 	getTenantRolePermissions,
+	updateOperatorRolePolicy,
 	updateRolePolicy,
 } from "@/server/services/role-policy";
 import {
 	isPlatformAdmin,
 	resolveTenantSession,
-	setTenantUserRole,
 	setTenantUserBanned,
+	setTenantUserRole,
 } from "@/server/services/tenants";
 import { SVU_TENANT_ID, withTenant } from "@/server/tenant-context";
 
-const password = "synthetic-role-policy-password";
+const password = "synthetic-central-role-policy-password";
 const legacyUserGrants: Permission[] = [
 	"finance.read",
 	"protocols.create",
@@ -38,6 +51,7 @@ const legacyUserGrants: Permission[] = [
 ];
 const cloneDefaults = (): RolePolicy =>
 	structuredClone(DEFAULT_ROLE_PERMISSIONS);
+const handler = new RPCHandler(router);
 
 async function fixture() {
 	const run = randomUUID();
@@ -80,7 +94,20 @@ async function fixture() {
 				.values({ tenant_id: target.id, id: 1, vereinsname: target.name }),
 		);
 	}
-	return { club, other, admin, board, member };
+	const email = `operator-${run}@example.invalid`;
+	const name = "Synthetischer zentraler Betreiber";
+	const identity = await ensureCredentialUser({
+		email,
+		name,
+		password,
+		role: "user",
+	});
+	const operator = { id: identity.id, email, name, role: "admin" as const };
+	await globalDb
+		.insert(memberships)
+		.values({ tenant_id: SVU_TENANT_ID, user_id: operator.id, role: "admin" });
+	vi.stubEnv("PLATFORM_ADMIN_EMAILS", operator.email);
+	return { club, other, admin, board, member, operator };
 }
 
 async function cookieFor(email: string) {
@@ -97,6 +124,21 @@ async function cookieFor(email: string) {
 		.getSetCookie()
 		.map((part) => part.split(";")[0])
 		.join("; ");
+}
+function rpc(cookie: string, host: string, extra: Record<string, string> = {}) {
+	return createORPCClient<RouterClient<AppRouter>>(
+		new RPCLink({
+			url: `https://${host}/api/rpc`,
+			headers: { host, cookie, ...extra },
+			fetch: async (request) => {
+				const result = await handler.handle(request, {
+					prefix: "/api/rpc",
+					context: await createORPCContext(request),
+				});
+				return result.response ?? new Response("Not found", { status: 404 });
+			},
+		}),
+	);
 }
 
 beforeAll(async () => {
@@ -117,25 +159,17 @@ afterAll(async () => {
 	await pool.end();
 });
 
-describe("club role policy under PostgreSQL authorization", () => {
-	it("preserves legacy user grants and gives Board full club access without operator access", async () => {
+describe("central operator role administration", () => {
+	it("preserves legacy User grants and Board business access without a club role-management capability", async () => {
 		const { club, board } = await fixture();
+		expect(PERMISSION_KEYS).toHaveLength(19);
+		expect(PERMISSION_KEYS).not.toContain("roles.manage");
 		expect(await getTenantRolePermissions(club.id, "user")).toEqual(
 			legacyUserGrants,
 		);
 		expect(await getTenantRolePermissions(club.id, "board")).toEqual(
 			PERMISSION_KEYS,
 		);
-		await globalDb
-			.insert(memberships)
-			.values({ tenant_id: SVU_TENANT_ID, user_id: board.id, role: "board" });
-		// Even a historical global Admin flag cannot replace actual SVU Admin membership.
-		await globalDb
-			.update(user)
-			.set({ role: "admin" })
-			.where(eq(user.id, board.id));
-		vi.stubEnv("PLATFORM_ADMIN_EMAILS", board.email);
-		expect(await isPlatformAdmin(board.id)).toBe(false);
 		await expect(
 			globalDb.transaction((tx) =>
 				assertTenantPermissionsInTransaction(
@@ -143,37 +177,207 @@ describe("club role policy under PostgreSQL authorization", () => {
 					club.id,
 					board.id,
 					"integrations.manage",
-					"roles.manage",
+					"finance.read",
 				),
 			),
 		).resolves.toBe("board");
+		await globalDb
+			.insert(memberships)
+			.values({ tenant_id: SVU_TENANT_ID, user_id: board.id, role: "board" });
+		await globalDb
+			.update(user)
+			.set({ role: "admin" })
+			.where(eq(user.id, board.id));
+		vi.stubEnv("PLATFORM_ADMIN_EMAILS", board.email);
+		expect(await isPlatformAdmin(board.id)).toBe(false);
 	});
 
-	it("isolates each club matrix and immediately revokes permissions on an existing session", async () => {
-		const { club, other, admin, member } = await fixture();
-		const cookie = await cookieFor(member.email);
-		const headers = new Headers({ host: `${club.slug}.rendant.app`, cookie });
-		const original = await resolveTenantSession(headers);
-		expect(original?.user).toMatchObject({
-			role: "user",
-			permissions: DEFAULT_ROLE_PERMISSIONS.user,
-		});
-		const before = await getRolePolicy(club.id);
+	it("lets a verified operator edit a target club without a destination membership or tenant scope and audits the change", async () => {
+		const { club, other, operator } = await fixture();
+		const member = await globalDb
+			.select({ id: memberships.user_id })
+			.from(memberships)
+			.where(
+				and(
+					eq(memberships.tenant_id, club.id),
+					eq(memberships.user_id, operator.id),
+				),
+			);
+		expect(member).toHaveLength(0);
+		const current = await getOperatorRolePolicy(club.id, operator);
 		const roles = cloneDefaults();
 		roles.user = ["helpers.read"];
-		await withTenant(club, () =>
-			updateRolePolicy({ version: before.version, roles }, admin),
+		const changed = await updateOperatorRolePolicy(
+			{ tenantId: club.id, version: current.version, roles },
+			operator,
 		);
-		expect(await getTenantRolePermissions(club.id, "user")).toEqual([
-			"helpers.read",
-		]);
-		expect(await getTenantRolePermissions(other.id, "user")).toEqual(
-			DEFAULT_ROLE_PERMISSIONS.user,
-		);
+		expect(changed.version).toBe(2);
+		expect(changed.roles.user).toEqual(["helpers.read"]);
+		expect(
+			await globalDb
+				.select({ id: memberships.user_id })
+				.from(memberships)
+				.where(
+					and(
+						eq(memberships.tenant_id, club.id),
+						eq(memberships.user_id, operator.id),
+					),
+				),
+		).toHaveLength(0);
 		expect((await getRolePolicy(other.id)).version).toBe(1);
-		const refreshed = await resolveTenantSession(headers);
-		expect(refreshed?.user).toMatchObject({
-			role: "user",
+		expect(await getTenantRolePermissions(other.id, "user")).toEqual(
+			legacyUserGrants,
+		);
+		const events = await withTenant(club, () =>
+			db
+				.select({
+					actor: auditEvents.actor_user_id,
+					tenant: auditEvents.tenant_id,
+					subject: auditEvents.subject_id,
+					metadata: auditEvents.metadata,
+				})
+				.from(auditEvents)
+				.where(eq(auditEvents.action, "users.role_permissions_updated")),
+		);
+		expect(events).toHaveLength(1);
+		expect(events[0]).toMatchObject({
+			actor: operator.id,
+			tenant: club.id,
+			subject: club.id,
+			metadata: { version: 2, current: roles },
+		});
+	});
+
+	it("denies legacy club policy services for Admin, Board, User and even a real operator", async () => {
+		const { club, admin, board, member, operator } = await fixture();
+		for (const actor of [admin, board, member, operator]) {
+			await expect(
+				withTenant(club, () =>
+					updateRolePolicy({ version: 1, roles: cloneDefaults() }, actor),
+				),
+			).rejects.toMatchObject({ code: "FORBIDDEN" });
+			await expect(
+				withTenant({ ...club, role: actor.role }, () =>
+					getRolePolicyForCurrentTenant(),
+				),
+			).rejects.toMatchObject({ code: "FORBIDDEN" });
+		}
+		expect((await getRolePolicy(club.id)).version).toBe(1);
+	});
+
+	it("denies central policy access to unlisted club Admins despite forged role and permission flags", async () => {
+		const { club, admin } = await fixture();
+		await globalDb
+			.insert(memberships)
+			.values({ tenant_id: SVU_TENANT_ID, user_id: admin.id, role: "admin" });
+		const forged = {
+			...admin,
+			permissions: [...PERMISSION_KEYS, "roles.manage"],
+		};
+		await expect(getOperatorRolePolicy(club.id, forged)).rejects.toMatchObject({
+			code: "FORBIDDEN",
+		});
+		await expect(
+			updateOperatorRolePolicy(
+				{ tenantId: club.id, version: 1, roles: cloneDefaults() },
+				forged,
+			),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
+		expect((await getRolePolicy(club.id)).version).toBe(1);
+	});
+
+	it("requires the actual operator host for policy RPC and rejects forged forwarded hosts", async () => {
+		const { club, operator } = await fixture();
+		const cookie = await cookieFor(operator.email);
+		const central = rpc(cookie, "admin.rendant.app");
+		expect(
+			(await central.operators.rolePolicy({ tenantId: club.id })).version,
+		).toBe(1);
+		for (const host of [
+			`${club.slug}.rendant.app`,
+			"rendant.sv-untereuerheim.de",
+		]) {
+			const wrong = rpc(cookie, host, {
+				"x-forwarded-host": "admin.rendant.app",
+			});
+			await expect(
+				wrong.operators.rolePolicy({ tenantId: club.id }),
+			).rejects.toMatchObject({ code: "FORBIDDEN" });
+			await expect(
+				wrong.operators.updateRolePolicy({
+					tenantId: club.id,
+					version: 1,
+					roles: cloneDefaults(),
+				}),
+			).rejects.toMatchObject({ code: "FORBIDDEN" });
+		}
+		await expect(central.roles.get()).rejects.toMatchObject({
+			code: "FORBIDDEN",
+		});
+		expect((await getRolePolicy(club.id)).version).toBe(1);
+	});
+
+	it("rejects invalid dependencies, unknown grants and removal of core Admin user management", async () => {
+		const { club, operator } = await fixture();
+		const before = await getRolePolicy(club.id);
+		const dependent = cloneDefaults();
+		dependent.user = ["protocols.create"];
+		const unknown = cloneDefaults();
+		unknown.user = ["roles.manage" as Permission];
+		const lockout = cloneDefaults();
+		lockout.admin = lockout.admin.filter((key) => key !== "users.manage");
+		for (const roles of [dependent, unknown, lockout])
+			await expect(
+				updateOperatorRolePolicy(
+					{ tenantId: club.id, version: before.version, roles },
+					operator,
+				),
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
+		expect(await getRolePolicy(club.id)).toEqual(before);
+	});
+
+	it("allows exactly one competing operator update and rejects the stale writer", async () => {
+		const { club, operator } = await fixture();
+		const first = cloneDefaults();
+		first.user = ["helpers.read"];
+		const second = cloneDefaults();
+		second.user = ["finance.read"];
+		const results = await Promise.allSettled([
+			updateOperatorRolePolicy(
+				{ tenantId: club.id, version: 1, roles: first },
+				operator,
+			),
+			updateOperatorRolePolicy(
+				{ tenantId: club.id, version: 1, roles: second },
+				operator,
+			),
+		]);
+		expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+		expect(results.find((r) => r.status === "rejected")).toMatchObject({
+			status: "rejected",
+			reason: { code: "CONFLICT" },
+		});
+		const policy = await getRolePolicy(club.id);
+		expect(policy.version).toBe(2);
+		expect([first, second]).toContainEqual(policy.roles);
+	});
+
+	it("applies central revocation immediately to an existing club session", async () => {
+		const { club, operator, member } = await fixture();
+		const headers = new Headers({
+			host: `${club.slug}.rendant.app`,
+			cookie: await cookieFor(member.email),
+		});
+		expect((await resolveTenantSession(headers))?.user).toMatchObject({
+			permissions: legacyUserGrants,
+		});
+		const roles = cloneDefaults();
+		roles.user = ["helpers.read"];
+		await updateOperatorRolePolicy(
+			{ tenantId: club.id, version: 1, roles },
+			operator,
+		);
+		expect((await resolveTenantSession(headers))?.user).toMatchObject({
 			permissions: ["helpers.read"],
 		});
 		await expect(
@@ -188,215 +392,267 @@ describe("club role policy under PostgreSQL authorization", () => {
 		).rejects.toMatchObject({ code: "FORBIDDEN" });
 	});
 
-	it("rejects invalid dependencies and protected-admin removal without changing the policy", async () => {
-		const { club, admin } = await fixture();
-		const before = await getRolePolicy(club.id);
-		const invalid = cloneDefaults();
-		invalid.user = ["protocols.create"];
-		await expect(
-			withTenant(club, () =>
-				updateRolePolicy({ version: before.version, roles: invalid }, admin),
-			),
-		).rejects.toThrow();
-		const unknown = cloneDefaults();
-		unknown.user = ["unsupported.permission" as Permission];
-		await expect(
-			withTenant(club, () =>
-				updateRolePolicy({ version: before.version, roles: unknown }, admin),
-			),
-		).rejects.toThrow();
-		const lockout = cloneDefaults();
-		lockout.admin = lockout.admin.filter((key) => key !== "roles.manage");
-		await expect(
-			withTenant(club, () =>
-				updateRolePolicy({ version: before.version, roles: lockout }, admin),
-			),
-		).rejects.toThrow();
-		expect(await getRolePolicy(club.id)).toEqual(before);
-	});
-
-	it("allows one concurrent policy write and rejects its stale competitor", async () => {
-		const { club, admin } = await fixture();
-		const before = await getRolePolicy(club.id);
-		const first = cloneDefaults();
-		first.user = ["helpers.read"];
-		const second = cloneDefaults();
-		second.user = ["finance.read"];
-		const results = await Promise.allSettled([
-			withTenant(club, () =>
-				updateRolePolicy({ version: before.version, roles: first }, admin),
-			),
-			withTenant(club, () =>
-				updateRolePolicy({ version: before.version, roles: second }, admin),
-			),
-		]);
-		expect(
-			results.filter((result) => result.status === "fulfilled"),
-		).toHaveLength(1);
-		const rejected = results.find((result) => result.status === "rejected");
-		expect(rejected).toMatchObject({
-			status: "rejected",
-			reason: { code: "CONFLICT" },
-		});
-		const current = await getRolePolicy(club.id);
-		expect(current.version).toBe(before.version + 1);
-		expect([first, second]).toContainEqual(current.roles);
-	});
-
-	it("prevents Board from restoring its own revoked grants or promoting itself to Admin", async () => {
-		const { club, admin, board } = await fixture();
-		const before = await getRolePolicy(club.id);
-		const restricted = cloneDefaults();
-		restricted.board = restricted.board.filter(
-			(key) => key !== "integrations.manage",
-		);
-		await withTenant(club, () =>
-			updateRolePolicy({ version: before.version, roles: restricted }, admin),
-		);
-		const current = await getRolePolicy(club.id);
-		for (const actor of [board, { ...board, role: "admin" }]) {
-			await expect(
-				withTenant(club, () =>
-					updateRolePolicy(
-						{ version: current.version, roles: cloneDefaults() },
-						actor,
-					),
-				),
-			).rejects.toThrow();
-		}
-		await expect(
-			withTenant(club, () => setTenantUserRole(board.id, "admin", board)),
-		).rejects.toThrow();
-		expect(await getRolePolicy(club.id)).toEqual(current);
-		const row = await globalDb
-			.select({ role: memberships.role })
-			.from(memberships)
-			.where(
-				and(
-					eq(memberships.tenant_id, club.id),
-					eq(memberships.user_id, board.id),
-				),
-			);
-		expect(row[0].role).toBe("board");
-	});
-
-	it("lets Board delegate held permissions but protects Admin policy and membership", async () => {
-		const { club, board, member } = await fixture();
-		const allowed = cloneDefaults();
-		allowed.user.push("protocols.cancel");
-		await withTenant(club, () =>
-			updateRolePolicy({ version: 1, roles: allowed }, board),
-		);
-		expect(await getTenantRolePermissions(club.id, "user")).toContain(
-			"protocols.cancel",
-		);
-		const current = await getRolePolicy(club.id);
-		const adminChange = structuredClone(current.roles);
-		adminChange.admin = adminChange.admin.filter((key) => key !== "audit.read");
-		await expect(
-			withTenant(club, () =>
-				updateRolePolicy(
-					{ version: current.version, roles: adminChange },
-					board,
-				),
-			),
-		).rejects.toThrow();
-		await expect(
-			withTenant(club, () => setTenantUserRole(member.id, "admin", board)),
-		).rejects.toThrow();
-		await expect(
-			withTenant(club, () =>
-				createInvite({
-					email: `admin-alternate-${randomUUID()}@example.invalid`,
-					role: "admin",
-					invitedBy: board.email,
-					audit: { actor: board },
-				}),
-			),
-		).rejects.toThrow();
-		expect(await getRolePolicy(club.id)).toEqual(current);
-	});
-
-	it("does not let a reduced Board grant missing permissions to another role", async () => {
-		const { club, admin, board } = await fixture();
-		const reduced = cloneDefaults();
-		reduced.board = reduced.board.filter(
-			(key) => key !== "integrations.manage",
-		);
-		await withTenant(club, () =>
-			updateRolePolicy({ version: 1, roles: reduced }, admin),
-		);
-		const current = await getRolePolicy(club.id);
-		const escalated = structuredClone(current.roles);
-		escalated.user.push("integrations.manage");
-		await expect(
-			withTenant(club, () =>
-				updateRolePolicy({ version: current.version, roles: escalated }, board),
-			),
-		).rejects.toThrow();
-		expect(await getRolePolicy(club.id)).toEqual(current);
-	});
-
-	it("protects the actual last Admin when Board has every club permission", async () => {
-		const { club, admin, board } = await fixture();
-		await expect(
-			withTenant(club, () => setTenantUserRole(admin.id, "board", board)),
-		).rejects.toThrow();
-		await expect(
-			withTenant(club, () => setTenantUserRole(admin.id, "board", admin)),
-		).rejects.toThrow();
-		const row = await globalDb
-			.select({ role: memberships.role })
-			.from(memberships)
-			.where(
-				and(
-					eq(memberships.tenant_id, club.id),
-					eq(memberships.user_id, admin.id),
-				),
-			);
-		expect(row[0].role).toBe("admin");
-	});
-
-	it("rechecks actual membership and bans instead of trusting a cached actor", async () => {
-		const { club, other, admin } = await fixture();
-		await globalDb
-			.delete(memberships)
-			.where(
-				and(
-					eq(memberships.tenant_id, other.id),
-					eq(memberships.user_id, admin.id),
-				),
-			);
-		await expect(
-			withTenant(other, () =>
-				updateRolePolicy({ version: 1, roles: cloneDefaults() }, admin),
-			),
-		).rejects.toMatchObject({ code: "FORBIDDEN" });
+	it("rechecks operator eligibility for every read and transactional write after revocation", async () => {
+		const { club, operator } = await fixture();
+		await getOperatorRolePolicy(club.id, operator);
 		await globalDb
 			.update(memberships)
 			.set({ banned: true })
 			.where(
 				and(
-					eq(memberships.tenant_id, club.id),
-					eq(memberships.user_id, admin.id),
+					eq(memberships.tenant_id, SVU_TENANT_ID),
+					eq(memberships.user_id, operator.id),
 				),
 			);
 		await expect(
-			withTenant(club, () =>
-				updateRolePolicy({ version: 1, roles: cloneDefaults() }, admin),
+			getOperatorRolePolicy(club.id, operator),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
+		await expect(
+			updateOperatorRolePolicy(
+				{ tenantId: club.id, version: 1, roles: cloneDefaults() },
+				operator,
 			),
 		).rejects.toMatchObject({ code: "FORBIDDEN" });
 		expect((await getRolePolicy(club.id)).version).toBe(1);
-		expect((await getRolePolicy(other.id)).version).toBe(1);
 	});
 
-	it("does not let a reduced Board invite a User with broader configured rights", async () => {
-		const { club, admin, board } = await fixture();
-		const reduced = cloneDefaults();
-		reduced.board = ["users.manage", "roles.manage"];
-		await withTenant(club, () =>
-			updateRolePolicy({ version: 1, roles: reduced }, admin),
+	it("filters legacy roles.manage on reads without rewriting stored JSON or its revision", async () => {
+		const { club, operator } = await fixture();
+		const legacy = {
+			...cloneDefaults(),
+			admin: [...DEFAULT_ROLE_PERMISSIONS.admin, "roles.manage"],
+			board: [...DEFAULT_ROLE_PERMISSIONS.board, "roles.manage"],
+		};
+		await globalDb.execute(
+			sql`update tenants set role_permissions=${JSON.stringify(legacy)}::jsonb,role_permissions_version=11 where id=${club.id}::uuid`,
 		);
+		const policy = await getOperatorRolePolicy(club.id, operator);
+		expect(policy.version).toBe(11);
+		expect(policy.roles.admin).not.toContain("roles.manage");
+		expect(policy.roles.board).not.toContain("roles.manage");
+		const [stored] = await globalDb
+			.select({
+				roles: tenants.role_permissions,
+				version: tenants.role_permissions_version,
+			})
+			.from(tenants)
+			.where(eq(tenants.id, club.id));
+		expect(stored).toEqual({ roles: legacy, version: 11 });
+		await updateOperatorRolePolicy(
+			{ tenantId: club.id, version: 11, roles: policy.roles },
+			operator,
+		);
+		const [saved] = await globalDb
+			.select({
+				roles: tenants.role_permissions,
+				version: tenants.role_permissions_version,
+			})
+			.from(tenants)
+			.where(eq(tenants.id, club.id));
+		expect(saved).toEqual({ roles: policy.roles, version: 12 });
+	});
+
+	it("keeps all club role assignment blocked while the operator assigns all three roles and preserves the last Admin", async () => {
+		const { club, admin, board, member, operator } = await fixture();
+		for (const actor of [admin, board, member, operator])
+			await expect(
+				withTenant(club, () => setTenantUserRole(member.id, "board", actor)),
+			).rejects.toMatchObject({ code: "FORBIDDEN" });
+		await expect(
+			setOperatorMemberRole(
+				{ tenantId: club.id, id: admin.id, role: "board" },
+				operator,
+			),
+		).rejects.toMatchObject({ code: "CONFLICT" });
+		for (const role of ["board", "user", "admin"] as const) {
+			await setOperatorMemberRole(
+				{ tenantId: club.id, id: member.id, role },
+				operator,
+			);
+			const [row] = await globalDb
+				.select({ role: memberships.role })
+				.from(memberships)
+				.where(
+					and(
+						eq(memberships.tenant_id, club.id),
+						eq(memberships.user_id, member.id),
+					),
+				);
+			expect(row.role).toBe(role);
+		}
+		const [identity] = await globalDb
+			.select({ role: user.role })
+			.from(user)
+			.where(eq(user.id, member.id));
+		expect(identity.role).toBe("user");
+	});
+
+	it("blocks non-User club invitations but preserves ordinary member invitations", async () => {
+		const { club, admin, board } = await fixture();
+		for (const actor of [admin, board])
+			for (const role of ["admin", "board"] as const)
+				await expect(
+					withTenant(club, () =>
+						createInvite({
+							email: `forbidden-role-${randomUUID()}@example.invalid`,
+							role,
+							invitedBy: actor.email,
+							audit: { actor },
+						}),
+					),
+				).rejects.toMatchObject({ code: "FORBIDDEN" });
+		const invitation = await withTenant(club, () =>
+			createInvite({
+				email: `ordinary-${randomUUID()}@example.invalid`,
+				role: "user",
+				invitedBy: admin.email,
+				audit: { actor: admin },
+			}),
+		);
+		expect(invitation.role).toBe("user");
+	});
+
+	it("preserves operator membership protection against ordinary SVU club bans", async () => {
+		const { admin, operator } = await fixture();
+		const svu = { id: SVU_TENANT_ID, slug: "svu", name: "Synthetischer SVU" };
+		await globalDb
+			.insert(memberships)
+			.values({ tenant_id: SVU_TENANT_ID, user_id: admin.id, role: "admin" });
+		await expect(
+			withTenant(svu, () => setTenantUserBanned(operator.id, true, admin)),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
+		expect(await isPlatformAdmin(operator.id)).toBe(true);
+	});
+
+	it("lets a centrally configured users.manage manager invite ordinary members without role administration", async () => {
+		const { club, board, operator } = await fixture();
+		const roles = cloneDefaults();
+		roles.board = [...legacyUserGrants, "users.manage"];
+		await updateOperatorRolePolicy(
+			{ tenantId: club.id, version: 1, roles },
+			operator,
+		);
+		const invite = await withTenant(club, () =>
+			createInvite({
+				email: `limited-manager-${randomUUID()}@example.invalid`,
+				role: "user",
+				invitedBy: board.email,
+				audit: { actor: board },
+			}),
+		);
+		expect(invite.role).toBe("user");
+		await expect(
+			withTenant(club, () => updateRolePolicy({ version: 2, roles }, board)),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
+	});
+
+	it("does not let a centrally restricted Admin invite a broader ordinary User", async () => {
+		const { club, admin, operator } = await fixture();
+		const roles = cloneDefaults();
+		roles.admin = ["users.manage"];
+		await updateOperatorRolePolicy(
+			{ tenantId: club.id, version: 1, roles },
+			operator,
+		);
+		expect(await getTenantRolePermissions(club.id, "admin")).not.toContain(
+			"finance.read",
+		);
+		const email = `restricted-admin-user-${randomUUID()}@example.invalid`;
+		await expect(
+			withTenant(club, () =>
+				createInvite({
+					email,
+					role: "user",
+					invitedBy: admin.email,
+					audit: { actor: admin },
+				}),
+			),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
+		expect(
+			await withTenant(club, () =>
+				db
+					.select({ id: invitations.id })
+					.from(invitations)
+					.where(eq(invitations.email, email)),
+			),
+		).toHaveLength(0);
+	});
+
+	it("does not let a restricted Admin reactivate broader Board access while central operators retain authority", async () => {
+		const { club, admin, board, operator } = await fixture();
+		await withTenant(club, () => setTenantUserBanned(board.id, true, admin));
+		const roles = cloneDefaults();
+		roles.admin = ["users.manage"];
+		await updateOperatorRolePolicy(
+			{ tenantId: club.id, version: 1, roles },
+			operator,
+		);
+		await expect(
+			withTenant(club, () => setTenantUserBanned(board.id, false, admin)),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
+		const target = () =>
+			globalDb
+				.select({ banned: memberships.banned })
+				.from(memberships)
+				.where(
+					and(
+						eq(memberships.tenant_id, club.id),
+						eq(memberships.user_id, board.id),
+					),
+				);
+		expect(await target()).toEqual([{ banned: true }]);
+		await setOperatorMemberBanned(
+			{ tenantId: club.id, id: board.id, banned: false },
+			operator,
+		);
+		expect(await target()).toEqual([{ banned: false }]);
+	});
+
+	it("allows unrestricted Admin and Board to invite Users and reactivate Board access within their grants", async () => {
+		const { club, admin, board, member, operator } = await fixture();
+		await setOperatorMemberRole(
+			{ tenantId: club.id, id: member.id, role: "board" },
+			operator,
+		);
+		for (const actor of [admin, board]) {
+			const invited = await withTenant(club, () =>
+				createInvite({
+					email: `within-grants-${actor.role}-${randomUUID()}@example.invalid`,
+					role: "user",
+					invitedBy: actor.email,
+					audit: { actor },
+				}),
+			);
+			expect(invited.role).toBe("user");
+			await withTenant(club, () => setTenantUserBanned(member.id, true, admin));
+			await withTenant(club, () =>
+				setTenantUserBanned(member.id, false, actor),
+			);
+			const [target] = await globalDb
+				.select({ banned: memberships.banned })
+				.from(memberships)
+				.where(
+					and(
+						eq(memberships.tenant_id, club.id),
+						eq(memberships.user_id, member.id),
+					),
+				);
+			expect(target.banned).toBe(false);
+		}
+	});
+
+	it("preserves business member bans and prevents reduced club managers reactivating broader members", async () => {
+		const { club, board, member, operator } = await fixture();
+		await withTenant(club, () => setTenantUserBanned(member.id, true, board));
+		const roles = cloneDefaults();
+		roles.board = ["users.manage"];
+		await updateOperatorRolePolicy(
+			{ tenantId: club.id, version: 1, roles },
+			operator,
+		);
+		await expect(
+			withTenant(club, () => setTenantUserBanned(member.id, false, board)),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
 		const email = `broader-user-${randomUUID()}@example.invalid`;
 		await expect(
 			withTenant(club, () =>
@@ -408,27 +664,15 @@ describe("club role policy under PostgreSQL authorization", () => {
 				}),
 			),
 		).rejects.toMatchObject({ code: "FORBIDDEN" });
-		const rows = await withTenant(club, () =>
-			db
-				.select({ id: invitations.id })
-				.from(invitations)
-				.where(eq(invitations.email, email)),
-		);
-		expect(rows).toHaveLength(0);
-	});
-
-	it("does not let a reduced Board reactivate a banned User with broader rights", async () => {
-		const { club, admin, board, member } = await fixture();
-		await withTenant(club, () => setTenantUserBanned(member.id, true, admin));
-		const reduced = cloneDefaults();
-		reduced.board = ["users.manage", "roles.manage"];
-		await withTenant(club, () =>
-			updateRolePolicy({ version: 1, roles: reduced }, admin),
-		);
-		await expect(
-			withTenant(club, () => setTenantUserBanned(member.id, false, board)),
-		).rejects.toMatchObject({ code: "FORBIDDEN" });
-		const rows = await globalDb
+		expect(
+			await withTenant(club, () =>
+				db
+					.select({ id: invitations.id })
+					.from(invitations)
+					.where(eq(invitations.email, email)),
+			),
+		).toHaveLength(0);
+		const [row] = await globalDb
 			.select({ banned: memberships.banned })
 			.from(memberships)
 			.where(
@@ -437,120 +681,6 @@ describe("club role policy under PostgreSQL authorization", () => {
 					eq(memberships.user_id, member.id),
 				),
 			);
-		expect(rows).toEqual([{ banned: true }]);
-	});
-
-	it("allows ordinary invitations with users.manage and the target User grants, without roles.manage", async () => {
-		const { club, admin, board } = await fixture();
-		const policy = cloneDefaults();
-		policy.board = [...legacyUserGrants, "users.manage"];
-		await withTenant(club, () =>
-			updateRolePolicy({ version: 1, roles: policy }, admin),
-		);
-		expect(await getTenantRolePermissions(club.id, "board")).not.toContain(
-			"roles.manage",
-		);
-		const invite = await withTenant(club, () =>
-			createInvite({
-				email: `ordinary-user-${randomUUID()}@example.invalid`,
-				role: "user",
-				invitedBy: board.email,
-				audit: { actor: board },
-			}),
-		);
-		expect(invite.role).toBe("user");
-		const rows = await withTenant(club, () =>
-			db
-				.select({ role: invitations.role })
-				.from(invitations)
-				.where(eq(invitations.id, invite.id)),
-		);
-		expect(rows).toEqual([{ role: "user" }]);
-	});
-
-	it("prevents an ordinary SVU Admin from demoting or banning an allowlisted operator", async () => {
-		const { admin: manager, board: operator } = await fixture();
-		const svu = { id: SVU_TENANT_ID, slug: "svu", name: "Synthetischer SVU" };
-		await globalDb.insert(memberships).values([
-			{ tenant_id: SVU_TENANT_ID, user_id: manager.id, role: "admin" },
-			{ tenant_id: SVU_TENANT_ID, user_id: operator.id, role: "admin" },
-		]);
-		vi.stubEnv("PLATFORM_ADMIN_EMAILS", operator.email);
-		expect(await isPlatformAdmin(manager.id)).toBe(false);
-		expect(await isPlatformAdmin(operator.id)).toBe(true);
-		for (const targetRole of ["user", "board"] as const) {
-			await expect(
-				withTenant(svu, () =>
-					setTenantUserRole(operator.id, targetRole, manager),
-				),
-			).rejects.toMatchObject({ code: "FORBIDDEN" });
-		}
-		await expect(
-			withTenant(svu, () => setTenantUserBanned(operator.id, true, manager)),
-		).rejects.toMatchObject({ code: "FORBIDDEN" });
-		const rows = await globalDb
-			.select({ role: memberships.role, banned: memberships.banned })
-			.from(memberships)
-			.where(
-				and(
-					eq(memberships.tenant_id, SVU_TENANT_ID),
-					eq(memberships.user_id, operator.id),
-				),
-			);
-		expect(rows).toEqual([{ role: "admin", banned: false }]);
-		expect(await isPlatformAdmin(operator.id)).toBe(true);
-	});
-
-	it("prevents an ordinary SVU Admin from minting an Admin invitation for an allowlisted future operator", async () => {
-		const { admin: manager } = await fixture();
-		const svu = { id: SVU_TENANT_ID, slug: "svu", name: "Synthetischer SVU" };
-		await globalDb
-			.insert(memberships)
-			.values({ tenant_id: SVU_TENANT_ID, user_id: manager.id, role: "admin" });
-		const email = `future-operator-${randomUUID()}@example.invalid`;
-		vi.stubEnv("PLATFORM_ADMIN_EMAILS", email);
-		await expect(
-			withTenant(svu, () =>
-				createInvite({
-					email,
-					role: "admin",
-					invitedBy: manager.email,
-					audit: { actor: manager },
-				}),
-			),
-		).rejects.toMatchObject({ code: "FORBIDDEN" });
-		const rows = await withTenant(svu, () =>
-			db
-				.select({ id: invitations.id })
-				.from(invitations)
-				.where(eq(invitations.email, email)),
-		);
-		expect(rows).toHaveLength(0);
-	});
-
-	it("accepts a Board invitation without raising the global identity role", async () => {
-		const { club, board } = await fixture();
-		const invitation = await withTenant(club, () =>
-			createInvite({
-				email: `invited-board-${randomUUID()}@example.invalid`,
-				role: "board",
-				invitedBy: board.email,
-				audit: { actor: board },
-			}),
-		);
-		const accepted = await acceptInvite({
-			token: invitation.token,
-			name: "Synthetischer Vorstand",
-			password,
-			headers: new Headers({ host: `${club.slug}.rendant.app` }),
-			audit: {},
-		});
-		expect(accepted.role).toBe("board");
-		const identity = await globalDb
-			.select({ role: user.role })
-			.from(user)
-			.where(eq(user.id, accepted.userId));
-		expect(identity[0].role).toBe("user");
-		expect(await isPlatformAdmin(accepted.userId)).toBe(false);
+		expect(row.banned).toBe(true);
 	});
 });

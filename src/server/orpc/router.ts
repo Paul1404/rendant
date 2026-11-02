@@ -2,7 +2,7 @@ import { ORPCError } from "@orpc/server";
 import * as v from "valibot";
 import { AUDIT_CATEGORIES } from "@/lib/audit";
 import { todayIsoDate } from "@/lib/date";
-import { CLUB_ROLES, hasPermission } from "@/lib/permissions";
+import { CLUB_ROLES } from "@/lib/permissions";
 import {
 	AnlassKatalogBulkAssignSchema,
 	AnlassKatalogSchema,
@@ -200,10 +200,6 @@ import {
 import { tenantPublicBaseUrl } from "@/server/services/public-url";
 import { vatSummary } from "@/server/services/reports";
 import {
-	getRolePolicyForCurrentTenant,
-	updateRolePolicy,
-} from "@/server/services/role-policy";
-import {
 	getBelegnummerSettings,
 	getHelperHourValueCent,
 	getSettingsStamp,
@@ -225,12 +221,19 @@ import {
 import {
 	listTenantUsers,
 	setTenantUserBanned,
-	setTenantUserRole,
 } from "@/server/services/tenants";
 import { authed, permitted, permittedAny, pub } from "./base";
 import { operators } from "./operator";
 
 const idInput = v.object({ id: v.pipe(v.string(), v.minLength(1)) });
+
+function rejectClubRoleAdministration(): never {
+	throw new ORPCError("FORBIDDEN", {
+		message:
+			"Rollen werden ausschließlich in der Betreiberverwaltung verwaltet",
+	});
+}
+const operatorRolesOnly = authed.use(() => rejectClubRoleAdministration());
 
 // ---- Protokolle ----------------------------------------------------------
 
@@ -943,10 +946,7 @@ const invites = {
 	create: permitted("users.manage")
 		.input(InviteCreateSchema)
 		.handler(async ({ input, context }) => {
-			if (input.role !== "user" && !hasPermission(context.user, "roles.manage"))
-				throw new ORPCError("FORBIDDEN", {
-					message: "Für die Zuweisung dieser Rolle besteht keine Berechtigung",
-				});
+			if (input.role !== "user") rejectClubRoleAdministration();
 			try {
 				const invite = await createInvite({
 					email: input.email,
@@ -1018,21 +1018,14 @@ const invites = {
 
 const users = {
 	list: permitted("users.manage").handler(() => listTenantUsers()),
-	setRole: permitted("roles.manage")
+	setRole: operatorRolesOnly
 		.input(
 			v.object({
 				id: v.pipe(v.string(), v.minLength(1)),
 				role: v.picklist(CLUB_ROLES),
 			}),
 		)
-		.handler(({ input, context }) =>
-			setTenantUserRole(
-				input.id,
-				input.role,
-				context.user,
-				requestAuditContext(context),
-			),
-		),
+		.handler(rejectClubRoleAdministration),
 	setBanned: permitted("users.manage")
 		.input(
 			v.object({ id: v.pipe(v.string(), v.minLength(1)), banned: v.boolean() }),
@@ -1610,14 +1603,10 @@ const health = pub.handler(async () => {
 
 export const router = {
 	roles: {
-		get: permitted("roles.manage").handler(() =>
-			getRolePolicyForCurrentTenant(),
-		),
-		update: permitted("roles.manage")
+		get: operatorRolesOnly.handler(rejectClubRoleAdministration),
+		update: operatorRolesOnly
 			.input(RolePolicyUpdateSchema)
-			.handler(({ input, context }) =>
-				updateRolePolicy(input, context.user, requestAuditContext(context)),
-			),
+			.handler(rejectClubRoleAdministration),
 	},
 	recovery: {
 		request: pub

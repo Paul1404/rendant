@@ -56,10 +56,15 @@ update the appropriate canonical documentation in the same change.
   Resolve capabilities from the current membership and policy on each request,
   never global identity roles or client claims. Enforce them on RPC, API imports,
   downloads and MCP; UI visibility alone is insufficient. See `docs/roles.md`.
-  Actual Admin retains protected user/role management; non-Admins cannot modify
-  Admin membership/policy or delegate grants they do not hold. Recheck control
-  mutations in their transaction, preserve last-Admin/last-manager guards and
-  serialize versioned role-policy edits with membership administration.
+  Role policy and role assignment are operator-only on `admin.rendant.app`.
+  Club roles never authorize them, even an Admin or Board with all capabilities.
+  Legacy `roles.manage` JSON is ignored without rewriting stored policies.
+  Ordinary club invitations always use User; elevated invitations and all role
+  changes require the operator realm and transaction-level platform checks.
+  Centrally restricted club Admins have no delegation bypass: ordinary User
+  invitations and unbans remain bounded by their current business grants.
+  Actual Admin retains protected user management; preserve last-Admin guards
+  and serialize versioned operator policy edits with membership administration.
   Pre-RBAC application rollback can bypass saved restrictions. After Board
   assignment or policy customization, recover with an RBAC-aware application;
   preserve policy/version during backup and isolated restore rehearsals.

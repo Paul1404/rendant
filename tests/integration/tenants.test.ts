@@ -23,6 +23,7 @@ import {
 	InviteAlreadyRegisteredError,
 } from "@/server/services/invitations";
 import { listOptedInUserEmails } from "@/server/services/notification-prefs";
+import { inviteOperatorMember, setOperatorMemberRole } from "@/server/services/operators";
 import { getProtokoll } from "@/server/services/protokoll";
 import {
 	listTenantUsers,
@@ -58,6 +59,23 @@ let memberCookie: string;
 let outsiderCookie: string;
 const memberEmail = `member-${runId}@example.invalid`;
 const outsiderEmail = `outsider-${runId}@example.invalid`;
+const operators = ["a", "b"].map((label) => ({ id: randomUUID(), email: `isolation-operator-${label}-${runId}@example.invalid`, name: `Synthetischer Betreiber ${label}`, role: "user" }));
+
+async function withEnvironment<T>(overrides: Record<string, string>, work: () => Promise<T>): Promise<T> {
+	const previous = Object.fromEntries(Object.keys(overrides).map((key) => [key, process.env[key]]));
+	Object.assign(process.env, overrides);
+	try { return await work(); }
+	finally {
+		for (const [key, value] of Object.entries(previous)) {
+			if (value === undefined) delete process.env[key];
+			else process.env[key] = value;
+		}
+	}
+}
+
+function withOperators<T>(work: () => Promise<T>): Promise<T> {
+	return withEnvironment({ PLATFORM_ADMIN_EMAILS: operators.map((operator) => operator.email).join(",") }, work);
+}
 
 async function signInCookie(email: string): Promise<string> {
 	const baseUrl = process.env.BETTER_AUTH_URL || "http://127.0.0.1:3000";
@@ -86,6 +104,8 @@ beforeAll(async () => {
 		throw new Error("Tenant tests refuse a database without _test suffix");
 	}
 	await globalDb.insert(tenants).values(clubs);
+	await globalDb.insert(user).values(operators.map((operator) => ({ ...operator, emailVerified: true })));
+	await globalDb.insert(memberships).values(operators.map((operator) => ({ tenant_id: SVU_TENANT_ID, user_id: operator.id, role: "admin" as const })));
 	memberId = (
 		await ensureCredentialUser({
 			email: memberEmail,
@@ -439,12 +459,13 @@ describe("membership authorization", () => {
 				clubs.map((club) => ({ tenant_id: club.id, user_id: target.id })),
 			);
 		await withTenant(clubA, async () => {
-			await setTenantUserRole(target.id, "admin", actor);
+			await expect(setTenantUserRole(target.id, "admin", actor)).rejects.toMatchObject({ code: "FORBIDDEN" });
+			await withOperators(() => setOperatorMemberRole({ tenantId: clubA.id, id: target.id, role: "admin" }, operators[0]));
 			await setTenantUserBanned(target.id, true, actor);
 			await expect(
 				setTenantUserRole(memberId, "user", actor),
 			).rejects.toMatchObject({
-				code: "BAD_REQUEST",
+				code: "FORBIDDEN",
 			});
 		});
 		const rows = await globalDb
@@ -467,7 +488,7 @@ describe("membership authorization", () => {
 		});
 	});
 
-	it("retains an active admin when simultaneous admins try to demote each other", async () => {
+	it("retains an active admin when authorized operators concurrently demote each other's club memberships", async () => {
 		const club: TenantContext = {
 			id: randomUUID(),
 			slug: `admin-race-${runId}`,
@@ -475,23 +496,13 @@ describe("membership authorization", () => {
 		};
 		await globalDb.insert(tenants).values(club);
 		await globalDb.insert(memberships).values([
-			{ tenant_id: club.id, user_id: memberId, role: "admin" },
-			{ tenant_id: club.id, user_id: outsiderId, role: "admin" },
+			{ tenant_id: club.id, user_id: operators[0].id, role: "admin" },
+			{ tenant_id: club.id, user_id: operators[1].id, role: "admin" },
 		]);
-		const results = await withTenant(club, () =>
+		const results = await withOperators(() =>
 			Promise.allSettled([
-				setTenantUserRole(outsiderId, "user", {
-					id: memberId,
-					email: memberEmail,
-					name: "Admin A",
-					role: "admin",
-				}),
-				setTenantUserRole(memberId, "user", {
-					id: outsiderId,
-					email: outsiderEmail,
-					name: "Admin B",
-					role: "admin",
-				}),
+				setOperatorMemberRole({ tenantId: club.id, id: operators[1].id, role: "user" }, operators[0]),
+				setOperatorMemberRole({ tenantId: club.id, id: operators[0].id, role: "user" }, operators[1]),
 			]),
 		);
 		expect(
@@ -504,6 +515,12 @@ describe("membership authorization", () => {
 				and(eq(memberships.tenant_id, club.id), eq(memberships.role, "admin")),
 			);
 		expect(remaining).toHaveLength(1);
+		const rejected = results.find((result) => result.status === "rejected");
+		expect(rejected?.status === "rejected" && rejected.reason.code).toBe("CONFLICT");
+		for (const operator of operators) {
+			const [svu] = await globalDb.select().from(memberships).where(and(eq(memberships.tenant_id, SVU_TENANT_ID), eq(memberships.user_id, operator.id)));
+			expect(svu.role).toBe("admin");
+		}
 	});
 
 	it("allows only SVU administrators to clear a historical global ban", async () => {
@@ -651,14 +668,14 @@ describe("invitations across clubs", () => {
 			name: "Admin",
 			role: "admin",
 		};
-		const invite = await withTenant(clubA, () =>
-			createInvite({
-				email,
-				role: "admin",
-				invitedBy: memberId,
-				audit: { actor },
-			}),
-		);
+		await expect(withTenant(clubA, () => createInvite({ email, role: "admin", invitedBy: memberId, audit: { actor } }))).rejects.toMatchObject({ code: "FORBIDDEN" });
+		const invite = await withOperators(() => withEnvironment({
+			TENANT_BASE_DOMAIN: "rendant.app",
+			TENANT_CANONICAL_BASE_DOMAIN: "rendant.app",
+			TENANT_CANONICAL_HOSTS_JSON: "",
+			TENANT_HOST_ALIASES_JSON: "",
+			AUTH_TRUSTED_ORIGINS: `https://${clubA.slug}.rendant.app`,
+		}, () => inviteOperatorMember({ tenantId: clubA.id, email, role: "admin" }, operators[0])));
 		const acceptance = {
 			token: invite.token,
 			name: "Neues Mitglied",

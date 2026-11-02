@@ -1,11 +1,13 @@
 import { call, type AnyProcedure } from "@orpc/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { PERMISSION_KEYS } from "@/lib/permissions";
 import { permitted, permittedAny, type ORPCContext } from "@/server/orpc/base";
 import { router } from "@/server/orpc/router";
 
 function context(permissions: NonNullable<NonNullable<ORPCContext["user"]>["permissions"]>, role = "board"): ORPCContext {
 	return { user: { id: "synthetic", email: "synthetic@example.invalid", name: "Synthetisch", role, permissions }, tenant: { id: "00000000-0000-4000-8000-000000000001", slug: "svu", name: "Synthetisch" }, headers: new Headers(), clientIp: "unknown", requestId: "synthetic" };
 }
+afterEach(() => vi.unstubAllEnvs());
 
 describe("functional RPC permission middleware", () => {
 	it("uses explicitly granted capabilities rather than the global or club role label", async () => {
@@ -51,5 +53,26 @@ describe("functional RPC permission middleware", () => {
 
 	it("does not let user management alone assign elevated invitation roles", async () => {
 		await expect(call(router.invites.create, { email: "invited@example.invalid", role: "admin" }, { context: context(["users.manage"]) })).rejects.toMatchObject({ code: "FORBIDDEN" });
+	});
+
+	it("keeps legacy role policy and role assignment endpoints closed even with every current or stale role capability", async () => {
+		for (const role of ["user", "board", "admin"]) {
+			const subject = context([...PERMISSION_KEYS], role);
+			Object.assign(subject.user!, { permissions: [...PERMISSION_KEYS, "roles.manage"] });
+			const forbidden = { code: "FORBIDDEN", message: "Rollen werden ausschließlich in der Betreiberverwaltung verwaltet" };
+			await expect(call(router.roles.get, undefined, { context: subject })).rejects.toMatchObject(forbidden);
+			await expect(call(router.roles.update, { version: 1, roles: { user: [], board: [...PERMISSION_KEYS], admin: [...PERMISSION_KEYS] } }, { context: subject })).rejects.toMatchObject(forbidden);
+			await expect(call(router.users.setRole, { id: "synthetic-target", role: "board" }, { context: subject })).rejects.toMatchObject(forbidden);
+			for (const elevated of ["admin", "board"] as const)
+				await expect(call(router.invites.create, { email: "invited@example.invalid", role: elevated }, { context: subject })).rejects.toMatchObject(forbidden);
+		}
+	});
+
+	it("does not let a fully privileged club user use the new operator role policy endpoints", async () => {
+		vi.stubEnv("TENANT_ADMIN_HOST", "admin.rendant.app");
+		const subject = context([...PERMISSION_KEYS], "admin");
+		subject.headers.set("host", "sv-untereuerheim.rendant.app");
+		await expect(call(router.operators.rolePolicy, { tenantId: subject.tenant!.id }, { context: subject })).rejects.toMatchObject({ code: "FORBIDDEN" });
+		await expect(call(router.operators.updateRolePolicy, { tenantId: subject.tenant!.id, version: 1, roles: { user: [], board: [...PERMISSION_KEYS], admin: [...PERMISSION_KEYS] } }, { context: subject })).rejects.toMatchObject({ code: "FORBIDDEN" });
 	});
 });

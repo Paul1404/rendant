@@ -1085,11 +1085,13 @@ const TOOLS: McpTool[] = [
 // that steers the model, would otherwise be enough to escalate, and the audit
 // trail would record only "mcp:...", never the human.
 export function toolsForMode(mode: McpAccessMode): McpTool[] {
-	if (mode === "identity") return TOOLS;
+	// Role assignments belong exclusively to the authenticated operator console.
+	const available = TOOLS.filter((tool) => tool.name !== "set_user_role");
+	if (mode === "identity") return available;
 	if (mode === "admin") {
-		return TOOLS.filter((tool) => tool.minMode !== "identity");
+		return available.filter((tool) => tool.minMode !== "identity");
 	}
-	return TOOLS.filter((tool) => tool.minMode === "readonly");
+	return available.filter((tool) => tool.minMode === "readonly");
 }
 
 export function toolJsonSchema(tool: McpTool): Record<string, unknown> {

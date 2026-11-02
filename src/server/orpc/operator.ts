@@ -1,3 +1,4 @@
+import * as v from "valibot";
 import {
 	OperatorInviteRevokeSchema,
 	OperatorInviteSchema,
@@ -6,10 +7,12 @@ import {
 	OperatorTenantCreateSchema,
 	OperatorTenantRenameSchema,
 	OperatorTenantTargetSchema,
+	RolePolicyUpdateSchema,
 } from "@/lib/schemas";
 import { requestAuditContext } from "@/server/services/audit";
 import {
 	createOperatorTenant,
+	getOperatorRolePolicy,
 	inviteOperatorMember,
 	listOperatorInvites,
 	listOperatorMembers,
@@ -18,10 +21,30 @@ import {
 	revokeOperatorInvite,
 	setOperatorMemberBanned,
 	setOperatorMemberRole,
+	updateOperatorRolePolicy,
 } from "@/server/services/operators";
 import { operatorOnly } from "./base";
 
 export const operators = {
+	rolePolicy: operatorOnly
+		.input(OperatorTenantTargetSchema)
+		.handler(({ input, context }) =>
+			getOperatorRolePolicy(input.tenantId, context.operator),
+		),
+	updateRolePolicy: operatorOnly
+		.input(
+			v.object({
+				...OperatorTenantTargetSchema.entries,
+				...RolePolicyUpdateSchema.entries,
+			}),
+		)
+		.handler(({ input, context }) =>
+			updateOperatorRolePolicy(
+				input,
+				context.operator,
+				requestAuditContext(context),
+			),
+		),
 	list: operatorOnly.handler(({ context }) =>
 		listOperatorTenants(context.operator),
 	),
