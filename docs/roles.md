@@ -56,6 +56,11 @@ gesperrt. Die zentrale Verwaltung prüft den Betreiberzugang unabhängig von den
 fachlichen Rechten des ausgewählten Vereins und prüft ihn bei Änderungen erneut
 in der Transaktion.
 
+Auch die Vereinsrolle Admin kann zentrale fachliche Einschränkungen nicht
+umgehen. Gewöhnliche Einladungen und Entsperrungen dürfen keinen weitergehenden
+Zugang vergeben, als die handelnde Person selbst besitzt. Darüber hinausgehende
+Freigaben erfolgen ausschließlich durch den Betreiber.
+
 Bisher gespeicherte Berechtigungen bleiben erhalten. Der frühere Schlüssel
 `roles.manage` wird nur noch als Altdatum erhalten und verleiht keine Befugnis.
 Er ist kein vergebbares Vereinsrecht mehr. Gespeicherte Rollen und ihre Versionen

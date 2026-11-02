@@ -61,6 +61,8 @@ update the appropriate canonical documentation in the same change.
   Legacy `roles.manage` JSON is ignored without rewriting stored policies.
   Ordinary club invitations always use User; elevated invitations and all role
   changes require the operator realm and transaction-level platform checks.
+  Centrally restricted club Admins have no delegation bypass: ordinary User
+  invitations and unbans remain bounded by their current business grants.
   Actual Admin retains protected user management; preserve last-Admin guards
   and serialize versioned operator policy edits with membership administration.
   Pre-RBAC application rollback can bypass saved restrictions. After Board

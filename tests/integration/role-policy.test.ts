@@ -20,7 +20,10 @@ import { createORPCContext } from "@/server/orpc/context";
 import { type AppRouter, router } from "@/server/orpc/router";
 import { ensureCredentialUser } from "@/server/services/auth-accounts";
 import { createInvite } from "@/server/services/invitations";
-import { setOperatorMemberRole } from "@/server/services/operators";
+import {
+	setOperatorMemberBanned,
+	setOperatorMemberRole,
+} from "@/server/services/operators";
 import {
 	assertTenantPermissionsInTransaction,
 	getOperatorRolePolicy,
@@ -541,6 +544,101 @@ describe("central operator role administration", () => {
 		await expect(
 			withTenant(club, () => updateRolePolicy({ version: 2, roles }, board)),
 		).rejects.toMatchObject({ code: "FORBIDDEN" });
+	});
+
+	it("does not let a centrally restricted Admin invite a broader ordinary User", async () => {
+		const { club, admin, operator } = await fixture();
+		const roles = cloneDefaults();
+		roles.admin = ["users.manage"];
+		await updateOperatorRolePolicy(
+			{ tenantId: club.id, version: 1, roles },
+			operator,
+		);
+		expect(await getTenantRolePermissions(club.id, "admin")).not.toContain(
+			"finance.read",
+		);
+		const email = `restricted-admin-user-${randomUUID()}@example.invalid`;
+		await expect(
+			withTenant(club, () =>
+				createInvite({
+					email,
+					role: "user",
+					invitedBy: admin.email,
+					audit: { actor: admin },
+				}),
+			),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
+		expect(
+			await withTenant(club, () =>
+				db
+					.select({ id: invitations.id })
+					.from(invitations)
+					.where(eq(invitations.email, email)),
+			),
+		).toHaveLength(0);
+	});
+
+	it("does not let a restricted Admin reactivate broader Board access while central operators retain authority", async () => {
+		const { club, admin, board, operator } = await fixture();
+		await withTenant(club, () => setTenantUserBanned(board.id, true, admin));
+		const roles = cloneDefaults();
+		roles.admin = ["users.manage"];
+		await updateOperatorRolePolicy(
+			{ tenantId: club.id, version: 1, roles },
+			operator,
+		);
+		await expect(
+			withTenant(club, () => setTenantUserBanned(board.id, false, admin)),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
+		const target = () =>
+			globalDb
+				.select({ banned: memberships.banned })
+				.from(memberships)
+				.where(
+					and(
+						eq(memberships.tenant_id, club.id),
+						eq(memberships.user_id, board.id),
+					),
+				);
+		expect(await target()).toEqual([{ banned: true }]);
+		await setOperatorMemberBanned(
+			{ tenantId: club.id, id: board.id, banned: false },
+			operator,
+		);
+		expect(await target()).toEqual([{ banned: false }]);
+	});
+
+	it("allows unrestricted Admin and Board to invite Users and reactivate Board access within their grants", async () => {
+		const { club, admin, board, member, operator } = await fixture();
+		await setOperatorMemberRole(
+			{ tenantId: club.id, id: member.id, role: "board" },
+			operator,
+		);
+		for (const actor of [admin, board]) {
+			const invited = await withTenant(club, () =>
+				createInvite({
+					email: `within-grants-${actor.role}-${randomUUID()}@example.invalid`,
+					role: "user",
+					invitedBy: actor.email,
+					audit: { actor },
+				}),
+			);
+			expect(invited.role).toBe("user");
+			await withTenant(club, () => setTenantUserBanned(member.id, true, admin));
+			await withTenant(club, () =>
+				setTenantUserBanned(member.id, false, actor),
+			);
+			const [target] = await globalDb
+				.select({ banned: memberships.banned })
+				.from(memberships)
+				.where(
+					and(
+						eq(memberships.tenant_id, club.id),
+						eq(memberships.user_id, member.id),
+					),
+				);
+			expect(target.banned).toBe(false);
+		}
 	});
 
 	it("preserves business member bans and prevents reduced club managers reactivating broader members", async () => {

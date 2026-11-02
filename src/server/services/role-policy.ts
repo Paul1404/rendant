@@ -220,18 +220,19 @@ export async function assertCanDelegateRoleInTransaction(
 	targetRole: ClubRole,
 	_requiredPermission: "users.manage" = "users.manage",
 ) {
-	if (targetRole !== "user") denied();
 	const role = await assertTenantPermissionsInTransaction(
 		tx,
 		tenantId,
 		userId,
 		"users.manage",
 	);
-	if (role === "admin") return;
+	if (targetRole === "admin" && role !== "admin") denied();
 	const [row] = await tx
 		.select({ policy: tenants.role_permissions })
 		.from(tenants)
 		.where(eq(tenants.id, tenantId));
 	const policy = normalizeRolePolicy(row?.policy);
-	if (policy.user.some((key) => !policy[role].includes(key))) denied();
+	// Club Admin is also subject to centrally configured business restrictions.
+	// Only the separate operator path may grant beyond the caller's own scope.
+	if (policy[targetRole].some((key) => !policy[role].includes(key))) denied();
 }
