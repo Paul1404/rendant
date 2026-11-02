@@ -281,6 +281,13 @@
       "when": 1793565203947,
       "tag": "0039_club_rbac",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1793615275206,
+      "tag": "0040_tenant_mcp",
+      "breakpoints": true
     }
   ]
 }

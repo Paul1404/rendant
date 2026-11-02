@@ -1,5 +1,8 @@
 import * as v from "valibot";
 import {
+	DatevSettingsSchema,
+	EmailSettingsSchema,
+	McpSettingsSchema,
 	OperatorInviteRevokeSchema,
 	OperatorInviteSchema,
 	OperatorMemberBanSchema,
@@ -8,8 +11,19 @@ import {
 	OperatorTenantRenameSchema,
 	OperatorTenantTargetSchema,
 	RolePolicyUpdateSchema,
+	SumupSettingsSchema,
+	TestEmailSchema,
 } from "@/lib/schemas";
 import { requestAuditContext } from "@/server/services/audit";
+import {
+	getOperatorIntegrations,
+	sendOperatorTestEmail,
+	testOperatorSumupConnection,
+	updateOperatorDatevSettings,
+	updateOperatorEmailSettings,
+	updateOperatorMcpSettings,
+	updateOperatorSumupSettings,
+} from "@/server/services/operator-integrations";
 import {
 	createOperatorTenant,
 	getOperatorRolePolicy,
@@ -25,7 +39,95 @@ import {
 } from "@/server/services/operators";
 import { operatorOnly } from "./base";
 
+const stamp = v.pipe(v.string(), v.isoTimestamp());
+
 export const operators = {
+	integrationSettings: operatorOnly
+		.input(OperatorTenantTargetSchema)
+		.handler(({ input, context }) =>
+			getOperatorIntegrations(input.tenantId, context.operator),
+		),
+	updateEmail: operatorOnly
+		.input(
+			v.object({
+				...OperatorTenantTargetSchema.entries,
+				...EmailSettingsSchema.entries,
+				expected_updated_at: stamp,
+			}),
+		)
+		.handler(({ input, context }) =>
+			updateOperatorEmailSettings(
+				input,
+				context.operator,
+				requestAuditContext(context),
+			),
+		),
+	updateSumup: operatorOnly
+		.input(
+			v.object({
+				...OperatorTenantTargetSchema.entries,
+				...SumupSettingsSchema.entries,
+				expected_updated_at: stamp,
+			}),
+		)
+		.handler(({ input, context }) =>
+			updateOperatorSumupSettings(
+				input,
+				context.operator,
+				requestAuditContext(context),
+			),
+		),
+	updateDatev: operatorOnly
+		.input(
+			v.object({
+				...OperatorTenantTargetSchema.entries,
+				...DatevSettingsSchema.entries,
+			}),
+		)
+		.handler(({ input, context }) =>
+			updateOperatorDatevSettings(
+				input,
+				context.operator,
+				requestAuditContext(context),
+			),
+		),
+	updateMcp: operatorOnly
+		.input(
+			v.object({
+				...OperatorTenantTargetSchema.entries,
+				...McpSettingsSchema.entries,
+			}),
+		)
+		.handler(({ input, context }) =>
+			updateOperatorMcpSettings(
+				input,
+				context.operator,
+				requestAuditContext(context),
+			),
+		),
+	testEmail: operatorOnly
+		.input(
+			v.object({
+				...OperatorTenantTargetSchema.entries,
+				...TestEmailSchema.entries,
+			}),
+		)
+		.handler(({ input, context }) =>
+			sendOperatorTestEmail(
+				input,
+				context.operator,
+				requestAuditContext(context),
+			),
+		),
+	testSumup: operatorOnly
+		.input(OperatorTenantTargetSchema)
+		.handler(({ input, context }) =>
+			testOperatorSumupConnection(
+				input,
+				context.operator,
+				requestAuditContext(context),
+			),
+		),
 	rolePolicy: operatorOnly
 		.input(OperatorTenantTargetSchema)
 		.handler(({ input, context }) =>

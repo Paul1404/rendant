@@ -8,7 +8,7 @@ import type {
 	DatevSendSchema,
 	DatevSettingsSchema,
 } from "@/lib/schemas";
-import { db } from "@/server/db";
+import { db, type TransactionRunner } from "@/server/db";
 import { appSettings, datevDeliveries, protokolle } from "@/server/db/schema";
 import { logger } from "@/server/logger";
 import {
@@ -22,6 +22,7 @@ import { claimSettingsGroup } from "@/server/services/settings";
 type Audit = {
 	actor: NonNullable<RecordAuditInput["actor"]>;
 	request?: RecordAuditInput["request"];
+	operator?: boolean;
 };
 type SendInput = v.InferOutput<typeof DatevSendSchema>;
 type ResolveInput = v.InferOutput<typeof DatevResolveSchema>;
@@ -51,6 +52,7 @@ export async function getDatevSettings() {
 export async function updateDatevSettings(
 	input: v.InferOutput<typeof DatevSettingsSchema>,
 	audit: Audit,
+	transaction: TransactionRunner = (work) => db.transaction(work),
 ) {
 	if (input.enabled && (!input.sender || !input.recipient)) {
 		throw new ORPCError("BAD_REQUEST", {
@@ -58,7 +60,7 @@ export async function updateDatevSettings(
 				"Für DATEV bitte Zieladresse und freigeschalteten Absender eintragen.",
 		});
 	}
-	return db.transaction(async (tx) => {
+	return transaction(async (tx) => {
 		const stamp = await claimSettingsGroup(
 			tx,
 			"datev_updated_at",
@@ -84,6 +86,7 @@ export async function updateDatevSettings(
 			action: "settings.datev_changed",
 			subject: { type: "settings", id: "datev", label: "DATEV Kasse" },
 			metadata: {
+				...(audit.operator ? { operator: true } : {}),
 				enabled: input.enabled,
 				recipient: input.recipient,
 				sender: input.sender,

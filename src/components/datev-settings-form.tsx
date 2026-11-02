@@ -11,7 +11,19 @@ import { orpcMessage } from "@/lib/orpc-error";
 
 type Settings = Awaited<ReturnType<typeof orpcClient.settings.getDatev>>;
 
-export function DatevSettingsForm({ initial }: { initial: Settings }) {
+export type DatevSettingsClient = {
+	update: (
+		input: Parameters<typeof orpcClient.settings.updateDatev>[0],
+	) => Promise<Settings>;
+};
+
+export function DatevSettingsForm({
+	initial,
+	client,
+}: {
+	initial: Settings;
+	client?: DatevSettingsClient;
+}) {
 	const router = useRouter();
 	const queryClient = useQueryClient();
 	const [saved, setSaved] = useState(initial);
@@ -33,7 +45,9 @@ export function DatevSettingsForm({ initial }: { initial: Settings }) {
 						event.preventDefault();
 						start(async () => {
 							try {
-								const next = await orpcClient.settings.updateDatev({
+								const next = await (
+									client?.update ?? orpcClient.settings.updateDatev
+								)({
 									enabled,
 									recipient: recipient.trim(),
 									sender: sender.trim(),

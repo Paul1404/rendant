@@ -230,13 +230,22 @@ auch parallele Zugriffe mehrerer Benutzer oder App-Instanzen konsistent bleiben.
 ### MCP-Zugang
 
 Der Streamable-HTTP-Endpunkt `/api/mcp` stellt Rendant als fachliche
-Schnittstelle für vertrauenswürdige Assistenten bereit. Ein Bearer-Token ist
-immer erforderlich. `MCP_ACCESS_MODE=readonly` erlaubt Auswertungen über
-Protokolle, historische Umsätze, USt, Kassen, Katalog und Einstellungen.
-`MCP_ACCESS_MODE=admin` ergänzt Benutzer, Einladungen, Audit sowie die
-vorhandenen geprüften Schreibabläufe. Änderungen laufen durch dieselben
-oRPC-Prozeduren, Rollenprüfungen, Transaktionen und Audit-Einträge wie die UI.
-Rohes SQL und Geheimnisse werden nicht angeboten.
+Schnittstelle für vertrauenswürdige Assistenten bereit. Ein eigener Bearer-Token
+je Verein ist immer erforderlich. E-Mail, MCP, SumUp und DATEV werden zentral
+unter `admin.rendant.app` für den ausgewählten Verein konfiguriert.
+
+Der Modus `readonly` erlaubt lesende Fachzugriffe. `admin` ergänzt freigegebene,
+audierte Fachmutationen. Der historische Modus `identity` bleibt auf fachliche
+Benutzerrechte begrenzt und meldet keine Person an. Rollenänderungen sind in
+keinem MCP-Modus verfügbar. Die wirksamen Rechte bleiben zusätzlich durch das
+aktuelle Rollenprofil des Vereins begrenzt. Alle Fachzugriffe verwenden dieselben
+oRPC-Prozeduren, Transaktionen und Audit-Einträge wie die UI.
+
+Die alten `MCP_*`-Umgebungswerte bleiben ausschließlich der SVU-Fallback, bis eine
+Vereinskonfiguration ausdrücklich gespeichert wird. Andere Vereine übernehmen
+weder diesen Schlüssel noch seinen Audit-Absender. Details stehen unter
+[Technische Vereinsverwaltung](docs/tenant-integrations.md). Rohes SQL und
+Geheimniswerte werden nicht angeboten.
 
 Codex registriert den Produktionsendpunkt beispielsweise so:
 

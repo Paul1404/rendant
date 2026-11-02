@@ -36,6 +36,7 @@ export type EmailSettingsView = {
 	has_password: boolean;
 	notify_new_protokoll: boolean;
 	recipients: string;
+	updated_at?: string;
 };
 
 type FormState = {
@@ -81,7 +82,20 @@ const SECURITY_LABELS: Record<EmailSecurity, string> = {
 	none: "Keine (unverschlüsselt)",
 };
 
-export function EmailSettingsForm({ initial }: { initial: EmailSettingsView }) {
+export type EmailSettingsClient = {
+	update: (
+		input: Parameters<typeof orpcClient.settings.updateEmail>[0],
+	) => Promise<EmailSettingsView>;
+	test: (input: { to: string }) => Promise<unknown>;
+};
+
+export function EmailSettingsForm({
+	initial,
+	client,
+}: {
+	initial: EmailSettingsView;
+	client?: EmailSettingsClient;
+}) {
 	const router = useRouter();
 	const [pending, start] = useTransition();
 	const [testing, startTest] = useTransition();
@@ -90,6 +104,7 @@ export function EmailSettingsForm({ initial }: { initial: EmailSettingsView }) {
 	const [value, setValue] = useState<FormState>(toFormState(initial));
 	const [hasPassword, setHasPassword] = useState(initial.has_password);
 	const [password, setPassword] = useState("");
+	const [savedStamp, setSavedStamp] = useState(initial.updated_at);
 	const [clearPassword, setClearPassword] = useState(false);
 	const [testTo, setTestTo] = useState("");
 
@@ -121,7 +136,7 @@ export function EmailSettingsForm({ initial }: { initial: EmailSettingsView }) {
 	function save() {
 		start(async () => {
 			try {
-				const data = await orpcClient.settings.updateEmail({
+				const data = await (client?.update ?? orpcClient.settings.updateEmail)({
 					enabled: value.enabled,
 					host: value.host,
 					port: value.port,
@@ -132,11 +147,13 @@ export function EmailSettingsForm({ initial }: { initial: EmailSettingsView }) {
 					from: value.from,
 					notify_new_protokoll: value.notify_new_protokoll,
 					recipients: value.recipients,
+					expected_updated_at: savedStamp,
 				});
 				const next = toFormState(data);
 				setSaved(next);
 				setValue(next);
 				setHasPassword(data.has_password);
+				setSavedStamp(data.updated_at);
 				setPassword("");
 				setClearPassword(false);
 				toast.success("Benachrichtigungen gespeichert");
@@ -155,7 +172,7 @@ export function EmailSettingsForm({ initial }: { initial: EmailSettingsView }) {
 		}
 		startTest(async () => {
 			try {
-				await orpcClient.settings.testEmail({ to });
+				await (client?.test ?? orpcClient.settings.testEmail)({ to });
 				toast.success(`Test-E-Mail an ${to} gesendet`);
 			} catch (e) {
 				toast.error(orpcMessage(e, "Test-E-Mail fehlgeschlagen"));

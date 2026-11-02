@@ -7,7 +7,7 @@ import { roleLabel } from "@/lib/permissions";
 import { eq } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import * as v from "valibot";
-import { db } from "@/server/db";
+import { db, type TransactionRunner } from "@/server/db";
 import { appSettings } from "@/server/db/schema";
 import { logger } from "@/server/logger";
 import {
@@ -25,7 +25,7 @@ import {
 import { listOptedInUserEmails } from "@/server/services/notification-prefs";
 import { tenantPublicBaseUrl } from "@/server/services/public-url";
 import { decryptSecret, encryptSecret } from "@/server/services/secret-box";
-import { getVereinsname } from "@/server/services/settings";
+import { claimSettingsGroup, getVereinsname } from "@/server/services/settings";
 import { requireTenant } from "@/server/tenant-context";
 
 export type EmailSecurity = "starttls" | "ssl" | "none";
@@ -33,6 +33,7 @@ export type EmailSecurity = "starttls" | "ssl" | "none";
 // Shape returned to the client. The password is never sent back; has_password
 // tells the form whether one is already stored.
 export type EmailSettings = {
+	updated_at?: string;
 	enabled: boolean;
 	host: string;
 	port: number;
@@ -45,6 +46,7 @@ export type EmailSettings = {
 };
 
 export type EmailSettingsPatch = {
+	expected_updated_at?: string;
 	enabled: boolean;
 	host: string;
 	port: number;
@@ -122,6 +124,7 @@ async function loadRow(): Promise<SettingsRow | undefined> {
 
 function rowToSettings(row: SettingsRow): EmailSettings {
 	return {
+		updated_at: row.email_updated_at?.toISOString(),
 		enabled: row.smtp_enabled,
 		host: row.smtp_host,
 		port: Number(row.smtp_port),
@@ -154,6 +157,7 @@ export async function getEmailSettings(): Promise<EmailSettings> {
 export async function updateEmailSettings(
 	patch: EmailSettingsPatch,
 	audit: RecordAuditInput,
+	transaction: TransactionRunner = (work) => db.transaction(work),
 ): Promise<EmailSettings> {
 	const { valid, invalid } = parseRecipients(patch.recipients);
 	if (invalid.length > 0) {
@@ -178,7 +182,14 @@ export async function updateEmailSettings(
 		set.smtp_password_enc = encryptSecret(patch.password);
 	}
 
-	return db.transaction(async (tx) => {
+	return transaction(async (tx) => {
+		const stamp = await claimSettingsGroup(
+			tx,
+			"email_updated_at",
+			patch.expected_updated_at,
+		);
+		set.email_updated_at = stamp;
+		set.updated_at = stamp;
 		const rows = await tx
 			.update(appSettings)
 			.set(set)

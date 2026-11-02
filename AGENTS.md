@@ -107,14 +107,22 @@ update the appropriate canonical documentation in the same change.
   membership, rechecked in each mutation transaction. Never expose financial
   RPC/MCP through this host. Operator actions manage tenant metadata,
   memberships and invitations, retain last-admin guards, and are audited.
-  Explicit invitation delivery may enter the verified destination scope only
-  to use its encrypted SMTP internally. Never expose its transport secrets,
+  Explicit invitation delivery and technical configuration may enter the verified
+  destination scope internally. Technical writes verify the operator and update
+  settings/audit in one TX, then use the restricted role and local tenant ID.
+  Connection tests are explicit; SumUp technical checks never fetch transactions
+  or amounts, DATEV configuration never sends documents. Never expose secrets,
   financial data or automatic memberships; preserve the copy link on failure
   and never automatically resend an ambiguous delivery. New tenants
   created here do not automatically grant the operator a club membership.
 - New object keys begin with `tenants/<uuid>/`. Only SVU may read the existing
   `protokolle/` and `historical-sources/` paths. Never relocate signed legacy
-  documents just to adopt the namespace. The deployment MCP token is SVU-only.
+  documents just to adopt the namespace. The legacy deployment MCP token is SVU-only. Other clubs use their own stored
+  encrypted MCP token, unique internal digest and approved bound host. Missing
+  override means legacy fallback only for SVU; explicit disable/clear/rotation
+  must never fall back again. Keep MCP mode ceilings intersected with the current
+  tenant policy; account/role changes remain closed in every MCP mode.
+  See `docs/tenant-integrations.md`.
 - Tenant migrations and cutover recovery are documented in
   `docs/multi-tenancy.md`. A rollback to a pre-tenant application after migration
   is unsafe. Preserve a recovery point before the first production cutover.

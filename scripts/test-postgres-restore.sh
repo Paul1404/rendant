@@ -23,7 +23,7 @@ work=$(mktemp -d "${TMPDIR:-/tmp}/rendant-restore-test.XXXXXXXX")
 cleanup() {
 	status=$?
 	if [[ $status != 0 ]]; then
-		for log in "$work"/{migrate,late-failure,restore,readiness,nonempty,unsafe}.log; do
+		for log in "$work"/{migrate,mcp-seed,late-failure,restore,mcp-restore,readiness,nonempty,unsafe}.log; do
 			if [[ -f $log ]]; then cat "$log" >&2; fi
 		done
 	fi
@@ -61,6 +61,17 @@ INSERT INTO tenant_memberships(tenant_id,user_id,role)
  VALUES ('00000000-0000-4000-8000-000000000001','restore-test-user','board');
 INSERT INTO belegnummer_sequences(tenant_id, year, next_sequence) VALUES ('00000000-0000-4000-8000-000000000001', 2026, 17);
 SQL
+# The only token here is a synthetic fixture. Never print transport secrets or
+# their fingerprints, even in this disposable recovery rehearsal.
+DATABASE_URL="$source_url" bun -e '
+const {Pool}=await import("pg");
+const {createHash}=await import("node:crypto");
+const {encryptSecret}=await import("./src/server/services/secret-box.ts");
+const client=new Pool({connectionString:process.env.DATABASE_URL,max:1});
+const token="synthetic-restorable-mcp-token-local-only";
+try { await client.query("update app_settings set mcp_override=true,mcp_enabled=true,mcp_access_mode=$1,mcp_token_enc=$2,mcp_token_sha256=$3,mcp_actor_name=$4,mcp_actor_email=$5 where tenant_id=$6::uuid",["readonly",encryptSecret(token),createHash("sha256").update(token).digest("hex"),"Synthetic restore MCP","restore-mcp@example.invalid","00000000-0000-4000-8000-000000000001"]); }
+finally { await client.end(); }
+' >"$work/mcp-seed.log" 2>&1
 DATABASE_URL="$source_url" scripts/backup-postgres.sh "$work/synthetic.dump" >/dev/null
 restore() {
 	RESTORE_DATABASE_URL="$target_url" CONFIRM_RESTORE_DATABASE=restore_test \
@@ -76,6 +87,17 @@ if restore "$work/broken.dump" >"$work/late-failure.log" 2>&1; then
 fi
 [[ $(RENDANT_TEST_DATABASE_URL="$target_url" python3 scripts/postgres-connection.py RENDANT_TEST_DATABASE_URL psql -XAtc "select to_regclass('public.tenants') is null and not exists(select 1 from pg_roles where rolname='rendant_tenant')") == t ]]
 restore "$work/synthetic.dump" >"$work/restore.log" 2>&1
+SOURCE_RESTORE_TEST_URL="$source_url" TARGET_RESTORE_TEST_URL="$target_url" bun -e '
+const {Pool}=await import("pg");
+const {decryptSecret}=await import("./src/server/services/secret-box.ts");
+const source=new Pool({connectionString:process.env.SOURCE_RESTORE_TEST_URL,max:1});
+const target=new Pool({connectionString:process.env.TARGET_RESTORE_TEST_URL,max:1});
+const query="select mcp_override,mcp_enabled,mcp_access_mode,mcp_token_enc,mcp_token_sha256,mcp_actor_name,mcp_actor_email,mcp_updated_at from app_settings where tenant_id=$1::uuid";
+try {
+ const [before,after]=await Promise.all([source.query(query,["00000000-0000-4000-8000-000000000001"]),target.query(query,["00000000-0000-4000-8000-000000000001"])]);
+ if(!before.rows[0]?.mcp_override||!after.rows[0]?.mcp_enabled||JSON.stringify(before.rows)!==JSON.stringify(after.rows)||decryptSecret(after.rows[0].mcp_token_enc)!=="synthetic-restorable-mcp-token-local-only") throw new Error("Synthetic encrypted MCP configuration changed during restore");
+} finally { await Promise.all([source.end(),target.end()]); }
+' >"$work/mcp-restore.log" 2>&1
 RENDANT_TEST_DATABASE_URL="$target_url" python3 scripts/postgres-connection.py RENDANT_TEST_DATABASE_URL psql -Xqv ON_ERROR_STOP=1 -f scripts/test-postgres-restore.sql
 # The actual readiness probes must work before replaying any migrations.
 DATABASE_URL="$target_url" bun -e '
@@ -96,4 +118,4 @@ if RESTORE_DATABASE_URL="postgresql://restore_admin@127.0.0.1:$target_port/unsaf
 	echo "Unsafe existing tenant role unexpectedly accepted" >&2; exit 1
 fi
 [[ $(RENDANT_TEST_DATABASE_URL="postgresql://restore_admin@127.0.0.1:$target_port/unsafe_test" python3 scripts/postgres-connection.py RENDANT_TEST_DATABASE_URL psql -XAtc "select to_regclass('public.tenants') is null and (select rolcanlogin from pg_roles where rolname='rendant_tenant')") == t ]]
-echo "PASS: fresh-cluster restore, tenant isolation, counters, auth readiness, atomic failure and target/role guards"
+echo "PASS: fresh-cluster restore, encrypted MCP configuration, tenant isolation, counters, auth readiness, atomic failure and target/role guards"

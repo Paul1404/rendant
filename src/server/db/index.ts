@@ -54,3 +54,9 @@ export type Database = typeof db;
 export type DbOrTx =
 	| Database
 	| Parameters<Parameters<Database["transaction"]>[0]>[0];
+export type SettingsTransaction = Parameters<
+	Parameters<Database["transaction"]>[0]
+>[0];
+export type TransactionRunner = <T>(
+	work: (tx: SettingsTransaction) => Promise<T>,
+) => Promise<T>;

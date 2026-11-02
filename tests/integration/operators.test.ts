@@ -193,7 +193,7 @@ describe("operator realm authorization", () => {
 		expect(executed).toBe(false);
 	});
 
-	it("does not turn an allowlisted admin hostname into an MCP financial backdoor", () => {
+	it("does not turn an allowlisted admin hostname into an MCP financial backdoor", async () => {
 		vi.stubEnv("MCP_ALLOWED_ORIGINS", `https://${operatorHost}`);
 		vi.stubEnv(
 			"MCP_BEARER_TOKEN",
@@ -203,7 +203,7 @@ describe("operator realm authorization", () => {
 			headers: { authorization: `Bearer ${process.env.MCP_BEARER_TOKEN}` },
 		});
 		expect(validateMcpRequestBoundary(request)?.status).toBe(403);
-		expect(authenticateMcpRequest(request)).toBeNull();
+		expect(await authenticateMcpRequest(request)).toBeNull();
 	});
 });
 

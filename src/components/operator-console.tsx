@@ -3,6 +3,7 @@ import { Building2, ExternalLink, Loader2, LogOut, Plus } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { BrandLockup } from "@/components/brand-lockup";
+import { OperatorIntegrationsPanel } from "@/components/operator-integrations-panel";
 import { RolePermissionsForm } from "@/components/role-permissions-form";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -536,6 +537,19 @@ function ClubDetails({
 					Rollen und Berechtigungen
 				</h3>
 				<RolePermissionsForm key={tenant.id} tenantId={tenant.id} />
+			</section>
+			<section
+				className="space-y-4"
+				aria-labelledby="operator-integrations-heading"
+			>
+				<h3 id="operator-integrations-heading" className="font-heading text-lg">
+					Technische Einstellungen
+				</h3>
+				<OperatorIntegrationsPanel
+					key={tenant.id}
+					tenantId={tenant.id}
+					tenantUrl={tenant.url}
+				/>
 			</section>
 			<div className="space-y-3">
 				<h3 className="font-heading text-lg">Mitglieder und Rollen</h3>
