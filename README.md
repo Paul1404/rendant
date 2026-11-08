@@ -1,5 +1,7 @@
 # Rendant
 
+> Production runs on Vertex RKE2 via Fleet, with PostgreSQL on Longhorn and private versioned objects in AWS S3. Preserve the tenant isolation role and permissions during restore. The source image is published to GHCR after main CI and security scanning. Railway deployment notes below describe the retired hosting setup.
+
 Rendant ist die interne Finanzverwaltung für Vereine. Die Webanwendung erfasst
 Kassenbewegungen, wertet Umsätze und Steuern aus und hält jeden Vorgang
 nachvollziehbar für Buchhaltung, Prüfung und Übergabe fest.

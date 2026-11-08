@@ -1,5 +1,7 @@
 # Agent notes
 
+> Production runs on Vertex RKE2 via Fleet, with PostgreSQL on Longhorn and private versioned objects in AWS S3. Preserve the tenant isolation role and permissions during restore. The source image is published to GHCR after main CI and security scanning. Railway deployment notes below describe the retired hosting setup.
+
 `AGENTS.md` is the canonical instruction file for this repository. Claude Code
 loads it through `CLAUDE.md`. Detailed previous guidance is preserved in
 `docs/agent-reference.md`; consult its project-specific sections when relevant.
