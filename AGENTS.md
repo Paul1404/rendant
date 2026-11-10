@@ -1,6 +1,6 @@
 # Agent notes
 
-> Production runs on Vertex RKE2 via Fleet, with PostgreSQL on Longhorn and private objects in Garage. Preserve the tenant isolation role and permissions during restore. The source image is published to GHCR after main CI and security scanning. Railway deployment notes below describe the retired hosting setup.
+> Production runs on Vertex RKE2 via Fleet, with PostgreSQL on Longhorn and private objects in Garage. Preserve the tenant isolation role and permissions during restore. The source image is published to GHCR after main CI and security scanning. Railway-specific material is historical.
 
 `AGENTS.md` is the canonical instruction file for this repository. Claude Code
 loads it through `CLAUDE.md`. Detailed previous guidance is preserved in
@@ -12,7 +12,7 @@ update the appropriate canonical documentation in the same change.
 
 - Use Bun for the runtime and package manager. Never use npm, yarn, or pnpm.
 - Keep the existing TanStack Start, oRPC, better-auth, Drizzle, Valibot, Biome,
-  Vitest, Dockerfile, and Railway stack.
+  Vitest, Dockerfile, and Vertex deployment stack.
 - Server-only code belongs under `src/server/` and is exposed through oRPC
   procedures in `src/server/orpc/` or server routes in `src/routes/api/`.
 - Database access goes through Drizzle in `src/server/db/`. Never import the DB
@@ -80,8 +80,9 @@ update the appropriate canonical documentation in the same change.
   per-identity cooldown; recovery must not grant memberships or clear bans.
   Login, invitation and auth API responses stay private/no-store, no-referrer
   and excluded from indexing. Capability URLs never belong in transport logs.
-  Native auth rate limits use Railway's documented `X-Real-IP` header only;
-  keep host/protocol proxy trust disabled and preserve the restrictive fallback
+  Native auth rate limits use `X-Real-IP` only; the prior proxy assumption was
+  Railway-specific and must be checked against the active Vertex ingress.
+  Keep host/protocol proxy trust disabled and preserve the restrictive fallback
   when a client address is missing. Forwarded host or address chains must not
   choose a different rate-limit bucket.
   The operator's onboarding handoff is documented in `docs/admin-onboarding.md`.
@@ -273,18 +274,12 @@ update the appropriate canonical documentation in the same change.
 
 ## Deployment
 
-- Railway builds `rendant-app` from `main` with check suites enabled and waits
-  for successful GitHub workflows before deploying. Prove a change on a PR
-  before merging, and land related work as one commit rather than several,
-  since each merge is its own production deploy.
-- `.railway/railway.ts` owns only the application through its named partial.
-  Variables and data resources remain unmanaged. GitHub code deployment does
-  not apply this file: review and apply a pinned CLI plan separately. Preserve
-  the migration/start/readiness contract and follow `.railway/README.md`.
-- `preDeployCommand` applies Drizzle migrations against the production database
-  in a separate container before the new app starts. A non-zero exit aborts the
-  deployment and the previous release keeps serving, so a migration that must
-  not half-apply should end in a constraint that fails loudly.
+- Production runs on Vertex RKE2 through Fleet. Main CI and security scanning
+  gate publication of the GHCR image; the verified digest is promoted to Fleet.
+- A Kubernetes init container runs Drizzle migrations before the app starts.
+  PostgreSQL uses Longhorn and private documents use Garage. Keep the tenant
+  isolation role and permissions intact. Runtime values are provisioned outside Git.
+- Railway configuration is historical. Do not operate it as production.
 - Schema changes that add a required column to a populated table need add
   nullable, backfill, then `SET NOT NULL`. A bare `ADD COLUMN ... NOT NULL`, as
   drizzle-kit generates it, aborts on any non-empty table.
@@ -356,7 +351,7 @@ command arguments that may contain credentials. No production credential is need
 
 ## Main-only branch lifecycle and security reporting
 
-`main` is the only retained local and remote branch for this active Railway
+`main` is the only retained local and remote branch for this active
 repository. Temporary PR branches are allowed only while work is in progress.
 Keep required checks and branch protections; never bypass them to avoid a branch.
 Before finishing, merge validated work, delete the remote and local task branches,
@@ -375,7 +370,7 @@ credentials, production records and personal data from public issues and commits
 
 ## Production security gates
 
-Railway waits for successful GitHub workflows on `main`. Keep an always-running
+Verified images are published only after successful GitHub workflows on `main`. Keep an always-running
 push workflow and do not cancel its main-branch runs. PR branch cleanup never
 justifies bypassing CI. Public repositories also enforce CodeQL results on main.
 Container security builds the production image and scans OS and library packages.

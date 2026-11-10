@@ -1,6 +1,6 @@
 # Rendant
 
-> Production runs on Vertex RKE2 via Fleet, with PostgreSQL on Longhorn and private objects in Garage. Preserve the tenant isolation role and permissions during restore. The source image is published to GHCR after main CI and security scanning. Railway deployment notes below describe the retired hosting setup.
+> Production runs on Vertex RKE2 via Fleet, with PostgreSQL on Longhorn and private objects in Garage. Preserve the tenant isolation role and permissions during restore. The source image is published to GHCR after main CI and security scanning. Railway-spezifische Konfiguration ist historisch.
 
 Rendant ist die interne Finanzverwaltung für Vereine. Die Webanwendung erfasst
 Kassenbewegungen, wertet Umsätze und Steuern aus und hält jeden Vorgang
@@ -146,8 +146,7 @@ entfernt.
 - Geschützte Downloads ohne Browser-Cache und mit abgesicherten CSV-Inhalten
 
 Der Ablauf für vollständige PostgreSQL-Sicherungen, sichere Wiederherstellungen
-in eine leere Datenbank und die weiterhin nötige externe Railway-Konfiguration
-steht in [`docs/backup-restore.md`](docs/backup-restore.md).
+in eine leere Datenbank steht in [`docs/backup-restore.md`](docs/backup-restore.md).
 
 ### Benutzer, Einstellungen und Nachvollziehbarkeit
 
@@ -357,31 +356,24 @@ bun run auth:generate  # better-auth Schema neu erzeugen
 vorgesehen. Produktionsdatenbanken werden immer über committete Migrationen
 aktualisiert.
 
-## Deployment auf Railway
+## Deployment auf Vertex
 
-Das Repository enthält einen mehrstufigen [`Dockerfile`](Dockerfile) und die
-Railway-Konfiguration in [`railway.toml`](railway.toml). Railway führt vor jedem
-Start `bun src/server/db/migrate.ts` aus, startet anschließend den Nitro-Server
-mit `bun .output/server/index.mjs` und prüft `/api/health`.
+Rendant läuft auf Vertex RKE2 und wird durch Fleet verwaltet. Nach erfolgreicher
+CI und Sicherheitsprüfung veröffentlicht GitHub Actions das Docker-Image in
+GHCR; der geprüfte Digest wird in die private Fleet-Konfiguration übernommen.
+PostgreSQL nutzt ein Longhorn-Volume. Belege liegen in einem privaten,
+S3-kompatiblen Garage-Bucket mit eigener Identität.
 
-Für eine neue Umgebung:
-
-1. Einen PostgreSQL-Dienst und einen S3-kompatiblen Bucket im Railway-Projekt
-   bereitstellen.
-2. `DATABASE_URL` als Referenz auf den PostgreSQL-Dienst setzen.
-3. Die Bucket-Zugangsdaten und `S3_BUCKET_NAME` setzen.
-4. `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` und die initialen `ADMIN_*`-Werte
-   konfigurieren.
-5. Eine Domain zuweisen. `BETTER_AUTH_URL` muss exakt auf deren öffentliche
-   Origin zeigen.
-6. Deployment starten und den Healthcheck unter `/api/health` prüfen.
+Ein Kubernetes-Init-Container führt vor dem Start die Datenbankmigrationen aus.
+Zugangsdaten und Laufzeitkonfiguration liegen außerhalb des Repositories. Die
+Bereitschaftsprüfung läuft über `/api/health`; Fleet-Status und angemeldete
+Abläufe werden separat geprüft. Die Konfiguration unter `.railway/` beschreibt
+den früheren Betrieb und ist nicht der aktuelle Deployment-Pfad.
 
 Die produktive Hauptadresse ist `rendant.sv-untereuerheim.de`. Die bisherige
-Adresse `svufo.sv-untereuerheim.de` bleibt als Railway-Domain und DNS-Eintrag
-aktiv. Seit Version 1.26.2 leitet die Anwendung Seitenaufrufe mit unverändertem
-Pfad und unveränderten Suchparametern an die Hauptadresse weiter. API-,
-Serverfunktions- und Asset-Anfragen bleiben für bereits geöffnete Sitzungen auf
-der bisherigen Adresse erreichbar.
+Adresse `svufo.sv-untereuerheim.de` bleibt erreichbar. Seitenaufrufe werden mit
+Pfad und Suchparametern an die Hauptadresse weitergeleitet; API-, Serverfunktions-
+und Asset-Anfragen bleiben für bereits geöffnete Sitzungen erreichbar.
 
 Der Healthcheck unter `/api/health` testet die Datenbank, das zur Anmeldung passende Datenbankschema und die PDF-Erzeugung.
 Bei einem Ausfall antwortet er mit HTTP 503. Die PDF-Prüfung rendert einen festen
