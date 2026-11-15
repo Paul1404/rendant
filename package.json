@@ -94,7 +94,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.2.1",
     "drizzle-kit": "^0.31.11",
-    "fontkit": "^2.0.4",
+    "fontkit": "^3.0.0",
     "png-to-ico": "^3.0.2",
     "railway": "3.16.0",
     "sharp": "^0.35.5",
